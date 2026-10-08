@@ -13,7 +13,7 @@ The package allows for selective loading of only the font families you need, hel
 ### 1. Adding to your Project
 
 To add `FontManager` to your Xcode project, select **File > Add Packages...** and paste the repository URL:
-https://github.com/resoul/font-manager.git
+https://github.com/resoul/FontManager
 
 ### 2. Loading Fonts
 
