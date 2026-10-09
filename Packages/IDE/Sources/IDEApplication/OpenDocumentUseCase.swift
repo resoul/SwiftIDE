@@ -1,5 +1,10 @@
 import IDEDomain
 
+public enum OpenDocumentError: Error, Equatable, Sendable {
+    /// A Save As is giving this name to another document right now.
+    case beingSavedElsewhere(path: String)
+}
+
 public struct OpenedDocument: Sendable {
     public let session: DocumentSession
     /// False when the file was already open and its existing session is returned.
@@ -34,9 +39,16 @@ public final class OpenDocumentUseCase {
         if let existing = registry.session(atPath: canonical) {
             return OpenedDocument(session: existing, isNew: false)
         }
+        guard !registry.isReserved(path: canonical) else {
+            throw OpenDocumentError.beingSavedElsewhere(path: canonical)
+        }
         let file = try await store.read(path: canonical, maximumBytes: maximumBytes)
         // A cancelled open or a closed workspace must not leave a late document behind.
         try Task.checkCancellation()
+        // A Save As may have taken the name while the file was being read.
+        guard !registry.isReserved(path: canonical) else {
+            throw OpenDocumentError.beingSavedElsewhere(path: canonical)
+        }
         // The same file may have been opened while this read was in flight, or this path may be
         // another name (hard link) of a file that is already open.
         if let existing = registry.session(atPath: canonical)
@@ -45,7 +57,7 @@ public final class OpenDocumentUseCase {
         }
         let session = makeSession(file)
         precondition(session.path == file.path, "makeSession must create the session from the loaded file")
-        registry.insert(session)
+        registry.register(session)
         return OpenedDocument(session: session, isNew: true)
     }
 }

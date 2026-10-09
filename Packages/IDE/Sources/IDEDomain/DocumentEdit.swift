@@ -47,9 +47,10 @@ public struct DocumentChangeSet: Sendable {
     public let edits: [DocumentEdit]
     public let origin: EditOrigin
     public let transactionID: TransactionID
-    /// True when the editor changed the text without an exact edit log and the edits come from
-    /// a before/after diff (possibly one whole-document replacement). Consumers that cannot
-    /// apply the edits incrementally should resync from the session snapshot.
+    /// True when the editor did not know the edit in advance: the edit is the region the editor
+    /// reports as changed (it covers the change but may include unchanged characters), or one
+    /// whole-document replacement when even that could not be trusted. Not an error. Consumers
+    /// that cannot apply such edits incrementally should resync from the session snapshot.
     public let isReconciled: Bool
 
     public init(

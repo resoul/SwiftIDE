@@ -4,43 +4,52 @@ import IDEDomain
 
 /// Connects native NSTextView input to the session's single version/event path.
 ///
-/// Before a managed edit: validate and capture exact replacements (`shouldChangeText`).
-/// After storage processed it: tell the session, which verifies against the real backend text
-/// and publishes one change. Nothing here ever writes characters back into storage.
+/// Before an edit: validate it and note what it replaces (`shouldChangeText`).
+/// After storage processed it: describe the change from the storage's own edited range and tell
+/// the session, which brings its version up to date and publishes one change. The cost of all of
+/// this is proportional to the edit, never to the document. Nothing here ever writes characters
+/// back into storage.
 @MainActor
 final class NativeEditingBridge: NSObject, NSTextViewDelegate {
     weak var receiver: (any NativeEditReceiver)?
     var forcedOrigin: EditOrigin?
     private weak var textView: CodeTextView?
+    private unowned let backend: TextKitDocumentBackend
     private let storage: NSTextStorage
     private let undo: NativeUndoCoordinator
+
+    /// What the preflight learned about the edit that is about to happen.
+    private struct Pending {
+        var edits: [DocumentEdit]
+        var replaced: [String]
+        /// For a single edit: the paragraph around it as it was, so that after the pass it can be
+        /// checked that the declared edit is all that changed there. Absent for very long
+        /// paragraphs, where the region storage reports is used instead.
+        var context: (range: NSRange, text: String)?
+    }
+
+    /// Paragraphs longer than this are not copied at preflight.
+    private static let maximumContext = 64 * 1024
+
     private var pendingOrigin: EditOrigin?
-    private var pendingExact: [DocumentEdit]?
+    private var pending: Pending?
     private var isComposingReported = false
+
     // One view-level input operation (insertText, setMarkedText, unmarkText) can touch storage
     // several times, e.g. unmarkText removes and re-inserts the marked text. Those passes are
     // folded into one commit so intermediate states never become revisions.
     private var coalesceDepth = 0
-    private var coalescedEdits = 0
+    private var coalescedPasses = 0
     private var coalescedOrigin: EditOrigin?
-    private var coalescedExact: [DocumentEdit]?
-    private var token: NSObjectProtocol?
+    private var coalescedFirstEffect: NativeTextEffect?
+    private var region = EditRegionAccumulator()
 
-    init(textView: CodeTextView, storage: NSTextStorage, undo: NativeUndoCoordinator) {
+    init(textView: CodeTextView, backend: TextKitDocumentBackend, storage: NSTextStorage, undo: NativeUndoCoordinator) {
         self.textView = textView
+        self.backend = backend
         self.storage = storage
         self.undo = undo
         super.init()
-        // Delivered synchronously while the storage finishes processing one outermost edit.
-        token = NotificationCenter.default.addObserver(
-            forName: NSTextStorage.didProcessEditingNotification, object: storage, queue: nil
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.storageDidProcessEditing() }
-        }
-    }
-
-    isolated deinit {
-        if let token { NotificationCenter.default.removeObserver(token) }
     }
 
     // MARK: Preflight
@@ -64,6 +73,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         }
         guard textView.isEditable, receiver?.allowsNativeEdit() ?? true else { return false }
         var edits: [DocumentEdit] = []
+        var replaced: [String] = []
         for (value, replacement) in zip(affectedRanges, replacementStrings) {
             let range = value.rangeValue
             guard isValid(range) else { return false }
@@ -71,15 +81,16 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
                 range: UTF16TextRange(location: range.location, length: range.length),
                 replacement: replacement
             ))
+            replaced.append(storage.mutableString.substring(with: range))
         }
         pendingOrigin = resolveOrigin()
-        pendingExact = edits
+        pending = makePending(edits: edits, replaced: replaced)
         return true
     }
 
     func textDidChange(_ notification: Notification) {
         pendingOrigin = nil
-        pendingExact = nil
+        pending = nil
         syncComposition()
     }
 
@@ -110,45 +121,136 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         return textView?.hasMarkedText() == true ? .composition : .typing
     }
 
-    // MARK: Verification and hand-off
+    // MARK: Describing and handing off a change
 
-    private func storageDidProcessEditing() {
-        // Attribute-only passes create no text revision.
-        guard storage.editedMask.contains(.editedCharacters) else { return }
+    /// Called by the backend for every storage pass that changed characters, after it counted it.
+    func storageDidProcessEditing() {
+        let edited = storage.editedRange
+        let delta = storage.changeInLength
         let origin = pendingOrigin ?? resolveOrigin()
-        let exact = pendingExact
+        let known = pending
         pendingOrigin = nil
-        pendingExact = nil
+        pending = nil
+
         if coalesceDepth > 0 {
-            coalescedEdits += 1
-            if coalescedEdits == 1 {
+            coalescedPasses += 1
+            if coalescedPasses == 1 {
                 coalescedOrigin = origin
-                coalescedExact = exact
-            } else {
-                // Several storage passes: no single exact log, let the session diff the result.
-                coalescedExact = nil
+                coalescedFirstEffect = effect(edited: edited, delta: delta, known: known)
             }
+            region.record(
+                editedRange: UTF16TextRange(location: edited.location, length: edited.length),
+                changeInLength: delta
+            )
             return
         }
-        receiver?.nativeEditDidCommit(NativeEditCommit(origin: origin, exactEdits: exact))
+        send(origin: origin, effect: effect(edited: edited, delta: delta, known: known), passes: 1)
+    }
+
+    /// The change as one replacement in coordinates of the text before this pass.
+    private func effect(edited: NSRange, delta: Int, known: Pending?) -> NativeTextEffect {
+        if let exact = confirmedEdit(edited: edited, delta: delta, known: known) { return exact }
+        // Otherwise storage's own report: the edited range now holds the new text, and held
+        // `length - delta` characters before. It covers every change, but may include text that
+        // did not change.
+        let beforeLength = edited.length - delta
+        guard beforeLength >= 0 else { return .unknown }
+        return .replaced(
+            range: UTF16TextRange(location: edited.location, length: beforeLength),
+            replacement: storage.mutableString.substring(with: edited), isExact: false
+        )
+    }
+
+    /// The declared edit, if the content of its paragraph proves nothing else changed there.
+    ///
+    /// Storage widens the edited range beyond the typed text (attribute fixing reaches the end of
+    /// the paragraph), so a range that merely covers the edit proves nothing: something else may
+    /// have changed inside it. Comparing the paragraph with what it would be after exactly the
+    /// declared edit settles it, at a cost proportional to the paragraph.
+    private func confirmedEdit(edited: NSRange, delta: Int, known: Pending?) -> NativeTextEffect? {
+        guard let known, known.edits.count == 1, let context = known.context else { return nil }
+        let edit = known.edits[0]
+        let inserted = edit.replacement.utf16.count
+        guard delta == inserted - edit.range.length else { return nil }
+        let after = NSRange(location: context.range.location, length: context.range.length + delta)
+        guard after.length >= 0, NSMaxRange(after) <= storage.length,
+              edited.location >= after.location, NSMaxRange(edited) <= NSMaxRange(after) else { return nil }
+
+        let expected = NSMutableString(string: context.text)
+        expected.replaceCharacters(
+            in: NSRange(location: edit.range.location - context.range.location, length: edit.range.length),
+            with: edit.replacement
+        )
+        guard (expected as String).utf8.elementsEqual(storage.mutableString.substring(with: after).utf8) else {
+            return nil
+        }
+        if known.replaced[0].utf8.elementsEqual(edit.replacement.utf8) { return .unchanged }
+        return .replaced(range: edit.range, replacement: edit.replacement, isExact: true)
+    }
+
+    private func send(origin: EditOrigin, effect: NativeTextEffect, passes: Int) {
+        receiver?.nativeEditDidCommit(NativeEditCommit(
+            origin: origin, effect: effect, passes: passes, generation: backend.editGeneration
+        ))
     }
 
     /// Runs one AppKit input operation and reports its net text effect as at most one commit.
-    func performCoalesced(_ operation: () -> Void) {
+    /// `unmarking` is the marked range of an `unmarkText`: removing and re-inserting the same text
+    /// there is not an edit.
+    func performCoalesced(unmarking marked: NSRange? = nil, _ operation: () -> Void) {
+        let outermost = coalesceDepth == 0
+        var markedBefore: (length: Int, text: String)?
+        if outermost, let marked, marked.location != NSNotFound, isValid(marked) {
+            markedBefore = (storage.length, storage.mutableString.substring(with: marked))
+        }
         coalesceDepth += 1
         operation()
         coalesceDepth -= 1
-        guard coalesceDepth == 0, coalescedEdits > 0, let origin = coalescedOrigin else { return }
-        let exact = coalescedExact
-        coalescedEdits = 0
+        guard coalesceDepth == 0, coalescedPasses > 0, let origin = coalescedOrigin else { return }
+
+        let passes = coalescedPasses
+        var effect: NativeTextEffect
+        if let marked, let markedBefore, storage.length == markedBefore.length,
+           region.isInside(UTF16TextRange(location: marked.location, length: marked.length)),
+           storage.mutableString.substring(with: marked) == markedBefore.text {
+            effect = .unchanged
+        } else if passes == 1, let first = coalescedFirstEffect {
+            effect = first
+        } else {
+            let before = region.rangeBefore
+            effect = before.length >= 0
+                ? .replaced(
+                    range: before,
+                    replacement: storage.mutableString.substring(
+                        with: NSRange(location: region.rangeAfter.location, length: region.rangeAfter.length)
+                    ),
+                    isExact: false
+                )
+                : .unknown
+        }
+        coalescedPasses = 0
         coalescedOrigin = nil
-        coalescedExact = nil
-        receiver?.nativeEditDidCommit(NativeEditCommit(origin: origin, exactEdits: exact))
+        coalescedFirstEffect = nil
+        region = EditRegionAccumulator()
+        send(origin: origin, effect: effect, passes: passes)
     }
 
     /// Edits applied by the undo coordinator are known exactly; announce them before mutating.
-    func expect(exactEdits: [DocumentEdit]) {
-        pendingExact = exactEdits
+    func expect(_ plan: PreparedDocumentEdit) {
+        pending = makePending(edits: plan.edits, replaced: plan.replaced)
+    }
+
+    /// Must run before storage changes: it records the paragraph as it is now.
+    private func makePending(edits: [DocumentEdit], replaced: [String]) -> Pending {
+        var context: (range: NSRange, text: String)?
+        if edits.count == 1 {
+            let range = NSRange(location: edits[0].range.location, length: edits[0].range.length)
+            let paragraph = storage.mutableString.paragraphRange(for: range)
+            if paragraph.length <= Self.maximumContext {
+                context = (paragraph, storage.mutableString.substring(with: paragraph))
+            }
+        }
+        return Pending(edits: edits, replaced: replaced, context: context)
     }
 
     /// A programmatic change ends the current typing run: the next keystroke must register its
@@ -184,6 +286,11 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
     /// Reports begin/end transitions that did not pass through `setMarkedText`.
     /// Ending without a text change still notifies, so waiting saves resume.
     func syncComposition() {
+        // Inside a view-level operation the marked text may be momentarily gone (unmarkText takes
+        // it out and puts it back) and the session has not yet been told what changed. Reporting
+        // now would announce an end nobody can look at consistently; the operation reports its
+        // final state when it finishes.
+        guard coalesceDepth == 0 else { return }
         let actual = textView?.hasMarkedText() == true
         if actual, !isComposingReported {
             isComposingReported = true

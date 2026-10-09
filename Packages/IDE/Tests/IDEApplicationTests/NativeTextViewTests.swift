@@ -17,15 +17,25 @@ private struct Fixture {
     init(_ text: String) {
         editor = TextKitEditorFactory.makeEditor(loadedText: text)
         session = DocumentSession(path: "Main.swift", backend: editor.backend)
-        log = ChangeLog()
+        log = ChangeLog(initialText: text)
         let log = log
-        session.subscribeToChanges { log.changes.append($0) }
+        session.subscribeToChanges { log.record($0) }
         session.subscribeToComposition { log.composition.append($0) }
+    }
+
+    /// The text rebuilt only from the published changes, applied one after another to the text
+    /// the document started with. Independent of every read of the backend: if a change were
+    /// missing part of a real edit, this would differ from what the view shows.
+    var replayed: String { log.replayed }
+
+    func assertConsistent(sourceLocation: SourceLocation = #_sourceLocation) {
+        #expect(replayed == textView.string, "published changes do not add up to the view's text", sourceLocation: sourceLocation)
     }
 
     /// Lets the run loop close NSUndoManager's implicit per-event group, as a real event ends.
     func endEvent() {
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.001))
+        assertConsistent()
     }
 
     func type(_ string: String, at location: Int, replacing length: Int = 0) {
@@ -38,6 +48,23 @@ private struct Fixture {
 private final class ChangeLog {
     var changes: [DocumentChangeSet] = []
     var composition: [CompositionEvent] = []
+    private let mirror: NSMutableString
+
+    init(initialText: String) {
+        mirror = NSMutableString(string: initialText)
+    }
+
+    var replayed: String { String(mirror) }
+
+    func record(_ change: DocumentChangeSet) {
+        changes.append(change)
+        // Edits are in coordinates of the text before the change, last position first.
+        for edit in change.edits {
+            mirror.replaceCharacters(
+                in: NSRange(location: edit.range.location, length: edit.range.length), with: edit.replacement
+            )
+        }
+    }
 }
 
 @Test @MainActor
@@ -431,4 +458,113 @@ func openGroupsAreAlwaysClosedByTheRunLoopAfterMixedOperations() throws {
     )
     f.endEvent()
     #expect(manager.groupingLevel == 0)
+}
+
+// MARK: Cost: nothing on the editing path copies the document (ADR-012)
+
+@Test @MainActor
+func noEditingOperationOnTheRealViewCopiesTheWholeText() throws {
+    let f = Fixture(String(repeating: "let value = 1 // 😀\r\n", count: 2_000))
+    let backend = f.editor.backend
+    let manager = f.editor.undo.undoManager
+
+    f.type("x", at: 4)                                     // typing
+    f.type("PASTED", at: 0, replacing: 3)                  // paste over a selection
+    try f.session.apply(                                   // programmatic (format) edit
+        [DocumentEdit(range: UTF16TextRange(location: 10, length: 0), replacement: "y")],
+        expectedVersion: f.session.version, origin: .formatting
+    )
+    f.endEvent()
+    manager.undo(); f.endEvent()                           // undo of the programmatic edit
+    manager.undo(); f.endEvent()                           // undo of typing (storage's own report)
+    manager.redo(); f.endEvent()
+    f.textView.setMarkedText("k", selectedRange: NSRange(location: 1, length: 0),
+                             replacementRange: NSRange(location: 20, length: 0))
+    f.textView.setMarkedText("ka", selectedRange: NSRange(location: 2, length: 0),
+                             replacementRange: NSRange(location: NSNotFound, length: 0))
+    f.textView.insertText("か", replacementRange: NSRange(location: NSNotFound, length: 0))
+    f.textView.setMarkedText("z", selectedRange: NSRange(location: 1, length: 0),
+                             replacementRange: NSRange(location: 30, length: 0))
+    f.textView.unmarkText()
+    f.endEvent()
+
+    #expect(backend.textMaterializations == 0, "the whole text was copied on the editing path")
+    #expect(f.session.reconciliationCount >= 0)
+    // And all of that stayed consistent: the session's view of the document is the view's.
+    let snapshot = f.session.snapshot()
+    #expect(backend.textMaterializations == 1)
+    #expect(snapshot.text == f.textView.string)
+}
+
+@Test @MainActor
+func theViewsOwnUndoIsDescribedByItsEditedRangeNotByComparingTexts() throws {
+    let f = Fixture(String(repeating: "abc\n", count: 500))
+    f.type("X", at: 10)
+    f.editor.undo.undoManager.undo()
+    let undone = try #require(f.log.changes.last)
+    #expect(undone.origin == .undo)
+    // Described as the region storage reports, in coordinates of the text before the undo.
+    #expect(undone.edits.count == 1)
+    #expect(undone.edits[0].range == UTF16TextRange(location: 10, length: 1))
+    #expect(undone.edits[0].replacement == "")
+    #expect(f.editor.backend.textMaterializations == 0)
+    #expect(f.session.snapshot().text == f.textView.string)
+}
+
+// MARK: Review regressions (composition end, extended edits)
+
+@Test @MainActor
+func compositionEndIsAnnouncedOnlyWhenTheOperationIsAccountedFor() {
+    let f = Fixture("ab")
+    f.textView.setMarkedText("k", selectedRange: NSRange(location: 1, length: 0),
+                             replacementRange: NSRange(location: 2, length: 0))
+    let versionBefore = f.session.version
+    var seen: [(text: String, version: UInt64, reconciliations: Int)] = []
+    f.session.subscribeToComposition { event in
+        guard event == .ended else { return }
+        let snapshot = f.session.snapshot()
+        seen.append((snapshot.text, snapshot.version, f.session.reconciliationCount))
+    }
+
+    // unmarkText removes the marked text and puts it back; nobody may look in between.
+    f.textView.unmarkText()
+
+    #expect(seen.count == 1)
+    #expect(seen.first?.text == "abk", "the snapshot taken on .ended is the finished text")
+    #expect(seen.first?.version == versionBefore, "unmarking without a text change is not a revision")
+    #expect(seen.first?.reconciliations == 0)
+    f.assertConsistent()
+}
+
+@Test @MainActor
+func compositionEndedByCommittingTextSeesTheFinishedText() {
+    let f = Fixture("ab")
+    f.textView.setMarkedText("ka", selectedRange: NSRange(location: 2, length: 0),
+                             replacementRange: NSRange(location: 2, length: 0))
+    var atEnd: DocumentSnapshot?
+    f.session.subscribeToComposition { if $0 == .ended { atEnd = f.session.snapshot() } }
+    f.textView.insertText("か", replacementRange: NSRange(location: NSNotFound, length: 0))
+    #expect(atEnd?.text == "abか")
+    #expect(atEnd?.version == f.session.version)
+    f.assertConsistent()
+}
+
+@Test @MainActor
+func aDeclaredEditThatStorageExtendedIsPublishedAsTheWholeChangedRegion() throws {
+    let f = Fixture("abcdef")
+    // The preflight announces a → X; in the same transaction something also changes f → Y.
+    #expect(f.textView.shouldChangeText(in: NSRange(location: 0, length: 1), replacementString: "X"))
+    let storage = try #require(f.textView.textStorage)
+    storage.beginEditing()
+    storage.replaceCharacters(in: NSRange(location: 0, length: 1), with: "X")
+    storage.replaceCharacters(in: NSRange(location: 5, length: 1), with: "Y")
+    storage.endEditing()
+    f.textView.didChangeText()
+
+    #expect(f.textView.string == "XbcdeY")
+    #expect(f.session.version == 1)
+    let change = try #require(f.log.changes.last)
+    #expect(change.isReconciled, "the declared edit was not the whole story")
+    f.assertConsistent()   // fails if the f → Y part is lost from the published changes
+    #expect(f.editor.compatibility.isTextKit2)
 }

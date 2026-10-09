@@ -4,7 +4,7 @@ A native Swift IDE for macOS, starting with an AppKit editor built on TextKit 2.
 
 SwiftIDE uses Clean Architecture and constructor dependency injection to keep document workflows independent of the editor platform. The current focus is a reliable native editor, followed by file management, language services, and build integration.
 
-**Status: early prototype.** The app opens UTF-8 text files (or a scratch window with sample code) in an editable window and saves them back. Native edits update `DocumentSession` revisions and events through an input, undo, and IME bridge, and saving refuses to overwrite a file that changed on disk. Real IME behavior and the open, save, conflict, and quit dialogs still need manual acceptance testing, and there is no Save As, file watching, or crash recovery yet. Do not rely on it for work you cannot lose.
+**Status: early prototype.** The app opens UTF-8 text files (or a scratch window with sample code) in an editable window and saves them back. Native edits update `DocumentSession` revisions and events through an input, undo, and IME bridge, and saving refuses to overwrite a file that changed on disk. Real IME behavior and the open, save, conflict, and quit dialogs still need manual acceptance testing, and there is no file watching or crash recovery yet. Do not rely on it for work you cannot lose.
 
 ## Requirements
 
@@ -21,7 +21,7 @@ From the repository root:
 swift run --package-path Apps/SwiftIDE SwiftIDE
 ```
 
-The app starts with an untitled scratch window containing sample code; it cannot be saved yet (no Save As). Use File → Open… (⌘O) to edit a real file and File → Save (⌘S) to write it. Only UTF-8 and UTF-8 with BOM are supported: binary files, invalid UTF-8, UTF-16 and files over 100 MB are refused rather than altered. If the file changed on disk since it was opened, saving stops and asks whether to overwrite, reload, or cancel. Closing a window or quitting with unsaved changes asks first.
+The app starts with an untitled scratch window containing sample code. File → Save (⌘S) on it, or File → Save As… (⇧⌘S) on any document, asks for a name and moves the document to that file; the original file is left as it was. Use File → Open… (⌘O) to edit an existing file and File → Save (⌘S) to write it. Only UTF-8 and UTF-8 with BOM are supported: binary files, invalid UTF-8, UTF-16 and files over 100 MB are refused rather than altered. If the file changed on disk since it was opened, saving stops and asks whether to overwrite, reload, or cancel. Closing a window or quitting with unsaved changes asks first.
 
 The editor uses a monospaced font, plain text configuration, and a shared TextKit 2 storage graph. A compatibility monitor reports an unexpected fallback to TextKit 1.
 
@@ -48,7 +48,7 @@ The tests cover edit validation, UTF-16 boundaries, versioning, immutable snapsh
 
 **TK-005: the native input, undo, and IME transaction bridge** is implemented and covered by automated tests. Manual acceptance testing with real input methods remains before closing the milestone; **TK-006: real file open/save with a disk revision policy** is implemented as well.
 
-Save As, file watching, recovery, syntax presentation, SourceKit-LSP, and Xcode/build integration are planned. Multi-cursor editing and split views are deferred. A custom text engine is an option only if measurements justify replacing TextKit.
+File watching, recovery, syntax presentation, SourceKit-LSP, and Xcode/build integration are planned. Multi-cursor editing and split views are deferred. A custom text engine is an option only if measurements justify replacing TextKit.
 
 See the [development plan](docs/05_DEVELOPMENT_PLAN.md), [TextKit implementation plan](docs/08_TEXTKIT_IMPLEMENTATION_PLAN.md), and [changelog](CHANGELOG.md).
 
@@ -61,7 +61,7 @@ Open/Save/Reload use cases → DocumentFileStore → AtomicDocumentFileStore
                                                → MemoryDocumentFileStore (tests)
 ```
 
-The backend owns mutable text. `DocumentSession` owns revisions, the saved-version marker, and subscriptions, and retains the last committed text paired with its version. Native changes are reconciled through the bridge without applying them to storage a second time. Background consumers receive independent snapshots; Domain and Application do not import AppKit.
+The backend owns mutable text. `DocumentSession` owns revisions, the saved-version marker, and subscriptions; it keeps no copy of the text. Each edit, native or programmatic, costs time proportional to the edit, not to the file; only a snapshot copies the document. Native changes are described from the storage's own edited range and accounted for without applying them to storage a second time. Background consumers receive independent snapshots; Domain and Application do not import AppKit.
 
 Current planning and snapshot operations copy text and have O(n) costs. Large-file support has not been validated.
 

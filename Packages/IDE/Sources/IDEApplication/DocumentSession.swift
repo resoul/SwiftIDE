@@ -9,23 +9,31 @@ public enum DocumentError: Error, Equatable, Sendable {
     case compositionInProgress
 }
 
-/// Owns revision/save metadata. Its injected backend is the only live text owner; the session
-/// keeps the last *consistent* text, always paired with `version`.
+/// Owns revision/save metadata. Its injected backend is the only text owner: the session keeps no
+/// copy, only the version, the length, and the backend's edit generation it last accounted for.
+/// Everything it does per edit is proportional to the edit, never to the document.
 @MainActor
 public final class DocumentSession: NativeEditReceiver {
     public let id: DocumentID
-    public let path: String
+    /// The file this document is saved to. A scratch document has a placeholder until Save As.
+    public private(set) var path: String
+    /// True until the document is first saved under a name. It has no file to compare against.
+    public private(set) var isUntitled: Bool
     private let backend: any DocumentEditingBackend
     private var observers: [UUID: @MainActor (DocumentChangeSet) -> Void] = [:]
     private var compositionObservers: [UUID: @MainActor (CompositionEvent) -> Void] = [:]
     private var compositionWaiters: [UUID: CheckedContinuation<Void, Error>] = [:]
-    private var committedText: String
     private var isPublishing = false
     private var isCommitting = false
-    private var deferredNativeCommit: NativeEditCommit?
+    private var deferredNativeCommits: [NativeEditCommit] = []
+    /// UTF-16 length of the text at `version`.
+    private var length: Int
+    /// The backend's `editGeneration` after the last edit this session accounted for.
+    private var knownGeneration: UInt64
 
-    /// Last consistent text; never ahead of or behind `version`.
-    public var text: String { committedText }
+    /// The backend's current text: a full copy, O(n). Use `snapshot()` for text paired with a
+    /// version, and never read this per keystroke.
+    public var text: String { backend.text }
     public private(set) var version: UInt64 = 0
     public private(set) var savedVersion: UInt64 = 0
     public private(set) var isComposing = false
@@ -40,14 +48,16 @@ public final class DocumentSession: NativeEditReceiver {
     /// Represents content already loaded from storage.
     public init(
         id: DocumentID = DocumentID(), path: String, backend: any DocumentEditingBackend,
-        diskRevision: FileRevision? = nil, encoding: FileEncoding = .utf8
+        diskRevision: FileRevision? = nil, encoding: FileEncoding = .utf8, isUntitled: Bool = false
     ) {
         self.id = id
         self.path = path
+        self.isUntitled = isUntitled
         self.backend = backend
         self.diskRevision = diskRevision
         self.encoding = encoding
-        self.committedText = backend.text
+        self.length = backend.utf16Length
+        self.knownGeneration = backend.editGeneration
         backend.attach(nativeEditReceiver: self)
     }
 
@@ -61,7 +71,7 @@ public final class DocumentSession: NativeEditReceiver {
 
     public func replaceText(_ replacement: String, expectedVersion: UInt64) throws {
         try apply(
-            [DocumentEdit(range: UTF16TextRange(location: 0, length: text.utf16.count), replacement: replacement)],
+            [DocumentEdit(range: UTF16TextRange(location: 0, length: length), replacement: replacement)],
             expectedVersion: expectedVersion
         )
     }
@@ -76,13 +86,14 @@ public final class DocumentSession: NativeEditReceiver {
         guard expectedVersion == version else {
             throw DocumentError.staleVersion(expected: expectedVersion, actual: version)
         }
-        guard let plan = try DocumentEditPlanner.prepare(edits, in: committedText) else { return }
+        guard let plan = try DocumentEditPlanner.prepare(edits, in: backend) else { return }
         guard version < UInt64.max else { throw DocumentError.versionExhausted }
         let oldVersion = version
         isCommitting = true
         backend.commit(plan)
         isCommitting = false
-        committedText = plan.resultText
+        length = backend.utf16Length
+        knownGeneration = backend.editGeneration
         version += 1
         publish(DocumentChangeSet(
             documentID: id, oldVersion: oldVersion, newVersion: version,
@@ -101,14 +112,31 @@ public final class DocumentSession: NativeEditReceiver {
         observers.removeValue(forKey: id)
     }
 
+    /// The text at the current version. The one place that copies the whole document.
     public func snapshot() -> DocumentSnapshot {
-        DocumentSnapshot(documentID: id, path: path, version: version, text: committedText, encoding: encoding)
+        snapshot(forPath: path)
+    }
+
+    /// The same, addressed to another file: what Save As writes.
+    func snapshot(forPath target: String) -> DocumentSnapshot {
+        reconcileUnobservedMutation()
+        return DocumentSnapshot(documentID: id, path: target, version: version, text: backend.text, encoding: encoding)
     }
 
     // Only application scenarios can acknowledge persistence.
     func acknowledgeSave(of snapshot: DocumentSnapshot, revision: FileRevision) {
         precondition(snapshot.documentID == id && snapshot.path == path)
         precondition(snapshot.version <= version)
+        savedVersion = snapshot.version
+        diskRevision = revision
+    }
+
+    /// The snapshot was written under a new name: the document now lives there.
+    func acknowledgeSaveAs(of snapshot: DocumentSnapshot, revision: FileRevision) {
+        precondition(snapshot.documentID == id)
+        precondition(snapshot.version <= version)
+        path = snapshot.path
+        isUntitled = false
         savedVersion = snapshot.version
         diskRevision = revision
     }
@@ -131,46 +159,82 @@ public final class DocumentSession: NativeEditReceiver {
         // A programmatic commit publishes itself once it returns from the backend.
         guard !isCommitting else { return }
         guard !isPublishing else {
-            // Observers must not edit; if storage changed anyway, reconcile after publication
-            // from the real text rather than reorder the change currently being delivered.
-            deferredNativeCommit = NativeEditCommit(
-                transactionID: commit.transactionID, origin: commit.origin, exactEdits: nil
-            )
+            // Observers must not edit; if storage changed anyway, account for it after the
+            // publication in progress, in order, instead of reordering the change being delivered.
+            deferredNativeCommits.append(commit)
             return
         }
-        let actual = backend.text
-        // Attribute-only, no-op and repeated callbacks of an already reconciled transaction.
-        guard !actual.hasSameContents(as: committedText) else { return }
+        // A commit that covers only passes already accounted for is a repeated delivery.
+        guard commit.generation > knownGeneration else { return }
+        // Passes the session did not hear about mean someone edited behind its back: the
+        // commit's coordinates are then relative to text the session never saw.
+        let heardAbout = commit.generation >= UInt64(commit.passes)
+            && commit.generation - UInt64(commit.passes) == knownGeneration
+        guard heardAbout else {
+            knownGeneration = commit.generation
+            publishWholeDocumentReplacement(origin: commit.origin, transactionID: commit.transactionID)
+            return
+        }
 
-        let edits: [DocumentEdit]
+        let edit: DocumentEdit
         var isReconciled = false
-        if let exact = commit.exactEdits,
-           let plan = try? DocumentEditPlanner.prepare(exact, in: committedText),
-           plan.resultText.hasSameContents(as: actual) {
-            edits = plan.edits
-        } else if let diff = TextDiff.singleReplacement(from: committedText, to: actual) {
-            edits = [diff]
-            isReconciled = true
-            reconciliationCount += 1
-        } else {
+        switch commit.effect {
+        case .unchanged:
+            knownGeneration = commit.generation
+            return
+        case .replaced(let range, let replacement, let isExact):
+            let expected = length - range.length + replacement.utf16.count
+            guard range.location >= 0, range.length >= 0, range.location + range.length <= length,
+                  backend.utf16Length == expected else {
+                // The commit does not describe what is in the backend.
+                knownGeneration = commit.generation
+                publishWholeDocumentReplacement(origin: commit.origin, transactionID: commit.transactionID)
+                return
+            }
+            edit = DocumentEdit(range: range, replacement: replacement)
+            isReconciled = !isExact
+            if isReconciled { reconciliationCount += 1 }
+        case .unknown:
+            knownGeneration = commit.generation
+            publishWholeDocumentReplacement(origin: commit.origin, transactionID: commit.transactionID)
             return
         }
         guard version < UInt64.max else {
-            committedText = actual
+            length = backend.utf16Length
+            knownGeneration = commit.generation
             return
         }
         let oldVersion = version
-        committedText = actual
+        length = backend.utf16Length
+        knownGeneration = commit.generation
         version += 1
         publish(DocumentChangeSet(
-            documentID: id, oldVersion: oldVersion, newVersion: version, edits: edits,
+            documentID: id, oldVersion: oldVersion, newVersion: version, edits: [edit],
             origin: commit.origin, transactionID: commit.transactionID, isReconciled: isReconciled
         ))
     }
 
+    /// The backend changed without a trustworthy description. Everything is said to have been
+    /// replaced; consumers resync from a snapshot. O(n), but only in this abnormal case.
+    private func publishWholeDocumentReplacement(origin: EditOrigin, transactionID: TransactionID) {
+        let oldLength = length
+        let replacement = backend.text
+        length = backend.utf16Length
+        knownGeneration = backend.editGeneration
+        reconciliationCount += 1
+        guard version < UInt64.max else { return }
+        let oldVersion = version
+        version += 1
+        publish(DocumentChangeSet(
+            documentID: id, oldVersion: oldVersion, newVersion: version,
+            edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: oldLength), replacement: replacement)],
+            origin: origin, transactionID: transactionID, isReconciled: true
+        ))
+    }
+
     private func reconcileUnobservedMutation() {
-        guard !backend.text.hasSameContents(as: committedText) else { return }
-        nativeEditDidCommit(NativeEditCommit(origin: .typing, exactEdits: nil))
+        guard backend.editGeneration != knownGeneration else { return }
+        publishWholeDocumentReplacement(origin: .typing, transactionID: TransactionID())
     }
 
     private func publish(_ change: DocumentChangeSet) {
@@ -179,9 +243,10 @@ public final class DocumentSession: NativeEditReceiver {
         isPublishing = true
         for observer in Array(observers.values) { observer(change) }
         isPublishing = false
-        if let pending = deferredNativeCommit {
-            deferredNativeCommit = nil
-            nativeEditDidCommit(pending)
+        if !deferredNativeCommits.isEmpty {
+            let pending = deferredNativeCommits
+            deferredNativeCommits.removeAll()
+            for commit in pending { nativeEditDidCommit(commit) }
         }
     }
 

@@ -35,13 +35,14 @@ final class AppCompositionRoot {
         return session
     }
 
-    /// A scratch window without a file. Saving it needs Save As, which does not exist yet.
+    /// A scratch window without a file. Save As gives it one and registers it.
     func makeUntitledWindow() -> WorkspaceWindowController {
         let editor = TextKitEditorFactory.makeEditor(loadedText: Self.sampleText)
-        let session = DocumentSession(path: "Untitled.swift", backend: editor.backend)
+        let session = DocumentSession(path: "Untitled.swift", backend: editor.backend, isUntitled: true)
         return WorkspaceWindowController(
-            document: session, editor: editor, isUntitled: true,
-            saveDocument: saveDocument, reloadDocument: reloadDocument
+            document: session, editor: editor, registry: registry,
+            saveDocument: saveDocument, reloadDocument: reloadDocument,
+            revisionOfFile: Self.revisionOfFile
         )
     }
 
@@ -55,9 +56,15 @@ final class AppCompositionRoot {
             preconditionFailure("A new document must come with its editor")
         }
         return WorkspaceWindowController(
-            document: session, editor: editor, isUntitled: false,
-            saveDocument: saveDocument, reloadDocument: reloadDocument
+            document: session, editor: editor, registry: registry,
+            saveDocument: saveDocument, reloadDocument: reloadDocument,
+            revisionOfFile: Self.revisionOfFile
         )
+    }
+
+    /// The state of an existing file, for the moment a user agrees to replace it.
+    private static let revisionOfFile: (String) -> FileRevision? = { path in
+        (try? AtomicDocumentFileStore.currentRevision(atPath: path)) ?? nil
     }
 
     func close(_ session: DocumentSession) {

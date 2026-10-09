@@ -359,3 +359,16 @@ func hardLinksAreNotClaimedToSurviveAnAtomicSave() async throws {
     #expect(try box.bytes("First.swift") == Array("edited".utf8))
     #expect(try box.bytes("Second.swift") == Array("shared".utf8))
 }
+
+@Test
+func currentRevisionDescribesTheFileAsItIsNow() async throws {
+    let box = try Sandbox()
+    let path = try box.create("Main.swift", text: "hello")
+    let revision = try #require(try AtomicDocumentFileStore.currentRevision(atPath: path))
+    #expect(revision == (try await store.read(path: path, maximumBytes: 100)).revision)
+    #expect(try AtomicDocumentFileStore.currentRevision(atPath: box.path("Nope.swift")) == nil)
+    #expect(throws: FileStoreError.notRegularFile) { try AtomicDocumentFileStore.currentRevision(atPath: box.directory.path) }
+    // Binary content is still a revision: it must be comparable even if it cannot be opened.
+    let binary = try box.create("Blob.bin", bytes: [0, 1, 2])
+    #expect(try AtomicDocumentFileStore.currentRevision(atPath: binary)?.size == 3)
+}

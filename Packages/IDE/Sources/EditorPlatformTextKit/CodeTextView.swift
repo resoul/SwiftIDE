@@ -20,7 +20,7 @@ final class CodeTextView: NSTextView {
 
     override func unmarkText() {
         guard let bridge else { return super.unmarkText() }
-        bridge.performCoalesced { super.unmarkText() }
+        bridge.performCoalesced(unmarking: markedRange()) { super.unmarkText() }
         bridge.syncComposition()
     }
 

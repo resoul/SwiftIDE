@@ -28,7 +28,7 @@ let package = Package(
         ),
         .testTarget(
             name: "FileSystemInfrastructureTests",
-            dependencies: ["IDEDomain", "IDEApplication", "FileSystemInfrastructure"]
+            dependencies: ["IDEDomain", "IDEApplication", "FileSystemInfrastructure", "IDETestSupport"]
         )
     ],
     swiftLanguageModes: [.v6]

@@ -1,3 +1,4 @@
+import Foundation
 import IDEApplication
 import IDEDomain
 
@@ -5,17 +6,37 @@ import IDEDomain
 /// It can also play the role of a view that mutates its storage on its own.
 @MainActor
 public final class StringDocumentBackend: DocumentEditingBackend {
-    public private(set) var text: String
-    public private(set) var endCompositionRequests = 0
+    private let storage: NSMutableString
     private weak var receiver: (any NativeEditReceiver)?
+    public private(set) var editGeneration: UInt64 = 0
+    public private(set) var endCompositionRequests = 0
+    /// How many times the whole text was copied out. Editing must keep this at zero.
+    public private(set) var textMaterializations = 0
 
     public init(loadedText: String) {
-        self.text = loadedText
+        storage = NSMutableString(string: loadedText)
+    }
+
+    public var text: String {
+        textMaterializations += 1
+        return String(storage)
+    }
+
+    public var utf16Length: Int { storage.length }
+    public func utf16Unit(at index: Int) -> UInt16 { storage.character(at: index) }
+
+    public func substring(in range: UTF16TextRange) -> String {
+        storage.substring(with: NSRange(location: range.location, length: range.length))
     }
 
     public func commit(_ plan: PreparedDocumentEdit) {
-        precondition(text.utf8.elementsEqual(plan.sourceText.utf8))
-        text = plan.resultText
+        precondition(storage.length == plan.sourceLength)
+        for edit in plan.edits {   // descending, so earlier positions stay valid
+            storage.replaceCharacters(
+                in: NSRange(location: edit.range.location, length: edit.range.length), with: edit.replacement
+            )
+        }
+        editGeneration += 1
     }
 
     public func attach(nativeEditReceiver: any NativeEditReceiver) {
@@ -28,19 +49,39 @@ public final class StringDocumentBackend: DocumentEditingBackend {
 
     // MARK: Simulated native view
 
-    /// Replaces text behind the session's back and reports it like a native edit.
-    /// `exact` is what the view claims to know before mutating; `nil` forces reconciliation.
+    /// What the simulated view tells the session about a change.
+    public enum Report {
+        /// The true effect, as an editor that knew the edit in advance would give it.
+        case exact
+        /// The true effect, but only as "this region changed".
+        case derived
+        /// An effect that does not match what happened.
+        case claiming(NativeTextEffect)
+        case unknown
+        /// Nothing is reported at all.
+        case silent
+    }
+
+    /// Replaces text behind the session's back and reports it as `report` says.
     @discardableResult
     public func simulateNativeEdit(
         _ range: UTF16TextRange, with replacement: String, origin: EditOrigin = .typing,
-        exact: [DocumentEdit]? = nil, report: Bool = true
+        report: Report = .exact
     ) -> NativeEditCommit {
-        let units = Array(text.utf16)
-        let updated = Array(units[..<range.location]) + Array(replacement.utf16)
-            + Array(units[(range.location + range.length)...])
-        text = String(decoding: updated, as: UTF16.self)
-        let commit = NativeEditCommit(origin: origin, exactEdits: exact)
-        if report { receiver?.nativeEditDidCommit(commit) }
+        storage.replaceCharacters(
+            in: NSRange(location: range.location, length: range.length), with: replacement
+        )
+        editGeneration += 1
+        let effect: NativeTextEffect
+        switch report {
+        case .exact, .silent: effect = .replaced(range: range, replacement: replacement, isExact: true)
+        case .derived: effect = .replaced(range: range, replacement: replacement, isExact: false)
+        case .claiming(let claimed): effect = claimed
+        case .unknown: effect = .unknown
+        }
+        let commit = NativeEditCommit(origin: origin, effect: effect, generation: editGeneration)
+        if case .silent = report { return commit }
+        receiver?.nativeEditDidCommit(commit)
         return commit
     }
 

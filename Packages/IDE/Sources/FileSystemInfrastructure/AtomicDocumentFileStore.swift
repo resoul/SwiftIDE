@@ -18,6 +18,17 @@ public struct AtomicDocumentFileStore: DocumentFileStore {
         self.metadataTransfer = metadataTransfer
     }
 
+    /// The revision of the file at `path` as it is right now, or nil if there is no such file.
+    /// Reads the file's bytes, so it is for the moment a user agrees to replace a file, not for
+    /// anything frequent. Throws for anything that is not a regular file.
+    public static func currentRevision(atPath path: String) throws -> FileRevision? {
+        do {
+            return try FileReader.revisionOfBytes(at: path)
+        } catch FileStoreError.notFound {
+            return nil
+        }
+    }
+
     public func read(path: String, maximumBytes: Int) async throws -> LoadedFile {
         try Task.checkCancellation()
         return try await Task.detached(priority: .userInitiated) {

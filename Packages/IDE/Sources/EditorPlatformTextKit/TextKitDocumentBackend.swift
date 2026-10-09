@@ -10,6 +10,10 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
     private var hasTextView = false
     private var bridge: NativeEditingBridge?
     private var undoCoordinator: NativeUndoCoordinator?
+    private var storageObserver: NSObjectProtocol?
+    public private(set) var editGeneration: UInt64 = 0
+    /// How many times the whole text was copied out. Editing must keep this at zero.
+    public private(set) var textMaterializations = 0
 
     public init(loadedText: String) {
         storage = NSTextStorage(string: loadedText)
@@ -20,11 +24,44 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
         textLayoutManager.textContainer = NSTextContainer(
             size: NSSize(width: 800, height: CGFloat.greatestFiniteMagnitude)
         )
+        // The only observer of storage passes: it counts them, then hands the pass to the bridge.
+        // Counting first and in one place keeps the generation exact whoever edited the storage.
+        storageObserver = NotificationCenter.default.addObserver(
+            forName: NSTextStorage.didProcessEditingNotification, object: storage, queue: nil
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.storageDidProcessEditing() }
+        }
     }
 
+    isolated deinit {
+        if let storageObserver { NotificationCenter.default.removeObserver(storageObserver) }
+    }
+
+    private func storageDidProcessEditing() {
+        // Attribute-only passes are not text edits and create no revision.
+        guard storage.editedMask.contains(.editedCharacters) else { return }
+        editGeneration += 1
+        bridge?.storageDidProcessEditing()
+    }
+
+    // MARK: Reading (editing path)
+
+    public var utf16Length: Int { storage.length }
+
+    public func utf16Unit(at index: Int) -> UInt16 {
+        storage.mutableString.character(at: index)
+    }
+
+    public func substring(in range: UTF16TextRange) -> String {
+        storage.mutableString.substring(with: NSRange(location: range.location, length: range.length))
+    }
+
+    // MARK: Reading (whole text)
+
     public var text: String {
+        textMaterializations += 1
         // Materialize an independent value; mutable attributed storage is never a snapshot.
-        String(decoding: storage.string.utf8, as: UTF8.self)
+        return String(decoding: storage.string.utf8, as: UTF8.self)
     }
 
     public var usesTextKit2: Bool {
@@ -47,7 +84,7 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
     /// can receive input, so every native mutation has a preflight and a reconciliation path.
     func installNativeEditing(on textView: CodeTextView) -> NativeUndoCoordinator {
         let undo = NativeUndoCoordinator(backend: self)
-        let bridge = NativeEditingBridge(textView: textView, storage: storage, undo: undo)
+        let bridge = NativeEditingBridge(textView: textView, backend: self, storage: storage, undo: undo)
         textView.delegate = bridge
         textView.bridge = bridge
         self.bridge = bridge
@@ -63,12 +100,12 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
         bridge?.endComposition()
     }
 
-    /// Applies edits known in advance (undo/redo steps) as one storage transaction. The session
-    /// reconciles them like any native change, with exact replacements and undo/redo origin.
-    func replaceManaged(_ edits: [DocumentEdit]) {
-        bridge?.expect(exactEdits: edits)
-        replace(edits)
-        bridge?.selectEnd(of: edits)
+    /// Applies an already validated plan as one storage transaction (an undo or redo step). The
+    /// session accounts for it like any native change, with the exact edit and undo/redo origin.
+    func replaceManaged(_ plan: PreparedDocumentEdit) {
+        bridge?.expect(plan)
+        replace(plan.edits)
+        bridge?.selectEnd(of: plan.edits)
         bridge?.breakTypingCoalescing()
     }
 
@@ -84,7 +121,7 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
     }
 
     public func commit(_ plan: PreparedDocumentEdit) {
-        precondition(storage.string.utf8.elementsEqual(plan.sourceText.utf8))
+        precondition(storage.length == plan.sourceLength, "The plan was prepared against other text")
         replace(plan.edits)
         undoCoordinator?.registerProgrammatic(plan)
         bridge?.breakTypingCoalescing()

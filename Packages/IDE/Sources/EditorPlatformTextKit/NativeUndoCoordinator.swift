@@ -36,13 +36,16 @@ public final class NativeUndoCoordinator {
     /// redo (or undo) stack automatically.
     private func perform(inverse edits: [DocumentEdit]) {
         guard let backend else { return }
-        let source = backend.text
         // History that no longer matches the text cannot be applied safely.
-        guard (try? DocumentEditPlanner.prepare(edits, in: source)) != nil else {
+        let plan: PreparedDocumentEdit?
+        do {
+            plan = try DocumentEditPlanner.prepare(edits, in: backend)
+        } catch {
             undoManager.removeAllActions(withTarget: self)
             return
         }
-        registerInverse(DocumentEdit.inverse(of: edits, in: source))
-        backend.replaceManaged(edits)
+        guard let plan else { return }
+        registerInverse(plan.inverseEdits)
+        backend.replaceManaged(plan)
     }
 }

@@ -3,6 +3,21 @@ import IDEDomain
 
 public enum SaveError: Error, Equatable, Sendable {
     case saveInProgress(DocumentID)
+    /// A document that was never saved has no file to save to: it needs Save As.
+    case untitled(DocumentID)
+    /// Another open document already edits that file; two writable copies would overwrite each other.
+    case targetOpenElsewhere(path: String)
+    /// Another Save As is already going to that name.
+    case targetBeingSaved(path: String)
+}
+
+/// What the user agreed to when choosing the name in Save As.
+public enum SaveAsTarget: Equatable, Sendable {
+    /// The name was free. A file that appears before the write is a conflict, not a replacement.
+    case newFile
+    /// The user agreed to replace *this* file, as it was when they agreed. If it has changed
+    /// since (or is gone), nothing is written.
+    case replacing(FileRevision)
 }
 
 public struct SaveReceipt: Equatable, Sendable {
@@ -93,12 +108,52 @@ public final class SaveDocumentUseCase {
             }
         }
 
+        guard !document.isUntitled else { throw SaveError.untitled(document.id) }
+        return try await perform(document, trigger: trigger, destination: .current(overwriting: overwritingExternalChanges))
+    }
+
+    /// Saves the document under a new name and moves it there: later saves go to the new file.
+    ///
+    /// `target` is what the user agreed to: a free name, or replacing the file as it was when
+    /// they agreed. Anything else found at the name is a conflict and nothing is written. Saving
+    /// under the document's own name is an ordinary save. The original file, if any, is left as
+    /// it is.
+    ///
+    /// The name is reserved in `registry` from the start to the end, including any wait for a
+    /// composition to finish, so that opening that file, or saving another document under that
+    /// name, is refused meanwhile (`OpenDocumentError.beingSavedElsewhere`,
+    /// `SaveError.targetBeingSaved`). Refused too while this document is already being saved.
+    public func saveAs(
+        document: DocumentSession, to path: String, target: SaveAsTarget, registry: DocumentRegistry
+    ) async throws -> SaveReceipt {
+        guard operations[document.id] == nil else { throw SaveError.saveInProgress(document.id) }
+        let name = DocumentPath.canonical(path)
+        if !document.isUntitled, name == document.path {
+            return try await perform(document, trigger: .explicit, destination: .current(overwriting: false))
+        }
+        switch registry.reserve(path: name, for: document) {
+        case .granted: break
+        case .openElsewhere: throw SaveError.targetOpenElsewhere(path: name)
+        case .reserved: throw SaveError.targetBeingSaved(path: name)
+        }
+        defer { registry.releaseReservation(path: name, for: document) }
+        return try await perform(
+            document, trigger: .explicit, destination: .newName(path: name, target: target, registry: registry)
+        )
+    }
+
+    private enum Destination {
+        case current(overwriting: Bool)
+        case newName(path: String, target: SaveAsTarget, registry: DocumentRegistry)
+    }
+
+    private func perform(
+        _ document: DocumentSession, trigger: SaveTrigger, destination: Destination
+    ) async throws -> SaveReceipt {
         let operation = SaveOperation(trigger: trigger)
         operations[document.id] = operation
         do {
-            let receipt = try await run(
-                operation, document: document, overwriting: overwritingExternalChanges
-            )
+            let receipt = try await run(operation, document: document, destination: destination)
             operations.removeValue(forKey: document.id)
             operation.finish(.success(receipt))
             return receipt
@@ -110,7 +165,7 @@ public final class SaveDocumentUseCase {
     }
 
     private func run(
-        _ operation: SaveOperation, document: DocumentSession, overwriting: Bool
+        _ operation: SaveOperation, document: DocumentSession, destination: Destination
     ) async throws -> SaveReceipt {
         // Never persist a pre-composition snapshot while marked text is live. The wait is not
         // followed by a suspension before the capture, so the snapshot is the final text.
@@ -118,14 +173,31 @@ public final class SaveDocumentUseCase {
         try await document.waitForCompositionEnd()
         try Task.checkCancellation()
         operation.isWaitingForComposition = false
-        let snapshot = document.snapshot()
-        // The disk revision is captured together with the snapshot: the write is judged against
-        // the file this text was based on, whatever happens to the document meanwhile.
-        let expectation: SaveExpectation = overwriting ? .overwrite : .revision(document.diskRevision)
+        let snapshot: DocumentSnapshot
+        let expectation: SaveExpectation
+        switch destination {
+        case .current(let overwriting):
+            snapshot = document.snapshot()
+            // The disk revision is captured together with the snapshot: the write is judged
+            // against the file this text was based on, whatever happens to the document meanwhile.
+            expectation = overwriting ? .overwrite : .revision(document.diskRevision)
+        case .newName(let path, let target, _):
+            snapshot = document.snapshot(forPath: path)
+            switch target {
+            case .newFile: expectation = .revision(nil)
+            case .replacing(let confirmed): expectation = .revision(confirmed)
+            }
+        }
         let revision = try await store.write(snapshot, expecting: expectation)
         // There may have been edits during await. Acknowledge the captured version.
         // Once write succeeded, retain this fact even if the caller now cancels.
-        document.acknowledgeSave(of: snapshot, revision: revision)
+        switch destination {
+        case .current:
+            document.acknowledgeSave(of: snapshot, revision: revision)
+        case .newName(_, _, let registry):
+            document.acknowledgeSaveAs(of: snapshot, revision: revision)
+            registry.register(document)
+        }
         return SaveReceipt(
             savedVersion: snapshot.version,
             isCurrent: document.version == snapshot.version

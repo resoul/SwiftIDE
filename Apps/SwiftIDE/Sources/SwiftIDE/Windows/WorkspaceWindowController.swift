@@ -3,25 +3,29 @@ import EditorPlatformTextKit
 import EditorUI
 import IDEApplication
 import IDEDomain
+import UniformTypeIdentifiers
 
 @MainActor
 final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
     let session: DocumentSession
     private let editor: TextKitEditor
-    private let isUntitled: Bool
+    private let registry: DocumentRegistry
     private let saveDocument: SaveDocumentUseCase
     private let reloadDocument: ReloadDocumentUseCase
+    private let revisionOfFile: (String) -> FileRevision?
     var onClose: ((WorkspaceWindowController) -> Void)?
     /// Decides whether unsaved edits allow this window to go away; shared with Quit.
     var unsavedChanges: UnsavedChangesCoordinator?
 
     init(
-        document: DocumentSession, editor: TextKitEditor, isUntitled: Bool,
-        saveDocument: SaveDocumentUseCase, reloadDocument: ReloadDocumentUseCase
+        document: DocumentSession, editor: TextKitEditor, registry: DocumentRegistry,
+        saveDocument: SaveDocumentUseCase, reloadDocument: ReloadDocumentUseCase,
+        revisionOfFile: @escaping (String) -> FileRevision?
     ) {
+        self.revisionOfFile = revisionOfFile
         self.session = document
         self.editor = editor
-        self.isUntitled = isUntitled
+        self.registry = registry
         self.saveDocument = saveDocument
         self.reloadDocument = reloadDocument
         let window = NSWindow(
@@ -46,33 +50,36 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    private var displayName: String {
+        session.isUntitled ? "Untitled" : (session.path as NSString).lastPathComponent
+    }
+
     private func refreshTitle() {
         guard let window else { return }
-        if isUntitled {
-            window.title = "Untitled"
-        } else {
-            window.title = (session.path as NSString).lastPathComponent
-            window.representedURL = URL(fileURLWithPath: session.path)
-        }
+        window.title = displayName
+        window.representedURL = session.isUntitled ? nil : URL(fileURLWithPath: session.path)
         window.isDocumentEdited = session.isDirty
     }
 
     // MARK: Menu
 
-    func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        if item.action == #selector(saveDocument(_:)) { return !isUntitled }
-        return true
-    }
+    func validateMenuItem(_ item: NSMenuItem) -> Bool { true }
 
     @objc func saveDocument(_ sender: Any?) {
         Task { _ = await save() }
     }
 
+    @objc func saveDocumentAs(_ sender: Any?) {
+        Task { _ = await saveAs() }
+    }
+
     // MARK: Saving
 
     /// Returns whether a write succeeded; failures are shown to the user here. It does not say
-    /// the document is clean: text typed during the write stays unsaved.
+    /// the document is clean: text typed during the write stays unsaved. A document without a
+    /// file asks for a name first.
     func save() async -> Bool {
+        if session.isUntitled { return await saveAs() }
         do {
             _ = try await saveDocument.execute(document: session)
             refreshTitle()
@@ -87,11 +94,41 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         }
     }
 
+    /// Asks for a name and saves the document there; from then on the document is that file.
+    func saveAs() async -> Bool {
+        guard let window else { return false }
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.allowedContentTypes = [.swiftSource]
+        panel.allowsOtherFileTypes = true
+        panel.nameFieldStringValue = session.isUntitled ? "Untitled.swift" : displayName
+        if !session.isUntitled {
+            panel.directoryURL = URL(fileURLWithPath: session.path).deletingLastPathComponent()
+        }
+        let consent = SavePanelConsent(revisionOfFile: revisionOfFile)
+        panel.delegate = consent
+        guard await panel.beginSheetModal(for: window) == .OK, let url = panel.url else { return false }
+
+        // The panel asks before replacing a file; what it was agreed to is that file, as it was.
+        do {
+            _ = try await saveDocument.saveAs(
+                document: session, to: url.path, target: consent.target(for: url), registry: registry
+            )
+            refreshTitle()
+            return true
+        } catch is CancellationError {
+            return false
+        } catch {
+            present(error, doing: "save", fileName: url.lastPathComponent)
+            return false
+        }
+    }
+
     /// The file changed on disk since it was read. Nothing was written; the user decides.
     private func resolveConflict() async -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "“\((session.path as NSString).lastPathComponent)” was changed on disk"
+        alert.messageText = "“\(displayName)” was changed on disk"
         alert.informativeText = "Saving now would replace changes made by another program."
         alert.addButton(withTitle: "Cancel")
         alert.addButton(withTitle: "Reload from Disk")
@@ -120,28 +157,39 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         }
     }
 
-    private func present(_ error: Error, doing action: String) {
+    private func present(_ error: Error, doing action: String, fileName: String? = nil) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Could not \(action) “\((session.path as NSString).lastPathComponent)”"
+        alert.messageText = "Could not \(action) “\(fileName ?? displayName)”"
         alert.informativeText = Self.describe(error)
         if let window { alert.beginSheetModal(for: window) } else { alert.runModal() }
     }
 
     static func describe(_ error: Error) -> String {
+        if error is OpenDocumentError {
+            return "That file is being saved by another window right now. Try again in a moment."
+        }
+        if let save = error as? SaveError {
+            switch save {
+            case .targetOpenElsewhere: return "That file is already open in another window. Close it or choose another name."
+            case .targetBeingSaved: return "Another document is being saved under that name right now. Choose another name."
+            case .saveInProgress: return "A save of this document is already in progress."
+            case .untitled: return "This document has no file yet. Choose a name first."
+            }
+        }
         switch error as? FileStoreError {
-        case .notFound?: "The file or its folder no longer exists."
-        case .permissionDenied?: "You do not have permission to change this file."
-        case .notRegularFile?: "This is not a regular file."
-        case .tooLarge(let size, let limit)?: "The file is \(size / 1_048_576) MB; the limit is \(limit / 1_048_576) MB."
-        case .binary?: "The file contains binary data, not text."
-        case .notUTF8?: "The file is not valid UTF-8. It was not opened, so it cannot be damaged."
-        case .unsupportedEncoding?: "Only UTF-8 text is supported for now."
-        case .changedWhileReading?: "The file changed while it was being read. Try again."
-        case .cannotPreserveMetadata?: "The file’s permissions, owner, access list or extended attributes cannot be carried over to the saved copy, so nothing was written."
-        case .io(let code)?: "System error \(code)."
-        case .conflict?: "The file was changed on disk."
-        case nil: error.localizedDescription
+        case .notFound?: return "The file or its folder no longer exists."
+        case .permissionDenied?: return "You do not have permission to change this file."
+        case .notRegularFile?: return "This is not a regular file."
+        case .tooLarge(let size, let limit)?: return "The file is \(size / 1_048_576) MB; the limit is \(limit / 1_048_576) MB."
+        case .binary?: return "The file contains binary data, not text."
+        case .notUTF8?: return "The file is not valid UTF-8. It was not opened, so it cannot be damaged."
+        case .unsupportedEncoding?: return "Only UTF-8 text is supported for now."
+        case .changedWhileReading?: return "The file changed while it was being read. Try again."
+        case .cannotPreserveMetadata?: return "The file’s permissions, owner, access list or extended attributes cannot be carried over to the saved copy, so nothing was written."
+        case .io(let code)?: return "System error \(code)."
+        case .conflict?: return "A file with this name appeared after you chose it, or the file was changed on disk. Nothing was written."
+        case nil: return error.localizedDescription
         }
     }
 
@@ -156,18 +204,14 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         return false
     }
 
-    /// The question shown for Close and for Quit. A scratch document cannot be saved yet.
+    /// The question shown for Close and for Quit. Saving a document without a file asks for a
+    /// name first; if that is cancelled the document stays open.
     func promptForUnsavedChanges() async -> UnsavedChangesDecision {
         guard let window else { return .cancel }
         window.makeKeyAndOrderFront(nil)
         let alert = NSAlert()
-        alert.messageText = "Do you want to save changes to “\(window.title)”?"
+        alert.messageText = "Do you want to save changes to “\(displayName)”?"
         alert.informativeText = "Your changes will be lost if you don’t save them."
-        if isUntitled {
-            alert.addButton(withTitle: "Cancel")
-            alert.addButton(withTitle: "Don’t Save")
-            return await alert.beginSheetModal(for: window) == .alertSecondButtonReturn ? .discard : .cancel
-        }
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
         alert.addButton(withTitle: "Don’t Save")
