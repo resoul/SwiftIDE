@@ -19,6 +19,10 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     /// draws them. Both live as long as the window.
     private var syntax: (coordinator: SyntaxCoordinator, presenter: SyntaxPresenter)?
     private var colourNote: String?
+    private let container: EditorContainerView
+    /// Looks for lines too long to edit comfortably and offers to make the window read-only.
+    private let longLines: LongLineMonitor
+    private var isReadOnlyForLongLines = false
     var onClose: ((WorkspaceWindowController) -> Void)?
     /// Decides whether unsaved edits allow this window to go away; shared with Quit.
     var unsavedChanges: UnsavedChangesCoordinator?
@@ -41,7 +45,9 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false
         )
-        window.contentView = EditorHostView(editor: editor, lineIndex: lineIndex)
+        container = EditorContainerView(host: EditorHostView(editor: editor, lineIndex: lineIndex))
+        longLines = LongLineMonitor(lineIndex: lineIndex)
+        window.contentView = container
         window.center()
         super.init(window: window)
         window.delegate = self
@@ -52,6 +58,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         }
         startColouring(makeHighlighter)
         refreshSubtitle()
+        longLines.onChange = { [weak self] _ in self?.showLongLineNotice() }
+        showLongLineNotice()
         session.subscribeToChanges { [weak self] _ in self?.refreshTitle() }
         refreshTitle()
     }
@@ -77,10 +85,47 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         syntax = (coordinator, SyntaxPresenter(textView: editor.textView, coordinator: coordinator, policy: policy))
     }
 
+    /// The warning for a very long line, or the read-only note that follows it.
+    private func showLongLineNotice() {
+        let banner = container.banner
+        if isReadOnlyForLongLines {
+            banner.show(
+                message: "This window is read-only because of a very long line.",
+                buttons: [.init(title: "Allow Editing") { [weak self] in self?.allowEditing() }]
+            )
+            return
+        }
+        guard longLines.state == .warning else { return banner.hide() }
+        let length = longLines.longestLength.formatted()
+        banner.show(
+            message: "This file has a line of \(length) characters. Editing long lines can be slow, and syntax colours are off for them.",
+            buttons: [
+                .init(title: "Make Read-Only") { [weak self] in self?.makeReadOnly() },
+                .init(title: "Keep Editing") { [weak self] in self?.longLines.dismiss() }
+            ]
+        )
+    }
+
+    private func makeReadOnly() {
+        isReadOnlyForLongLines = true
+        editor.textView.isEditable = false
+        showLongLineNotice()
+        refreshSubtitle()
+    }
+
+    private func allowEditing() {
+        isReadOnlyForLongLines = false
+        editor.textView.isEditable = true
+        longLines.dismiss()
+        container.banner.hide()
+        refreshSubtitle()
+    }
+
     private func refreshSubtitle() {
         guard let window else { return }
         let engine = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
-        window.subtitle = [engine, colourNote].compactMap { $0 }.joined(separator: " · ")
+        let readOnly = isReadOnlyForLongLines ? "read-only" : nil
+        window.subtitle = [engine, colourNote, readOnly].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func refreshTitle() {

@@ -18,6 +18,7 @@ public final class LineNumberRulerView: NSRulerView {
     private let lineIndex: DocumentLineIndex
     private let font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
     private var observers: [NSObjectProtocol] = []
+    private var indexSubscription: UUID?
 
     public init(scrollView: NSScrollView, textView: NSTextView, lineIndex: DocumentLineIndex) {
         self.textView = textView
@@ -27,7 +28,7 @@ public final class LineNumberRulerView: NSRulerView {
         reservedThicknessForMarkers = 0
         updateThickness()
 
-        lineIndex.onChange = { [weak self] in
+        indexSubscription = lineIndex.subscribe { [weak self] in
             self?.updateThickness()
             self?.needsDisplay = true
         }
@@ -50,6 +51,7 @@ public final class LineNumberRulerView: NSRulerView {
     public required init(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     isolated deinit {
+        if let indexSubscription { lineIndex.unsubscribe(indexSubscription) }
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 

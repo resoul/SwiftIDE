@@ -53,6 +53,10 @@ private func expectAgrees(
             return
         }
     }
+    // The longest line, by content: the first one if several are as long.
+    let longest = reference.lines.enumerated().max { ($0.element.content, -$0.offset) < ($1.element.content, -$1.offset) }!
+    #expect(index.longestLine.length == longest.element.content, "longest line length \(note())", sourceLocation: sourceLocation)
+    #expect(index.longestLine.line == longest.offset, "longest line number \(note())", sourceLocation: sourceLocation)
     // Every offset belongs to the line that contains it; a line start is recognised as one.
     let probes = units.count < 200 ? Array(0...units.count) : (0..<60).map { _ in Int.random(in: 0...units.count) }
     for offset in probes {
@@ -275,4 +279,17 @@ func anIndexStartedWhileTheTextIsAheadOfTheSessionRebuildsWhenAsked() throws {
     storage.replaceCharacters(in: NSRange(location: 0, length: 0), with: "ZZ\n")
     let tracker = DocumentLineIndex(session: session, source: editor.backend)
     expectAgrees(tracker.current, with: Array(editor.textView.string.utf16))
+}
+
+@Test
+func theLongestLineIsKnownWithoutScanningTheText() {
+    var index = LineIndex("a\nbbbbb\ncc\n")
+    #expect(index.longestLine.length == 5 && index.longestLine.line == 1)
+    replaceOK(&index, UTF16TextRange(location: 2, length: 5), with: "")          // the long line is emptied
+    #expect(index.longestLine.length == 2 && index.longestLine.line == 2)
+    replaceOK(&index, UTF16TextRange(location: 0, length: 0), with: String(repeating: "z", count: 40))
+    #expect(index.longestLine.length == 41 && index.longestLine.line == 0)
+    #expect(LineIndex("").longestLine.length == 0)
+    // Terminators are not content: a line of 3 and a break is 3 long, also in CRLF.
+    #expect(LineIndex("abc\r\nd").longestLine.length == 3)
 }

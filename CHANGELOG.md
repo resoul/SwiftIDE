@@ -54,6 +54,12 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 - Line numbers in the editor margin (`LineNumberRulerView`, an `NSRulerView`). Numbers come from `LineIndex`, which is kept up to date from published change sets, so they are right for lines that were never laid out; only the rows in view are visited (about 0.07 ms), a wrapped line is numbered once, and the empty last line after a final newline is numbered. Lines end with `\n`, `\r\n` or `\r`. See ADR-014 and [docs/benchmarks/TK-007a-results.md](docs/benchmarks/TK-007a-results.md).
 - `LineIndex`: chunked line lengths with the terminator kept per line, edit cost O(edit + chunks), joins and splits of `\r\n` followed without reading text; `DocumentLineIndex` follows a session and rebuilds from the backend when it cannot. Property tests against a rescan, including edits across chunk boundaries.
 
+### Added (TK-012, long lines, step 1)
+
+- A very long line (over 16 000 characters) now raises a notice above the text with "Make Read-Only" and "Keep Editing"; the file still opens editable by default. `LineIndex.longestLine` answers in one step per chunk, `LongLineMonitor` watches it after every change (the notice also appears when a long line is pasted and goes when it is shortened), `NoticeBanner` and `EditorContainerView` show it. Editing a long line is not faster yet. See ADR-015 and [docs/benchmarks/TK-012-long-lines.md](docs/benchmarks/TK-012-long-lines.md).
+- Measured: turning off line wrapping makes long lines slower, not faster (51 KB: 257 ms per keystroke against 84 ms wrapped).
+- `DocumentLineIndex` now has any number of observers (`subscribe`) instead of one `onChange` closure.
+
 ### Added (TK-007c)
 
 - Syntax colours for Swift files (ADR-014): tree-sitter parses in the background from the document's own edits (incrementally, from a private chunked copy of the text), the editor draws the result as TextKit 2 rendering attributes. Colours follow edits at once and are replaced by the next result; the document, its revisions and undo are untouched. Files over 5 MB, lines over 1000 characters and lines with over 50 coloured runs are drawn plain (the window says so for large files). See [docs/benchmarks/TK-007c-results.md](docs/benchmarks/TK-007c-results.md).

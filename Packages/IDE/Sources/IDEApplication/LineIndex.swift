@@ -40,10 +40,19 @@ public struct LineIndex: Sendable {
     struct Chunk: Sendable {
         var lines: [Line]
         var unitCount: Int
+        /// The first longest line of the chunk by content: its position in the chunk and length.
+        var longest: (index: Int, content: Int)
 
         init(lines: [Line]) {
             self.lines = lines
-            unitCount = lines.reduce(0) { $0 + $1.length }
+            var total = 0
+            var longest = (index: 0, content: -1)
+            for (index, line) in lines.enumerated() {
+                total += line.length
+                if line.content > longest.content { longest = (index, line.content) }
+            }
+            unitCount = total
+            self.longest = longest
         }
     }
 
@@ -102,6 +111,16 @@ public struct LineIndex: Sendable {
     }
 
     // MARK: Queries
+
+    /// The longest line by content, without its terminator; the first one if several tie. Costs one
+    /// step per chunk, not per line, so it can be asked after every change.
+    public var longestLine: (line: Int, length: Int) {
+        var best = (chunk: 0, index: 0, content: -1)
+        for (position, chunk) in chunks.enumerated() where chunk.longest.content > best.content {
+            best = (position, chunk.longest.index, chunk.longest.content)
+        }
+        return (chunkLine[best.chunk] + best.index, best.content)
+    }
 
     /// The line containing `offset`. An offset at a line's start belongs to that line, the end of
     /// the document to the last line.
