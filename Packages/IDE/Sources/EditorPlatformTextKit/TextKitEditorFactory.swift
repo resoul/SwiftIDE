@@ -5,6 +5,8 @@ public struct TextKitEditor {
     public let backend: TextKitDocumentBackend
     public let textView: NSTextView
     public let compatibility: TextKitCompatibilityMonitor
+    /// The document's single undo history, shared by native typing and programmatic edits.
+    public let undo: NativeUndoCoordinator
 }
 
 @MainActor
@@ -13,9 +15,10 @@ public enum TextKitEditorFactory {
         let backend = TextKitDocumentBackend(loadedText: loadedText)
         let textView = backend.makeTextView()
         configureForCode(textView)
+        let undo = backend.installNativeEditing(on: textView)
         let compatibility = TextKitCompatibilityMonitor(textView: textView)
         precondition(compatibility.isTextKit2, "NSTextView must start on TextKit 2")
-        return TextKitEditor(backend: backend, textView: textView, compatibility: compatibility)
+        return TextKitEditor(backend: backend, textView: textView, compatibility: compatibility, undo: undo)
     }
 
     /// Plain text only; substitutions that rewrite source code are disabled explicitly.

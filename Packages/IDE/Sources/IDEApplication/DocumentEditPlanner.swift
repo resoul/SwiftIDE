@@ -14,7 +14,7 @@ public struct PreparedDocumentEdit: Sendable {
     public let edits: [DocumentEdit]
 }
 
-/// Simple O(document size) planner for this architecture example.
+/// Simple O(document size) planner for the current TextKit backend.
 /// A future Piece Tree backend will need a storage-efficient preparation contract.
 public enum DocumentEditPlanner {
     public static func prepare(
