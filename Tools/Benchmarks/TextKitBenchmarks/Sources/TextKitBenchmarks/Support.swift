@@ -46,7 +46,9 @@ struct Stats {
     }
 
     var json: [String: Any] {
-        ["n": count, "p50_ms": round3(p50), "p95_ms": round3(p95), "p99_ms": round3(p99),
+        // No samples: NaN cannot be written as JSON.
+        if count == 0 { return ["n": 0] }
+        return ["n": count, "p50_ms": round3(p50), "p95_ms": round3(p95), "p99_ms": round3(p99),
          "max_ms": round3(max), "mean_ms": round3(mean)]
     }
 }
@@ -85,6 +87,9 @@ enum Shape: String {
     case shortLines = "short"
     /// One line without any newline.
     case giantLine = "giant"
+    /// Lines of Swift array literals, `LINE_CHARS` characters each (default 1000): where the
+    /// cost of colouring a line starts to hurt.
+    case wideLines = "wide"
 }
 
 enum Generator {
@@ -129,6 +134,21 @@ enum Generator {
             return repeated("ab\n", toAtLeast: bytes)
         case .giantLine:
             return repeated("word поток 😀 value, ", toAtLeast: bytes)
+        case .wideLines:
+            let width = Int(ProcessInfo.processInfo.environment["LINE_CHARS"] ?? "") ?? 1_000
+            var lines: [String] = []
+            var produced = 0, number = 0
+            while produced < bytes {
+                var line = "let values\(lines.count) = ["
+                while line.utf8.count < width {
+                    number += 1
+                    line += "\(number), "
+                }
+                line += "0]\n"
+                produced += line.utf8.count
+                lines.append(line)
+            }
+            return lines.joined()
         }
     }
 

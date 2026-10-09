@@ -85,6 +85,26 @@ def main(path):
             counts = "/".join(str(p.get(f"labels_{k}_count", "—")) for k in ("start", "middle", "end"))
             print(f"| {r['shape']} | {size(r)} | {p['line_count']} | {f(p['labels_start_ms'], 3)} | {f(p['labels_middle_ms'], 3)} | {f(p['labels_end_ms'], 3)} | {counts} | {f(p['thousand_lookups_ms'], 2)} | {(z or {}).get('line_index_matches_rescan', '—')}, {(z or {}).get('line_index_rebuilds', '—')} |")
 
+    print("\n### Colours: refreshing what is in view, ms (typing with each approach is in the typing table)\n")
+    print("Rendering attributes: a validator colours each fragment as it is laid out, refreshed with an attribute-only notification over the visible range. Storage: the same spans written into the text storage.\n")
+    print("| Shape | Size | rendering start | middle | end | fragments / spans per refresh | in validator | storage start | middle | end | untouched (rendering / storage) | whole doc |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for r in results:
+        p = phase(r, "attributes")
+        if p:
+            print(f"| {r['shape']} | {size(r)} | {f(p['rendering_refresh_start_ms'])} | {f(p['rendering_refresh_middle_ms'])} | {f(p['rendering_refresh_end_ms'])} | {p['rendering_middle_fragments']} / {p['rendering_middle_spans']} | {f(p['rendering_middle_validator_ms'], 2)} | {f(p['storage_apply_start_ms'])} | {f(p['storage_apply_middle_ms'])} | {f(p['storage_apply_end_ms'])} | {p['rendering_text_untouched']} / {p['storage_published_no_revision']} | {f(p.get('rendering_refresh_whole_ms'))} |")
+
+    print("\n### Syntax colours (tree-sitter in the background, TK-007c)\n")
+    print("Typing is measured with colours on: the keystroke (input to draw), the wait until colours of that version are on screen (lag), and the draw that shows them. Footprint is what the highlighter's text copy and syntax tree take.\n")
+    print("| Shape | Size | first colours | footprint, MB | keystroke p50 / p95 | commit p95 | lag p50 / p95 | redraw p50 | main-thread refresh p95 | resyncs | spans in window |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    for r in results:
+        p = phase(r, "syntax")
+        if p and "keystroke_input_to_draw" in p:
+            k, c, l, d, m = (p["keystroke_input_to_draw"], p["keystroke_commit"], p["colour_lag"], p["redraw_after_colours"], p["refresh_main"])
+            refresh = f(m.get("p95_ms")) if m.get("n") else "—"
+            print(f"| {r['shape']} | {size(r)} | {f(p['first_colours_ms'], 0)} ms | {f(p['footprint_mb'], 0) if p['footprint_mb'] >= 0 else '—'} | {f(k['p50_ms'])} / {f(k['p95_ms'])} | {f(c['p95_ms'])} | {f(l['p50_ms'])} / {f(l['p95_ms'])} | {f(d['p50_ms'])} | {refresh} | {p['resyncs']} | {p['spans_in_window']} |")
+
     print("\n### Programmatic edit, undo, redo, save, ms (p50 unless noted)\n")
     print("| Shape | Size | apply | undo | redo | save #1 | save #2 | changes rebuilt = view | changes (reconciled) |")
     print("|---|---|---|---|---|---|---|---|---|")

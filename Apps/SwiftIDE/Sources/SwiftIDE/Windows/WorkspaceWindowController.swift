@@ -15,6 +15,10 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     private let saveDocument: SaveDocumentUseCase
     private let reloadDocument: ReloadDocumentUseCase
     private let revisionOfFile: (String) -> FileRevision?
+    /// Syntax colours of the document, when it has any: the coordinator keeps them, the presenter
+    /// draws them. Both live as long as the window.
+    private var syntax: (coordinator: SyntaxCoordinator, presenter: SyntaxPresenter)?
+    private var colourNote: String?
     var onClose: ((WorkspaceWindowController) -> Void)?
     /// Decides whether unsaved edits allow this window to go away; shared with Quit.
     var unsavedChanges: UnsavedChangesCoordinator?
@@ -22,7 +26,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     init(
         document: DocumentSession, editor: TextKitEditor, registry: DocumentRegistry,
         saveDocument: SaveDocumentUseCase, reloadDocument: ReloadDocumentUseCase,
-        revisionOfFile: @escaping (String) -> FileRevision?
+        revisionOfFile: @escaping (String) -> FileRevision?,
+        makeHighlighter: () -> (any SyntaxHighlighter)?
     ) {
         self.revisionOfFile = revisionOfFile
         self.session = document
@@ -45,7 +50,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
             window?.subtitle = "⚠︎ TextKit 1 fallback"
             NSLog("SwiftIDE: NSTextView fell back to TextKit 1")
         }
-        window.subtitle = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
+        startColouring(makeHighlighter)
+        refreshSubtitle()
         session.subscribeToChanges { [weak self] _ in self?.refreshTitle() }
         refreshTitle()
     }
@@ -55,6 +61,26 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
     private var displayName: String {
         session.isUntitled ? "Untitled" : (session.path as NSString).lastPathComponent
+    }
+
+    /// Swift sources get syntax colours, up to a size; a larger file is shown plain, and the
+    /// window says so instead of silently dropping the colours.
+    private func startColouring(_ makeHighlighter: () -> (any SyntaxHighlighter)?) {
+        guard session.path.hasSuffix(".swift") else { return }
+        let policy = SyntaxPolicy.standard
+        guard policy.allowsColouring(documentLength: session.utf16Length) else {
+            colourNote = "syntax colours off: large file"
+            return
+        }
+        guard let highlighter = makeHighlighter() else { return }
+        let coordinator = SyntaxCoordinator(session: session, source: editor.backend, highlighter: highlighter)
+        syntax = (coordinator, SyntaxPresenter(textView: editor.textView, coordinator: coordinator, policy: policy))
+    }
+
+    private func refreshSubtitle() {
+        guard let window else { return }
+        let engine = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
+        window.subtitle = [engine, colourNote].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func refreshTitle() {

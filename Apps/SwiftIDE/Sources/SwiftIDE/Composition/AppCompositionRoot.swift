@@ -2,6 +2,7 @@ import EditorPlatformTextKit
 import FileSystemInfrastructure
 import IDEApplication
 import IDEDomain
+import SyntaxInfrastructure
 
 /// Only the composition layer constructs concrete adapters.
 @MainActor
@@ -42,7 +43,7 @@ final class AppCompositionRoot {
         return WorkspaceWindowController(
             document: session, editor: editor, registry: registry,
             saveDocument: saveDocument, reloadDocument: reloadDocument,
-            revisionOfFile: Self.revisionOfFile
+            revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter
         )
     }
 
@@ -58,8 +59,14 @@ final class AppCompositionRoot {
         return WorkspaceWindowController(
             document: session, editor: editor, registry: registry,
             saveDocument: saveDocument, reloadDocument: reloadDocument,
-            revisionOfFile: Self.revisionOfFile
+            revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter
         )
+    }
+
+    /// Colours Swift source with tree-sitter; nil if the parser cannot be set up, which leaves the
+    /// window working without colours.
+    private static let makeHighlighter: () -> (any SyntaxHighlighter)? = {
+        try? TreeSitterHighlighter()
     }
 
     /// The state of an existing file, for the moment a user agrees to replace it.

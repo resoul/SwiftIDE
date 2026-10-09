@@ -73,6 +73,16 @@ public struct LineIndex: Sendable {
         self.init(lines: scanner.lines)
     }
 
+    /// Builds the index of text held in pieces, as a background reader keeps it.
+    public init(utf16Chunks: [[UInt16]]) {
+        var scanner = LineScanner()
+        for chunk in utf16Chunks {
+            chunk.withUnsafeBufferPointer { scanner.feed($0) }
+        }
+        scanner.finish(endsWithTerminator: false)
+        self.init(lines: scanner.lines)
+    }
+
     /// Builds the index of a string. For tests and small inputs.
     public init(_ text: String) {
         var scanner = LineScanner()

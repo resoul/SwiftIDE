@@ -42,13 +42,15 @@ The tests cover edit validation, UTF-16 boundaries, versioning, immutable snapsh
 - File open and save for UTF-8 text: strict reading, atomic replacement that keeps permissions, ACLs, and extended attributes, conflict detection by file content, and an open-document registry that treats hard links as one document.
 - One unsaved-changes procedure for closing a window and for quitting, tied to the text version the user decided about.
 - An asynchronous save use case with composition-aware coordination and version-aware acknowledgement.
+- A line-number margin driven by an incrementally maintained line index.
+- Syntax colours for Swift files: tree-sitter in the background, drawn as TextKit 2 rendering attributes, so colouring never touches the document, its revisions or its undo history. Large files and very long lines are shown plain.
 - Headless test adapters and native editor regression tests.
 
 ## Next steps
 
 **TK-005: the native input, undo, and IME transaction bridge** is implemented and covered by automated tests. Manual acceptance testing with real input methods remains before closing the milestone; **TK-006: real file open/save with a disk revision policy** is implemented as well.
 
-File watching, recovery, syntax presentation, SourceKit-LSP, and Xcode/build integration are planned. Multi-cursor editing and split views are deferred. A custom text engine is an option only if measurements justify replacing TextKit.
+File watching, recovery, SourceKit-LSP, and Xcode/build integration are planned. Multi-cursor editing and split views are deferred. A custom text engine is an option only if measurements justify replacing TextKit.
 
 See the [development plan](docs/05_DEVELOPMENT_PLAN.md), [TextKit implementation plan](docs/08_TEXTKIT_IMPLEMENTATION_PLAN.md), and [changelog](CHANGELOG.md).
 
@@ -86,4 +88,5 @@ The detailed design documents are currently written in Russian.
 - [Architecture decisions](docs/07_ARCHITECTURE_DECISIONS.md)
 - [TextKit implementation plan](docs/08_TEXTKIT_IMPLEMENTATION_PLAN.md)
 - [Claude chat and agent integration plan](docs/09_CLAUDE_AGENT_INTEGRATION.md) — design only; integration is not implemented.
+- [Third-party software notices](THIRD_PARTY_NOTICES.md)
 - [Original custom-engine concept](Swift_IDE_Architecture_and_MVP.md) — historical reference, superseded by the current TextKit MVP plan.

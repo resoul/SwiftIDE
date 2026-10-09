@@ -15,7 +15,8 @@ let package = Package(
                 .product(name: "IDEApplication", package: "IDE"),
                 .product(name: "FileSystemInfrastructure", package: "IDE"),
                 .product(name: "EditorPlatformTextKit", package: "IDE"),
-                .product(name: "EditorUI", package: "IDE")
+                .product(name: "EditorUI", package: "IDE"),
+                .product(name: "SyntaxInfrastructure", package: "IDE")
             ]
         )
     ],

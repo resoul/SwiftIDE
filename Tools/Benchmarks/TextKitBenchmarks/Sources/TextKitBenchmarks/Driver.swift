@@ -29,8 +29,8 @@ enum Driver {
                 Case(shape: .shortLines, megabytes: 10, timeoutSeconds: 360),
                 // Single-line files. Larger than 1 MB is deliberately not run: layout time and memory
                 // grow with the line, and an 8 GB machine would be pushed into swap.
-                Case(shape: .giantLine, megabytes: 0.05, timeoutSeconds: 120),
-                Case(shape: .giantLine, megabytes: 0.1, timeoutSeconds: 120),
+                Case(shape: .giantLine, megabytes: 0.05, timeoutSeconds: 240),
+                Case(shape: .giantLine, megabytes: 0.1, timeoutSeconds: 300),
                 Case(shape: .giantLine, megabytes: 0.25, timeoutSeconds: 150),
                 Case(shape: .giantLine, megabytes: 1, timeoutSeconds: 240)
             ]

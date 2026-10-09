@@ -4,6 +4,7 @@ import EditorUI
 import FileSystemInfrastructure
 import IDEApplication
 import IDEDomain
+import SyntaxInfrastructure
 
 /// Lays out and draws the visible part of the editor synchronously into a bitmap. An off-screen
 /// window may never be drawn by AppKit, so `displayIfNeeded` alone could report zero work.
@@ -130,6 +131,16 @@ struct Scenario {
         // ---- save --------------------------------------------------------------------------
         try await save(session: session, store: store, length: { ed.backend.utf16Length })
 
+        // ---- colours: rendering attributes against attributes in the storage (TK-007b) -------
+        if shape != .giantLine || megabytes <= 0.11 {
+            attributes(editor: ed, host: host, session: session)
+        }
+
+        // ---- tree-sitter colours (TK-007c) -------------------------------------------------
+        if (shape == .swift || shape == .mixedEndings || shape == .wideLines) && megabytes <= 25 || shape == .giantLine && megabytes <= 0.11 {
+            await syntax(editor: ed, host: host, session: session)
+        }
+
         // The proof of correctness: the text rebuilt only from the published changes, applied in
         // order to the text the document started with, must be the text the view shows. Comparing
         // the session with the view would compare two reads of the same storage and prove nothing.
@@ -185,6 +196,270 @@ struct Scenario {
         let middle = backend.utf16Length / 2
         let edit = DocumentEdit(range: UTF16TextRange(location: middle, length: 0), replacement: "x")
         out["planner_prepare_ms"] = round3(median { _ = try? DocumentEditPlanner.prepare([edit], in: backend) })
+        emit(label.merging(out) { $1 })
+    }
+
+    // MARK: Syntax colours (TK-007c)
+
+    /// The real chain on the benchmark's editor: coordinator, tree-sitter in the background,
+    /// presenter. Measures what it costs on the main thread while typing, how long until the
+    /// first colours, how far colours lag behind a keystroke, and what the parser's copies take.
+    /// It waits with `await`, not by spinning the run loop: results come back as main-actor tasks.
+    private func syntax(editor ed: TextKitEditor, host: EditorHostView, session: DocumentSession) async {
+        var out: [String: Any] = ["phase": "syntax"]
+        guard let highlighter = try? TreeSitterHighlighter() else {
+            out["error"] = "highlighter unavailable"
+            emit(label.merging(out) { $1 })
+            return
+        }
+        let total = ed.textView.string.utf16.count
+        let before = footprintMB()
+        var coordinatorBox: SyntaxCoordinator?
+        out["start_main_thread_ms"] = round3(milliseconds {
+            coordinatorBox = SyntaxCoordinator(session: session, source: ed.backend, highlighter: highlighter)
+        })
+        let coordinator = coordinatorBox!
+        // Wide lines are measured to find the limit, so there nothing is held back by the policy.
+        let policy = shape == .wideLines
+            ? SyntaxPolicy(maximumDocumentLength: .max, maximumFragmentLength: .max, maximumSpansPerFragment: .max)
+            : SyntaxPolicy.standard
+        let presenter = SyntaxPresenter(textView: ed.textView, coordinator: coordinator, policy: policy)
+        // The presenter's refresh is the main-thread cost of applying a result; time it.
+        let refreshMs = Samples()
+        let applyRefresh = coordinator.onChange
+        coordinator.onChange = { ranges in
+            let began = ContinuousClock.now
+            applyRefresh?(ranges)
+            refreshMs.values.append(Double(began.duration(to: .now).components.attoseconds) / 1e15
+                + Double(began.duration(to: .now).components.seconds) * 1_000)
+        }
+
+        ed.textView.setSelectedRange(NSRange(location: total / 2, length: 0))
+        ed.textView.scrollRangeToVisible(NSRange(location: total / 2, length: 0))
+        Presenter.present(host)
+        let started = ContinuousClock.now
+        while coordinator.lastResultVersion != session.version, elapsed(since: started) < 120_000 {
+            try? await Task.sleep(for: .milliseconds(2))
+            Presenter.present(host)
+        }
+        out["first_colours_ms"] = round3(elapsed(since: started))
+        out["spans_in_window"] = coordinator.state.spans.count
+        out["window_units"] = coordinator.state.window.count
+        out["footprint_mb"] = round3(footprintMB() - before)
+        out["first_refresh_main_ms"] = round3(refreshMs.values.first ?? 0)
+        refreshMs.values.removeAll()
+
+        // Typing with colours on: the keystroke (input to draw), then the wait for the colours of
+        // that version, then the draw that shows them.
+        var native: [Double] = [], keystroke: [Double] = [], lag: [Double] = [], redraw: [Double] = []
+        var position = total / 2
+        for _ in 0..<60 {
+            if footprintMB() > Self.memoryGuardMB { break }
+            let keyed = ContinuousClock.now
+            var nativeMs = 0.0, presentMs = 0.0
+            autoreleasepool {
+                nativeMs = milliseconds { ed.textView.insertText("x", replacementRange: NSRange(location: position, length: 0)) }
+                presentMs = milliseconds { Presenter.present(host) }
+            }
+            position += 1
+            native.append(nativeMs)
+            keystroke.append(nativeMs + presentMs)
+            while coordinator.lastResultVersion != session.version, elapsed(since: keyed) < 5_000 {
+                try? await Task.sleep(for: .milliseconds(1))
+            }
+            lag.append(elapsed(since: keyed))
+            redraw.append(milliseconds { Presenter.present(host) })
+            endEvent()
+        }
+        out["keystroke_input_to_draw"] = Stats(keystroke).json
+        out["keystroke_commit"] = Stats(native).json
+        out["colour_lag"] = Stats(lag).json
+        out["redraw_after_colours"] = Stats(redraw).json
+        out["refresh_main"] = Stats(refreshMs.values).json
+        out["resyncs"] = coordinator.resyncCount
+        emit(label.merging(out) { $1 })
+        _ = presenter
+        coordinator.onChange = nil
+    }
+
+    // MARK: Colours (TK-007b)
+
+    private struct Span {
+        let location: Int
+        let length: Int
+        let color: NSColor
+    }
+
+    /// The end of a real event: lets NSUndoManager close its per-event group.
+    private func endEvent() {
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.0005))
+    }
+
+    private final class Samples {
+        var values: [Double] = []
+    }
+
+    private final class Tally {
+        var calls = 0
+        var spans = 0
+        var validatorMs = 0.0
+    }
+
+    /// A stand-in for a highlighter: words of three or more letters and numbers get a colour.
+    /// It gives about as many spans per line as real Swift code does; its own cost is small and
+    /// is the same for both ways of applying colours, so only the application is compared.
+    private static func spans(in text: NSString) -> [Span] {
+        let palette: [NSColor] = [.systemBlue, .systemPurple, .systemGreen, .systemOrange]
+        var found: [Span] = []
+        var index = 0, count = 0
+        let length = text.length
+        while index < length {
+            let unit = text.character(at: index)
+            let isWord = (unit >= 0x30 && unit <= 0x39) || (unit >= 0x41 && unit <= 0x5A) || (unit >= 0x61 && unit <= 0x7A) || unit == 0x5F
+            if isWord {
+                var end = index + 1
+                while end < length {
+                    let u = text.character(at: end)
+                    if (u >= 0x30 && u <= 0x39) || (u >= 0x41 && u <= 0x5A) || (u >= 0x61 && u <= 0x7A) || u == 0x5F { end += 1 } else { break }
+                }
+                if end - index >= 3 {
+                    found.append(Span(location: index, length: end - index, color: palette[count % palette.count]))
+                    count += 1
+                }
+                index = end
+            } else {
+                index += 1
+            }
+        }
+        return found
+    }
+
+    /// The part of the document the layout is working on, as a character range.
+    private func viewportCharacters(_ editor: TextKitEditor) -> NSRange {
+        guard let layoutManager = editor.textView.textLayoutManager,
+              let content = layoutManager.textContentManager,
+              let viewport = layoutManager.textViewportLayoutController.viewportRange else {
+            return NSRange(location: 0, length: 0)
+        }
+        let start = content.offset(from: content.documentRange.location, to: viewport.location)
+        let length = content.offset(from: viewport.location, to: viewport.endLocation)
+        return NSRange(location: start, length: length)
+    }
+
+    /// Two ways to colour what is in view, measured on the same synthetic spans:
+    /// rendering attributes (a validator colours each fragment as it is laid out; nothing in the
+    /// storage changes) and attributes written into the storage.
+    private func attributes(editor ed: TextKitEditor, host: EditorHostView, session: DocumentSession) {
+        guard let tlm = ed.textView.textLayoutManager, let content = tlm.textContentManager,
+              let storage = ed.textView.textStorage else { return }
+        let total = ed.textView.string.utf16.count
+        let places = [("start", 0), ("middle", total / 2), ("end", total)]
+        func go(_ location: Int) {
+            ed.textView.setSelectedRange(NSRange(location: location, length: 0))
+            ed.textView.scrollRangeToVisible(NSRange(location: location, length: 0))
+            Presenter.present(host)
+        }
+        var out: [String: Any] = ["phase": "attributes"]
+
+        // A. Rendering attributes. The validator runs when a fragment is laid out; to colour what
+        // is already laid out, the storage is told that attributes (not text) changed.
+        let tally = Tally()
+        tlm.renderingAttributesValidator = { manager, fragment in
+            guard let paragraph = fragment.textElement as? NSTextParagraph else { return }
+            let started = ContinuousClock.now
+            let found = Self.spans(in: paragraph.attributedString.string as NSString)
+            let origin = fragment.rangeInElement.location
+            for span in found {
+                guard let from = content.location(origin, offsetBy: span.location),
+                      let to = content.location(from, offsetBy: span.length),
+                      let range = NSTextRange(location: from, end: to) else { continue }
+                manager.setRenderingAttributes([.foregroundColor: span.color], for: range)
+            }
+            tally.calls += 1
+            tally.spans += found.count
+            let spent = started.duration(to: .now)
+            tally.validatorMs += Double(spent.components.seconds) * 1_000 + Double(spent.components.attoseconds) / 1e15
+        }
+        var renderingUnchanged = true
+        for (name, location) in places {
+            go(location)
+            let viewport = viewportCharacters(ed)
+            let versionBefore = session.version, generationBefore = ed.backend.editGeneration
+            var samples: [Double] = []
+            tally.calls = 0; tally.spans = 0; tally.validatorMs = 0
+            for _ in 0..<3 {
+                samples.append(milliseconds {
+                    storage.beginEditing()
+                    storage.edited(.editedAttributes, range: viewport, changeInLength: 0)
+                    storage.endEditing()
+                    Presenter.present(host)
+                })
+            }
+            renderingUnchanged = renderingUnchanged && session.version == versionBefore
+                && ed.backend.editGeneration == generationBefore
+            out["rendering_refresh_\(name)_ms"] = round3(Stats(samples).p50)
+            out["rendering_\(name)_fragments"] = tally.calls / 3
+            out["rendering_\(name)_spans"] = tally.spans / 3
+            out["rendering_\(name)_validator_ms"] = round3(tally.validatorMs / 3)
+        }
+        out["rendering_text_untouched"] = renderingUnchanged
+        typing("middle, rendering attributes", at: total / 2, editor: ed, host: host, window: host.window!, session: session)
+        tlm.renderingAttributesValidator = nil
+        tlm.setRenderingAttributes([:], for: tlm.documentRange)
+
+        // B. The same colours written into the storage.
+        let palette = NSColor.textColor
+        var storageUnchanged = true
+        var painted: [NSRange] = []
+        let total2 = ed.textView.string.utf16.count
+        for (name, location) in [("start", 0), ("middle", total2 / 2), ("end", total2)] {
+            go(location)
+            let viewport = viewportCharacters(ed)
+            let versionBefore = session.version, generationBefore = ed.backend.editGeneration
+            painted.append(viewport)
+            let text = (ed.textView.string as NSString).substring(with: viewport) as NSString
+            let ms = milliseconds {
+                let found = Self.spans(in: text)
+                storage.beginEditing()
+                storage.addAttribute(.foregroundColor, value: palette, range: viewport)
+                for span in found {
+                    storage.addAttribute(
+                        .foregroundColor, value: span.color,
+                        range: NSRange(location: viewport.location + span.location, length: span.length)
+                    )
+                }
+                storage.endEditing()
+                Presenter.present(host)
+            }
+            storageUnchanged = storageUnchanged && session.version == versionBefore
+                && ed.backend.editGeneration >= generationBefore
+            out["storage_apply_\(name)_ms"] = round3(ms)
+        }
+        out["storage_published_no_revision"] = storageUnchanged
+        typing("middle, storage attributes", at: total2 / 2, editor: ed, host: host, window: host.window!, session: session)
+        // Put the text back as it was: the colours written above would otherwise slow every phase
+        // that follows, on long lines by a factor of two or more.
+        let length = storage.length
+        storage.beginEditing()
+        for range in painted where range.location < length {
+            let clipped = NSRange(location: range.location, length: min(range.length, length - range.location))
+            storage.removeAttribute(.foregroundColor, range: clipped)
+            storage.addAttribute(.foregroundColor, value: palette, range: clipped)
+        }
+        storage.endEditing()
+
+        // One notification over the whole document, for small files only: it is not lazy, and it is measured last because it leaves the whole
+        // document invalidated, which would distort anything measured after it. Measured
+        // once at 1 MB (1.3 s) and 10 MB (59 s, abandoned at 100 MB); refresh must name its range.
+        if megabytes <= 1 {
+            let whole = milliseconds {
+                storage.beginEditing()
+                storage.edited(.editedAttributes, range: NSRange(location: 0, length: storage.length), changeInLength: 0)
+                storage.endEditing()
+                Presenter.present(host)
+            }
+            out["rendering_refresh_whole_ms"] = round3(whole)
+        }
         emit(label.merging(out) { $1 })
     }
 

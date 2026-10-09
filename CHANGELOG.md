@@ -54,6 +54,23 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 - Line numbers in the editor margin (`LineNumberRulerView`, an `NSRulerView`). Numbers come from `LineIndex`, which is kept up to date from published change sets, so they are right for lines that were never laid out; only the rows in view are visited (about 0.07 ms), a wrapped line is numbered once, and the empty last line after a final newline is numbered. Lines end with `\n`, `\r\n` or `\r`. See ADR-014 and [docs/benchmarks/TK-007a-results.md](docs/benchmarks/TK-007a-results.md).
 - `LineIndex`: chunked line lengths with the terminator kept per line, edit cost O(edit + chunks), joins and splits of `\r\n` followed without reading text; `DocumentLineIndex` follows a session and rebuilds from the backend when it cannot. Property tests against a rescan, including edits across chunk boundaries.
 
+### Added (TK-007c)
+
+- Syntax colours for Swift files (ADR-014): tree-sitter parses in the background from the document's own edits (incrementally, from a private chunked copy of the text), the editor draws the result as TextKit 2 rendering attributes. Colours follow edits at once and are replaced by the next result; the document, its revisions and undo are untouched. Files over 5 MB, lines over 1000 characters and lines with over 50 coloured runs are drawn plain (the window says so for large files). See [docs/benchmarks/TK-007c-results.md](docs/benchmarks/TK-007c-results.md).
+- New dependencies, pinned exactly: swift-tree-sitter 0.25.0 and tree-sitter-swift 0.7.4. Licences in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- New module `SyntaxInfrastructure`, the `SyntaxHighlighter` port, `SyntaxCoordinator`, `HighlightState`, `SyntaxPolicy`, `SyntaxPresenter` and `SyntaxTheme`.
+
+### Fixed (review of TK-007c)
+
+- A document that shrank below the text that had been on screen made the syntax coordinator (and the highlighter) build an invalid range and crash; every range is now clamped to the current text.
+- After an edit that changes colours far away (adding or removing `/*`), text laid out before the edit kept its old colours when scrolled back to: colours already known were taken as the union of all earlier windows. The known window is now only what the latest answer describes, a window from an older version does not count for a newer one, and scrolling tells the coordinator what is in view (TextKit reuses laid-out text without asking the validator).
+- Redrawing colours of text far from the viewport made TextKit lose the last lines of a long document when the view was at its end; redraws are now limited to what is in view and the rest waits until it is scrolled to.
+- The highlighter now receives its result handler through the same queue as its other messages.
+
+### Measured (TK-007b)
+
+- Colour application prototype ([docs/benchmarks/TK-007b-results.md](docs/benchmarks/TK-007b-results.md)): TextKit 2 rendering attributes, applied by a validator per laid-out fragment, colour text without touching the document, its revisions or undo, follow edits, and cost about 2.5 ms per keystroke at any file size up to 100 MB (against about 1.5 ms for attributes written into the storage, which stays as the fallback). Already laid-out text is recoloured by an attribute-only storage notification over a named range; a notification over the whole document is not lazy (1.3 s at 1 MB, 59 s at 10 MB). Lines of tens of KB are too slow to colour either way. See ADR-014. Tests: `RenderingAttributeTests`.
+
 ### Fixed (TK-007a)
 
 - A long file could not be scrolled: the text view's maximum size defaulted to its initial frame. Benchmarks of TK-008 and TK-011 for the middle and end of a file therefore measured the top of the document; they are corrected in TK-007a.

@@ -18,6 +18,10 @@ if arguments.count >= 4, arguments[1] == "run", let shape = Shape(rawValue: argu
         emit(["phase": "error", "shape": shape.rawValue, "mb": megabytes, "error": "\(error)"])
         exit(1)
     }
+} else if arguments.count >= 2, arguments[1] == "micro" {
+    NSApplication.shared.setActivationPolicy(.prohibited)
+    NSApp.finishLaunching()
+    Micro.run()
 } else if arguments.count >= 3, arguments[1] == "driver" {
     let quick = arguments.contains("--quick")
     let output = arguments.last!
