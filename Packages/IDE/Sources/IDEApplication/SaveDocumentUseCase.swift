@@ -65,8 +65,13 @@ public final class SaveDocumentUseCase {
     }
 
     /// One instance must be shared across views of the same workspace.
+    ///
+    /// A file changed on disk since it was read or last saved makes the save fail with
+    /// `FileStoreError.conflict` and nothing is written. Replacing it anyway needs the explicit
+    /// `overwritingExternalChanges`, which the user chooses after seeing the conflict.
     public func execute(
-        document: DocumentSession, trigger: SaveTrigger = .explicit
+        document: DocumentSession, trigger: SaveTrigger = .explicit,
+        overwritingExternalChanges: Bool = false
     ) async throws -> SaveReceipt {
         // A save still waiting for composition has captured nothing yet, so a new request joins
         // it instead of failing, and an explicit one promotes a waiting autosave.
@@ -91,7 +96,9 @@ public final class SaveDocumentUseCase {
         let operation = SaveOperation(trigger: trigger)
         operations[document.id] = operation
         do {
-            let receipt = try await run(operation, document: document)
+            let receipt = try await run(
+                operation, document: document, overwriting: overwritingExternalChanges
+            )
             operations.removeValue(forKey: document.id)
             operation.finish(.success(receipt))
             return receipt
@@ -102,7 +109,9 @@ public final class SaveDocumentUseCase {
         }
     }
 
-    private func run(_ operation: SaveOperation, document: DocumentSession) async throws -> SaveReceipt {
+    private func run(
+        _ operation: SaveOperation, document: DocumentSession, overwriting: Bool
+    ) async throws -> SaveReceipt {
         // Never persist a pre-composition snapshot while marked text is live. The wait is not
         // followed by a suspension before the capture, so the snapshot is the final text.
         if operation.trigger == .explicit { document.requestCompositionEnd() }
@@ -110,10 +119,13 @@ public final class SaveDocumentUseCase {
         try Task.checkCancellation()
         operation.isWaitingForComposition = false
         let snapshot = document.snapshot()
-        try await store.write(snapshot)
+        // The disk revision is captured together with the snapshot: the write is judged against
+        // the file this text was based on, whatever happens to the document meanwhile.
+        let expectation: SaveExpectation = overwriting ? .overwrite : .revision(document.diskRevision)
+        let revision = try await store.write(snapshot, expecting: expectation)
         // There may have been edits during await. Acknowledge the captured version.
         // Once write succeeded, retain this fact even if the caller now cancels.
-        document.acknowledgeSave(of: snapshot)
+        document.acknowledgeSave(of: snapshot, revision: revision)
         return SaveReceipt(
             savedVersion: snapshot.version,
             isCurrent: document.version == snapshot.version

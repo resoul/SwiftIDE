@@ -9,12 +9,14 @@ private enum TestStoreError: Error, Equatable {
 
 /// Deterministic suspended I/O; tests need no sleeps or timing assumptions.
 private actor ControlledFileStore: DocumentFileStore {
-    private var pending: CheckedContinuation<Void, any Error>?
+    private var pending: CheckedContinuation<FileRevision, any Error>?
     private var startedWaiters: [CheckedContinuation<Void, Never>] = []
     private var hasStarted = false
     private(set) var written: DocumentSnapshot?
 
-    func write(_ snapshot: DocumentSnapshot) async throws {
+    func read(path: String, maximumBytes: Int) async throws -> LoadedFile { throw FileStoreError.notFound }
+
+    func write(_ snapshot: DocumentSnapshot, expecting: SaveExpectation) async throws -> FileRevision {
         try await withCheckedThrowingContinuation { continuation in
             pending = continuation
             written = snapshot
@@ -37,7 +39,7 @@ private actor ControlledFileStore: DocumentFileStore {
         if failing {
             continuation.resume(throwing: TestStoreError.writeFailed)
         } else {
-            continuation.resume()
+            continuation.resume(returning: .stub(Int64(written?.version ?? 1)))
         }
     }
 }

@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "IDEDomain", targets: ["IDEDomain"]),
         .library(name: "IDEApplication", targets: ["IDEApplication"]),
+        .library(name: "FileSystemInfrastructure", targets: ["FileSystemInfrastructure"]),
         .library(name: "EditorPlatformTextKit", targets: ["EditorPlatformTextKit"]),
         .library(name: "EditorUI", targets: ["EditorUI"]),
         .library(name: "IDETestSupport", targets: ["IDETestSupport"])
@@ -14,6 +15,8 @@ let package = Package(
     targets: [
         .target(name: "IDEDomain"),
         .target(name: "IDEApplication", dependencies: ["IDEDomain"]),
+        // POSIX/Foundation file access lives only here; the app composes it, Application never sees it.
+        .target(name: "FileSystemInfrastructure", dependencies: ["IDEDomain", "IDEApplication"]),
         // AppKit/TextKit live only in the platform and UI modules.
         .target(name: "EditorPlatformTextKit", dependencies: ["IDEDomain", "IDEApplication"]),
         .target(name: "EditorUI", dependencies: ["EditorPlatformTextKit"]),
@@ -22,6 +25,10 @@ let package = Package(
         .testTarget(
             name: "IDEApplicationTests",
             dependencies: ["IDEDomain", "IDEApplication", "IDETestSupport", "EditorPlatformTextKit"]
+        ),
+        .testTarget(
+            name: "FileSystemInfrastructureTests",
+            dependencies: ["IDEDomain", "IDEApplication", "FileSystemInfrastructure"]
         )
     ],
     swiftLanguageModes: [.v6]

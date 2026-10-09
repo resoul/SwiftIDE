@@ -2,6 +2,7 @@ import AppKit
 import EditorPlatformTextKit
 import IDEApplication
 import IDEDomain
+import IDETestSupport
 import Testing
 
 /// Drives a real NSTextView through the same entry points AppKit input methods use.
@@ -250,7 +251,11 @@ func saveDuringCompositionFinishesItAndWritesFinalText() async throws {
 
 private actor SpyStore: DocumentFileStore {
     private(set) var texts: [String] = []
-    func write(_ snapshot: DocumentSnapshot) async throws { texts.append(snapshot.text) }
+    func read(path: String, maximumBytes: Int) async throws -> LoadedFile { throw FileStoreError.notFound }
+    func write(_ snapshot: DocumentSnapshot, expecting: SaveExpectation) async throws -> FileRevision {
+        texts.append(snapshot.text)
+        return .stub(Int64(texts.count))
+    }
 }
 
 // MARK: Undo regressions

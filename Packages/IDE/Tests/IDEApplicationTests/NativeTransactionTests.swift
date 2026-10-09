@@ -20,7 +20,11 @@ private final class Recorder {
 
 private actor RecordingStore: DocumentFileStore {
     private(set) var snapshots: [DocumentSnapshot] = []
-    func write(_ snapshot: DocumentSnapshot) async throws { snapshots.append(snapshot) }
+    func read(path: String, maximumBytes: Int) async throws -> LoadedFile { throw FileStoreError.notFound }
+    func write(_ snapshot: DocumentSnapshot, expecting: SaveExpectation) async throws -> FileRevision {
+        snapshots.append(snapshot)
+        return .stub(Int64(snapshots.count))
+    }
 }
 
 private func edit(_ location: Int, _ length: Int, _ replacement: String) -> DocumentEdit {

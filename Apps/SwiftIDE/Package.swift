@@ -16,6 +16,7 @@ let package = Package(
             dependencies: [
                 .product(name: "IDEDomain", package: "IDE"),
                 .product(name: "IDEApplication", package: "IDE"),
+                .product(name: "FileSystemInfrastructure", package: "IDE"),
                 .product(name: "EditorPlatformTextKit", package: "IDE"),
                 .product(name: "EditorUI", package: "IDE")
             ]

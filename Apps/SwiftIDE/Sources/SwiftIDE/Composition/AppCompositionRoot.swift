@@ -1,5 +1,7 @@
 import EditorPlatformTextKit
+import FileSystemInfrastructure
 import IDEApplication
+import IDEDomain
 
 /// Only the composition layer constructs concrete adapters.
 @MainActor
@@ -19,10 +21,46 @@ final class AppCompositionRoot {
 
     """
 
-    /// Loading from disk arrives with the real DocumentFileStore; this window is untitled.
-    func makeWorkspaceWindow() -> WorkspaceWindowController {
+    private let store = AtomicDocumentFileStore()
+    private let registry = DocumentRegistry()
+    /// Editors built while opening, until their window takes them over.
+    private var pendingEditors: [DocumentID: TextKitEditor] = [:]
+
+    private(set) lazy var saveDocument = SaveDocumentUseCase(store: store)
+    private(set) lazy var reloadDocument = ReloadDocumentUseCase(store: store)
+    private lazy var openDocument = OpenDocumentUseCase(store: store, registry: registry) { [unowned self] file in
+        let editor = TextKitEditorFactory.makeEditor(loadedText: file.text)
+        let session = DocumentSession(loaded: file, backend: editor.backend)
+        pendingEditors[session.id] = editor
+        return session
+    }
+
+    /// A scratch window without a file. Saving it needs Save As, which does not exist yet.
+    func makeUntitledWindow() -> WorkspaceWindowController {
         let editor = TextKitEditorFactory.makeEditor(loadedText: Self.sampleText)
-        let document = DocumentSession(path: "Untitled.swift", backend: editor.backend)
-        return WorkspaceWindowController(document: document, editor: editor)
+        let session = DocumentSession(path: "Untitled.swift", backend: editor.backend)
+        return WorkspaceWindowController(
+            document: session, editor: editor, isUntitled: true,
+            saveDocument: saveDocument, reloadDocument: reloadDocument
+        )
+    }
+
+    /// Opens a file, or returns the window of the one that is already open.
+    func open(path: String) async throws -> OpenedDocument {
+        try await openDocument.execute(path: path)
+    }
+
+    func makeWindow(for session: DocumentSession) -> WorkspaceWindowController {
+        guard let editor = pendingEditors.removeValue(forKey: session.id) else {
+            preconditionFailure("A new document must come with its editor")
+        }
+        return WorkspaceWindowController(
+            document: session, editor: editor, isUntitled: false,
+            saveDocument: saveDocument, reloadDocument: reloadDocument
+        )
+    }
+
+    func close(_ session: DocumentSession) {
+        registry.remove(session)
     }
 }

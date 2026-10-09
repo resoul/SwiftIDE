@@ -29,18 +29,34 @@ public final class DocumentSession: NativeEditReceiver {
     public private(set) var version: UInt64 = 0
     public private(set) var savedVersion: UInt64 = 0
     public private(set) var isComposing = false
+    /// What the file looked like when it was last read or written; the base of the next save.
+    public private(set) var diskRevision: FileRevision?
+    public private(set) var encoding: FileEncoding
     /// How many native changes arrived without an exact edit log and were rebuilt by diff.
     public private(set) var reconciliationCount = 0
 
     public var isDirty: Bool { version != savedVersion }
 
     /// Represents content already loaded from storage.
-    public init(id: DocumentID = DocumentID(), path: String, backend: any DocumentEditingBackend) {
+    public init(
+        id: DocumentID = DocumentID(), path: String, backend: any DocumentEditingBackend,
+        diskRevision: FileRevision? = nil, encoding: FileEncoding = .utf8
+    ) {
         self.id = id
         self.path = path
         self.backend = backend
+        self.diskRevision = diskRevision
+        self.encoding = encoding
         self.committedText = backend.text
         backend.attach(nativeEditReceiver: self)
+    }
+
+    /// A document whose text, encoding and disk revision come from a file just read.
+    public convenience init(id: DocumentID = DocumentID(), loaded: LoadedFile, backend: any DocumentEditingBackend) {
+        self.init(
+            id: id, path: loaded.path, backend: backend,
+            diskRevision: loaded.revision, encoding: loaded.encoding
+        )
     }
 
     public func replaceText(_ replacement: String, expectedVersion: UInt64) throws {
@@ -86,14 +102,23 @@ public final class DocumentSession: NativeEditReceiver {
     }
 
     public func snapshot() -> DocumentSnapshot {
-        DocumentSnapshot(documentID: id, path: path, version: version, text: committedText)
+        DocumentSnapshot(documentID: id, path: path, version: version, text: committedText, encoding: encoding)
     }
 
     // Only application scenarios can acknowledge persistence.
-    func acknowledgeSave(of snapshot: DocumentSnapshot) {
+    func acknowledgeSave(of snapshot: DocumentSnapshot, revision: FileRevision) {
         precondition(snapshot.documentID == id && snapshot.path == path)
         precondition(snapshot.version <= version)
         savedVersion = snapshot.version
+        diskRevision = revision
+    }
+
+    /// The current text now matches this file: nothing is unsaved.
+    func acknowledgeLoad(of file: LoadedFile) {
+        precondition(file.path == path)
+        savedVersion = version
+        diskRevision = file.revision
+        encoding = file.encoding
     }
 
     // MARK: Native edits

@@ -9,7 +9,9 @@ enum MainMenu {
         ]))
         main.addItem(submenuItem(title: "File", items: [
             NSMenuItem(title: "New", action: #selector(AppDelegate.newDocument(_:)), keyEquivalent: "n"),
-            NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+            NSMenuItem(title: "Open…", action: #selector(AppDelegate.openDocument(_:)), keyEquivalent: "o"),
+            NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"),
+            NSMenuItem(title: "Save", action: #selector(WorkspaceWindowController.saveDocument(_:)), keyEquivalent: "s")
         ]))
         main.addItem(submenuItem(title: "Edit", items: [
             NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z"),
