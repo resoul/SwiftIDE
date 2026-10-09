@@ -29,6 +29,10 @@ public final class StringDocumentBackend: DocumentEditingBackend {
         storage.substring(with: NSRange(location: range.location, length: range.length))
     }
 
+    public func enumerateUTF16(in range: UTF16TextRange, using body: (UnsafeBufferPointer<UInt16>) -> Void) {
+        NSStringUnits.enumerate(storage, in: range, using: body)
+    }
+
     public func commit(_ plan: PreparedDocumentEdit) {
         precondition(storage.length == plan.sourceLength)
         for edit in plan.edits {   // descending, so earlier positions stay valid

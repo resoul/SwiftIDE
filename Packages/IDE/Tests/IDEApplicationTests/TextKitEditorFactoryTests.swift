@@ -22,3 +22,10 @@ func sessionEditsAreVisibleInTheNativeView() throws {
     #expect(document.version == 1)
     #expect(editor.compatibility.isTextKit2)
 }
+
+@Test @MainActor
+func loadedTextUsesTheDynamicTextColourSoItIsReadableInDarkMode() throws {
+    let editor = TextKitEditorFactory.makeEditor(loadedText: "abc")
+    let storage = try #require(editor.textView.textStorage)
+    #expect(storage.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == .textColor)
+}

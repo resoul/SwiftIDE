@@ -49,6 +49,16 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 - Save-and-close and Overwrite no longer close the window over edits made while the write was in progress.
 - Quit no longer lets through documents that changed while another document's question was open: answers are tied to the text version they were given for, and the list of windows is read again after every answer.
 
+### Added (TK-007a)
+
+- Line numbers in the editor margin (`LineNumberRulerView`, an `NSRulerView`). Numbers come from `LineIndex`, which is kept up to date from published change sets, so they are right for lines that were never laid out; only the rows in view are visited (about 0.07 ms), a wrapped line is numbered once, and the empty last line after a final newline is numbered. Lines end with `\n`, `\r\n` or `\r`. See ADR-014 and [docs/benchmarks/TK-007a-results.md](docs/benchmarks/TK-007a-results.md).
+- `LineIndex`: chunked line lengths with the terminator kept per line, edit cost O(edit + chunks), joins and splits of `\r\n` followed without reading text; `DocumentLineIndex` follows a session and rebuilds from the backend when it cannot. Property tests against a rescan, including edits across chunk boundaries.
+
+### Fixed (TK-007a)
+
+- A long file could not be scrolled: the text view's maximum size defaulted to its initial frame. Benchmarks of TK-008 and TK-011 for the middle and end of a file therefore measured the top of the document; they are corrected in TK-007a.
+- Loaded text had no foreground colour and was drawn black in dark mode; it now uses the dynamic text colour.
+
 ### Fixed (review of TK-011 and Save As)
 
 - Ending an IME composition no longer publishes an intermediate snapshot, and a real edit wider than what preflight knew about no longer loses its extra part: an edit is exact only when the paragraph content confirms it.

@@ -45,6 +45,9 @@ public final class DocumentSession: NativeEditReceiver {
 
     public var isDirty: Bool { version != savedVersion }
 
+    /// UTF-16 length of the text at `version`; O(1).
+    public var utf16Length: Int { length }
+
     /// Represents content already loaded from storage.
     public init(
         id: DocumentID = DocumentID(), path: String, backend: any DocumentEditingBackend,

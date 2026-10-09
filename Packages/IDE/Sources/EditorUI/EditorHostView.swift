@@ -1,12 +1,14 @@
 import AppKit
 import EditorPlatformTextKit
+import IDEApplication
 
 /// Scrollable container for one TextKit 2 text view. Owns geometry only, not text.
 @MainActor
 public final class EditorHostView: NSScrollView {
     public let textView: NSTextView
 
-    public init(editor: TextKitEditor) {
+    /// `lineIndex` adds a line-number margin.
+    public init(editor: TextKitEditor, lineIndex: DocumentLineIndex? = nil) {
         textView = editor.textView
         super.init(frame: .zero)
         hasVerticalScroller = true
@@ -14,6 +16,11 @@ public final class EditorHostView: NSScrollView {
         drawsBackground = true
         borderType = .noBorder
         documentView = textView
+        if let lineIndex {
+            verticalRulerView = LineNumberRulerView(scrollView: self, textView: textView, lineIndex: lineIndex)
+            hasVerticalRuler = true
+            rulersVisible = true
+        }
     }
 
     @available(*, unavailable)

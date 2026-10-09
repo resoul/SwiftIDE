@@ -19,12 +19,12 @@ let package = Package(
         .target(name: "FileSystemInfrastructure", dependencies: ["IDEDomain", "IDEApplication"]),
         // AppKit/TextKit live only in the platform and UI modules.
         .target(name: "EditorPlatformTextKit", dependencies: ["IDEDomain", "IDEApplication"]),
-        .target(name: "EditorUI", dependencies: ["EditorPlatformTextKit"]),
+        .target(name: "EditorUI", dependencies: ["IDEApplication", "EditorPlatformTextKit"]),
         // Headless adapters of the same ports; not linked into the app.
         .target(name: "IDETestSupport", dependencies: ["IDEDomain", "IDEApplication"]),
         .testTarget(
             name: "IDEApplicationTests",
-            dependencies: ["IDEDomain", "IDEApplication", "IDETestSupport", "EditorPlatformTextKit"]
+            dependencies: ["IDEDomain", "IDEApplication", "IDETestSupport", "EditorPlatformTextKit", "EditorUI"]
         ),
         .testTarget(
             name: "FileSystemInfrastructureTests",

@@ -9,6 +9,8 @@ import UniformTypeIdentifiers
 final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
     let session: DocumentSession
     private let editor: TextKitEditor
+    /// Line starts of the document, followed edit by edit; the margin draws from it.
+    private let lineIndex: DocumentLineIndex
     private let registry: DocumentRegistry
     private let saveDocument: SaveDocumentUseCase
     private let reloadDocument: ReloadDocumentUseCase
@@ -25,6 +27,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         self.revisionOfFile = revisionOfFile
         self.session = document
         self.editor = editor
+        self.lineIndex = DocumentLineIndex(session: document, source: editor.backend)
         self.registry = registry
         self.saveDocument = saveDocument
         self.reloadDocument = reloadDocument
@@ -33,7 +36,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false
         )
-        window.contentView = EditorHostView(editor: editor)
+        window.contentView = EditorHostView(editor: editor, lineIndex: lineIndex)
         window.center()
         super.init(window: window)
         window.delegate = self

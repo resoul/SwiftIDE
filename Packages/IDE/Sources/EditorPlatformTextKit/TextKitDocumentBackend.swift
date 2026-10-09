@@ -16,7 +16,9 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
     public private(set) var textMaterializations = 0
 
     public init(loadedText: String) {
-        storage = NSTextStorage(string: loadedText)
+        // Text without a colour is drawn black whatever the appearance; the dynamic text colour
+        // follows light and dark mode, and is what typed text gets from the view anyway.
+        storage = NSTextStorage(string: loadedText, attributes: [.foregroundColor: NSColor.textColor])
         contentStorage = NSTextContentStorage()
         textLayoutManager = NSTextLayoutManager()
         contentStorage.textStorage = storage
@@ -54,6 +56,10 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
 
     public func substring(in range: UTF16TextRange) -> String {
         storage.mutableString.substring(with: NSRange(location: range.location, length: range.length))
+    }
+
+    public func enumerateUTF16(in range: UTF16TextRange, using body: (UnsafeBufferPointer<UInt16>) -> Void) {
+        NSStringUnits.enumerate(storage.mutableString, in: range, using: body)
     }
 
     // MARK: Reading (whole text)
