@@ -87,6 +87,14 @@ struct Scenario {
         let afterIndex = footprintMB()
 
         let host = EditorHostView(editor: ed, lineIndex: lineIndex)
+        // Experiment: NOWRAP=1 lays lines out without wrapping and scrolls sideways instead.
+        if ProcessInfo.processInfo.environment["NOWRAP"] == "1", let container = ed.textView.textContainer {
+            container.widthTracksTextView = false
+            container.size = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            ed.textView.isHorizontallyResizable = true
+            ed.textView.autoresizingMask = []
+            host.hasHorizontalScroller = true
+        }
         let window = NSWindow(
             contentRect: NSRect(x: -30_000, y: -30_000, width: 900, height: 640),
             styleMask: [.borderless], backing: .buffered, defer: false

@@ -61,3 +61,31 @@ func chunkedTextRejectsRangesOutsideItAndHandlesEmptiness() {
     #expect(text.length == 0 && text.units.isEmpty)
     #expect(text.bytes(fromUnit: 0) == nil)
 }
+
+@Test
+func pairsAreFoundAcrossChunkBoundariesAndSearchStopsWhenAsked() {
+    var generator = SeededGenerator(state: 0x9A12)
+    for round in 0..<300 {
+        // Chunks of arbitrary small sizes, so that boundaries fall between the two units of a pair.
+        let alphabet: [UInt16] = [0x2F, 0x2A, 0x61, 0x20]
+        let model = (0..<Int.random(in: 0...60, using: &generator)).map { _ in alphabet.randomElement(using: &generator)! }
+        var chunks: [[UInt16]] = []
+        var index = 0
+        while index < model.count {
+            let size = Int.random(in: 1...5, using: &generator)
+            chunks.append(Array(model[index..<min(model.count, index + size)]))
+            index += size
+        }
+        let text = ChunkedText(chunks: chunks)
+        var expected: [Int] = []
+        if model.count > 1 { for i in 0..<(model.count - 1) where model[i] == 0x2F && model[i + 1] == 0x2A { expected.append(i) } }
+        var found: [Int] = []
+        text.forEachPair(0x2F, 0x2A) { found.append($0); return true }
+        #expect(found == expected, "round \(round)")
+
+        let limit = Int.random(in: 1...3, using: &generator)
+        var limited: [Int] = []
+        text.forEachPair(0x2F, 0x2A) { limited.append($0); return limited.count < limit }
+        #expect(limited == Array(expected.prefix(limit)), "stops when asked, round \(round)")
+    }
+}

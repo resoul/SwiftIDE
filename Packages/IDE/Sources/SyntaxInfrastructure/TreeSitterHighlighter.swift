@@ -70,6 +70,9 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
         private var version: UInt64 = 0
         /// Edits were applied to the tree since it was last parsed.
         private var needsParse = true
+        /// Where a block comment that is never closed begins, if there is one. The grammar only
+        /// knows a closed comment; Swift reads an unclosed one to the end of the text.
+        private var unterminatedComment: Int?
         /// An edit that did not fit the copy of the text: nothing is trusted until a reset.
         private var lost = false
         private var handler: (@Sendable (HighlightResult) -> Void)?
@@ -118,6 +121,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                 let source = text
                 tree = parser.parse(tree: tree, readBlock: { byteOffset, _ in source.bytes(fromUnit: byteOffset / 2) }) ?? tree
                 needsParse = false
+                unterminatedComment = tree.flatMap { findUnterminatedComment(in: $0) }
             }
             guard let tree else { return }
             // A window asked for before an edit can reach past the end of the text now.
@@ -127,6 +131,25 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                 version: version, window: clamped,
                 spans: spans(in: clamped, tree: tree), documentLength: text.length
             ))
+        }
+
+        /// The first `/*` that the syntax tree does not take for the start of a comment or part of a
+        /// string or a line comment: it was read as an operator, which only happens when no `*/`
+        /// closes it. Everything after it is comment, whatever the tree makes of it.
+        private func findUnterminatedComment(in tree: MutableTree) -> Int? {
+            guard let root = tree.rootNode else { return nil }
+            var found: Int?
+            text.forEachPair(0x2F, 0x2A) { position in
+                let bytes = UInt32(position * 2)
+                guard let node = root.descendant(in: bytes..<(bytes + 4)) else { return true }
+                let type = node.nodeType
+                if type == "custom_operator" || (type == "ERROR" && node.byteRange.lowerBound == bytes) {
+                    found = position
+                    return false
+                }
+                return true
+            }
+            return found
         }
 
         private func point(at offset: Int) -> Point {
@@ -160,6 +183,11 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             for item in painted {
                 for index in (item.range.lowerBound - window.lowerBound)..<(item.range.upperBound - window.lowerBound) {
                     kinds[index] = item.kind.rawValue
+                }
+            }
+            if let opener = unterminatedComment, opener < window.upperBound {
+                for index in (max(opener, window.lowerBound) - window.lowerBound)..<kinds.count {
+                    kinds[index] = HighlightKind.comment.rawValue
                 }
             }
             var result: [HighlightSpan] = []

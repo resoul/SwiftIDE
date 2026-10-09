@@ -66,6 +66,29 @@ struct ChunkedText {
         return chunk[from...].withUnsafeBufferPointer { Data(buffer: $0) }
     }
 
+    /// Calls `body` with the offset of each place where `first` is directly followed by `second`,
+    /// in order, until it returns false. For finding `/*` without building a string.
+    func forEachPair(_ first: UInt16, _ second: UInt16, _ body: (Int) -> Bool) {
+        var carried = false   // the last unit of the previous chunk was `first`
+        for (index, chunk) in chunks.enumerated() {
+            let start = starts[index]
+            if carried, chunk.first == second, !body(start - 1) { return }
+            var stopped = false
+            chunk.withUnsafeBufferPointer { units in
+                var position = 0
+                while position + 1 < units.count {
+                    if units[position] == first, units[position + 1] == second, !body(start + position) {
+                        stopped = true
+                        return
+                    }
+                    position += 1
+                }
+            }
+            if stopped { return }
+            carried = chunk.last == first
+        }
+    }
+
     /// All the text. For tests and small inputs.
     var units: [UInt16] { chunks.flatMap { $0 } }
 

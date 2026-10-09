@@ -66,6 +66,7 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 - After an edit that changes colours far away (adding or removing `/*`), text laid out before the edit kept its old colours when scrolled back to: colours already known were taken as the union of all earlier windows. The known window is now only what the latest answer describes, a window from an older version does not count for a newer one, and scrolling tells the coordinator what is in view (TextKit reuses laid-out text without asking the validator).
 - Redrawing colours of text far from the viewport made TextKit lose the last lines of a long document when the view was at its end; redraws are now limited to what is in view and the rest waits until it is scrolled to.
 - The highlighter now receives its result handler through the same queue as its other messages.
+- A block comment that is never closed now colours the rest of the text as comment, as Swift reads it. The grammar only recognises a closed one, so typing `/*` used to leave the code below coloured until `*/` was typed.
 
 ### Measured (TK-007b)
 

@@ -7,7 +7,6 @@ public enum OpenDocumentError: Error, Equatable, Sendable {
 
 public struct OpenedDocument: Sendable {
     public let session: DocumentSession
-    /// False when the file was already open and its existing session is returned.
     public let isNew: Bool
 }
 

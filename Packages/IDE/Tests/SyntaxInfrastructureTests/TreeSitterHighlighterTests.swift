@@ -271,3 +271,123 @@ func aRequestSentRightAfterConnectingIsNeverLost() async throws {
     }
     for hog in hogs { await hog.value }
 }
+
+// MARK: A block comment that is never closed
+
+/// The kinds of every unit of the text, from a result's spans.
+private func kinds(_ result: HighlightResult, count: Int) -> [HighlightKind?] {
+    var kinds = [HighlightKind?](repeating: nil, count: count)
+    for span in result.spans { for index in span.location..<span.end { kinds[index] = span.kind } }
+    return kinds
+}
+
+private func unitOffset(of marker: String, in text: String) -> Int {
+    let range = text.range(of: marker)!
+    return text.utf16.distance(from: text.utf16.startIndex, to: range.lowerBound.samePosition(in: text.utf16)!)
+}
+
+@Test
+func aBlockCommentThatIsNeverClosedRunsToTheEndOfTheText() async throws {
+    // Swift reads an unterminated /* to the end of the file; the grammar alone does not.
+    let text = "let a = 1\n/* open\nlet b = 2\nlet c = \"x\" + 3\n"
+    let units = Array(text.utf16)
+    let start = unitOffset(of: "/*", in: text)
+    let result = try #require(await Rig().highlights(of: units))
+    let found = kinds(result, count: units.count)
+    #expect(found[0..<3].allSatisfy { $0 == .keyword }, "code before the opener is coloured as code")
+    #expect(found[start...].allSatisfy { $0 == .comment }, "everything from the opener on is comment")
+}
+
+@Test
+func aWindowBelowAnUnclosedOpenerIsAllComment() async throws {
+    let text = "/* open\n" + (1...50).map { "let v\($0) = \($0)" }.joined(separator: "\n") + "\n"
+    let units = Array(text.utf16)
+    let rig = try Rig()
+    rig.highlighter.reset(text: [units], version: 0)
+    rig.highlighter.requestHighlights(in: 200..<400, version: 0)   // the opener is above this window
+    let result = try #require(await rig.next())
+    let found = kinds(result, count: units.count)
+    #expect(found[200..<400].allSatisfy { $0 == .comment })
+}
+
+@Test
+func slashStarInsideAStringOrALineCommentOpensNothing() async throws {
+    let text = "let s = \"a /* b\"\n// c /* d\nlet n = 1\n"
+    let units = Array(text.utf16)
+    let result = try #require(await Rig().highlights(of: units))
+    let found = kinds(result, count: units.count)
+    let tail = unitOffset(of: "let n", in: text)
+    #expect(found[tail..<(tail + 3)].allSatisfy { $0 == .keyword }, "the code after them is code")
+    #expect(found[(units.count - 4)..<(units.count - 1)].contains(.number))
+}
+
+@Test
+func aClosedCommentLeavesTheCodeAfterItAlone() async throws {
+    let text = "/* x */ let a = 1\nlet b = 2\n"
+    let units = Array(text.utf16)
+    let result = try #require(await Rig().highlights(of: units))
+    let found = kinds(result, count: units.count)
+    let code = unitOffset(of: "let a", in: text)
+    #expect(found[code..<(code + 3)].allSatisfy { $0 == .keyword })
+}
+
+@Test
+func anOuterCommentThatIsNeverClosedSwallowsAClosedOneInsideIt() async throws {
+    let text = "let a = 1\n/* outer /* inner */ let c = 2\nlet d = 3\n"
+    let units = Array(text.utf16)
+    let result = try #require(await Rig().highlights(of: units))
+    let found = kinds(result, count: units.count)
+    let start = unitOffset(of: "/* outer", in: text)
+    #expect(found[start...].allSatisfy { $0 == .comment })
+}
+
+@Test
+func closingTheCommentAgainGivesTheCodeBackItsColours() async throws {
+    let rig = try Rig()
+    var units = Array("let a = 1\n/* open\nlet b = 2\n".utf16)
+    _ = try #require(await rig.highlights(of: units))
+    let close = DocumentChangeSet(
+        documentID: DocumentID(), oldVersion: 0, newVersion: 1,
+        edits: [DocumentEdit(range: UTF16TextRange(location: units.count - 11, length: 0), replacement: "*/")],
+        origin: .typing
+    )
+    // "/* open\nlet b = 2\n" with "*/" before the second line
+    apply(close, to: &units)
+    rig.highlighter.edit(close)
+    rig.highlighter.requestHighlights(in: 0..<units.count, version: 1)
+    let result = try #require(await rig.next())
+    let text = String(decoding: units, as: UTF16.self)
+    let code = unitOffset(of: "let b", in: text)
+    let found = kinds(result, count: units.count)
+    #expect(found[code..<(code + 3)].allSatisfy { $0 == .keyword }, "once the comment is closed, what follows is code")
+}
+
+@Test
+func incrementalColoursStayEqualToAFreshParseWhenEditsAreAboutComments() async throws {
+    // Edits that open, close and nest comments and strings: where the unclosed-comment rule acts.
+    var generator = SeededGenerator(state: 0xC0DE)
+    let incremental = try Rig(), fresh = try Rig()
+    var units = Array(sample.utf16)
+    var version: UInt64 = 0
+    incremental.highlighter.reset(text: [units], version: version)
+    let pieces = ["/*", "*/", "\"", "//", "\n", "x ", "/* a */", "\\(", "#\""]
+    var mismatches: [String] = []
+    for step in 0..<120 {
+        let location = Int.random(in: 0...units.count, using: &generator)
+        let length = Bool.random(using: &generator) ? 0 : Int.random(in: 0...min(4, units.count - location), using: &generator)
+        let replacement = pieces.randomElement(using: &generator)!
+        let changes = DocumentChangeSet(
+            documentID: DocumentID(), oldVersion: version, newVersion: version + 1,
+            edits: [DocumentEdit(range: UTF16TextRange(location: location, length: length), replacement: replacement)],
+            origin: .typing
+        )
+        apply(changes, to: &units)
+        version += 1
+        incremental.highlighter.edit(changes)
+        incremental.highlighter.requestHighlights(in: 0..<units.count, version: version)
+        let a = try #require(await incremental.next())
+        let b = try #require(await fresh.highlights(of: units, version: version))
+        if a.spans != b.spans { mismatches.append("step \(step)") }
+    }
+    #expect(mismatches.isEmpty, "\(mismatches.count) of 120 steps differ: \(mismatches.prefix(5))")
+}

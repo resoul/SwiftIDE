@@ -210,3 +210,33 @@ func aDocumentCutDownWhileScrolledFarDownKeepsWorking() async throws {
     #expect(colourful(screen.render()) > 0, "what is left is coloured")
     #expect(screen.coordinator.resyncCount == 0)
 }
+
+@Test @MainActor
+func typingAnOpeningCommentMarkGreysTheRestOfTheTextBeforeAnythingClosesIt() async throws {
+    let lines = (1...14).map { "let value\($0) = \($0) + 1" }
+    let screen = try Screen(lines.joined(separator: "\n") + "\n")
+    await screen.settle()
+    let before = colourful(screen.render())
+    let opener = (lines[0..<6].joined(separator: "\n") + "\n").utf16.count
+
+    // Typed the way a person types it: the slash, then the star.
+    screen.editor.textView.insertText("/", replacementRange: NSRange(location: opener, length: 0))
+    await screen.settle()
+    screen.editor.textView.insertText("*", replacementRange: NSRange(location: opener + 1, length: 0))
+    await screen.settle()
+    let opened = screen.render()
+    #expect(Double(colourful(opened)) < Double(before) * 0.6, "the lines below the opener are comment grey now")
+    let fresh = try Screen(screen.editor.textView.string)
+    await fresh.settle()
+    #expect(identical(opened, fresh.render()))
+
+    // Closing it two lines further down gives the code after that its colours back.
+    let closeAt = (lines[0..<8].joined(separator: "\n")).utf16.count + 1
+    screen.editor.textView.insertText("*/", replacementRange: NSRange(location: closeAt, length: 0))
+    await screen.settle()
+    let closedCopy = try Screen(screen.editor.textView.string)
+    await closedCopy.settle()
+    let closed = screen.render()
+    #expect(identical(closed, closedCopy.render()))
+    #expect(colourful(closed) > colourful(opened), "the lines after the closing mark are code again")
+}
