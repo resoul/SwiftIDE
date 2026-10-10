@@ -20,6 +20,11 @@ public final class LineNumberRulerView: NSRulerView {
         didSet { if problemLines != oldValue { needsDisplay = true } }
     }
 
+    /// The pointer is on the row of a line that has a problem (its zero-based number), or left it (nil).
+    public var onProblemHover: (@MainActor (Int?) -> Void)?
+
+    private var hoveredLine: Int?
+    private var trackingArea: NSTrackingArea?
     private let textView: NSTextView
     private let lineIndex: DocumentLineIndex
     private let font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
@@ -61,6 +66,49 @@ public final class LineNumberRulerView: NSRulerView {
     isolated deinit {
         if let indexSubscription { lineIndex.unsubscribe(indexSubscription) }
         observers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    // MARK: Pointer
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea { removeTrackingArea(trackingArea) }
+
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    public override func mouseMoved(with event: NSEvent) {
+        pointerMoved(toY: convert(event.locationInWindow, from: nil).y)
+    }
+
+    public override func mouseExited(with event: NSEvent) {
+        pointerMoved(toY: nil)
+    }
+
+    /// The pointer is at height `y` of this view, or outside it. Only the first row of a line with a
+    /// problem counts; the owner is told when that changes.
+    func pointerMoved(toY y: CGFloat?) {
+        var line: Int?
+        if let y {
+            let font = textView.font ?? self.font
+            let above = font.ascender, below = -font.descender + font.leading
+            if let label = visibleLabels().first(where: { y >= $0.baseline - above && y <= $0.baseline + below }),
+               problemLines[label.number - 1] != nil {
+                line = label.number - 1
+            }
+        }
+
+        guard line != hoveredLine else { return }
+
+        hoveredLine = line
+        onProblemHover?(line)
     }
 
     // MARK: Width

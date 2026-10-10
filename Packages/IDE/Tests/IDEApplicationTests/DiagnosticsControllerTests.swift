@@ -255,3 +255,97 @@ func aVerifiedReportBecomesStaleAfterAnEditToo() throws {
     rig.report([diagnostic(5, 1)], verified: true)
     #expect(rig.controller.marks.map(\.freshness) == [.verified], "and a new report makes it sure again")
 }
+
+// MARK: A problem with no extent
+
+@MainActor
+private struct TextRig {
+    let session: DocumentSession
+    let provider = FakeProvider()
+    let controller: DiagnosticsController
+
+    init(_ text: String) {
+        let backend = StringDocumentBackend(loadedText: text)
+        session = DocumentSession(path: "/w/A.swift", backend: backend)
+        let lineIndex = DocumentLineIndex(session: session, source: backend)
+        controller = DiagnosticsController(session: session, provider: provider, presenter: FakePresenter(), lineIndex: lineIndex, source: backend)
+    }
+
+    func report(at offset: Int, _ message: String = "missing argument for parameter 'test' in call") {
+        provider.publish(DocumentDiagnostics(items: [diagnostic(offset, 0, .error, message)], version: session.version, isVerified: false))
+    }
+
+    func edit(_ location: Int, _ length: Int, _ text: String) throws {
+        try session.apply([DocumentEdit(range: UTF16TextRange(location: location, length: length), replacement: text)], expectedVersion: session.version, origin: .typing)
+    }
+}
+
+/// The compiler reports "missing argument" at the closing parenthesis, as a place without extent. A
+/// one-character line under the `)` is easy to miss, so such a problem is shown over a word or the line.
+private let callText = "let g = 1\n    print(Greeter(name: \"Swift IDE\"))\n\n"
+private let closingParenthesis = (callText as NSString).range(of: "\"))").location + 1
+
+@Test @MainActor
+func aProblemWithNoExtentInsideAWordIsShownOverTheWord() {
+    let rig = TextRig(callText)
+    rig.report(at: (callText as NSString).range(of: "Greeter").location + 3)
+    #expect(rig.controller.marks.first?.range == UTF16TextRange(location: (callText as NSString).range(of: "Greeter").location, length: 7))
+}
+
+@Test @MainActor
+func aProblemWithNoExtentAtTheEndOfAWordIsShownOverThatWord() {
+    let rig = TextRig(callText)
+    let end = (callText as NSString).range(of: "g =").location + 1       // just after the "g"
+    rig.report(at: end)
+    #expect(rig.controller.marks.first?.range == UTF16TextRange(location: end - 1, length: 1))
+}
+
+@Test @MainActor
+func aProblemWithNoExtentWhereThereIsNoWordIsShownOverTheLineWithoutItsIndentation() {
+    let rig = TextRig(callText)
+    rig.report(at: closingParenthesis)
+    let line = (callText as NSString).range(of: "print(Greeter(name: \"Swift IDE\"))")
+    #expect(rig.controller.marks.first?.range == UTF16TextRange(location: line.location, length: line.length))
+}
+
+@Test @MainActor
+func aProblemWithNoExtentOnAnEmptyLineStaysWhereItIs() {
+    let rig = TextRig(callText)
+    let empty = (callText as NSString).length - 1
+    rig.report(at: empty)
+    #expect(rig.controller.marks.first?.range == UTF16TextRange(location: empty, length: 0))
+}
+
+@Test @MainActor
+func aProblemWithAnExtentIsNeverWidened() {
+    let rig = TextRig(callText)
+    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1)], version: rig.session.version, isVerified: false))
+    #expect(rig.controller.marks.first?.range == UTF16TextRange(location: 4, length: 1))
+}
+
+@Test @MainActor
+func theWidenedPlaceFollowsTheLineWhileItIsTypedIn() throws {
+    let rig = TextRig(callText)
+    rig.report(at: closingParenthesis)
+    let line = (callText as NSString).range(of: "print(Greeter(name: \"Swift IDE\"))")
+    try rig.edit(line.location, 0, "try ")
+    #expect(rig.controller.marks.first?.range == UTF16TextRange(location: line.location, length: line.length + 4), "the whole line as it is now")
+}
+
+@Test @MainActor
+func theMessageIsFoundAnywhereOnTheLineItIsShownOver() {
+    let rig = TextRig(callText)
+    rig.report(at: closingParenthesis)
+    let inName = (callText as NSString).range(of: "name").location
+    #expect(rig.controller.marks(at: inName).map(\.message) == ["missing argument for parameter 'test' in call"])
+    #expect(rig.controller.marks(at: 2).isEmpty)
+}
+
+@Test @MainActor
+func theProblemsOfALineAreAskedForByItsNumber() {
+    let rig = TextRig(callText)
+    rig.report(at: closingParenthesis)
+    let lineOf: (Int) -> Int = { ($0 < 10) ? 0 : 1 }
+    #expect(rig.controller.marks(onLine: 1, lineOf: lineOf).count == 1)
+    #expect(rig.controller.marks(onLine: 0, lineOf: lineOf).isEmpty)
+}

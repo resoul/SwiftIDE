@@ -75,6 +75,8 @@ public final class DiagnosticsController {
     private let session: DocumentSession
     private let provider: any DiagnosticsProviding
     private weak var presenter: (any DiagnosticsPresenting)?
+    private let lineIndex: DocumentLineIndex?
+    private let source: (any TextSource)?
     private var items: [DocumentDiagnostic] = []
     private var reportVersion: UInt64 = 0
     private var reportIsVerified = false
@@ -83,10 +85,21 @@ public final class DiagnosticsController {
     private var changeSubscription: UUID?
     private var providerSubscription: UUID?
 
-    public init(session: DocumentSession, provider: any DiagnosticsProviding, presenter: any DiagnosticsPresenting) {
+    /// With `lineIndex` and `source`, a problem that has no extent (a compiler reports "missing
+    /// argument" at the closing parenthesis, between characters) is shown over the word at that place
+    /// or, where there is none, over the line; without them marks are exactly as reported.
+    public init(
+        session: DocumentSession,
+        provider: any DiagnosticsProviding,
+        presenter: any DiagnosticsPresenting,
+        lineIndex: DocumentLineIndex? = nil,
+        source: (any TextSource)? = nil
+    ) {
         self.session = session
         self.provider = provider
         self.presenter = presenter
+        self.lineIndex = lineIndex
+        self.source = source
         changeSubscription = session.subscribeToChanges { [weak self] change in self?.followed(change) }
         providerSubscription = provider.subscribeToDiagnostics(for: session) { [weak self] in self?.reported() }
         reported()
@@ -102,6 +115,12 @@ public final class DiagnosticsController {
         marks
             .filter { $0.range.location <= offset && offset < max($0.range.location + $0.range.length, $0.range.location + 1) }
             .sorted { $0.severity < $1.severity }
+    }
+
+    /// The problems of a line, worst first: what a tooltip on the margin says. `lineOf` gives the
+    /// zero-based line of an offset.
+    public func marks(onLine line: Int, lineOf: (Int) -> Int) -> [DiagnosticMark] {
+        marks.filter { lineOf($0.range.location) == line }.sorted { $0.severity < $1.severity }
     }
 
     /// The worst severity on each line, for the margin.
@@ -138,6 +157,12 @@ public final class DiagnosticsController {
         publish()
     }
 
+    private func shown(_ range: UTF16TextRange) -> UTF16TextRange {
+        guard let lineIndex, let source else { return range }
+
+        return DiagnosticPlacement.widened(range, in: lineIndex.current) { source.substring(in: $0) }
+    }
+
     private func followed(_ change: DocumentChangeSet) {
         guard !items.isEmpty || trackedVersion != nil else { return }
 
@@ -163,7 +188,7 @@ public final class DiagnosticsController {
     private func publish() {
         // Edited since: stale, whatever the report was. Not edited: as sure as the report was.
         let freshness: DiagnosticMark.Freshness = trackedVersion != reportVersion ? .stale : (reportIsVerified ? .verified : .unverified)
-        marks = items.map { DiagnosticMark(range: $0.range, severity: $0.severity, message: $0.message, freshness: freshness) }
+        marks = items.map { DiagnosticMark(range: shown($0.range), severity: $0.severity, message: $0.message, freshness: freshness) }
         summary = Summary(
             errors: items.filter { $0.severity == .error }.count,
             warnings: items.filter { $0.severity == .warning }.count
@@ -175,6 +200,30 @@ public final class DiagnosticsController {
 
 /// Where a range of text goes when edits are made in it.
 public enum DiagnosticPlacement {
+    /// A range with no extent shown over something a person can see: the word the place is in or
+    /// ends, else the line's text without its indentation and trailing blanks. Left as it is where
+    /// there is nothing to show (an empty line), and for every range that has an extent.
+    @MainActor
+    public static func widened(_ range: UTF16TextRange, in index: LineIndex, text: (UTF16TextRange) -> String) -> UTF16TextRange {
+        let length = index.utf16Length
+        guard range.length == 0, length > 0, range.location >= 0, range.location <= length else { return range }
+
+        if let word = WordRange.around(range.location, length: length, text: text) { return word }
+
+        if range.location > 0, let word = WordRange.around(range.location - 1, length: length, text: text) { return word }
+
+        let line = index.line(containing: range.location)
+        let start = index.startOffset(ofLine: line)
+        let content = min(index.lineExtent(line).content, 1_000)
+        let units = Array(text(UTF16TextRange(location: start, length: content)).utf16)
+        func isBlank(_ unit: UInt16) -> Bool { unit == 0x20 || unit == 0x09 }
+        var first = 0, last = units.count
+        while first < last, isBlank(units[first]) { first += 1 }
+        while last > first, isBlank(units[last - 1]) { last -= 1 }
+
+        return first < last ? UTF16TextRange(location: start + first, length: last - first) : range
+    }
+
     /// `edits` are those of one change set: positions in the text before it, in descending order.
     /// A position inside an edited range goes to the start of what replaced it when it is the start
     /// of the range, and to the end of it when it is the end, so a mark over edited text grows or

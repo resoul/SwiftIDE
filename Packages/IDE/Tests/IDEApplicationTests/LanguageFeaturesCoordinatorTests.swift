@@ -480,3 +480,108 @@ func theHistoryKeepsOnlyTheLatestHundred() {
     #expect(history.places.count == NavigationHistory.limit)
     #expect(history.pop()?.line == 249 && history.places.first?.line == 150)
 }
+
+// MARK: A problem with no extent, and the message on the margin
+
+@Test @MainActor
+func aProblemBetweenCharactersIsReallyDrawnOverTheWholeLine() async throws {
+    let f = Fixture("foo(\"x\")\n")
+    f.window.layoutIfNeeded()
+    let start = f.textView.convert(f.window.convertFromScreen(f.textView.firstRect(forCharacterRange: NSRange(location: 0, length: 3), actualRange: nil)), from: nil)
+    let area = f.host.convert(start, from: f.textView).insetBy(dx: -2, dy: -4)
+    #expect(redPixels(in: f.host, rect: area) == 0)
+
+    f.provider.publish(DocumentDiagnostics(items: [
+        DocumentDiagnostic(range: UTF16TextRange(location: 7, length: 0), severity: .error, message: "missing argument"),
+    ], version: f.session.version, isVerified: false))
+    f.window.layoutIfNeeded()
+    f.textView.displayIfNeeded()
+    let drawn = redPixels(in: f.host, rect: area)
+    #expect(drawn > 10, "\(drawn) red pixels under the start of the line, far from the place reported")
+}
+
+@MainActor
+private func marginRow(_ f: Fixture, line number: Int) throws -> (ruler: LineNumberRulerView, y: CGFloat) {
+    f.window.layoutIfNeeded()
+    let ruler = try #require(f.host.lineNumberRuler)
+    let label = try #require(ruler.visibleLabels().first { $0.number == number })
+
+    return (ruler, label.baseline - 3)
+}
+
+@Test @MainActor
+func thePointerOnAMarginDotShowsWhatTheLineSaysAndLeavingTakesItAway() async throws {
+    let f = Fixture()
+    f.provider.publish(DocumentDiagnostics(items: [
+        DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .warning, message: "unused"),
+        DocumentDiagnostic(range: UTF16TextRange(location: 20, length: 0), severity: .error, message: "cannot find 'compute'"),
+    ], version: f.session.version, isVerified: false))
+
+    let first = try marginRow(f, line: 1)
+    first.ruler.pointerMoved(toY: first.y)
+    #expect(f.coordinator.popup.isVisible)
+    #expect(f.coordinator.popup.text == "error: cannot find 'compute'\nwarning: unused", "the worse first")
+
+    first.ruler.pointerMoved(toY: nil)
+    #expect(!f.coordinator.popup.isVisible)
+}
+
+@Test @MainActor
+func aMarginRowWithoutAProblemShowsNothingAndMovingOffAProblemRowTakesItAway() async throws {
+    let f = Fixture()
+    f.provider.publish(DocumentDiagnostics(items: [
+        DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .error, message: "bad"),
+    ], version: f.session.version, isVerified: false))
+
+    let second = try marginRow(f, line: 2)
+    second.ruler.pointerMoved(toY: second.y)
+    #expect(!f.coordinator.popup.isVisible, "line 2 has no problem")
+
+    let first = try marginRow(f, line: 1)
+    first.ruler.pointerMoved(toY: first.y)
+    #expect(f.coordinator.popup.isVisible)
+    second.ruler.pointerMoved(toY: second.y)
+    #expect(!f.coordinator.popup.isVisible, "moved to a line without one")
+}
+
+@Test @MainActor
+func typingTakesTheMarginMessageAway() async throws {
+    let f = Fixture()
+    f.provider.publish(DocumentDiagnostics(items: [
+        DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .error, message: "bad"),
+    ], version: f.session.version, isVerified: false))
+    let first = try marginRow(f, line: 1)
+    first.ruler.pointerMoved(toY: first.y)
+    #expect(f.coordinator.popup.isVisible)
+
+    f.textView.insertText("x", replacementRange: NSRange(location: 0, length: 0))
+    #expect(!f.coordinator.popup.isVisible)
+}
+
+@Test @MainActor
+func theMarginMessageIsAlsoTakenAwayWhenTheTextScrollsOrTheWindowChanges() async throws {
+    let f = Fixture()
+    f.provider.publish(DocumentDiagnostics(items: [
+        DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .error, message: "bad"),
+    ], version: f.session.version, isVerified: false))
+    let first = try marginRow(f, line: 1)
+    first.ruler.pointerMoved(toY: first.y)
+    f.coordinator.popup.onClose?()
+    #expect(!f.coordinator.popup.isVisible)
+}
+
+@Test @MainActor
+func theMarginIsToldOnlyWhenThePointerChangesLineNotOnEveryMove() throws {
+    let f = Fixture()
+    f.provider.publish(DocumentDiagnostics(items: [
+        DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .error, message: "bad"),
+    ], version: f.session.version, isVerified: false))
+    let first = try marginRow(f, line: 1)
+    var told: [Int?] = []
+    first.ruler.onProblemHover = { told.append($0) }
+
+    for _ in 0..<5 { first.ruler.pointerMoved(toY: first.y) }
+    first.ruler.pointerMoved(toY: nil)
+    first.ruler.pointerMoved(toY: nil)
+    #expect(told == [0, nil], "once on, once off: \(told)")
+}

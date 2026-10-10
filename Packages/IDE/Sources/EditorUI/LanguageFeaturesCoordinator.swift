@@ -27,6 +27,7 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
     private let input: EditorInputHooks
     private let session: DocumentSession
     private var messageToken = 0
+    private var isShowingMarginMessage = false
     private let diagnosticsPresenter: DiagnosticsPresenter
 
     public init(
@@ -45,7 +46,13 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
         let source = editor.backend
         popup = HoverPopup(textView: textView)
         diagnosticsPresenter = DiagnosticsPresenter(textView: textView)
-        diagnostics = DiagnosticsController(session: session, provider: provider, presenter: diagnosticsPresenter)
+        diagnostics = DiagnosticsController(
+            session: session,
+            provider: provider,
+            presenter: diagnosticsPresenter,
+            lineIndex: lineIndex,
+            source: source
+        )
         let diagnostics = diagnostics
         hover = HoverController(
             session: session,
@@ -60,7 +67,10 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
         definition.navigator = self
 
         let hover = hover
-        popup.onClose = { hover.dismiss() }
+        popup.onClose = { [weak self] in
+            hover.dismiss()
+            self?.dismissMarginMessage()
+        }
         input.pointerMoved = { offset in hover.pointerMoved(to: offset) }
         input.interactionBegan = { hover.dismiss() }
         input.requestHover = { [weak textView] in
@@ -77,7 +87,11 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
         }
         diagnostics.onChange = { [weak self, weak host] in
             host?.lineNumberRuler?.problemLines = diagnostics.severitiesByLine { lineIndex.current.line(containing: $0) }
+            self?.dismissMarginMessage()
             self?.onDiagnosticsChange?()
+        }
+        host.lineNumberRuler?.onProblemHover = { [weak self] line in
+            self?.showMarginMessage(forLine: line, lineIndex: lineIndex)
         }
     }
 
@@ -87,6 +101,32 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
         input.requestHover = nil
         input.commandClick = nil
         hover.dismiss()
+    }
+
+    // MARK: The margin
+
+    /// What the problems of a line say, in the small window under the line, while the pointer is on
+    /// the line's dot; nil (the pointer left) takes it away.
+    private func showMarginMessage(forLine line: Int?, lineIndex: DocumentLineIndex) {
+        guard let line else { return dismissMarginMessage() }
+
+        let index = lineIndex.current
+        let marks = diagnostics.marks(onLine: line) { index.line(containing: $0) }
+        guard !marks.isEmpty else { return dismissMarginMessage() }
+
+        hover.dismiss()
+        popup.show(
+            marks.map { "\(Self.word(for: $0.severity)): \($0.message)" }.joined(separator: "\n"),
+            anchor: UTF16TextRange(location: index.startOffset(ofLine: line), length: 0)
+        )
+        isShowingMarginMessage = true
+    }
+
+    private func dismissMarginMessage() {
+        guard isShowingMarginMessage else { return }
+
+        isShowingMarginMessage = false
+        popup.dismiss()
     }
 
     // MARK: Commands
