@@ -17,6 +17,8 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     private struct Managed {
         let session: DocumentSession
         let languageSubscription: UUID
+        /// Set for a document that is a project's SourceKit-LSP configuration file, whatever its language.
+        let configurationSaveSubscription: UUID?
     }
 
     private struct Home {
@@ -50,6 +52,18 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     /// What came of describing packages, newest last (also in the system log).
     private(set) var layoutLog: [String] = []
     private var layoutLoads: [String: Task<Void, Never>] = [:]
+    private var layoutGenerations: [String: Int] = [:]
+    /// The manifest's modification time when the package was last described: a manifest changed behind
+    /// the application's back is noticed by comparing it (when the application is activated).
+    private var manifestStamps: [String: Date] = [:]
+    /// Finds the toolchain that servers and package descriptions are run with. Without one each tool
+    /// is looked for by itself and no toolchain is known.
+    public var toolchainResolver: (any ToolchainResolving)?
+    /// Where the configuration of SourceKit-LSP is read from.
+    public var configurationFiles: any ConfigurationFileReading = SourceKitConfigurationFiles()
+    /// The toolchain in use; nil until the first server is started (or when it cannot be found).
+    public private(set) var toolchain: Toolchain?
+    private var toolchainResolution: Task<Void, Never>?
     private static let log = Logger(subsystem: "SwiftIDE", category: "package-layout")
 
     public init(
@@ -101,7 +115,10 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         // A change of the document's language moves it: out of the server that had it under the
         // old language, into the one that serves the new, if there is one.
         let subscription = languages.selector(for: session).subscribe { [weak self] _ in self?.languageChanged(session) }
-        managed[session.id] = Managed(session: session, languageSubscription: subscription)
+        // A configuration file is no code for the server, yet its being saved matters to the server.
+        let configurationSave = !session.isUntitled && SourceKitConfigurationFiles.isConfigurationFile(session.path)
+            ? session.subscribeToSaves { [weak self] in self?.configurationFileSaved(session) } : nil
+        managed[session.id] = Managed(session: session, languageSubscription: subscription, configurationSaveSubscription: configurationSave)
         await giveToServer(session)
     }
 
@@ -130,6 +147,11 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         guard managed[session.id] != nil, homes[session.id] == nil,
               servedLanguages.contains(languages.selector(for: session).resolved.language) else { return }
 
+        // The tools are settled before any server is made, so that the server and the package
+        // description are of the same toolchain.
+        await resolveToolchainIfNeeded()
+        guard managed[session.id] != nil, homes[session.id] == nil else { return }
+
         let root = root(for: session)
         let service = services[root] ?? serviceStarted(for: root)
         services[root] = service
@@ -150,11 +172,19 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     private func serviceStarted(for root: URL) -> SourceKitLanguageService {
         let service = makeService(root, scratchRoot)
         service.isFallbackRoot = root == scratchRoot || contexts.isWithoutProject(root: root.path)
-        if root != scratchRoot, contexts.buildSystem(forRoot: root.path) == .swiftPM { loadLayout(ofPackageAt: root) }
+        service.toolchain = toolchain
         if root != scratchRoot {
             service.trustStore = trustStore
             // Read when the question comes, so a prompt set after the service started is used.
             service.trustPrompt = { [weak self] name, root in await self?.trustPrompt?(name, root) ?? .refused }
+            service.onTrustChange = { [weak self, weak service] in
+                guard let self, let service, self.services[root] === service else { return }
+
+                // The server has been answered and acts on it now: no restart.
+                self.applyEnvironment(ofRoot: root, restart: false)
+            }
+            applyEnvironment(ofRoot: root, service: service, restart: false)
+            if contexts.buildSystem(forRoot: root.path) == .swiftPM { loadLayout(ofPackageAt: root) }
         }
 
         service.onReadinessChange = { [weak self, weak service] _ in
@@ -180,6 +210,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     public func detach(_ session: DocumentSession) {
         if let entry = managed.removeValue(forKey: session.id) {
             languages.selector(for: session).unsubscribe(entry.languageSubscription)
+            if let configurationSave = entry.configurationSaveSubscription { session.unsubscribeFromSaves(configurationSave) }
         }
 
         release(session)
@@ -250,40 +281,63 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
 
     // MARK: Targets
 
+    /// The server reads its configuration when it starts: a saved configuration file is for a new start
+    /// of the server of the project it belongs to.
+    private func configurationFileSaved(_ session: DocumentSession) {
+        for root in Array(services.keys) where root != scratchRoot && SourceKitConfigurationFiles.isProjectFile(session.path, root: root.path) {
+            applyEnvironment(ofRoot: root, restart: true)
+        }
+    }
+
+    /// The project context of the document's file; nil for a document with no file or no project.
+    public func projectContext(for session: DocumentSession) -> ProjectContext? {
+        guard !session.isUntitled else { return nil }
+
+        return contexts.context(forFile: session.path)
+    }
+
     /// The names of the targets the document's file belongs to: none while unknown, one normally.
     public func targetNames(for session: DocumentSession) -> [String] {
-        guard !session.isUntitled else { return [] }
-
-        return contexts.context(forFile: session.path)?.targetNames ?? []
+        projectContext(for: session)?.targetNames ?? []
     }
 
     /// Describes the package at `root` in the background and keeps the layout in the contexts. Once
-    /// per package unless `replacing`; a failure is recorded and leaves the target unknown (the next
-    /// server start tries again).
+    /// per package unless `replacing`. A failure is recorded and leaves the target unknown: the
+    /// layout the package had before is dropped, not kept as if it still held (the next server start
+    /// or change of the manifest tries again).
     private func loadLayout(ofPackageAt root: URL, replacing: Bool = false) {
         guard let describer else { return }
 
         let path = DocumentPath.canonical(root.path)
         if replacing { layoutLoads[path]?.cancel() } else if layoutLoads[path] != nil || contexts.layout(forRoot: path) != nil { return }
 
+        let generation = layoutGenerations[path, default: 0] + 1
+        layoutGenerations[path] = generation
+        manifestStamps[path] = Self.manifestDate(inPackageAt: path)
+        let toolchain = contexts.environment(forRoot: path)?.toolchain ?? self.toolchain
         layoutLoads[path] = Task { [weak self] in
             do {
-                let layout = try await describer.describe(root: path)
+                let layout = try await describer.describe(root: path, toolchain: toolchain)
                 guard !Task.isCancelled else { return }
 
-                self?.layoutLoaded(layout, at: path)
+                self?.layoutLoaded(layout, at: path, generation: generation)
             } catch {
-                self?.layoutFailed(error, at: path)
+                self?.layoutFailed(error, at: path, generation: generation)
             }
         }
     }
 
-    private func layoutLoaded(_ layout: PackageLayout, at path: String) {
+    private func layoutLoaded(_ layout: PackageLayout, at path: String, generation: Int) {
+        // An answer to an older question (the manifest or the tools changed since) is not the layout.
+        guard layoutGenerations[path] == generation else { return }
+
         layoutLoads.removeValue(forKey: path)
         contexts.setLayout(layout, forRoot: path)
     }
 
-    private func layoutFailed(_ error: any Error, at path: String) {
+    private func layoutFailed(_ error: any Error, at path: String, generation: Int) {
+        guard layoutGenerations[path] == generation else { return }
+
         layoutLoads.removeValue(forKey: path)
         guard !(error is CancellationError) else { return }
 
@@ -291,6 +345,83 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         layoutLog.append(line)
         if layoutLog.count > 20 { layoutLog.removeFirst() }
         Self.log.notice("\(line, privacy: .public)")
+        contexts.setLayout(nil, forRoot: path)
+    }
+
+    private static func manifestDate(inPackageAt path: String) -> Date? {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: (path as NSString).appendingPathComponent("Package.swift"))
+
+        return attributes?[.modificationDate] as? Date
+    }
+
+    // MARK: Tools and configuration
+
+    private func resolveToolchainIfNeeded() async {
+        guard toolchain == nil, let toolchainResolver else { return }
+
+        if let toolchainResolution { return await toolchainResolution.value }
+
+        let task = Task { [weak self] in
+            let found = await toolchainResolver.resolve()
+            self?.toolchainResolution = nil
+            if self?.toolchain == nil { self?.toolchain = found }
+        }
+        toolchainResolution = task
+        await task.value
+    }
+
+    /// The tools and the build configuration the project at `root` is served with, as far as is known.
+    private func environment(ofRoot root: URL, service: SourceKitLanguageService?) -> ProjectEnvironment {
+        let key = DocumentPath.canonical(root.path)
+        let trust = (service ?? services[root])?.configurationTrust ?? .undecided
+
+        return ProjectEnvironment(
+            toolchain: toolchain,
+            configuration: .resolve(project: configurationFiles.projectFile(root: key), user: configurationFiles.userFiles(), trust: trust)
+        )
+    }
+
+    /// Reads the environment of the project at `root` into the contexts. When it differs from what was
+    /// there, the package is described again (the layout was made under the old one) and, with
+    /// `restart`, the server is started anew, because it takes its tools and its configuration only
+    /// when it starts and what it was asked meanwhile belongs to the old ones.
+    private func applyEnvironment(ofRoot root: URL, service: SourceKitLanguageService? = nil, restart: Bool) {
+        guard root != scratchRoot else { return }
+
+        let key = DocumentPath.canonical(root.path)
+        let fresh = environment(ofRoot: root, service: service)
+        guard contexts.environment(forRoot: key) != fresh else { return }
+
+        contexts.setEnvironment(fresh, forRoot: key)
+        if contexts.buildSystem(forRoot: key) == .swiftPM { loadLayout(ofPackageAt: root, replacing: true) }
+        if restart, let service = services[root] { Task { await service.restart() } }
+    }
+
+    /// Looks again at what the contexts were made of: the toolchain (the selected Xcode may have been
+    /// switched), the configuration files and the manifests, none of which tells when it changes
+    /// outside the application. Meant for when the application is activated.
+    public func refreshEnvironment() async {
+        var toolchainChanged = false
+        if let toolchainResolver, let fresh = await toolchainResolver.resolve(), fresh != toolchain {
+            toolchain = fresh
+            toolchainChanged = true
+        }
+
+        for (root, service) in services {
+            if toolchainChanged { service.toolchain = toolchain }
+
+            if root == scratchRoot {
+                if toolchainChanged { Task { await service.restart() } }
+
+                continue
+            }
+
+            applyEnvironment(ofRoot: root, restart: true)
+            let key = DocumentPath.canonical(root.path)
+            if contexts.buildSystem(forRoot: key) == .swiftPM, manifestStamps[key] != Self.manifestDate(inPackageAt: key) {
+                loadLayout(ofPackageAt: root, replacing: true)
+            }
+        }
     }
 
     // MARK: Readiness and trust

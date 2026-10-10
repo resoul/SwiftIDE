@@ -1,5 +1,6 @@
 import Foundation
 import IDEApplication
+import Synchronization
 import Testing
 @testable import LanguageInfrastructure
 
@@ -30,7 +31,7 @@ private func describer(
     timeout: Duration = .seconds(5),
     limit: Int = 4_000_000
 ) -> SwiftPackageDescriber {
-    SwiftPackageDescriber(scratchDirectory: scratch(), timeout: timeout, outputLimit: limit) { _, _ in
+    SwiftPackageDescriber(scratchDirectory: scratch(), timeout: timeout, outputLimit: limit) { _, _, _ in
         (URL(fileURLWithPath: executable), arguments)
     }
 }
@@ -115,4 +116,39 @@ func cancellingTheTaskEndsTheProcess() async throws {
     task.cancel()
     await #expect(throws: CancellationError.self) { _ = try await task.value }
     #expect(ContinuousClock.now - started < .seconds(5))
+}
+
+// MARK: The toolchain's swift
+
+private func executableScript(_ body: String) throws -> URL {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("tool-\(UUID().uuidString).sh")
+    try "#!/bin/sh\n\(body)\n".write(to: url, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+
+    return url
+}
+
+@Test
+func theDescriptionRunsTheSwiftOfTheToolchainItIsGiven() async throws {
+    let script = try executableScript(#"echo '{"targets": [{"name": "FromTheToolchain", "path": "S", "sources": []}]}'"#)
+    defer { try? FileManager.default.removeItem(at: script) }
+    let toolchain = Toolchain(swift: script.path, sourceKitLSP: "/x/sourcekit-lsp", version: "test")
+
+    let layout = try await SwiftPackageDescriber(scratchDirectory: scratch()).describe(root: "/w/pkg", toolchain: toolchain)
+
+    #expect(layout.targets.map(\.name) == ["FromTheToolchain"], "the swift of the toolchain ran, not the one `xcrun` finds")
+}
+
+@Test
+func theCommandIsToldWhichSwiftToRunAndNilWhenThereIsNoToolchain() async throws {
+    let seen = Mutex<[String?]>([])
+    let describer = SwiftPackageDescriber(scratchDirectory: scratch()) { _, _, swift in
+        seen.withLock { $0.append(swift) }
+
+        return (URL(fileURLWithPath: "/bin/echo"), [#"{"targets": []}"#])
+    }
+    _ = try await describer.describe(root: "/w", toolchain: Toolchain(swift: "/a/swift", sourceKitLSP: "/a/lsp", version: "v"))
+    _ = try await describer.describe(root: "/w", toolchain: nil)
+
+    #expect(seen.withLock { $0 } == ["/a/swift", nil])
 }
