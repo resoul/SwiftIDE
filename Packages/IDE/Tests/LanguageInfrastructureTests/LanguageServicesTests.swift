@@ -1115,3 +1115,101 @@ func aManifestChangedBehindTheApplicationsBackIsDescribedAgainWhenLookingAgain()
     try await Task.sleep(for: .milliseconds(100))
     #expect(describer.calls.count == 2, "and once is enough")
 }
+
+@Test @MainActor
+func changingOtherUserOptionsInvalidatesTheContextWithoutChangingDebugToRelease() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    rig.configuration.setUser([.present(Data(#"{"swiftPM":{"configuration":"debug","extraArguments":["-DOLD"]}}"#.utf8))])
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+    let revision = rig.contexts.revision
+
+    rig.configuration.setUser([.present(Data(#"{"swiftPM":{"configuration":"debug","extraArguments":["-DNEW"]}}"#.utf8))])
+    await rig.services.refreshEnvironment()
+
+    #expect(environment(rig)?.configuration == .inherited("debug"))
+    try #require(rig.contexts.revision > revision, "other server options also change the context")
+    #expect(await rig.waitForServers(2), "the server must reread its options")
+    #expect(await waitUntil { describer.calls.count == 2 })
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+
+    let unchangedRevision = rig.contexts.revision
+    await rig.services.refreshEnvironment()
+    try await Task.sleep(for: .milliseconds(100))
+
+    #expect(rig.contexts.revision == unchangedRevision && rig.servers.count == 2 && describer.calls.count == 2)
+}
+
+@Test(arguments: [ConfigurationTrust.granted, .refused]) @MainActor
+func savingOtherProjectOptionsUsesTheFingerprintOnlyWhenAllowed(trust: ConfigurationTrust) async throws {
+    let store = MemoryProjectTrustStore()
+    let rig = try Rig(store: store)
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let source = try rig.package("A")
+    let root = rig.base.appendingPathComponent("A").path
+    store.record(trust == .granted ? .granted : .refused, forRoot: DocumentPath.canonical(root))
+    let before = #"{"swiftPM":{"configuration":"debug","swiftSDK":"old-sdk"}}"#
+    let after = #"{"swiftPM":{"configuration":"debug","swiftSDK":"new-sdk"}}"#
+    rig.configuration.setProject(.present(Data(before.utf8)), root: root)
+    let configPath = root + "/.sourcekit-lsp/config.json"
+    let files = MemoryDocumentFileStore(contents: [configPath: before])
+    let open = OpenDocumentUseCase(store: files, registry: DocumentRegistry()) { file in
+        DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
+    }
+    let config = try await open.execute(path: configPath).session
+    let session = rig.session(source)
+    await rig.services.attach(session)
+    await rig.services.attach(config)
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+    let revision = rig.contexts.revision
+    let oldEnvironment = environment(rig)
+
+    rig.configuration.setProject(.present(Data(after.utf8)), root: root)
+    try config.replaceText(after, expectedVersion: config.version)
+    _ = try await SaveDocumentUseCase(store: files).execute(document: config)
+
+    if trust == .granted {
+        try #require(rig.contexts.revision > revision)
+        #expect(environment(rig)?.configuration == .selected("debug"))
+        #expect(environment(rig)?.configurationFingerprint != oldEnvironment?.configurationFingerprint)
+        #expect(await rig.waitForServers(2))
+        #expect(await waitUntil { describer.calls.count == 2 })
+        #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+    } else {
+        await rig.services.refreshEnvironment()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(rig.contexts.revision == revision && environment(rig) == oldEnvironment)
+        #expect(rig.servers.count == 1 && describer.calls.count == 1)
+    }
+}
+
+@Test @MainActor
+func aNewPendingProjectConfigurationIsNoticedByItsFingerprint() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+    let revision = rig.contexts.revision
+
+    rig.configuration.setProject(.present(Data(#"{"swiftPM":{"swiftSDK":"sdk"}}"#.utf8)), root: rig.base.appendingPathComponent("A").path)
+    await rig.services.refreshEnvironment()
+
+    try #require(rig.contexts.revision > revision, "a new config must allow the server to ask for trust, even without a debug/release key")
+    #expect(await rig.waitForServers(2))
+    let service = try #require(rig.services.service(for: session))
+    #expect(service.configurationTrust == .undecided, "noticing the file grants no permission")
+    rig.servers.made[1].send([
+        "jsonrpc": "2.0",
+        "id": .int(77),
+        "method": "window/showMessageRequest",
+        "params": ["message": "Do you trust the authors of the files in \"A\"?", "actions": [["title": "Trust Workspace"], ["title": "Don't Trust"]], "type": 2],
+    ])
+    #expect(await waitUntil { service.configurationTrust == .refused }, "with nobody to ask, the service refuses")
+    #expect(rig.servers.count == 2, "answering the running server does not start another one")
+}

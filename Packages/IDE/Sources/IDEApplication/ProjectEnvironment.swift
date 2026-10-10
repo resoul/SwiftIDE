@@ -107,9 +107,17 @@ public enum BuildConfigurationSetting: Equatable, Sendable {
 public struct ProjectEnvironment: Equatable, Sendable {
     public var toolchain: Toolchain?
     public var configuration: BuildConfigurationSetting
+    /// An opaque fingerprint of the server's configuration inputs, including options the client
+    /// does not interpret. nil until the files have been read; a refused project file is excluded.
+    public var configurationFingerprint: String?
 
-    public init(toolchain: Toolchain? = nil, configuration: BuildConfigurationSetting = .unknown) {
+    public init(
+        toolchain: Toolchain? = nil,
+        configuration: BuildConfigurationSetting = .unknown,
+        configurationFingerprint: String? = nil
+    ) {
         self.toolchain = toolchain
         self.configuration = configuration
+        self.configurationFingerprint = configurationFingerprint
     }
 }

@@ -356,3 +356,27 @@ func aChangedEnvironmentDropsTheLayoutAnUnchangedOneKeepsIt() throws {
     contexts.setEnvironment(ProjectEnvironment(toolchain: Toolchain(swift: "/y/swift", sourceKitLSP: "/y/s", version: "6.5"), configuration: .selected("release")), forRoot: root)
     #expect(contexts.layout(forRoot: root) == nil, "made by another toolchain: asked for again")
 }
+
+@MainActor @Test
+func aChangedConfigurationFingerprintInvalidatesTheLayoutAndContext() throws {
+    let tree = try Tree()
+    let root = try tree.make("pkg", marker: "Package.swift")
+    let contexts = ProjectContexts()
+    var environment = ProjectEnvironment(toolchain: toolchain, configuration: .inherited("debug"), configurationFingerprint: "before")
+    contexts.setEnvironment(environment, forRoot: root)
+    contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
+    let before = try #require(contexts.context(forFile: root + "/Sources/App/main.swift"))
+
+    environment.configurationFingerprint = "after"
+    contexts.setEnvironment(environment, forRoot: root)
+
+    let after = try #require(contexts.context(forFile: root + "/Sources/App/main.swift"))
+    #expect(after.revision > before.revision && after != before)
+    #expect(after.environment.configuration == before.environment.configuration)
+    #expect(after.target == nil && contexts.layout(forRoot: root) == nil)
+
+    contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
+    let revision = contexts.revision
+    contexts.setEnvironment(environment, forRoot: root)
+    #expect(contexts.revision == revision && contexts.layout(forRoot: root) != nil)
+}
