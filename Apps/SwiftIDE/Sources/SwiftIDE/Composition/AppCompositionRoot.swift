@@ -5,6 +5,7 @@ import IDEApplication
 import IDEDomain
 import LanguageInfrastructure
 import SyntaxInfrastructure
+import WorkspaceUI
 
 @MainActor
 final class AppCompositionRoot {
@@ -24,10 +25,26 @@ final class AppCompositionRoot {
     """
 
     private let store = AtomicDocumentFileStore()
-    private let recoveryStore: any RecoveryStore = RecoveryJournal(directory: AppCompositionRoot.recoveryDirectory)
+    private let recoveryStore: any RecoveryStore
     private let registry = DocumentRegistry()
     private let fileWatcher: any FileWatching = VnodeFileWatcher()
     private var pendingEditors: [DocumentID: TextKitEditor] = [:]
+    private let filesSettings = ProjectFilesSettings()
+    private let layoutSettings: WorkspaceLayoutSettings
+
+    init(recoveryStore: (any RecoveryStore)? = nil, layoutDefaults: UserDefaults = .standard) {
+        self.recoveryStore = recoveryStore ?? RecoveryJournal(directory: Self.recoveryDirectory)
+        layoutSettings = WorkspaceLayoutSettings(defaults: layoutDefaults)
+    }
+
+    func makeWorkspaceLayout(root: String) -> WorkspaceLayoutState { layoutSettings.makeState(root: root) }
+
+    func makeProjectFiles(root: String) -> ProjectFiles {
+        let files = ProjectFiles(root: root, reader: ProjectDirectoryReader(), exclusions: filesSettings.load(root: root))
+        files.onExclusionsChange = { [filesSettings] in filesSettings.save($0, root: root) }
+
+        return files
+    }
 
     let languages = DocumentLanguages(store: UserDefaultsLanguageOverrideStore())
     private let projectTrust = UserDefaultsProjectTrustStore()

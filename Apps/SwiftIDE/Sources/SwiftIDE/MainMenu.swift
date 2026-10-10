@@ -14,6 +14,7 @@ enum MainMenu {
             NSMenuItem(title: "Open…", action: #selector(AppDelegate.openDocument(_:)), keyEquivalent: "o"),
             NSMenuItem(title: "Open Folder…", action: #selector(AppDelegate.openFolder(_:)), keyEquivalent: "O"),
             NSMenuItem(title: "Close Opened Folders", action: #selector(AppDelegate.closeOpenedFolders(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Close Project", action: #selector(AppDelegate.closeProject(_:)), keyEquivalent: ""),
             NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"),
             NSMenuItem(title: "Save", action: #selector(WorkspaceWindowController.saveDocument(_:)), keyEquivalent: "s"),
             NSMenuItem(title: "Save As…", action: #selector(WorkspaceWindowController.saveDocumentAs(_:)), keyEquivalent: "S")

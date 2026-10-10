@@ -1,6 +1,6 @@
 # Workspace: UI and UX
 
-**Status:** the agreed design direction of 2026-10-10. This describes the target interface, not a list of capabilities that are already implemented. Sizes, palette and details are refined on a prototype.
+**Status:** the agreed design direction of 2026-10-10. This describes the target interface, not a list of capabilities that are already implemented. Sizes, palette and details are refined on a prototype. TK-026 now connects a real Files panel and native document tabs through Open Folder (ADR-035); TK-030 now connects the common shell to real project windows (ADR-036); Preview supplies sample tool content to that same component.
 
 The reference is the provided PhpStorm screenshots: a single window, compact tool strips at the edges, a central editor and flexible auxiliary panels. For SwiftIDE we use this organization of space with the familiar behaviour of a native macOS application.
 
@@ -76,7 +76,7 @@ The provided screenshots show no open code. The editor font, line spacing, the h
 
 [ADR-030](07_ARCHITECTURE_DECISIONS.md#adr-030-reusable-workspace-ui-in-the-ide-package), TK-024, fixes the implementation boundary: reusable project views and presenters belong to `WorkspaceUI` inside `Packages/IDE`; App hosts them, provides the requesting project's window and connects their actions to services. Editor-specific presentation stays in `EditorUI`. Readiness/trust rules stay in `IDEApplication`; WorkspaceUI does not launch tools or store decisions.
 
-The first extraction is the project configuration dialog and project status presentation from TK-018. The window subtitle can consume the same status presentation that a future workspace status bar uses. Root/target selectors and the shell are added when their workflows are implemented. App keeps main-menu wiring, window creation and lifecycle. The first extraction is implemented under TK-024 on 2026-10-11: WorkspaceUI contains the configuration dialog, its sheet presenter and project status wording. The full workspace shell remains a prototype.
+The first extraction is the project configuration dialog and project status presentation from TK-018. The window subtitle can consume the same status presentation that a future workspace status bar uses. Root/target selectors and the shell are added when their workflows are implemented. App keeps main-menu wiring, window creation and lifecycle. The first extraction is implemented under TK-024 on 2026-10-11: WorkspaceUI contains the configuration dialog, its sheet presenter and project status wording. The shared shell is connected to real Files/editor providers in TK-030 (ADR-036).
 
 The dialog is an asynchronous sheet attached to an explicitly supplied project window. The parent is modal while the sheet is open; other windows and server message processing continue. Package tests cover presentation; App tests verify that the component is connected to the correct project window.
 
@@ -92,7 +92,7 @@ Welcome and the project switcher list recent/open projects. The top branch picke
 
 1. **The workspace shell.** The top bar, two tool strips, a central editor and three panel zones. Simple content allows checking resizing, switching, focus, hiding and layout persistence before all the tools are connected.
 2. **Package boundary, Files and tabs (TK-024/026).** Extract reusable project UI, connect the tree and the existing document sessions, opening, saving, switching documents and the empty state. Replace the editor placeholder, preserve document warnings and add project exclusions/status presentation.
-3. **Git inspection (TK-027).** Connect Changes and read-only diff, then the branch picker and paginated Log. Welcome/project switching (TK-025) can proceed alongside this against the shared opening contract. Local Git mutations (TK-028) and network workflows (TK-029) follow separately.
+3. **Common shell (TK-030), then Git inspection (TK-027).** Reuse the prototype geometry for real Files/editor providers, with shared project layout and disabled unavailable tools. Connect Changes and read-only diff, then the branch picker and paginated Log. Welcome/project switching (TK-025) can proceed alongside this against the shared opening contract. Local Git mutations (TK-028) and network workflows (TK-029) follow separately.
 4. **Other tools.** Connect search, Problems, build, terminal and the Xcode context as the corresponding services become ready. The scheme and destination reflect the real configuration.
 5. **Later capabilities.** Split editor, structure, inspector and chat. Having room for a right panel does not change the priority of the agent integration from the [separate plan](09_CLAUDE_AGENT_INTEGRATION.md).
 
@@ -118,3 +118,19 @@ Checked in a live window: opening Assistant/Terminal, returning from Focus Edito
 - The light and dark themes, keyboard navigation and the accessible names of elements are checked in a live window.
 
 These are future acceptance criteria, not a report of checks passed. The exact sizes, palette, typography and key combinations are fixed after the first prototype.
+
+## First real Files/tab slice (TK-026)
+
+Open Folder opens the real project browser; opening text files joins their existing editor windows as native AppKit tabs. The package owns the Files panel and native-tab presentation; App retains document/window lifecycle. A tab shows its filename and a separate unsaved dot. Switching keeps the same TextKit view, undo history, caret/selection and scroll; closing uses the existing Save/Cancel/Don't Save workflow. Close Project checks all documents; closing the last tab leaves a useful empty browser.
+
+The Files panel is resizable, supports native outline keyboard navigation, Return/double-click, Reveal in Finder and project exclusion controls. Orange exclusions have reasons/tooltips; status badges and accessible labels carry meaning independently of colour. Real Git states are not available until TK-027 and are labelled unavailable; Show Ignored is disabled meanwhile. View ▸ Files and Focus Editor operate on the real document window. The common shell surrounds both real Files/editor providers and the separate preview samples (TK-030). Other tools remain disabled in real projects. Appearance, VoiceOver, focus and resizing still require R3/R4/R13/R17–R20 manual acceptance; automated native-window tests do not substitute for it.
+
+## Common shell connected before Git (TK-030)
+
+WorkspaceShellViewController in WorkspaceUI owns the preview's top/status bars, two tool rails, central surface and left/right/bottom split zones. WorkspacePanel injects views and focus targets; the original editor and Files are production providers. Preview remains an independent sample host of this same shell. App retains window/document creation, the native tabs and the original save/close/Undo/language-service workflows. Standalone files and startup scratch documents keep their existing editor windows until attached to an opened project.
+
+WorkspaceLayoutState is shared by every native document tab and the empty browser of one canonical project. Visibility, preferred dimensions, Focus Editor and Reset Layout propagate without recreating editors or changing another tab's first responder. App persists the normal layout in UserDefaults by project root; entering Focus Editor does not save all panels as permanently hidden. Preview retains its separate preference key. Invalid sizes and unsupported/wrong-zone tools are sanitized. Automatic compression on a smaller screen does not overwrite preferred dimensions; user divider drags update dimensions.
+
+Real windows display project name/root, current language/target and the existing document/readiness/diagnostic/status wording, with full text in tooltips when truncated. There is no fabricated branch, scheme or destination. Files is the sole connected tool in this slice; Search, Source Control, Terminal, Build Output, Problems, Assistant, Structure and Inspector have disabled rail buttons, and corresponding View commands are unavailable. In-document search and existing diagnostic overlays remain their existing editor features; a project Search or Problems panel is separate future work.
+
+Manual checks R21–R24 cover real/preview appearance, small windows and actual divider dragging, layout persistence across project reopening, focus/keyboard/IME and status during background preparation. Automated AppKit tests are recorded separately and do not mark these checks passed.
