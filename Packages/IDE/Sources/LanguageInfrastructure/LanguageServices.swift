@@ -374,10 +374,13 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     private func environment(ofRoot root: URL, service: SourceKitLanguageService?) -> ProjectEnvironment {
         let key = DocumentPath.canonical(root.path)
         let trust = (service ?? services[root])?.configurationTrust ?? .undecided
+        let project = configurationFiles.projectFile(root: key)
+        let user = configurationFiles.userFiles()
 
         return ProjectEnvironment(
             toolchain: toolchain,
-            configuration: .resolve(project: configurationFiles.projectFile(root: key), user: configurationFiles.userFiles(), trust: trust)
+            configuration: .resolve(project: project, user: user, trust: trust),
+            configurationFingerprint: SourceKitConfigurationFingerprint.make(user: user, project: project, trust: trust)
         )
     }
 

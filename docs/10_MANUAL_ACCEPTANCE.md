@@ -32,7 +32,7 @@ The user ran these items in a live window and reported them as working (2026-10-
 | G. File watching | G1–G7 | G8–G15 |
 | K. Swift completion | K1 | K2–K20 |
 | P. Description, jump, diagnostics | P21 | P1–P20, P22 |
-| Q. Readiness, progress, trust, opened folders, targets (TK-018) | | Q1–Q25 |
+| Q. Readiness, progress, trust, opened folders, targets, configuration (TK-018) | | Q1–Q37 |
 | Q. Reusable workspace UI (TK-024, planned) | | Q13–Q14; repeat Q8 after extraction |
 | R. Workspace and Git (TK-025–TK-029, planned) | | R1–R16; run each slice when implemented |
 
@@ -300,7 +300,7 @@ Open the files `Fixtures/SwiftPMMixed/Sources/…` from the repository after `sw
 | P21 ✅ | A Swift file, `struct S { let a: Int }` and below `S()` (an argument is missing) | The red wavy line is not under a single character but under a word or the whole line; a red dot in the line margin |
 | P22 | Rest the pointer on the red or yellow dot in the line-number margin, then move away | Under the line a window "error: …" (with several problems line by line, the worst first); it disappears when the pointer leaves, on an edit and on scrolling; on a line without a dot nothing appears |
 
-## Q. Readiness, progress, trust, opened folders and targets (TK-018, slices 1–4, ADR-029, ADR-032, ADR-033, ADR-034)
+## Q. Readiness, progress, trust, opened folders, targets and configuration (TK-018, slices 1–4, ADR-029, ADR-032, ADR-033, ADR-034)
 
 Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example under `~/Library/Caches`) so that the package is cold: `rm -rf <copy>/.build`. For the trust checks add `<copy>/.sourcekit-lsp/config.json` with `{"backgroundIndexing": false}`. The previous decisions are kept in the application's settings: forget one with Project ▸ Ask About Project Configuration Again.
 
@@ -339,6 +339,10 @@ Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example unde
 | Q31 | Edit `Package.swift` with another editor (rename a target), switch back to the application | The subtitle shows the new target name after a moment, without saving anything in the application |
 | Q32 | `sudo xcode-select -s` another Xcode (if you have two), switch back to the application | The server restarts with the other toolchain; the open files keep working. Skip if there is one Xcode |
 | Q33 | With the application running, `ps aux \| grep -E "sourcekit-lsp\|swift-package"` | The server and the description are of the same Xcode as `xcrun --find sourcekit-lsp` / `swift` print |
+| Q34 | In a trusted SwiftPM project keep `swiftPM.configuration: debug`, change only `swiftPM.extraArguments` (for example `-Xswiftc`, `-DNEW`), save the project configuration in the application; repeat with an external editor and activate the application | The project's server restarts and its target is described again for both edits. Merely activating again with unchanged bytes causes no restart |
+| Q35 | Change an option other than `swiftPM.configuration` in a recognised user configuration file with another editor, keeping `debug`; activate the application | The running project servers restart and reload their layouts; the build configuration remains `debug`. Restore the user file afterwards |
+| Q36 | Refuse the project configuration, change only an option in its file, save and activate; then grant it with Project ▸ Allow Project Configuration | Edits while refused cause no restart and no renewed trust dialog. Explicitly granting it restarts the server with the stored permission |
+| Q37 | Open a package with no project configuration and no stored trust decision, then add `.sourcekit-lsp/config.json` containing only `{"backgroundIndexing":false}` with another editor and activate the application | The server restarts and can ask about trust despite no `debug`/`release` key. The default remains "Don't allow"; noticing the file grants no permission |
 
 ### Additional acceptance after the UI extraction (TK-024, ADR-030)
 
