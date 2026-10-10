@@ -95,15 +95,27 @@ def main(path):
             print(f"| {r['shape']} | {size(r)} | {f(p['rendering_refresh_start_ms'])} | {f(p['rendering_refresh_middle_ms'])} | {f(p['rendering_refresh_end_ms'])} | {p['rendering_middle_fragments']} / {p['rendering_middle_spans']} | {f(p['rendering_middle_validator_ms'], 2)} | {f(p['storage_apply_start_ms'])} | {f(p['storage_apply_middle_ms'])} | {f(p['storage_apply_end_ms'])} | {p['rendering_text_untouched']} / {p['storage_published_no_revision']} | {f(p.get('rendering_refresh_whole_ms'))} |")
 
     print("\n### Syntax colours (tree-sitter in the background, TK-007c)\n")
-    print("Typing is measured with colours on: the keystroke (input to draw), the wait until colours of that version are on screen (lag), and the draw that shows them. Footprint is what the highlighter's text copy and syntax tree take.\n")
-    print("| Shape | Size | first colours | footprint, MB | keystroke p50 / p95 | commit p95 | lag p50 / p95 | redraw p50 | main-thread refresh p95 | resyncs | spans in window |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    print("Typing is measured with colours on: the keystroke (input to draw), the wait until colours of that version are on screen (result: until the highlighter's answer for this version was received; picture: until an answer covers the visible text and the frame after it was drawn; runs made before the picture column existed show only the first, under its old name lag), and the draw that shows them. Footprint is what the highlighter's text copy and syntax tree take.\n")
+    print("| Shape | Size | first colours | footprint, MB | keystroke p50 / p95 | commit p95 | result p50 / p95 | picture p50 / p95 | redraw p50 | main-thread refresh p95 | resyncs | spans in window |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for r in results:
         p = phase(r, "syntax")
         if p and "keystroke_input_to_draw" in p:
-            k, c, l, d, m = (p["keystroke_input_to_draw"], p["keystroke_commit"], p["colour_lag"], p["redraw_after_colours"], p["refresh_main"])
+            k, c, l, d, m = (p["keystroke_input_to_draw"], p["keystroke_commit"], p.get("colour_result_ms") or p["colour_lag"], p["redraw_after_colours"], p["refresh_main"])
             refresh = f(m.get("p95_ms")) if m.get("n") else "—"
-            print(f"| {r['shape']} | {size(r)} | {f(p['first_colours_ms'], 0)} ms | {f(p['footprint_mb'], 0) if p['footprint_mb'] >= 0 else '—'} | {f(k['p50_ms'])} / {f(k['p95_ms'])} | {f(c['p95_ms'])} | {f(l['p50_ms'])} / {f(l['p95_ms'])} | {f(d['p50_ms'])} | {refresh} | {p['resyncs']} | {p['spans_in_window']} |")
+            pic = p.get("colour_picture_ms")
+            picture = f"{f(pic['p50_ms'])} / {f(pic['p95_ms'])}" if pic else "—"
+            print(f"| {r['shape']} | {size(r)} | {f(p['first_colours_ms'], 0)} ms | {f(p['footprint_mb'], 0) if p['footprint_mb'] >= 0 else '—'} | {f(k['p50_ms'])} / {f(k['p95_ms'])} | {f(c['p95_ms'])} | {f(l['p50_ms'])} / {f(l['p95_ms'])} | {picture} | {f(d['p50_ms'])} | {refresh} | {p['resyncs']} | {p['spans_in_window']} |")
+
+    bursts = [(r, phase(r, "syntax_burst")) for r in results if phase(r, "syntax_burst")]
+    if bursts:
+        print("\n### Sixty keystrokes with no wait for colours between them\n")
+        print("Shows whether work piles up behind the highlighter. Background is what its thread did during the burst: answers sent, requests skipped because a newer one was queued, parses, and the time in parsing, in the search for an unclosed comment (reads the whole text), and in collecting spans.\n")
+        print("| Shape | Size | keystroke p50 / p95 | colours ready after the last key, ms | answered / skipped | parse ms | comment search ms | spans ms |")
+        print("|---|---|---|---|---|---|---|---|")
+        for r, b in bursts:
+            k, g = b["keystroke_input_to_draw"], b["background"]
+            print(f"| {r['shape']} | {size(r)} | {f(k['p50_ms'])} / {f(k['p95_ms'])} | {f(b['colours_ready_after_last_key_ms'], 0)} | {g['answered']} / {g['skipped']} | {f(g['parse_ms'], 0)} | {f(g['comment_search_ms'], 0)} | {f(g['spans_ms'], 0)} |")
 
     print("\n### Programmatic edit, undo, redo, save, ms (p50 unless noted)\n")
     print("| Shape | Size | apply | undo | redo | save #1 | save #2 | changes rebuilt = view | changes (reconciled) |")

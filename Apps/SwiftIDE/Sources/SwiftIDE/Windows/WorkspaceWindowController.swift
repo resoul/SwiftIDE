@@ -8,30 +8,30 @@ import UniformTypeIdentifiers
 @MainActor
 final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
     let session: DocumentSession
+
     private let editor: TextKitEditor
-    /// Line starts of the document, followed edit by edit; the margin draws from it.
     private let lineIndex: DocumentLineIndex
     private let registry: DocumentRegistry
     private let saveDocument: SaveDocumentUseCase
     private let reloadDocument: ReloadDocumentUseCase
     private let revisionOfFile: (String) -> FileRevision?
-    /// Syntax colours of the document, when it has any: the coordinator keeps them, the presenter
-    /// draws them. Both live as long as the window.
-    private var syntax: (coordinator: SyntaxCoordinator, presenter: SyntaxPresenter)?
-    private var colourNote: String?
+    private let colouring: SyntaxColouringController
+    private let recovery: RecoveryCoordinator
+    private let externalChanges: ExternalChangeMonitor
     private let container: EditorContainerView
-    /// Looks for lines too long to edit comfortably and offers to make the window read-only.
     private let longLines: LongLineMonitor
     private var isReadOnlyForLongLines = false
+
     var onClose: ((WorkspaceWindowController) -> Void)?
-    /// Decides whether unsaved edits allow this window to go away; shared with Quit.
     var unsavedChanges: UnsavedChangesCoordinator?
 
     init(
         document: DocumentSession, editor: TextKitEditor, registry: DocumentRegistry,
         saveDocument: SaveDocumentUseCase, reloadDocument: ReloadDocumentUseCase,
+        recovery: RecoveryCoordinator,
+        externalChanges: ExternalChangeMonitor,
         revisionOfFile: @escaping (String) -> FileRevision?,
-        makeHighlighter: () -> (any SyntaxHighlighter)?
+        makeHighlighter: @escaping () -> (any SyntaxHighlighter)?
     ) {
         self.revisionOfFile = revisionOfFile
         self.session = document
@@ -40,6 +40,13 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         self.registry = registry
         self.saveDocument = saveDocument
         self.reloadDocument = reloadDocument
+        self.recovery = recovery
+        self.externalChanges = externalChanges
+        let textView = editor.textView
+        colouring = SyntaxColouringController(
+            session: document, source: editor.backend, policy: .standard, makeHighlighter: makeHighlighter,
+            present: { SyntaxPresenter(textView: textView, coordinator: $0, policy: .standard) }
+        )
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -51,15 +58,17 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         window.center()
         super.init(window: window)
         window.delegate = self
-        // Surface an unexpected TextKit 1 fallback instead of silently degrading.
+
         editor.compatibility.onFallback = { [weak window] in
             window?.subtitle = "⚠︎ TextKit 1 fallback"
             NSLog("SwiftIDE: NSTextView fell back to TextKit 1")
         }
-        startColouring(makeHighlighter)
+        colouring.onChange = { [weak self] _ in self?.refreshSubtitle() }
+        recovery.onStatusChange = { [weak self] _ in self?.refreshSubtitle() }
+        externalChanges.onChange = { [weak self] _ in self?.updateNotice() }
         refreshSubtitle()
-        longLines.onChange = { [weak self] _ in self?.showLongLineNotice() }
-        showLongLineNotice()
+        longLines.onChange = { [weak self] _ in self?.updateNotice() }
+        updateNotice()
         session.subscribeToChanges { [weak self] _ in self?.refreshTitle() }
         refreshTitle()
     }
@@ -71,23 +80,12 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         session.isUntitled ? "Untitled" : (session.path as NSString).lastPathComponent
     }
 
-    /// Swift sources get syntax colours, up to a size; a larger file is shown plain, and the
-    /// window says so instead of silently dropping the colours.
-    private func startColouring(_ makeHighlighter: () -> (any SyntaxHighlighter)?) {
-        guard session.path.hasSuffix(".swift") else { return }
-        let policy = SyntaxPolicy.standard
-        guard policy.allowsColouring(documentLength: session.utf16Length) else {
-            colourNote = "syntax colours off: large file"
+    private func updateNotice() {
+        let banner = container.banner
+        if let notice = externalNotice() {
+            banner.show(message: notice.message, buttons: notice.buttons)
             return
         }
-        guard let highlighter = makeHighlighter() else { return }
-        let coordinator = SyntaxCoordinator(session: session, source: editor.backend, highlighter: highlighter)
-        syntax = (coordinator, SyntaxPresenter(textView: editor.textView, coordinator: coordinator, policy: policy))
-    }
-
-    /// The warning for a very long line, or the read-only note that follows it.
-    private func showLongLineNotice() {
-        let banner = container.banner
         if isReadOnlyForLongLines {
             banner.show(
                 message: "This window is read-only because of a very long line.",
@@ -106,10 +104,52 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         )
     }
 
+    private func externalNotice() -> (message: String, buttons: [NoticeBanner.Button])? {
+        let dismiss = NoticeBanner.Button(title: "OK") { [weak self] in self?.externalChanges.dismiss() }
+        switch externalChanges.state {
+        case .none:
+            return nil
+        case .reloaded:
+            return (
+                "“\(displayName)” was changed on disk and reloaded.",
+                [.init(title: "Undo") { [weak self] in
+                    self?.editor.undo.undoManager.undo()
+                    self?.externalChanges.dismiss()
+                }, dismiss]
+            )
+        case .changedWhileEdited:
+            return (
+                "“\(displayName)” was changed on disk. This window has unsaved changes.",
+                [.init(title: "Reload") { [weak self] in self?.reloadFromNotice() },
+                 .init(title: "Keep Mine") { [weak self] in self?.externalChanges.keepMine() }]
+            )
+        case .removed:
+            return (
+                "“\(displayName)” was deleted or moved.",
+                [.init(title: "Save As…") { [weak self] in
+                    guard let self else { return }
+                    Task { _ = await self.saveAs() }
+                }, dismiss]
+            )
+        case .unreadable(let error):
+            return ("“\(displayName)” was changed on disk, but it cannot be read as text. \(Self.describe(error))", [dismiss])
+        }
+    }
+
+    private func reloadFromNotice() {
+        Task {
+            do {
+                try await externalChanges.reload()
+            } catch {
+                present(error, doing: "reload")
+            }
+        }
+    }
+
     private func makeReadOnly() {
         isReadOnlyForLongLines = true
         editor.textView.isEditable = false
-        showLongLineNotice()
+        updateNotice()
         refreshSubtitle()
     }
 
@@ -117,15 +157,34 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         isReadOnlyForLongLines = false
         editor.textView.isEditable = true
         longLines.dismiss()
-        container.banner.hide()
+        updateNotice()   // not a plain hide: a notice about the file may be showing
         refreshSubtitle()
+    }
+
+    /// Why a Swift file has no colours, in words for the subtitle; nothing for a file that is
+    /// not Swift, which never had any.
+    private var colourNote: String? {
+        switch colouring.state {
+        case .on, .off(.notSwift): nil
+        case .off(.tooLarge): "syntax colours off: large file"
+        case .off(.unavailable): "syntax colours unavailable"
+        }
+    }
+
+    /// Said only when unsaved text is not being kept, so the user knows a crash would lose it.
+    private var recoveryNote: String? {
+        switch recovery.status {
+        case .protecting: nil
+        case .tooLarge: "recovery off: large file"
+        case .failing: "recovery failing"
+        }
     }
 
     private func refreshSubtitle() {
         guard let window else { return }
         let engine = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
         let readOnly = isReadOnlyForLongLines ? "read-only" : nil
-        window.subtitle = [engine, colourNote, readOnly].compactMap { $0 }.joined(separator: " · ")
+        window.subtitle = [engine, colourNote, recoveryNote, readOnly].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func refreshTitle() {
@@ -189,6 +248,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
                 document: session, to: url.path, target: consent.target(for: url), registry: registry
             )
             refreshTitle()
+            colouring.refresh()   // the name may have changed the kind of file
             return true
         } catch is CancellationError {
             return false
@@ -240,6 +300,9 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     }
 
     static func describe(_ error: Error) -> String {
+        if let document = error as? DocumentError, document == .pathChanged {
+            return "The document was saved under another name meanwhile. Nothing was changed."
+        }
         if error is OpenDocumentError {
             return "That file is being saved by another window right now. Try again in a moment."
         }
@@ -298,5 +361,27 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
     func windowWillClose(_ notification: Notification) {
         onClose?(self)
+        externalChanges.stop()
+        // The window closes only for a clean document or one the user chose to discard: either way
+        // nothing of it is to be recovered.
+        Task { [recovery] in await recovery.discard() }
+    }
+
+    /// Writes the unsaved text now: for the moments the app may be lost, such as going to the background.
+    /// Returns what is in the store afterwards (see `RecoveryCoordinator.flush()`).
+    @discardableResult
+    func flushRecovery() async -> Safekeeping? {
+        await recovery.flush()
+    }
+
+    /// The user agreed to lose this document's unsaved changes (quit with Don't Save), but the quit
+    /// is not final until the app has checked that nothing changed meanwhile.
+    func withdrawRecovery() async {
+        await recovery.withdraw()
+    }
+
+    /// The quit was refused: the unsaved text is protected again.
+    func resumeRecovery() {
+        recovery.resume()
     }
 }

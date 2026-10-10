@@ -7,6 +7,8 @@ public enum DocumentError: Error, Equatable, Sendable {
     case reentrantEdit
     /// Programmatic edits (format, completion, language actions) must not touch marked text.
     case compositionInProgress
+    /// The document was saved under another name while something was being done for its old file.
+    case pathChanged
 }
 
 /// Owns revision/save metadata. Its injected backend is the only text owner: the session keeps no
@@ -20,8 +22,11 @@ public final class DocumentSession: NativeEditReceiver {
     /// True until the document is first saved under a name. It has no file to compare against.
     public private(set) var isUntitled: Bool
     private let backend: any DocumentEditingBackend
-    private var observers: [UUID: @MainActor (DocumentChangeSet) -> Void] = [:]
+    /// In the order they subscribed: an observer that must act before another one (stop colouring
+    /// before the highlighter is handed a huge edit) subscribes first.
+    private var observers: [(id: UUID, call: @MainActor (DocumentChangeSet) -> Void)] = []
     private var compositionObservers: [UUID: @MainActor (CompositionEvent) -> Void] = [:]
+    private var saveObservers: [UUID: @MainActor () -> Void] = [:]
     private var compositionWaiters: [UUID: CheckedContinuation<Void, Error>] = [:]
     private var isPublishing = false
     private var isCommitting = false
@@ -107,12 +112,29 @@ public final class DocumentSession: NativeEditReceiver {
     @discardableResult
     public func subscribeToChanges(_ observer: @escaping @MainActor (DocumentChangeSet) -> Void) -> UUID {
         let id = UUID()
-        observers[id] = observer
+        observers.append((id, observer))
         return id
     }
 
     public func unsubscribeFromChanges(_ id: UUID) {
-        observers.removeValue(forKey: id)
+        observers.removeAll { $0.id == id }
+    }
+
+    /// Called after the saved state changed without the text changing: a save, a save under a new
+    /// name, a reload. Whether the document is clean now is `isDirty`.
+    @discardableResult
+    public func subscribeToSaves(_ observer: @escaping @MainActor () -> Void) -> UUID {
+        let id = UUID()
+        saveObservers[id] = observer
+        return id
+    }
+
+    public func unsubscribeFromSaves(_ id: UUID) {
+        saveObservers.removeValue(forKey: id)
+    }
+
+    private func notifySaved() {
+        for observer in Array(saveObservers.values) { observer() }
     }
 
     /// The text at the current version. The one place that copies the whole document.
@@ -132,6 +154,7 @@ public final class DocumentSession: NativeEditReceiver {
         precondition(snapshot.version <= version)
         savedVersion = snapshot.version
         diskRevision = revision
+        notifySaved()
     }
 
     /// The snapshot was written under a new name: the document now lives there.
@@ -142,6 +165,14 @@ public final class DocumentSession: NativeEditReceiver {
         isUntitled = false
         savedVersion = snapshot.version
         diskRevision = revision
+        notifySaved()
+    }
+
+    /// Declares that the current text was written against `revision` of the file, not against the
+    /// file as it was read: recovered text is based on the file as it was when the app last kept
+    /// it, and a save is judged against that, so changes made since then are a conflict.
+    func rebaseOnto(_ revision: FileRevision?) {
+        diskRevision = revision
     }
 
     /// The current text now matches this file: nothing is unsaved.
@@ -150,6 +181,7 @@ public final class DocumentSession: NativeEditReceiver {
         savedVersion = version
         diskRevision = file.revision
         encoding = file.encoding
+        notifySaved()
     }
 
     // MARK: Native edits
@@ -235,7 +267,13 @@ public final class DocumentSession: NativeEditReceiver {
         ))
     }
 
-    private func reconcileUnobservedMutation() {
+    var backendLength: Int { backend.utf16Length }
+
+    func copyUnits(from start: Int, to end: Int, into copier: TextCopier) {
+        backend.enumerateUTF16(in: UTF16TextRange(location: start, length: end - start)) { copier.append($0) }
+    }
+
+    func reconcileUnobservedMutation() {
         guard backend.editGeneration != knownGeneration else { return }
         publishWholeDocumentReplacement(origin: .typing, transactionID: TransactionID())
     }
@@ -244,7 +282,11 @@ public final class DocumentSession: NativeEditReceiver {
         // Broadcast one committed transaction to every active subscriber.
         // Observers enqueue background work; nested text edits must wait until publication ends.
         isPublishing = true
-        for observer in Array(observers.values) { observer(change) }
+        for subscribed in observers {
+            // One that an earlier observer just unsubscribed must not be called any more.
+            guard observers.contains(where: { $0.id == subscribed.id }) else { continue }
+            subscribed.call(change)
+        }
         isPublishing = false
         if !deferredNativeCommits.isEmpty {
             let pending = deferredNativeCommits

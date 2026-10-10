@@ -43,6 +43,10 @@ public actor MemoryDocumentFileStore: DocumentFileStore {
         return revision
     }
 
+    public func currentRevision(path: String, assumingUnchangedFrom known: FileRevision?) async throws -> FileRevision? {
+        entries[path]?.revision
+    }
+
     public func text(at path: String) -> String? {
         entries[path]?.text
     }
@@ -50,6 +54,11 @@ public actor MemoryDocumentFileStore: DocumentFileStore {
     /// Simulates another program writing the file.
     public func externallyWrite(_ text: String, at path: String) {
         entries[path] = Entry(text: text, revision: nextRevision(path, text))
+    }
+
+    /// Simulates the file being deleted by another program.
+    public func remove(_ path: String) {
+        entries.removeValue(forKey: path)
     }
 
     public func revision(at path: String) -> FileRevision? {

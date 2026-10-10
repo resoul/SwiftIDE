@@ -58,8 +58,11 @@ private final class Rig: @unchecked Sendable {
 
     /// The next result nobody has looked at yet, or nil if none comes in time.
     func next(within seconds: Double = 20) async -> HighlightResult? {
-        let deadline = Date().addingTimeInterval(seconds)
-        while Date() < deadline {
+        // A clock that stops while the machine sleeps: with the wall clock, a laptop that slept in
+        // the middle of a run found every deadline already passed and failed tests that were fine.
+        let clock = SuspendingClock()
+        let deadline = clock.now.advanced(by: .seconds(seconds))
+        while clock.now < deadline {
             let found: HighlightResult? = lock.withLock {
                 guard consumed < received.count else { return nil }
                 consumed += 1
@@ -390,4 +393,38 @@ func incrementalColoursStayEqualToAFreshParseWhenEditsAreAboutComments() async t
         if a.spans != b.spans { mismatches.append("step \(step)") }
     }
     #expect(mismatches.isEmpty, "\(mismatches.count) of 120 steps differ: \(mismatches.prefix(5))")
+}
+
+// Where the unclosed-comment rule could be fooled: text that contains `/*` without opening a comment.
+
+@Test
+func slashStarInsideAMultilineStringOpensNothing() async throws {
+    let text = "let s = \"\"\"\n/* not a comment\n\"\"\"\nlet n = 1\n"
+    let units = Array(text.utf16)
+    let result = try #require(await Rig().highlights(of: units))
+    let found = kinds(result, count: units.count)
+    let tail = unitOffset(of: "let n", in: text)
+    #expect(found[tail..<(tail + 3)].allSatisfy { $0 == .keyword }, "the code after the string is code")
+}
+
+@Test
+func aRegexLiteralWithAnEscapedSlashIsMisreadByTheGrammarButNeverMadeIntoAComment() async throws {
+    // tree-sitter-swift 0.7.4 reads `/a\/b/` as a string followed by operators, so code after it
+    // loses its colours even without a `/*` in it. That is the grammar's limit; what the
+    // unclosed-comment rule must not do is turn the rest of the file into a comment because of it.
+    for text in ["let r = /a\\/b/\nlet n = 1\n", "let r = /a\\/*b/\nlet n = 1\n"] {
+        let units = Array(text.utf16)
+        let result = try #require(await Rig().highlights(of: units))
+        #expect(!result.spans.contains { $0.kind == .comment }, "no comment in \(text.debugDescription)")
+    }
+}
+
+@Test
+func slashStarInsideAnExtendedRegexLiteralOpensNothing() async throws {
+    let text = "let r = #/a /* b/#\nlet n = 1\n"
+    let units = Array(text.utf16)
+    let result = try #require(await Rig().highlights(of: units))
+    let found = kinds(result, count: units.count)
+    let tail = unitOffset(of: "let n", in: text)
+    #expect(found[tail..<(tail + 3)].allSatisfy { $0 == .keyword }, "the code after the regex is code")
 }

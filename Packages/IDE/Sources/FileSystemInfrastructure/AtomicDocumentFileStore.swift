@@ -36,6 +36,24 @@ public struct AtomicDocumentFileStore: DocumentFileStore {
         }.value
     }
 
+    public func currentRevision(path: String, assumingUnchangedFrom known: FileRevision?) async throws -> FileRevision? {
+        try Task.checkCancellation()
+        return try await Task.detached(priority: .utility) {
+            var info = stat()
+            if stat(path, &info) != 0 {
+                if errno == ENOENT || errno == ENOTDIR { return nil }
+                throw POSIX.error(errno)
+            }
+            guard POSIX.isRegular(info) else { throw FileStoreError.notRegularFile }
+            if let known, known.fileID == FileIdentity(device: UInt64(info.st_dev), inode: UInt64(info.st_ino)),
+               known.size == UInt64(info.st_size),
+               known.modificationTime == Int64(info.st_mtimespec.tv_sec) * 1_000_000_000 + Int64(info.st_mtimespec.tv_nsec) {
+                return known
+            }
+            return try Self.currentRevision(atPath: path)
+        }.value
+    }
+
     public func write(_ snapshot: DocumentSnapshot, expecting: SaveExpectation) async throws -> FileRevision {
         try Task.checkCancellation()
         let transfer = metadataTransfer
@@ -76,7 +94,7 @@ public struct MetadataTransfer: Sendable {
 
 // MARK: - Shared helpers
 
-private enum POSIX {
+enum POSIX {
     static func error(_ code: Int32) -> FileStoreError {
         switch code {
         case ENOENT, ENOTDIR: .notFound

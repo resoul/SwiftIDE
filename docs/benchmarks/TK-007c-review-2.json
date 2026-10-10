@@ -1,0 +1,130 @@
+{
+ "machine": "Apple M2, 8 GB, macOS 27.0, release, one run per row, PHASES=syntax (only the syntax and burst phases)",
+ "how": "TextKitBenchmarks run swift <MB> with PHASES=syntax. result = until the highlighter answer for this version was received; picture = until an answer for this version covers the visible text and the frame after it was drawn. Burst = 60 keystrokes with no wait for colours between them.",
+ "rows": [
+  {
+   "size_mb": 1,
+   "build": "before queue fix",
+   "one_at_a_time": {
+    "result_ms": {
+     "p50": 11.247,
+     "p95": 11.8
+    },
+    "picture_ms": {
+     "p50": 17.696,
+     "p95": 18.207
+    }
+   },
+   "burst": {
+    "keystroke_input_to_draw_ms": {
+     "p50": 8.989,
+     "p95": 9.166
+    },
+    "typing_took_ms": 595.9,
+    "colours_ready_after_last_key_ms": 3.136,
+    "background": {
+     "answered": 60,
+     "skipped": 0,
+     "parses": 60,
+     "parse_ms": 130.652,
+     "comment_search_ms": 30.898,
+     "spans_ms": 281.008
+    }
+   }
+  },
+  {
+   "size_mb": 1,
+   "build": "after queue fix",
+   "one_at_a_time": {
+    "result_ms": {
+     "p50": 11.244,
+     "p95": 12.018
+    },
+    "picture_ms": {
+     "p50": 17.737,
+     "p95": 18.106
+    }
+   },
+   "burst": {
+    "keystroke_input_to_draw_ms": {
+     "p50": 8.968,
+     "p95": 9.193
+    },
+    "colours_ready_after_last_key_ms": 3.133,
+    "background": {
+     "answered": 60,
+     "skipped": 0,
+     "parses": 60,
+     "parse_ms": 129.283,
+     "comment_search_ms": 31.591,
+     "spans_ms": 281.679
+    }
+   }
+  },
+  {
+   "size_mb": 10,
+   "build": "before queue fix",
+   "one_at_a_time": {
+    "result_ms": {
+     "p50": 50.202,
+     "p95": 52.066
+    },
+    "picture_ms": {
+     "p50": 55.868,
+     "p95": 57.999
+    }
+   },
+   "burst": {
+    "keystroke_input_to_draw_ms": {
+     "p50": 8.888,
+     "p95": 9.249
+    },
+    "typing_took_ms": 590.288,
+    "colours_ready_after_last_key_ms": 2239.847,
+    "background": {
+     "answered": 60,
+     "skipped": 0,
+     "parses": 60,
+     "parse_ms": 2230.046,
+     "comment_search_ms": 311.327,
+     "spans_ms": 282.191
+    }
+   }
+  },
+  {
+   "size_mb": 10,
+   "build": "after queue fix",
+   "one_at_a_time": {
+    "result_ms": {
+     "p50": 51.739,
+     "p95": 53.009
+    },
+    "picture_ms": {
+     "p50": 57.622,
+     "p95": 59.181
+    }
+   },
+   "burst": {
+    "keystroke_input_to_draw_ms": {
+     "p50": 9.043,
+     "p95": 9.411
+    },
+    "typing_took_ms": 599.795,
+    "colours_ready_after_last_key_ms": 57.345,
+    "background": {
+     "answered": 13,
+     "skipped": 47,
+     "parses": 13,
+     "parse_ms": 523.479,
+     "comment_search_ms": 69.265,
+     "spans_ms": 60.987
+    }
+   }
+  }
+ ],
+ "teardown_remove_colours_whole_document_ms": {
+  "1_mb": 0.016,
+  "5_mb": 0.007,
+  "redraw_ms": "3.2 (1 MB), 3.0 (5 MB)"
+ }
+}

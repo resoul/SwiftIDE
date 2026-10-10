@@ -33,6 +33,7 @@ public final class SyntaxCoordinator {
     private var windowVersion: UInt64?
     private var subscription: UUID?
     private var compositionSubscription: UUID?
+    private var isStopped = false
 
     public var isComposing: Bool { session.isComposing }
 
@@ -57,8 +58,18 @@ public final class SyntaxCoordinator {
     }
 
     isolated deinit {
+        stop()
+    }
+
+    /// Stops following the document and lets the highlighter go of its tree and text. Idempotent;
+    /// nothing is sent to the highlighter afterwards and its late answers are ignored.
+    public func stop() {
+        guard !isStopped else { return }
+        isStopped = true
         if let subscription { session.unsubscribeFromChanges(subscription) }
         if let compositionSubscription { session.unsubscribeFromComposition(compositionSubscription) }
+        subscription = nil
+        compositionSubscription = nil
         highlighter.stop()
     }
 
@@ -122,7 +133,7 @@ public final class SyntaxCoordinator {
     /// Asks for the colours of `basis` and a margin around it, unless they are known for this
     /// version or already on their way. `force` asks anyway: the version just changed.
     private func request(around basis: Range<Int>, force: Bool) {
-        guard let version = trackedVersion, version == session.version else { return }
+        guard !isStopped, let version = trackedVersion, version == session.version else { return }
         let length = session.utf16Length
         // Ranges handed in can predate an edit that shortened the text: clamp them to it.
         let lower = min(max(0, basis.lowerBound), length)
@@ -140,7 +151,7 @@ public final class SyntaxCoordinator {
     }
 
     private func receive(_ result: HighlightResult) {
-        guard result.version == session.version, trackedVersion == result.version else { return }
+        guard !isStopped, result.version == session.version, trackedVersion == result.version else { return }
         guard result.documentLength == session.utf16Length else { return resynchronise() }
         lastResultVersion = result.version
         windowVersion = result.version

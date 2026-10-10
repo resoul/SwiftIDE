@@ -5,6 +5,33 @@ import EditorUI
 /// What one `setRenderingAttributes` costs, and what part of it is building the text range.
 @MainActor
 enum Micro {
+    /// What taking the colours off a big document costs (switching colouring off for size): colours
+    /// were applied to the part that was in view, then removed over the whole document.
+    static func teardown(megabytes: Double) {
+        let line = "let values = [" + (1...40).map { "\($0)" }.joined(separator: ", ") + "]\n"
+        let editor = TextKitEditorFactory.makeEditor(loadedText: String(repeating: line, count: Int(megabytes * 1_048_576) / line.utf8.count))
+        let host = EditorHostView(editor: editor)
+        let window = NSWindow(contentRect: NSRect(x: -30_000, y: -30_000, width: 900, height: 640), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        window.orderFrontRegardless()
+        Presenter.present(host)
+        guard let tlm = editor.textView.textLayoutManager else { return }
+        let total = editor.textView.string.utf16.count
+        editor.textView.setSelectedRange(NSRange(location: total / 2, length: 0))
+        editor.textView.scrollRangeToVisible(NSRange(location: total / 2, length: 0))
+        Presenter.present(host)
+        tlm.renderingAttributesValidator = { manager, fragment in
+            manager.setRenderingAttributes([.foregroundColor: NSColor.systemBlue], for: fragment.rangeInElement)
+        }
+        editor.textView.textStorage?.edited(.editedAttributes, range: NSRange(location: total / 2 - 2_000, length: 4_000), changeInLength: 0)
+        Presenter.present(host)
+        tlm.renderingAttributesValidator = nil
+        var removeMs = 0.0, redrawMs = 0.0
+        removeMs = milliseconds { tlm.removeRenderingAttribute(.foregroundColor, for: tlm.documentRange) }
+        redrawMs = milliseconds { editor.textView.needsDisplay = true; Presenter.present(host) }
+        emit(["phase": "teardown", "mb": megabytes, "remove_whole_document_ms": round3(removeMs), "redraw_ms": round3(redrawMs), "footprint_mb": round3(footprintMB())])
+    }
+
     static func run() {
         let line = "let values = [" + (1...600).map { "\($0)" }.joined(separator: ", ") + "]\n"
         let editor = TextKitEditorFactory.makeEditor(loadedText: String(repeating: line, count: 40))

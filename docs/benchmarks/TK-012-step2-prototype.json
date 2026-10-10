@@ -1,0 +1,87 @@
+{
+ "machine": "Apple M2, 8 GB, macOS 27.0, release. One run per row, 30 keystrokes in the middle of one line, each followed by a synchronous draw into a bitmap. AppKit-only probe (no session, bridge, gutter, colours): see Tools/Experiments/LongLineSplit.",
+ "typing_in_one_long_line_p50_ms": {
+  "plain_textkit": {
+   "51 KB": 76.2,
+   "102 KB": 169.4,
+   "256 KB": 465.6,
+   "1 MB": 1533.0
+  },
+  "split_cached_pieces_2048": {
+   "51 KB": 13.7,
+   "256 KB": 17.3,
+   "1 MB": 21.3,
+   "5 MB": 42.8,
+   "10 MB": 69.9
+  },
+  "split_p95": {
+   "51 KB": 14.4,
+   "256 KB": 18.8,
+   "1 MB": 22.6,
+   "5 MB": 44.1,
+   "10 MB": 72.8
+  },
+  "split_without_cache_1mb": 89.1,
+  "floor_1mb_of_80_character_lines": {
+   "plain": 4.5,
+   "split_subclass_nothing_to_split": 4.8
+  }
+ },
+ "piece_size_sweep_1mb_p50_ms": {
+  "512": 35.7,
+  "1024": 26.3,
+  "2048": 23.7,
+  "4096": 25.4,
+  "8192": 39.7
+ },
+ "fragment_level_split_via_layout_manager_delegate_1mb_p50_ms": 1357.0,
+ "wrapping": "a piece ends a visual line early: document height +7% at 2048-unit pieces, +22% at 256",
+ "differential_commands": {
+  "note": "the same command from 60-76 start offsets around piece boundaries, plain against split, fresh view each time",
+  "same": [
+   "moveLeft",
+   "moveRight",
+   "moveWordLeft/Right (text with spaces)",
+   "the four ...AndModifySelection variants",
+   "deleteBackward",
+   "deleteForward",
+   "deleteWordBackward",
+   "deleteWordForward",
+   "selectWord",
+   "selectParagraph",
+   "deleteToBeginningOfParagraph",
+   "deleteToEndOfParagraph",
+   "moveToBeginningOfDocument",
+   "moveToEndOfDocument"
+  ],
+  "differ": [
+   "moveToBeginningOfParagraph",
+   "moveToEndOfParagraph",
+   "moveParagraphForwardAndModifySelection",
+   "moveParagraphBackwardAndModifySelection (stop at a piece edge)",
+   "moveUp/moveDown, moveToBeginningOfLine/EndOfLine (visual lines end at piece edges)",
+   "moveWordLeft/Right inside a run with no spaces (stop at piece edges)"
+  ]
+ },
+ "stress": {
+  "what": "random typing, deletion, Enter and joining lines, scrolling, caret moves, IME, 500 operations, 20 KB document, text compared with a model at the end",
+  "with_line_break_edits": {
+   "runs": 6,
+   "endless_layout_loop_or_memory_blowup": 2,
+   "note": "earlier unbalanced runs: 3 of 6 at 512-unit pieces, 1 of 6 at 2048"
+  },
+  "without_line_break_edits": {
+   "runs": 6,
+   "endless_layout_loop_or_memory_blowup": 0
+  },
+  "plain_textkit_same_seeds": {
+   "runs": 3,
+   "endless_layout_loop_or_memory_blowup": 0
+  },
+  "mitigations_tried_without_effect": [
+   "returning where the enumeration really stopped",
+   "starting from the requested location",
+   "invalidating the whole layout when the paragraph count changes (3 of 6 still looped)"
+  ]
+ }
+}

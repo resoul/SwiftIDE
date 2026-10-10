@@ -116,36 +116,37 @@ struct Scenario {
         ]) { $1 })
 
         // ---- primitives: what each keystroke pays for, measured alone ----------------------
-        primitives(session: session, backend: ed.backend)
+        if wants("primitives") { primitives(session: session, backend: ed.backend) }
+        if wants("capture") { await capturePhase(session: session) }
 
         // ---- scrolling: jump to a place and show it -----------------------------------------
-        scrolling(editor: ed, host: host, window: window)
+        if wants("scroll") { scrolling(editor: ed, host: host, window: window) }
 
         // ---- the margin: numbering what is in view, at three places --------------------------
-        gutter(editor: ed, host: host, lineIndex: lineIndex)
+        if wants("gutter") { gutter(editor: ed, host: host, lineIndex: lineIndex) }
 
         // ---- typing at three places ---------------------------------------------------------
         let total = ed.textView.string.utf16.count
-        for (name, location) in [("start", 0), ("middle", total / 2), ("end", total)] {
+        for (name, location) in [("start", 0), ("middle", total / 2), ("end", total)] where wants("typing") {
             typing(name, at: location, editor: ed, host: host, window: window, session: session)
         }
 
         // ---- programmatic edits (format/completion path) ------------------------------------
-        programmatic(session: session, editor: ed)
+        if wants("programmatic") { programmatic(session: session, editor: ed) }
 
         // ---- undo / redo --------------------------------------------------------------------
-        undo(editor: ed, host: host, window: window, session: session)
+        if wants("undo") { undo(editor: ed, host: host, window: window, session: session) }
 
         // ---- save --------------------------------------------------------------------------
-        try await save(session: session, store: store, length: { ed.backend.utf16Length })
+        if wants("save") { try await save(session: session, store: store, length: { ed.backend.utf16Length }) }
 
         // ---- colours: rendering attributes against attributes in the storage (TK-007b) -------
-        if shape != .giantLine || megabytes <= 0.11 {
+        if wants("attributes"), shape != .giantLine || megabytes <= 0.11 {
             attributes(editor: ed, host: host, session: session)
         }
 
         // ---- tree-sitter colours (TK-007c) -------------------------------------------------
-        if (shape == .swift || shape == .mixedEndings || shape == .wideLines) && megabytes <= 25 || shape == .giantLine && megabytes <= 0.11 {
+        if wants("syntax"), (shape == .swift || shape == .mixedEndings || shape == .wideLines) && megabytes <= 25 || shape == .giantLine && megabytes <= 0.11 {
             await syntax(editor: ed, host: host, session: session)
         }
 
@@ -181,6 +182,12 @@ struct Scenario {
         window.orderOut(nil)
     }
 
+    /// `PHASES=syntax,typing` runs only those phases (an 8 GB machine does not need the rest every time).
+    private func wants(_ phase: String) -> Bool {
+        guard let only = ProcessInfo.processInfo.environment["PHASES"] else { return true }
+        return only.split(separator: ",").contains { $0 == phase }
+    }
+
     private func elapsed(since start: ContinuousClock.Instant) -> Double {
         let d = ContinuousClock.now - start
         return Double(d.components.seconds) * 1_000 + Double(d.components.attoseconds) / 1e15
@@ -204,6 +211,55 @@ struct Scenario {
         let middle = backend.utf16Length / 2
         let edit = DocumentEdit(range: UTF16TextRange(location: middle, length: 0), replacement: "x")
         out["planner_prepare_ms"] = round3(median { _ = try? DocumentEditPlanner.prepare([edit], in: backend) })
+        emit(label.merging(out) { $1 })
+    }
+
+    // MARK: Capturing the text for a save (ADR-018)
+
+    /// What a save holds the main thread for: the old way (one synchronous copy) against the new
+    /// (slices, with the main thread given back between them). A ticker on the main actor shows the
+    /// longest stretch in which nothing else could run.
+    private func capturePhase(session: DocumentSession) async {
+        var out: [String: Any] = ["phase": "capture"]
+        out["synchronous_snapshot_ms"] = round3(Stats((0..<3).map { _ in milliseconds { _ = session.snapshot() } }).p50)
+
+        final class Ticker: @unchecked Sendable {
+            var longest = 0.0
+            var longestAtMs = 0.0
+            var ticks = 0
+            var startedAt = ContinuousClock.now
+            var running = true
+        }
+        var runs: [[String: Any]] = []
+        for _ in 0..<3 {
+            let ticker = Ticker()
+            let task = Task { @MainActor in
+                var last = ContinuousClock.now
+                while ticker.running {
+                    let now = ContinuousClock.now
+                    let gap = Double((now - last).components.seconds) * 1_000 + Double((now - last).components.attoseconds) / 1e15
+                    if gap > ticker.longest {
+                        ticker.longest = gap
+                        ticker.longestAtMs = Double((now - ticker.startedAt).components.seconds) * 1_000 + Double((now - ticker.startedAt).components.attoseconds) / 1e15
+                    }
+                    ticker.ticks += 1
+                    last = now
+                    await Task.yield()
+                }
+            }
+            let started = ContinuousClock.now
+            ticker.startedAt = started
+            let capture = try? await session.capture()
+            let total = elapsed(since: started)
+            ticker.running = false
+            await task.value
+            runs.append([
+                "total_ms": round3(total), "longest_main_thread_gap_ms": round3(ticker.longest), "longest_gap_at_ms": round3(ticker.longestAtMs), "ticks": ticker.ticks,
+                "bytes": capture?.snapshot.text.utf8.count ?? -1
+            ])
+        }
+        out["capture_runs"] = runs
+        out["footprint_mb"] = round3(footprintMB())
         emit(label.merging(out) { $1 })
     }
 
@@ -257,9 +313,12 @@ struct Scenario {
         out["first_refresh_main_ms"] = round3(refreshMs.values.first ?? 0)
         refreshMs.values.removeAll()
 
-        // Typing with colours on: the keystroke (input to draw), then the wait for the colours of
-        // that version, then the draw that shows them.
-        var native: [Double] = [], keystroke: [Double] = [], lag: [Double] = [], redraw: [Double] = []
+        // Typing with colours on, one keystroke at a time, waiting for the colours after each:
+        //  - result: until the highlighter's answer for this version has been received. It may still
+        //    describe another part of the text than the one in view.
+        //  - picture: until an answer for this version covers what is in view AND the frame that
+        //    follows it has been drawn: what a person sees.
+        var native: [Double] = [], keystroke: [Double] = [], result: [Double] = [], picture: [Double] = [], redraw: [Double] = []
         var position = total / 2
         for _ in 0..<60 {
             if footprintMB() > Self.memoryGuardMB { break }
@@ -275,19 +334,76 @@ struct Scenario {
             while coordinator.lastResultVersion != session.version, elapsed(since: keyed) < 5_000 {
                 try? await Task.sleep(for: .milliseconds(1))
             }
-            lag.append(elapsed(since: keyed))
+            result.append(elapsed(since: keyed))
+            while !covers(coordinator, viewportCharacters(ed)), elapsed(since: keyed) < 5_000 {
+                try? await Task.sleep(for: .milliseconds(1))
+            }
             redraw.append(milliseconds { Presenter.present(host) })
+            picture.append(elapsed(since: keyed))
             endEvent()
         }
+        let lag = result
         out["keystroke_input_to_draw"] = Stats(keystroke).json
         out["keystroke_commit"] = Stats(native).json
-        out["colour_lag"] = Stats(lag).json
+        out["colour_result_ms"] = Stats(result).json
+        out["colour_picture_ms"] = Stats(picture).json
         out["redraw_after_colours"] = Stats(redraw).json
         out["refresh_main"] = Stats(refreshMs.values).json
         out["resyncs"] = coordinator.resyncCount
+        out["stats_one_at_a_time"] = await Self.describe(highlighter.statistics())
+        _ = lag
         emit(label.merging(out) { $1 })
+
+        // A burst: sixty keystrokes as fast as they can be typed, with no wait for colours between
+        // them. Shows whether work piles up behind the highlighter, and what the background pays
+        // for it (parsing, and the search for an unclosed comment that reads the whole text).
+        let beforeBurst = await highlighter.statistics()
+        var burst: [Double] = []
+        let burstStart = ContinuousClock.now
+        let versionBefore = session.version
+        for _ in 0..<60 {
+            if footprintMB() > Self.memoryGuardMB { break }
+            autoreleasepool {
+                burst.append(milliseconds {
+                    ed.textView.insertText("y", replacementRange: NSRange(location: position, length: 0))
+                    Presenter.present(host)
+                })
+            }
+            position += 1
+            endEvent()
+        }
+        let typedAt = elapsed(since: burstStart)
+        while !(coordinator.lastResultVersion == session.version && covers(coordinator, viewportCharacters(ed))),
+              elapsed(since: burstStart) < 120_000 {
+            try? await Task.sleep(for: .milliseconds(2))
+        }
+        let drainedAt = elapsed(since: burstStart)
+        Presenter.present(host)
+        let afterBurst = await highlighter.statistics()
+        var delta = afterBurst
+        delta.answered -= beforeBurst.answered; delta.skipped -= beforeBurst.skipped; delta.parses -= beforeBurst.parses
+        delta.parseMilliseconds -= beforeBurst.parseMilliseconds
+        delta.commentSearchMilliseconds -= beforeBurst.commentSearchMilliseconds
+        delta.spanMilliseconds -= beforeBurst.spanMilliseconds
+        emit(label.merging([
+            "phase": "syntax_burst", "keystrokes": burst.count, "versions": session.version - versionBefore,
+            "keystroke_input_to_draw": Stats(burst).json, "typing_took_ms": round3(typedAt),
+            "colours_ready_after_last_key_ms": round3(drainedAt - typedAt),
+            "background": Self.describe(delta)
+        ]) { $1 })
         _ = presenter
         coordinator.onChange = nil
+    }
+
+    private static func describe(_ s: HighlighterStatistics) -> [String: Any] {
+        ["answered": s.answered, "skipped": s.skipped, "parses": s.parses, "parse_ms": round3(s.parseMilliseconds),
+         "comment_search_ms": round3(s.commentSearchMilliseconds), "spans_ms": round3(s.spanMilliseconds)]
+    }
+
+    /// Whether the colours the coordinator holds (from an answer for the current version) reach over what is in view.
+    private func covers(_ coordinator: SyntaxCoordinator, _ viewport: NSRange) -> Bool {
+        let window = coordinator.state.window
+        return window.lowerBound <= viewport.location && viewport.location + viewport.length <= window.upperBound
     }
 
     // MARK: Colours (TK-007b)

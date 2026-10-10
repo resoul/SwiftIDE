@@ -24,4 +24,10 @@ public struct SyntaxPolicy: Sendable, Equatable {
     public func allowsColouring(documentLength: Int) -> Bool {
         documentLength <= maximumDocumentLength
     }
+
+    /// Colouring that was dropped for size comes back only once the text is 10% under the limit,
+    /// so a file hovering at the limit does not start and stop parsing with every keystroke.
+    public func allowsResuming(documentLength: Int) -> Bool {
+        documentLength <= maximumDocumentLength - maximumDocumentLength / 10
+    }
 }

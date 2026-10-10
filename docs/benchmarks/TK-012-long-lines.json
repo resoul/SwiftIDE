@@ -1,0 +1,78 @@
+{
+ "machine": "Apple M2, 8 GB, macOS 27.0, release, one run per row",
+ "no_wrap_experiment": {
+  "note": "giant: one line without newline; NOWRAP=1 lays the line out without wrapping and scrolls sideways",
+  "rows": [
+   {
+    "line_kb": 51,
+    "wrap": {
+     "open_ms": 257,
+     "typing_p50_ms": 84,
+     "typing_p95_ms": 121,
+     "scroll_to_end_ms": 83
+    },
+    "no_wrap": {
+     "open_ms": 337,
+     "typing_p50_ms": 257,
+     "typing_p95_ms": 332,
+     "scroll_to_end_ms": 44
+    }
+   },
+   {
+    "line_kb": 102,
+    "wrap": {
+     "open_ms": 214,
+     "typing_p50_ms": 158,
+     "typing_p95_ms": 187,
+     "scroll_to_end_ms": 100
+    },
+    "no_wrap": {
+     "open_ms": 715,
+     "typing_p50_ms": 696,
+     "typing_p95_ms": 731,
+     "scroll_to_end_ms": 81
+    }
+   },
+   {
+    "line_kb": 256,
+    "wrap": {
+     "open_ms": 393,
+     "typing_p50_ms": 411,
+     "typing_p95_ms": 460,
+     "scroll_to_end_ms": 245
+    },
+    "no_wrap": "did not finish in several minutes; stopped"
+   }
+  ]
+ },
+ "plain_typing_by_line_length": {
+  "note": "wide: 0.3 MB of lines of Swift array literals, no colours; typing in the middle",
+  "rows": [
+   {
+    "line_chars": 8000,
+    "p50_ms": 9.4,
+    "p95_ms": 9.6,
+    "commit_p95_ms": 1.9
+   },
+   {
+    "line_chars": 12000,
+    "p50_ms": 9.1,
+    "p95_ms": 9.3,
+    "commit_p95_ms": 2.5
+   },
+   {
+    "line_chars": 16000,
+    "p50_ms": 14.4,
+    "p95_ms": 14.7,
+    "commit_p95_ms": 3.0
+   },
+   {
+    "line_chars": 24000,
+    "p50_ms": 20.6,
+    "p95_ms": 33.1,
+    "commit_p95_ms": 5.6
+   }
+  ],
+  "shorter_lines": "docs/benchmarks/TK-007c-wide-lines.json, baseline columns: 5.4-6.4 ms p50 from 100 to 4000 characters"
+ }
+}

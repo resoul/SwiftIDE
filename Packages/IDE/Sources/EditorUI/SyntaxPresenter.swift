@@ -33,11 +33,21 @@ public final class SyntaxPresenter {
             MainActor.assumeIsolated { self?.validate(fragment, in: manager) }
         }
         coordinator.onChange = { [weak self] ranges in self?.refresh(ranges) }
+        // A view that was laid out before this presenter existed (colours switched on for a document
+        // already open) calls no validator until something changes: ask what is in view ourselves.
+        observeScrolling()
+        scheduleViewportUpdate()
     }
 
+    /// Letting go of the presenter takes the colours off the screen: TextKit keeps a fragment's
+    /// rendering attributes after its validator is gone.
     isolated deinit {
-        textView.textLayoutManager?.renderingAttributesValidator = nil
         coordinator.onChange = nil
+        if let manager = textView.textLayoutManager {
+            manager.renderingAttributesValidator = nil
+            manager.removeRenderingAttribute(.foregroundColor, for: manager.documentRange)
+        }
+        textView.needsDisplay = true
         if let scrollObserver { NotificationCenter.default.removeObserver(scrollObserver) }
         if let frameObserver { NotificationCenter.default.removeObserver(frameObserver) }
     }

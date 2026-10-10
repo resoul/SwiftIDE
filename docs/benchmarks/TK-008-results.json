@@ -1,0 +1,2004 @@
+{
+  "machine": {
+    "chip": "Apple M2",
+    "date": "2026-10-09T18:38:41Z",
+    "memory_gb": 8,
+    "os": "Version 27.0 (Build 26A428)"
+  },
+  "results": [
+    {
+      "exit_status": 0,
+      "mb": 0.04,
+      "phases": [
+        {
+          "bytes": 42400,
+          "footprint_mb": 0.109,
+          "lines": 1538,
+          "mb": 0.04,
+          "phase": "fixture",
+          "shape": "swift",
+          "utf16_units": 41552
+        },
+        {
+          "first_layout_draw_ms": 24.736,
+          "footprint_after_open_mb": 11.125,
+          "footprint_after_read_mb": 0.266,
+          "make_editor_ms": 17.633,
+          "mb": 0.04,
+          "phase": "open",
+          "read_ms": 0.2,
+          "session_init_ms": 0.164,
+          "shape": "swift",
+          "text_kit_2": true,
+          "total_ms": 42.732
+        },
+        {
+          "backend_text_copy_ms": 0.115,
+          "compare_equal_ms": 0.115,
+          "mb": 0.04,
+          "phase": "primitives",
+          "planner_prepare_ms": 0.286,
+          "shape": "swift",
+          "snapshot_ms": 0,
+          "text_diff_ms": 0.199
+        },
+        {
+          "jump_to_end_ms": 4.44,
+          "jump_to_middle_ms": 4.884,
+          "jump_to_start_ms": 3.611,
+          "mb": 0.04,
+          "phase": "scroll",
+          "shape": "swift"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 23.188,
+          "input_to_draw": {
+            "max_ms": 11.573,
+            "mean_ms": 5.165,
+            "n": 60,
+            "p50_ms": 5.011,
+            "p95_ms": 5.422,
+            "p99_ms": 11.573
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.403,
+            "mean_ms": 3.785,
+            "n": 60,
+            "p50_ms": 3.737,
+            "p95_ms": 3.97,
+            "p99_ms": 4.403
+          },
+          "mb": 0.04,
+          "native_commit": {
+            "max_ms": 7.178,
+            "mean_ms": 1.38,
+            "n": 60,
+            "p50_ms": 1.253,
+            "p95_ms": 1.527,
+            "p99_ms": 7.178
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 23.329,
+          "input_to_draw": {
+            "max_ms": 6.741,
+            "mean_ms": 5.308,
+            "n": 60,
+            "p50_ms": 5.203,
+            "p95_ms": 5.77,
+            "p99_ms": 6.741
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.405,
+            "mean_ms": 3.677,
+            "n": 60,
+            "p50_ms": 3.6,
+            "p95_ms": 3.987,
+            "p99_ms": 4.405
+          },
+          "mb": 0.04,
+          "native_commit": {
+            "max_ms": 2.336,
+            "mean_ms": 1.631,
+            "n": 60,
+            "p50_ms": 1.586,
+            "p95_ms": 1.871,
+            "p99_ms": 2.336
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "middle"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 23.345,
+          "input_to_draw": {
+            "max_ms": 5.149,
+            "mean_ms": 4.877,
+            "n": 60,
+            "p50_ms": 4.858,
+            "p95_ms": 5.037,
+            "p99_ms": 5.149
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 3.828,
+            "mean_ms": 3.525,
+            "n": 60,
+            "p50_ms": 3.509,
+            "p95_ms": 3.653,
+            "p99_ms": 3.828
+          },
+          "mb": 0.04,
+          "native_commit": {
+            "max_ms": 1.476,
+            "mean_ms": 1.352,
+            "n": 60,
+            "p50_ms": 1.344,
+            "p95_ms": 1.45,
+            "p99_ms": 1.476
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "end"
+        },
+        {
+          "apply": {
+            "max_ms": 1.803,
+            "mean_ms": 1.681,
+            "n": 10,
+            "p50_ms": 1.643,
+            "p95_ms": 1.803,
+            "p99_ms": 1.803
+          },
+          "mb": 0.04,
+          "phase": "programmatic_edit",
+          "shape": "swift"
+        },
+        {
+          "mb": 0.04,
+          "phase": "undo",
+          "redo": {
+            "max_ms": 5.059,
+            "mean_ms": 4.932,
+            "n": 4,
+            "p50_ms": 4.871,
+            "p95_ms": 5.059,
+            "p99_ms": 5.059
+          },
+          "session_matches_view": true,
+          "shape": "swift",
+          "undo": {
+            "max_ms": 5.095,
+            "mean_ms": 5.007,
+            "n": 8,
+            "p50_ms": 4.997,
+            "p95_ms": 5.095,
+            "p99_ms": 5.095
+          }
+        },
+        {
+          "clean_after": true,
+          "first_ms": 9.829,
+          "mb": 0.04,
+          "phase": "save",
+          "second_ms": 1.615,
+          "shape": "swift"
+        },
+        {
+          "final_version": 204,
+          "footprint_end_mb": 17.844,
+          "mb": 0.04,
+          "peak_resident_mb": 90.5,
+          "phase": "summary",
+          "shape": "swift"
+        }
+      ],
+      "shape": "swift",
+      "timed_out": false,
+      "timeout_s": 60,
+      "wall_s": 1.5
+    },
+    {
+      "exit_status": 0,
+      "mb": 1,
+      "phases": [
+        {
+          "bytes": 1048800,
+          "footprint_mb": 2.328,
+          "lines": 38020,
+          "mb": 1,
+          "phase": "fixture",
+          "shape": "swift",
+          "utf16_units": 1027824
+        },
+        {
+          "first_layout_draw_ms": 25.342,
+          "footprint_after_open_mb": 18.047,
+          "footprint_after_read_mb": 4.203,
+          "make_editor_ms": 10.193,
+          "mb": 1,
+          "phase": "open",
+          "read_ms": 1.593,
+          "session_init_ms": 2.742,
+          "shape": "swift",
+          "text_kit_2": true,
+          "total_ms": 39.871
+        },
+        {
+          "backend_text_copy_ms": 2.753,
+          "compare_equal_ms": 2.722,
+          "mb": 1,
+          "phase": "primitives",
+          "planner_prepare_ms": 6.917,
+          "shape": "swift",
+          "snapshot_ms": 0,
+          "text_diff_ms": 4.889
+        },
+        {
+          "jump_to_end_ms": 4.481,
+          "jump_to_middle_ms": 4.463,
+          "jump_to_start_ms": 3.54,
+          "mb": 1,
+          "phase": "scroll",
+          "shape": "swift"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 40.36,
+          "input_to_draw": {
+            "max_ms": 23.947,
+            "mean_ms": 17.596,
+            "n": 60,
+            "p50_ms": 17.369,
+            "p95_ms": 18.345,
+            "p99_ms": 23.947
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.328,
+            "mean_ms": 3.867,
+            "n": 60,
+            "p50_ms": 3.816,
+            "p95_ms": 4.176,
+            "p99_ms": 4.328
+          },
+          "mb": 1,
+          "native_commit": {
+            "max_ms": 19.738,
+            "mean_ms": 13.729,
+            "n": 60,
+            "p50_ms": 13.572,
+            "p95_ms": 14.241,
+            "p99_ms": 19.738
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 40.423,
+          "input_to_draw": {
+            "max_ms": 20.951,
+            "mean_ms": 20.172,
+            "n": 60,
+            "p50_ms": 20.147,
+            "p95_ms": 20.453,
+            "p99_ms": 20.951
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.074,
+            "mean_ms": 3.643,
+            "n": 60,
+            "p50_ms": 3.614,
+            "p95_ms": 3.802,
+            "p99_ms": 4.074
+          },
+          "mb": 1,
+          "native_commit": {
+            "max_ms": 16.877,
+            "mean_ms": 16.528,
+            "n": 60,
+            "p50_ms": 16.514,
+            "p95_ms": 16.699,
+            "p99_ms": 16.877
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "middle"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 40.438,
+          "input_to_draw": {
+            "max_ms": 26.322,
+            "mean_ms": 23.171,
+            "n": 60,
+            "p50_ms": 22.731,
+            "p95_ms": 24.936,
+            "p99_ms": 26.322
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.427,
+            "mean_ms": 3.781,
+            "n": 60,
+            "p50_ms": 3.671,
+            "p95_ms": 4.34,
+            "p99_ms": 4.427
+          },
+          "mb": 1,
+          "native_commit": {
+            "max_ms": 22.094,
+            "mean_ms": 19.391,
+            "n": 60,
+            "p50_ms": 19.075,
+            "p95_ms": 20.663,
+            "p99_ms": 22.094
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "end"
+        },
+        {
+          "apply": {
+            "max_ms": 45.261,
+            "mean_ms": 37.126,
+            "n": 10,
+            "p50_ms": 36.082,
+            "p95_ms": 45.261,
+            "p99_ms": 45.261
+          },
+          "mb": 1,
+          "phase": "programmatic_edit",
+          "shape": "swift"
+        },
+        {
+          "mb": 1,
+          "phase": "undo",
+          "redo": {
+            "max_ms": 31.019,
+            "mean_ms": 30.982,
+            "n": 4,
+            "p50_ms": 31.002,
+            "p95_ms": 31.019,
+            "p99_ms": 31.019
+          },
+          "session_matches_view": true,
+          "shape": "swift",
+          "undo": {
+            "max_ms": 31.166,
+            "mean_ms": 31.047,
+            "n": 8,
+            "p50_ms": 31.054,
+            "p95_ms": 31.166,
+            "p99_ms": 31.166
+          }
+        },
+        {
+          "clean_after": true,
+          "first_ms": 6.939,
+          "mb": 1,
+          "phase": "save",
+          "second_ms": 5.36,
+          "shape": "swift"
+        },
+        {
+          "final_version": 204,
+          "footprint_end_mb": 35.985,
+          "mb": 1,
+          "peak_resident_mb": 108.391,
+          "phase": "summary",
+          "shape": "swift"
+        }
+      ],
+      "shape": "swift",
+      "timed_out": false,
+      "timeout_s": 180,
+      "wall_s": 5.2
+    },
+    {
+      "exit_status": 0,
+      "mb": 10,
+      "phases": [
+        {
+          "bytes": 10486400,
+          "footprint_mb": 22.609,
+          "lines": 380133,
+          "mb": 10,
+          "phase": "fixture",
+          "shape": "swift",
+          "utf16_units": 10276672
+        },
+        {
+          "first_layout_draw_ms": 24.456,
+          "footprint_after_open_mb": 63.672,
+          "footprint_after_read_mb": 22.719,
+          "make_editor_ms": 34.426,
+          "mb": 10,
+          "phase": "open",
+          "read_ms": 13.806,
+          "session_init_ms": 28.466,
+          "shape": "swift",
+          "text_kit_2": true,
+          "total_ms": 101.154
+        },
+        {
+          "backend_text_copy_ms": 27.722,
+          "compare_equal_ms": 28.217,
+          "mb": 10,
+          "phase": "primitives",
+          "planner_prepare_ms": 72.394,
+          "shape": "swift",
+          "snapshot_ms": 0,
+          "text_diff_ms": 48.362
+        },
+        {
+          "jump_to_end_ms": 4.957,
+          "jump_to_middle_ms": 4.327,
+          "jump_to_start_ms": 3.37,
+          "mb": 10,
+          "phase": "scroll",
+          "shape": "swift"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 141.032,
+          "input_to_draw": {
+            "max_ms": 185.556,
+            "mean_ms": 135.013,
+            "n": 60,
+            "p50_ms": 133.826,
+            "p95_ms": 136.856,
+            "p99_ms": 185.556
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 54.672,
+            "mean_ms": 5.098,
+            "n": 60,
+            "p50_ms": 4.234,
+            "p95_ms": 4.623,
+            "p99_ms": 54.672
+          },
+          "mb": 10,
+          "native_commit": {
+            "max_ms": 137.917,
+            "mean_ms": 129.915,
+            "n": 60,
+            "p50_ms": 129.551,
+            "p95_ms": 132.326,
+            "p99_ms": 137.917
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 141.048,
+          "input_to_draw": {
+            "max_ms": 170.571,
+            "mean_ms": 162.117,
+            "n": 60,
+            "p50_ms": 162.084,
+            "p95_ms": 164.191,
+            "p99_ms": 170.571
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.44,
+            "mean_ms": 3.946,
+            "n": 60,
+            "p50_ms": 3.912,
+            "p95_ms": 4.181,
+            "p99_ms": 4.44
+          },
+          "mb": 10,
+          "native_commit": {
+            "max_ms": 166.546,
+            "mean_ms": 158.17,
+            "n": 60,
+            "p50_ms": 158.057,
+            "p95_ms": 160.081,
+            "p99_ms": 166.546
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "middle"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 141.079,
+          "input_to_draw": {
+            "max_ms": 191.941,
+            "mean_ms": 188.316,
+            "n": 60,
+            "p50_ms": 188.492,
+            "p95_ms": 189.721,
+            "p99_ms": 191.941
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.123,
+            "mean_ms": 3.874,
+            "n": 60,
+            "p50_ms": 3.851,
+            "p95_ms": 4.052,
+            "p99_ms": 4.123
+          },
+          "mb": 10,
+          "native_commit": {
+            "max_ms": 187.922,
+            "mean_ms": 184.442,
+            "n": 60,
+            "p50_ms": 184.591,
+            "p95_ms": 185.819,
+            "p99_ms": 187.922
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "end"
+        },
+        {
+          "apply": {
+            "max_ms": 353.202,
+            "mean_ms": 351.85,
+            "n": 10,
+            "p50_ms": 352.15,
+            "p95_ms": 353.202,
+            "p99_ms": 353.202
+          },
+          "mb": 10,
+          "phase": "programmatic_edit",
+          "shape": "swift"
+        },
+        {
+          "mb": 10,
+          "phase": "undo",
+          "redo": {
+            "max_ms": 273.557,
+            "mean_ms": 272.942,
+            "n": 4,
+            "p50_ms": 273.089,
+            "p95_ms": 273.557,
+            "p99_ms": 273.557
+          },
+          "session_matches_view": true,
+          "shape": "swift",
+          "undo": {
+            "max_ms": 273.755,
+            "mean_ms": 272.768,
+            "n": 8,
+            "p50_ms": 272.798,
+            "p95_ms": 273.755,
+            "p99_ms": 273.755
+          }
+        },
+        {
+          "clean_after": true,
+          "first_ms": 22.39,
+          "mb": 10,
+          "phase": "save",
+          "second_ms": 17.505,
+          "shape": "swift"
+        },
+        {
+          "final_version": 204,
+          "footprint_end_mb": 137.016,
+          "mb": 10,
+          "peak_resident_mb": 206.094,
+          "phase": "summary",
+          "shape": "swift"
+        }
+      ],
+      "shape": "swift",
+      "timed_out": false,
+      "timeout_s": 360,
+      "wall_s": 39.2
+    },
+    {
+      "exit_status": 0,
+      "mb": 100,
+      "phases": [
+        {
+          "bytes": 104857600,
+          "footprint_mb": 224.891,
+          "lines": 3801089,
+          "mb": 100,
+          "phase": "fixture",
+          "shape": "swift",
+          "utf16_units": 102760448
+        },
+        {
+          "first_layout_draw_ms": 19.387,
+          "footprint_after_open_mb": 644.579,
+          "footprint_after_read_mb": 325.125,
+          "make_editor_ms": 285.491,
+          "mb": 100,
+          "phase": "open",
+          "read_ms": 161.224,
+          "session_init_ms": 314.022,
+          "shape": "swift",
+          "text_kit_2": true,
+          "total_ms": 780.124
+        },
+        {
+          "backend_text_copy_ms": 298.002,
+          "compare_equal_ms": 280.2,
+          "mb": 100,
+          "phase": "primitives",
+          "planner_prepare_ms": 721.092,
+          "shape": "swift",
+          "snapshot_ms": 0,
+          "text_diff_ms": 481.511
+        },
+        {
+          "jump_to_end_ms": 4.947,
+          "jump_to_middle_ms": 4.336,
+          "jump_to_start_ms": 3.441,
+          "mb": 100,
+          "phase": "scroll",
+          "shape": "swift"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 1469.283,
+          "input_to_draw": {
+            "max_ms": 1434.154,
+            "mean_ms": 1295.93,
+            "n": 31,
+            "p50_ms": 1285.746,
+            "p95_ms": 1327.749,
+            "p99_ms": 1434.154
+          },
+          "keystrokes_done": 31,
+          "layout_draw": {
+            "max_ms": 4.769,
+            "mean_ms": 4.301,
+            "n": 31,
+            "p50_ms": 4.258,
+            "p95_ms": 4.677,
+            "p99_ms": 4.769
+          },
+          "mb": 100,
+          "native_commit": {
+            "max_ms": 1429.385,
+            "mean_ms": 1291.63,
+            "n": 31,
+            "p50_ms": 1281.55,
+            "p95_ms": 1323.209,
+            "p99_ms": 1429.385
+          },
+          "phase": "typing",
+          "published_versions": 31,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 1469.268,
+          "input_to_draw": {
+            "max_ms": 1653.318,
+            "mean_ms": 1574.17,
+            "n": 26,
+            "p50_ms": 1567.076,
+            "p95_ms": 1596.025,
+            "p99_ms": 1653.318
+          },
+          "keystrokes_done": 26,
+          "layout_draw": {
+            "max_ms": 4.633,
+            "mean_ms": 4.031,
+            "n": 26,
+            "p50_ms": 3.989,
+            "p95_ms": 4.198,
+            "p99_ms": 4.633
+          },
+          "mb": 100,
+          "native_commit": {
+            "max_ms": 1648.685,
+            "mean_ms": 1570.139,
+            "n": 26,
+            "p50_ms": 1563.113,
+            "p95_ms": 1591.972,
+            "p99_ms": 1648.685
+          },
+          "phase": "typing",
+          "published_versions": 26,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "middle"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 1469.283,
+          "input_to_draw": {
+            "max_ms": 1932.863,
+            "mean_ms": 1853.397,
+            "n": 22,
+            "p50_ms": 1842.04,
+            "p95_ms": 1915.425,
+            "p99_ms": 1932.863
+          },
+          "keystrokes_done": 22,
+          "layout_draw": {
+            "max_ms": 4.591,
+            "mean_ms": 4.063,
+            "n": 22,
+            "p50_ms": 3.99,
+            "p95_ms": 4.409,
+            "p99_ms": 4.591
+          },
+          "mb": 100,
+          "native_commit": {
+            "max_ms": 1928.722,
+            "mean_ms": 1849.335,
+            "n": 22,
+            "p50_ms": 1838.096,
+            "p95_ms": 1911.149,
+            "p99_ms": 1928.722
+          },
+          "phase": "typing",
+          "published_versions": 22,
+          "reconciled": 0,
+          "shape": "swift",
+          "where": "end"
+        },
+        {
+          "apply": {
+            "max_ms": 3566.662,
+            "mean_ms": 3519.446,
+            "n": 10,
+            "p50_ms": 3506.207,
+            "p95_ms": 3566.662,
+            "p99_ms": 3566.662
+          },
+          "mb": 100,
+          "phase": "programmatic_edit",
+          "shape": "swift"
+        },
+        {
+          "mb": 100,
+          "phase": "undo",
+          "redo": {
+            "max_ms": 2694.209,
+            "mean_ms": 2692.359,
+            "n": 4,
+            "p50_ms": 2693.266,
+            "p95_ms": 2694.209,
+            "p99_ms": 2694.209
+          },
+          "session_matches_view": true,
+          "shape": "swift",
+          "undo": {
+            "max_ms": 2850.675,
+            "mean_ms": 2727.086,
+            "n": 8,
+            "p50_ms": 2679.495,
+            "p95_ms": 2850.675,
+            "p99_ms": 2850.675
+          }
+        },
+        {
+          "clean_after": true,
+          "first_ms": 170.713,
+          "mb": 100,
+          "phase": "save",
+          "second_ms": 139.241,
+          "shape": "swift"
+        },
+        {
+          "final_version": 103,
+          "footprint_end_mb": 1475.954,
+          "mb": 100,
+          "peak_resident_mb": 1493.391,
+          "phase": "summary",
+          "shape": "swift"
+        }
+      ],
+      "shape": "swift",
+      "timed_out": false,
+      "timeout_s": 900,
+      "wall_s": 216.5
+    },
+    {
+      "exit_status": 0,
+      "mb": 10,
+      "phases": [
+        {
+          "bytes": 10486070,
+          "footprint_mb": 22.609,
+          "lines": 355461,
+          "mb": 10,
+          "phase": "fixture",
+          "shape": "mixed",
+          "utf16_units": 10282950
+        },
+        {
+          "first_layout_draw_ms": 19.524,
+          "footprint_after_open_mb": 63.797,
+          "footprint_after_read_mb": 22.719,
+          "make_editor_ms": 37.448,
+          "mb": 10,
+          "phase": "open",
+          "read_ms": 14.206,
+          "session_init_ms": 27.788,
+          "shape": "mixed",
+          "text_kit_2": true,
+          "total_ms": 98.966
+        },
+        {
+          "backend_text_copy_ms": 27.677,
+          "compare_equal_ms": 28.092,
+          "mb": 10,
+          "phase": "primitives",
+          "planner_prepare_ms": 71.396,
+          "shape": "mixed",
+          "snapshot_ms": 0,
+          "text_diff_ms": 48.401
+        },
+        {
+          "jump_to_end_ms": 4.545,
+          "jump_to_middle_ms": 4.914,
+          "jump_to_start_ms": 3.47,
+          "mb": 10,
+          "phase": "scroll",
+          "shape": "mixed"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 140.095,
+          "input_to_draw": {
+            "max_ms": 187.593,
+            "mean_ms": 135.661,
+            "n": 60,
+            "p50_ms": 133.888,
+            "p95_ms": 142.425,
+            "p99_ms": 187.593
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 6.096,
+            "mean_ms": 4.249,
+            "n": 60,
+            "p50_ms": 4.19,
+            "p95_ms": 4.545,
+            "p99_ms": 6.096
+          },
+          "mb": 10,
+          "native_commit": {
+            "max_ms": 181.497,
+            "mean_ms": 131.412,
+            "n": 60,
+            "p50_ms": 129.58,
+            "p95_ms": 137.977,
+            "p99_ms": 181.497
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "mixed",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 140.11,
+          "input_to_draw": {
+            "max_ms": 234.385,
+            "mean_ms": 162.169,
+            "n": 60,
+            "p50_ms": 160.358,
+            "p95_ms": 165.698,
+            "p99_ms": 234.385
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.24,
+            "mean_ms": 3.871,
+            "n": 60,
+            "p50_ms": 3.852,
+            "p95_ms": 4.061,
+            "p99_ms": 4.24
+          },
+          "mb": 10,
+          "native_commit": {
+            "max_ms": 230.438,
+            "mean_ms": 158.299,
+            "n": 60,
+            "p50_ms": 156.46,
+            "p95_ms": 161.566,
+            "p99_ms": 230.438
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "mixed",
+          "where": "middle"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 140.142,
+          "input_to_draw": {
+            "max_ms": 192.165,
+            "mean_ms": 187.749,
+            "n": 60,
+            "p50_ms": 187.885,
+            "p95_ms": 188.575,
+            "p99_ms": 192.165
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.088,
+            "mean_ms": 3.869,
+            "n": 60,
+            "p50_ms": 3.85,
+            "p95_ms": 3.969,
+            "p99_ms": 4.088
+          },
+          "mb": 10,
+          "native_commit": {
+            "max_ms": 188.287,
+            "mean_ms": 183.88,
+            "n": 60,
+            "p50_ms": 184.009,
+            "p95_ms": 184.673,
+            "p99_ms": 188.287
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "mixed",
+          "where": "end"
+        },
+        {
+          "apply": {
+            "max_ms": 352.377,
+            "mean_ms": 351.605,
+            "n": 10,
+            "p50_ms": 351.279,
+            "p95_ms": 352.377,
+            "p99_ms": 352.377
+          },
+          "mb": 10,
+          "phase": "programmatic_edit",
+          "shape": "mixed"
+        },
+        {
+          "mb": 10,
+          "phase": "undo",
+          "redo": {
+            "max_ms": 273.951,
+            "mean_ms": 273.246,
+            "n": 4,
+            "p50_ms": 273.059,
+            "p95_ms": 273.951,
+            "p99_ms": 273.951
+          },
+          "session_matches_view": true,
+          "shape": "mixed",
+          "undo": {
+            "max_ms": 274.175,
+            "mean_ms": 273.431,
+            "n": 8,
+            "p50_ms": 273.236,
+            "p95_ms": 274.175,
+            "p99_ms": 274.175
+          }
+        },
+        {
+          "clean_after": true,
+          "first_ms": 21.343,
+          "mb": 10,
+          "phase": "save",
+          "second_ms": 17.554,
+          "shape": "mixed"
+        },
+        {
+          "final_version": 204,
+          "footprint_end_mb": 137.297,
+          "mb": 10,
+          "peak_resident_mb": 215.625,
+          "phase": "summary",
+          "shape": "mixed"
+        }
+      ],
+      "shape": "mixed",
+      "timed_out": false,
+      "timeout_s": 360,
+      "wall_s": 39.3
+    },
+    {
+      "exit_status": 0,
+      "mb": 10,
+      "phases": [
+        {
+          "bytes": 10485762,
+          "footprint_mb": 20.063,
+          "lines": 3495255,
+          "mb": 10,
+          "phase": "fixture",
+          "shape": "short",
+          "utf16_units": 10485762
+        },
+        {
+          "first_layout_draw_ms": 15.403,
+          "footprint_after_open_mb": 50.094,
+          "footprint_after_read_mb": 20.203,
+          "make_editor_ms": 10.565,
+          "mb": 10,
+          "phase": "open",
+          "read_ms": 10.602,
+          "session_init_ms": 30.467,
+          "shape": "short",
+          "text_kit_2": true,
+          "total_ms": 67.037
+        },
+        {
+          "backend_text_copy_ms": 30.564,
+          "compare_equal_ms": 28.106,
+          "mb": 10,
+          "phase": "primitives",
+          "planner_prepare_ms": 36.808,
+          "shape": "short",
+          "snapshot_ms": 0,
+          "text_diff_ms": 50.285
+        },
+        {
+          "jump_to_end_ms": 4.439,
+          "jump_to_middle_ms": 4.491,
+          "jump_to_start_ms": 3.771,
+          "mb": 10,
+          "phase": "scroll",
+          "shape": "short"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 122.157,
+          "input_to_draw": {
+            "max_ms": 94.313,
+            "mean_ms": 86.723,
+            "n": 60,
+            "p50_ms": 86.252,
+            "p95_ms": 87.982,
+            "p99_ms": 94.313
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.755,
+            "mean_ms": 4.268,
+            "n": 60,
+            "p50_ms": 4.253,
+            "p95_ms": 4.428,
+            "p99_ms": 4.755
+          },
+          "mb": 10,
+          "native_commit": {
+            "max_ms": 89.642,
+            "mean_ms": 82.456,
+            "n": 60,
+            "p50_ms": 81.986,
+            "p95_ms": 83.723,
+            "p99_ms": 89.642
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "short",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 122.048,
+          "input_to_draw": {
+            "max_ms": 119.479,
+            "mean_ms": 115.161,
+            "n": 60,
+            "p50_ms": 114.956,
+            "p95_ms": 117.33,
+            "p99_ms": 119.479
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.353,
+            "mean_ms": 3.966,
+            "n": 60,
+            "p50_ms": 3.938,
+            "p95_ms": 4.178,
+            "p99_ms": 4.353
+          },
+          "mb": 10,
+          "native_commit": {
+            "max_ms": 115.126,
+            "mean_ms": 111.195,
+            "n": 60,
+            "p50_ms": 110.991,
+            "p95_ms": 113.245,
+            "p99_ms": 115.126
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "short",
+          "where": "middle"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 122.095,
+          "input_to_draw": {
+            "max_ms": 189.332,
+            "mean_ms": 142.58,
+            "n": 60,
+            "p50_ms": 141.555,
+            "p95_ms": 143.744,
+            "p99_ms": 189.332
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 4.182,
+            "mean_ms": 3.867,
+            "n": 60,
+            "p50_ms": 3.855,
+            "p95_ms": 3.993,
+            "p99_ms": 4.182
+          },
+          "mb": 10,
+          "native_commit": {
+            "max_ms": 185.219,
+            "mean_ms": 138.712,
+            "n": 60,
+            "p50_ms": 137.694,
+            "p95_ms": 139.82,
+            "p99_ms": 185.219
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "short",
+          "where": "end"
+        },
+        {
+          "apply": {
+            "max_ms": 334.372,
+            "mean_ms": 325.409,
+            "n": 10,
+            "p50_ms": 325.016,
+            "p95_ms": 334.372,
+            "p99_ms": 334.372
+          },
+          "mb": 10,
+          "phase": "programmatic_edit",
+          "shape": "short"
+        },
+        {
+          "mb": 10,
+          "phase": "undo",
+          "redo": {
+            "max_ms": 187.22,
+            "mean_ms": 182.583,
+            "n": 4,
+            "p50_ms": 180.963,
+            "p95_ms": 187.22,
+            "p99_ms": 187.22
+          },
+          "session_matches_view": true,
+          "shape": "short",
+          "undo": {
+            "max_ms": 181.53,
+            "mean_ms": 180.488,
+            "n": 8,
+            "p50_ms": 180.274,
+            "p95_ms": 181.53,
+            "p99_ms": 181.53
+          }
+        },
+        {
+          "clean_after": true,
+          "first_ms": 19.607,
+          "mb": 10,
+          "phase": "save",
+          "second_ms": 16.408,
+          "shape": "short"
+        },
+        {
+          "final_version": 204,
+          "footprint_end_mb": 116.36,
+          "mb": 10,
+          "peak_resident_mb": 187.406,
+          "phase": "summary",
+          "shape": "short"
+        }
+      ],
+      "shape": "short",
+      "timed_out": false,
+      "timeout_s": 360,
+      "wall_s": 28.8
+    },
+    {
+      "exit_status": 0,
+      "mb": 0.05,
+      "phases": [
+        {
+          "bytes": 52444,
+          "footprint_mb": 0.125,
+          "lines": 1,
+          "mb": 0.05,
+          "phase": "fixture",
+          "shape": "giant",
+          "utf16_units": 39333
+        },
+        {
+          "first_layout_draw_ms": 83.902,
+          "footprint_after_open_mb": 40.297,
+          "footprint_after_read_mb": 0.297,
+          "make_editor_ms": 21.946,
+          "mb": 0.05,
+          "phase": "open",
+          "read_ms": 0.192,
+          "session_init_ms": 0.18,
+          "shape": "giant",
+          "text_kit_2": true,
+          "total_ms": 106.22
+        },
+        {
+          "backend_text_copy_ms": 0.142,
+          "compare_equal_ms": 0.139,
+          "mb": 0.05,
+          "phase": "primitives",
+          "planner_prepare_ms": 0.341,
+          "shape": "giant",
+          "snapshot_ms": 0,
+          "text_diff_ms": 0.207
+        },
+        {
+          "jump_to_end_ms": 24.482,
+          "jump_to_middle_ms": 24.65,
+          "jump_to_start_ms": 24.065,
+          "mb": 0.05,
+          "phase": "scroll",
+          "shape": "giant"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 90.032,
+          "input_to_draw": {
+            "max_ms": 216.866,
+            "mean_ms": 101.848,
+            "n": 60,
+            "p50_ms": 95.349,
+            "p95_ms": 133.741,
+            "p99_ms": 216.866
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 196.085,
+            "mean_ms": 87.067,
+            "n": 60,
+            "p50_ms": 80.462,
+            "p95_ms": 119.012,
+            "p99_ms": 196.085
+          },
+          "mb": 0.05,
+          "native_commit": {
+            "max_ms": 20.781,
+            "mean_ms": 14.781,
+            "n": 60,
+            "p50_ms": 14.675,
+            "p95_ms": 15.264,
+            "p99_ms": 20.781
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 90.407,
+          "input_to_draw": {
+            "max_ms": 85.894,
+            "mean_ms": 80.122,
+            "n": 60,
+            "p50_ms": 79.586,
+            "p95_ms": 83.19,
+            "p99_ms": 85.894
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 70.715,
+            "mean_ms": 65.066,
+            "n": 60,
+            "p50_ms": 64.434,
+            "p95_ms": 68.086,
+            "p99_ms": 70.715
+          },
+          "mb": 0.05,
+          "native_commit": {
+            "max_ms": 15.464,
+            "mean_ms": 15.056,
+            "n": 60,
+            "p50_ms": 15.011,
+            "p95_ms": 15.342,
+            "p99_ms": 15.464
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "middle"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 102.548,
+          "input_to_draw": {
+            "max_ms": 132.012,
+            "mean_ms": 79.285,
+            "n": 60,
+            "p50_ms": 77.775,
+            "p95_ms": 81.999,
+            "p99_ms": 132.012
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 110.889,
+            "mean_ms": 63.607,
+            "n": 60,
+            "p50_ms": 62.295,
+            "p95_ms": 65.97,
+            "p99_ms": 110.889
+          },
+          "mb": 0.05,
+          "native_commit": {
+            "max_ms": 21.123,
+            "mean_ms": 15.678,
+            "n": 60,
+            "p50_ms": 15.552,
+            "p95_ms": 17.036,
+            "p99_ms": 21.123
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "end"
+        },
+        {
+          "apply": {
+            "max_ms": 2.403,
+            "mean_ms": 2.299,
+            "n": 10,
+            "p50_ms": 2.288,
+            "p95_ms": 2.403,
+            "p99_ms": 2.403
+          },
+          "mb": 0.05,
+          "phase": "programmatic_edit",
+          "shape": "giant"
+        },
+        {
+          "mb": 0.05,
+          "phase": "undo",
+          "redo": {
+            "max_ms": 78.184,
+            "mean_ms": 77.755,
+            "n": 4,
+            "p50_ms": 77.827,
+            "p95_ms": 78.184,
+            "p99_ms": 78.184
+          },
+          "session_matches_view": true,
+          "shape": "giant",
+          "undo": {
+            "max_ms": 78.062,
+            "mean_ms": 77.656,
+            "n": 8,
+            "p50_ms": 77.771,
+            "p95_ms": 78.062,
+            "p99_ms": 78.062
+          }
+        },
+        {
+          "clean_after": true,
+          "first_ms": 51.87,
+          "mb": 0.05,
+          "phase": "save",
+          "second_ms": 2.039,
+          "shape": "giant"
+        },
+        {
+          "final_version": 204,
+          "footprint_end_mb": 86.516,
+          "mb": 0.05,
+          "peak_resident_mb": 204.844,
+          "phase": "summary",
+          "shape": "giant"
+        }
+      ],
+      "shape": "giant",
+      "timed_out": false,
+      "timeout_s": 120,
+      "wall_s": 18.1
+    },
+    {
+      "exit_status": 0,
+      "mb": 0.1,
+      "phases": [
+        {
+          "bytes": 104860,
+          "footprint_mb": 0.234,
+          "lines": 1,
+          "mb": 0.1,
+          "phase": "fixture",
+          "shape": "giant",
+          "utf16_units": 78645
+        },
+        {
+          "first_layout_draw_ms": 143.378,
+          "footprint_after_open_mb": 43.719,
+          "footprint_after_read_mb": 0.453,
+          "make_editor_ms": 6.982,
+          "mb": 0.1,
+          "phase": "open",
+          "read_ms": 0.283,
+          "session_init_ms": 0.367,
+          "shape": "giant",
+          "text_kit_2": true,
+          "total_ms": 151.01
+        },
+        {
+          "backend_text_copy_ms": 0.294,
+          "compare_equal_ms": 0.281,
+          "mb": 0.1,
+          "phase": "primitives",
+          "planner_prepare_ms": 0.685,
+          "shape": "giant",
+          "snapshot_ms": 0,
+          "text_diff_ms": 0.491
+        },
+        {
+          "jump_to_end_ms": 45.128,
+          "jump_to_middle_ms": 45.375,
+          "jump_to_start_ms": 45.771,
+          "mb": 0.1,
+          "phase": "scroll",
+          "shape": "giant"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 120.423,
+          "input_to_draw": {
+            "max_ms": 908.804,
+            "mean_ms": 208.937,
+            "n": 60,
+            "p50_ms": 186.865,
+            "p95_ms": 313.075,
+            "p99_ms": 908.804
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 873.517,
+            "mean_ms": 180.27,
+            "n": 60,
+            "p50_ms": 158.528,
+            "p95_ms": 284.927,
+            "p99_ms": 873.517
+          },
+          "mb": 0.1,
+          "native_commit": {
+            "max_ms": 35.791,
+            "mean_ms": 28.667,
+            "n": 60,
+            "p50_ms": 28.169,
+            "p95_ms": 29.886,
+            "p99_ms": 35.791
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 117.892,
+          "input_to_draw": {
+            "max_ms": 184.254,
+            "mean_ms": 157.221,
+            "n": 60,
+            "p50_ms": 155.666,
+            "p95_ms": 163.712,
+            "p99_ms": 184.254
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 155.356,
+            "mean_ms": 128.536,
+            "n": 60,
+            "p50_ms": 126.979,
+            "p95_ms": 134.918,
+            "p99_ms": 155.356
+          },
+          "mb": 0.1,
+          "native_commit": {
+            "max_ms": 29.625,
+            "mean_ms": 28.686,
+            "n": 60,
+            "p50_ms": 28.838,
+            "p95_ms": 29.117,
+            "p99_ms": 29.625
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "middle"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 128.407,
+          "input_to_draw": {
+            "max_ms": 152.667,
+            "mean_ms": 149.416,
+            "n": 60,
+            "p50_ms": 149.034,
+            "p95_ms": 151.77,
+            "p99_ms": 152.667
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 122.685,
+            "mean_ms": 120.09,
+            "n": 60,
+            "p50_ms": 119.752,
+            "p95_ms": 122.019,
+            "p99_ms": 122.685
+          },
+          "mb": 0.1,
+          "native_commit": {
+            "max_ms": 30.383,
+            "mean_ms": 29.326,
+            "n": 60,
+            "p50_ms": 29.248,
+            "p95_ms": 30.11,
+            "p99_ms": 30.383
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "end"
+        },
+        {
+          "apply": {
+            "max_ms": 4.356,
+            "mean_ms": 4.241,
+            "n": 10,
+            "p50_ms": 4.201,
+            "p95_ms": 4.356,
+            "p99_ms": 4.356
+          },
+          "mb": 0.1,
+          "phase": "programmatic_edit",
+          "shape": "giant"
+        },
+        {
+          "mb": 0.1,
+          "phase": "undo",
+          "redo": {
+            "max_ms": 154.231,
+            "mean_ms": 153.399,
+            "n": 4,
+            "p50_ms": 152.749,
+            "p95_ms": 154.231,
+            "p99_ms": 154.231
+          },
+          "session_matches_view": true,
+          "shape": "giant",
+          "undo": {
+            "max_ms": 155.105,
+            "mean_ms": 152.487,
+            "n": 8,
+            "p50_ms": 152.468,
+            "p95_ms": 155.105,
+            "p99_ms": 155.105
+          }
+        },
+        {
+          "clean_after": true,
+          "first_ms": 93.947,
+          "mb": 0.1,
+          "phase": "save",
+          "second_ms": 76.153,
+          "shape": "giant"
+        },
+        {
+          "final_version": 204,
+          "footprint_end_mb": 183.032,
+          "mb": 0.1,
+          "peak_resident_mb": 375.594,
+          "phase": "summary",
+          "shape": "giant"
+        }
+      ],
+      "shape": "giant",
+      "timed_out": false,
+      "timeout_s": 120,
+      "wall_s": 35.3
+    },
+    {
+      "exit_status": 0,
+      "mb": 0.25,
+      "phases": [
+        {
+          "bytes": 262164,
+          "footprint_mb": 0.609,
+          "lines": 1,
+          "mb": 0.25,
+          "phase": "fixture",
+          "shape": "giant",
+          "utf16_units": 196623
+        },
+        {
+          "first_layout_draw_ms": 317.786,
+          "footprint_after_open_mb": 87.125,
+          "footprint_after_read_mb": 0.953,
+          "make_editor_ms": 9.679,
+          "mb": 0.25,
+          "phase": "open",
+          "read_ms": 0.553,
+          "session_init_ms": 0.764,
+          "shape": "giant",
+          "text_kit_2": true,
+          "total_ms": 328.782
+        },
+        {
+          "backend_text_copy_ms": 0.749,
+          "compare_equal_ms": 0.721,
+          "mb": 0.25,
+          "phase": "primitives",
+          "planner_prepare_ms": 1.673,
+          "shape": "giant",
+          "snapshot_ms": 0,
+          "text_diff_ms": 1.012
+        },
+        {
+          "jump_to_end_ms": 110.196,
+          "jump_to_middle_ms": 110.984,
+          "jump_to_start_ms": 111.326,
+          "mb": 0.25,
+          "phase": "scroll",
+          "shape": "giant"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 555.111,
+          "input_to_draw": {
+            "max_ms": 9054.784,
+            "mean_ms": 723.074,
+            "n": 55,
+            "p50_ms": 487.918,
+            "p95_ms": 1177.66,
+            "p99_ms": 9054.784
+          },
+          "keystrokes_done": 55,
+          "layout_draw": {
+            "max_ms": 8976.7,
+            "mean_ms": 652.31,
+            "n": 55,
+            "p50_ms": 419.17,
+            "p95_ms": 1108.464,
+            "p99_ms": 8976.7
+          },
+          "mb": 0.25,
+          "native_commit": {
+            "max_ms": 78.084,
+            "mean_ms": 70.764,
+            "n": 55,
+            "p50_ms": 70.849,
+            "p95_ms": 74.253,
+            "p99_ms": 78.084
+          },
+          "phase": "typing",
+          "published_versions": 55,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 616.783,
+          "input_to_draw": {
+            "max_ms": 473.688,
+            "mean_ms": 422.026,
+            "n": 60,
+            "p50_ms": 421.384,
+            "p95_ms": 459.9,
+            "p99_ms": 473.688
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 401.16,
+            "mean_ms": 349.404,
+            "n": 60,
+            "p50_ms": 348.311,
+            "p95_ms": 388.075,
+            "p99_ms": 401.16
+          },
+          "mb": 0.25,
+          "native_commit": {
+            "max_ms": 75.382,
+            "mean_ms": 72.623,
+            "n": 60,
+            "p50_ms": 72.779,
+            "p95_ms": 74.091,
+            "p99_ms": 75.382
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "middle"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 618.393,
+          "input_to_draw": {
+            "max_ms": 391.101,
+            "mean_ms": 381.019,
+            "n": 60,
+            "p50_ms": 380.456,
+            "p95_ms": 386.326,
+            "p99_ms": 391.101
+          },
+          "keystrokes_done": 60,
+          "layout_draw": {
+            "max_ms": 314.376,
+            "mean_ms": 307.291,
+            "n": 60,
+            "p50_ms": 306.835,
+            "p95_ms": 311.852,
+            "p99_ms": 314.376
+          },
+          "mb": 0.25,
+          "native_commit": {
+            "max_ms": 79.459,
+            "mean_ms": 73.728,
+            "n": 60,
+            "p50_ms": 73.826,
+            "p95_ms": 74.727,
+            "p99_ms": 79.459
+          },
+          "phase": "typing",
+          "published_versions": 60,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "end"
+        },
+        {
+          "apply": {
+            "max_ms": 10.04,
+            "mean_ms": 9.947,
+            "n": 10,
+            "p50_ms": 9.968,
+            "p95_ms": 10.04,
+            "p99_ms": 10.04
+          },
+          "mb": 0.25,
+          "phase": "programmatic_edit",
+          "shape": "giant"
+        },
+        {
+          "mb": 0.25,
+          "phase": "undo",
+          "redo": {
+            "max_ms": 396.232,
+            "mean_ms": 388.723,
+            "n": 4,
+            "p50_ms": 385.447,
+            "p95_ms": 396.232,
+            "p99_ms": 396.232
+          },
+          "session_matches_view": true,
+          "shape": "giant",
+          "undo": {
+            "max_ms": 454.084,
+            "mean_ms": 394.986,
+            "n": 8,
+            "p50_ms": 385.771,
+            "p95_ms": 454.084,
+            "p99_ms": 454.084
+          }
+        },
+        {
+          "clean_after": true,
+          "first_ms": 250.85,
+          "mb": 0.25,
+          "phase": "save",
+          "second_ms": 193.761,
+          "shape": "giant"
+        },
+        {
+          "final_version": 199,
+          "footprint_end_mb": 793.033,
+          "mb": 0.25,
+          "peak_resident_mb": 1407.688,
+          "phase": "summary",
+          "shape": "giant"
+        }
+      ],
+      "shape": "giant",
+      "timed_out": false,
+      "timeout_s": 150,
+      "wall_s": 100.2
+    },
+    {
+      "exit_status": -1,
+      "mb": 1,
+      "phases": [
+        {
+          "bytes": 1048600,
+          "footprint_mb": 2.281,
+          "lines": 1,
+          "mb": 1,
+          "phase": "fixture",
+          "shape": "giant",
+          "utf16_units": 786450
+        },
+        {
+          "first_layout_draw_ms": 1261.329,
+          "footprint_after_open_mb": 274.501,
+          "footprint_after_read_mb": 3.156,
+          "make_editor_ms": 11.888,
+          "mb": 1,
+          "phase": "open",
+          "read_ms": 1.733,
+          "session_init_ms": 2.959,
+          "shape": "giant",
+          "text_kit_2": true,
+          "total_ms": 1277.909
+        },
+        {
+          "backend_text_copy_ms": 2.999,
+          "compare_equal_ms": 2.799,
+          "mb": 1,
+          "phase": "primitives",
+          "planner_prepare_ms": 6.813,
+          "shape": "giant",
+          "snapshot_ms": 0,
+          "text_diff_ms": 4.139
+        },
+        {
+          "jump_to_end_ms": 454.39,
+          "jump_to_middle_ms": 456.158,
+          "jump_to_start_ms": 451.937,
+          "mb": 1,
+          "phase": "scroll",
+          "shape": "giant"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 1222.255,
+          "input_to_draw": {
+            "max_ms": 32871.321,
+            "mean_ms": 6792.597,
+            "n": 6,
+            "p50_ms": 1578.234,
+            "p95_ms": 32871.321,
+            "p99_ms": 32871.321
+          },
+          "keystrokes_done": 6,
+          "layout_draw": {
+            "max_ms": 32576.498,
+            "mean_ms": 6501.595,
+            "n": 6,
+            "p50_ms": 1286.421,
+            "p95_ms": 32576.498,
+            "p99_ms": 32576.498
+          },
+          "mb": 1,
+          "native_commit": {
+            "max_ms": 306.035,
+            "mean_ms": 291.002,
+            "n": 6,
+            "p50_ms": 287.159,
+            "p95_ms": 306.035,
+            "p99_ms": 306.035
+          },
+          "phase": "typing",
+          "published_versions": 6,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "start"
+        },
+        {
+          "aborted_for_memory": false,
+          "footprint_mb": 1429.036,
+          "input_to_draw": {
+            "max_ms": 1629.481,
+            "mean_ms": 1587.519,
+            "n": 26,
+            "p50_ms": 1579.709,
+            "p95_ms": 1629.479,
+            "p99_ms": 1629.481
+          },
+          "keystrokes_done": 26,
+          "layout_draw": {
+            "max_ms": 1336.726,
+            "mean_ms": 1292.828,
+            "n": 26,
+            "p50_ms": 1288.084,
+            "p95_ms": 1331.246,
+            "p99_ms": 1336.726
+          },
+          "mb": 1,
+          "native_commit": {
+            "max_ms": 317.922,
+            "mean_ms": 294.691,
+            "n": 26,
+            "p50_ms": 294.224,
+            "p95_ms": 315.142,
+            "p99_ms": 317.922
+          },
+          "phase": "typing",
+          "published_versions": 26,
+          "reconciled": 0,
+          "shape": "giant",
+          "where": "middle"
+        }
+      ],
+      "shape": "giant",
+      "timed_out": true,
+      "timeout_s": 240,
+      "wall_s": 242.1
+    },
+    {
+      "exit_status": null,
+      "mb": 10,
+      "phases": [],
+      "shape": "giant",
+      "skip_reason": "Not run on purpose: a 1 MB single line already takes 1.3 s to open and 1.6 s per keystroke; 10 and 100 MB would push an 8 GB machine into swap.",
+      "skipped": true,
+      "timed_out": false,
+      "wall_s": 0
+    },
+    {
+      "exit_status": null,
+      "mb": 100,
+      "phases": [],
+      "shape": "giant",
+      "skip_reason": "Not run on purpose: a 1 MB single line already takes 1.3 s to open and 1.6 s per keystroke; 10 and 100 MB would push an 8 GB machine into swap.",
+      "skipped": true,
+      "timed_out": false,
+      "wall_s": 0
+    }
+  ]
+}

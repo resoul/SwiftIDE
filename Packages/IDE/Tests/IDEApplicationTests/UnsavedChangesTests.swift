@@ -303,3 +303,115 @@ func discardingADocumentDoesNotCoverEditsMadeAfterwards() async throws {
     #expect(await coordinator.canQuit(documents: { [a, b] }))
     #expect(prompted == ["A.swift", "B.swift", "A.swift"], "new text in A is a new question")
 }
+
+// MARK: Quit: letting go of recovery copies takes time, and the world moves meanwhile
+
+@MainActor
+private final class QuitLog {
+    var released: [[String]] = []
+    var reinstated: [[String]] = []
+}
+
+@Test @MainActor
+func quitReleasesTheDocumentsTheUserAgreedToLoseBeforeSayingYes() async throws {
+    let script = Script(.discard)
+    let clean = DocumentSession(path: "Clean.swift", backend: StringDocumentBackend(loadedText: "x"))
+    let a = try dirtySession("A.swift")
+    let log = QuitLog()
+    let allowed = await script.coordinator().canQuit(
+        documents: { [clean, a] },
+        release: { log.released.append($0.map(\.path)) },
+        reinstate: { log.reinstated.append($0.map(\.path)) }
+    )
+    #expect(allowed)
+    #expect(log.released == [["A.swift"]])
+    #expect(log.reinstated.isEmpty)
+}
+
+@Test @MainActor
+func textTypedWhileTheCopiesAreBeingReleasedIsAskedAboutAgain() async throws {
+    let script = Script(.discard)
+    let a = try dirtySession("A.swift")
+    let log = QuitLog()
+    var typed = false
+    let allowed = await script.coordinator().canQuit(
+        documents: { [a] },
+        release: { sessions in
+            log.released.append(sessions.map(\.path))
+            await Task.yield()
+            if !typed {
+                typed = true
+                try? a.replaceText("typed while releasing", expectedVersion: a.version)
+            }
+        },
+        reinstate: { log.reinstated.append($0.map(\.path)) }
+    )
+    #expect(allowed)
+    #expect(script.prompted == ["A.swift", "A.swift"], "the answer covered the old text only")
+    #expect(log.released == [["A.swift"], ["A.swift"]], "its copy is released again for the new text")
+}
+
+@Test @MainActor
+func aWindowThatAppearedWhileReleasingIsAskedAbout() async throws {
+    let script = Script(.discard)
+    let a = try dirtySession("A.swift")
+    let late = try dirtySession("Late.swift")
+    var open = [a]
+    let log = QuitLog()
+    let allowed = await script.coordinator().canQuit(
+        documents: { open },
+        release: { sessions in
+            log.released.append(sessions.map(\.path))
+            await Task.yield()
+            if open.count == 1 { open.append(late) }
+        },
+        reinstate: { log.reinstated.append($0.map(\.path)) }
+    )
+    #expect(allowed)
+    #expect(script.prompted == ["A.swift", "Late.swift"])
+    #expect(log.released == [["A.swift"], ["Late.swift"]])
+}
+
+@Test @MainActor
+func refusingAfterDocumentsWereReleasedPutsTheirProtectionBack() async throws {
+    var answers: [UnsavedChangesDecision] = [.discard, .cancel]
+    var prompted: [String] = []
+    let coordinator = UnsavedChangesCoordinator(
+        prompt: { session in
+            prompted.append(session.path)
+            return answers.removeFirst()
+        },
+        save: { _ in true }
+    )
+    let a = try dirtySession("A.swift")
+    var typed = false
+    let log = QuitLog()
+    let allowed = await coordinator.canQuit(
+        documents: { [a] },
+        release: { sessions in
+            log.released.append(sessions.map(\.path))
+            await Task.yield()
+            if !typed {
+                typed = true
+                try? a.replaceText("typed while releasing", expectedVersion: a.version)
+            }
+        },
+        reinstate: { log.reinstated.append($0.map(\.path)) }
+    )
+    #expect(!allowed, "the user cancelled the second question")
+    #expect(log.reinstated == [["A.swift"]], "the app goes on, so the copy of A must be kept again")
+}
+
+@Test @MainActor
+func nothingIsReleasedWhenTheUserCancelsFirst() async throws {
+    let script = Script(.cancel)
+    let a = try dirtySession("A.swift")
+    let log = QuitLog()
+    let allowed = await script.coordinator().canQuit(
+        documents: { [a] },
+        release: { log.released.append($0.map(\.path)) },
+        reinstate: { log.reinstated.append($0.map(\.path)) }
+    )
+    #expect(!allowed)
+    #expect(log.released.isEmpty && log.reinstated.isEmpty)
+}

@@ -1,0 +1,63 @@
+{
+ "machine": "Apple M2, 8 GB, macOS 27.0, release; TextKitBenchmarks run swift <MB> with PHASES=capture; a ticker on the main actor measures the longest stretch in which nothing else could run",
+ "rows": [
+  {
+   "size_mb": 10,
+   "synchronous_snapshot_ms": 27.8,
+   "capture_runs": [
+    {
+     "total_ms": 413.0,
+     "longest_gap_ms": 3.54
+    },
+    {
+     "total_ms": 21.5,
+     "longest_gap_ms": 0.095
+    },
+    {
+     "total_ms": 21.1,
+     "longest_gap_ms": 0.256
+    }
+   ]
+  },
+  {
+   "size_mb": 100,
+   "synchronous_snapshot_ms": 306.4,
+   "run": 1,
+   "capture_runs": [
+    {
+     "total_ms": 276.6,
+     "longest_gap_ms": 27.2
+    },
+    {
+     "total_ms": 205.1,
+     "longest_gap_ms": 0.121
+    },
+    {
+     "total_ms": 207.2,
+     "longest_gap_ms": 0.315
+    }
+   ]
+  },
+  {
+   "size_mb": 100,
+   "run": 2,
+   "peak_mb": 1249,
+   "capture_runs": [
+    {
+     "total_ms": 634.0,
+     "longest_gap_ms": 20.3,
+     "longest_gap_at_ms": 392.7
+    },
+    {
+     "total_ms": 209.7,
+     "longest_gap_ms": 0.11
+    },
+    {
+     "total_ms": 209.3,
+     "longest_gap_ms": 0.249
+    }
+   ]
+  }
+ ],
+ "note": "the first capture of a fresh process is the slow one (cold memory on an 8 GB machine); later ones are steady"
+}

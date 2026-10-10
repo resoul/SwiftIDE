@@ -54,6 +54,33 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 - Line numbers in the editor margin (`LineNumberRulerView`, an `NSRulerView`). Numbers come from `LineIndex`, which is kept up to date from published change sets, so they are right for lines that were never laid out; only the rows in view are visited (about 0.07 ms), a wrapped line is numbered once, and the empty last line after a final newline is numbered. Lines end with `\n`, `\r\n` or `\r`. See ADR-014 and [docs/benchmarks/TK-007a-results.md](docs/benchmarks/TK-007a-results.md).
 - `LineIndex`: chunked line lengths with the terminator kept per line, edit cost O(edit + chunks), joins and splits of `\r\n` followed without reading text; `DocumentLineIndex` follows a session and rebuilds from the backend when it cannot. Property tests against a rescan, including edits across chunk boundaries.
 
+### Fixed (review of recovery, watching and capture)
+
+- A large document containing an emoji (or any character outside the BMP) that straddled the boundary between two copied pieces was saved, and kept for recovery, with two replacement characters in its place. The pieces are now joined across a split pair.
+- Restoring unsaved text no longer lets Save overwrite another program's change made while the "Restore / Discard" question was on screen: a saved text is always judged against the file revision the recovered text was based on.
+- Save As while the old file was being re-read after an outside change crashed the app; the stale read is now dropped (`DocumentError.pathChanged`).
+- The recovery copy a restored document came from is removed only after the new copy is confirmed written; a failed or refused write leaves the old copy in place.
+- Quit with "Don't Save": removing recovery copies is part of the decision now. Text typed or windows opened while the copies were being removed are asked about, and a refused quit puts the protection back. Previously the app could quit over newer text or leave recovery stopped.
+
+### Changed (Save no longer freezes the window on large files)
+
+- Saving and the recovery checkpoint copy a large document (over 1 000 000 UTF-16 units) in slices of 262 144 units, giving the main thread back between them, and build the final `String` off the main thread; edits made while it is being copied are applied to the copy, and the version, path and disk revision are taken at one instant when the copy is complete and no marked text is live. On a 100 MB file the main thread was held for 306 ms by a save; the longest gap is now 0.1–0.3 ms (the first copy in a fresh process up to 27 ms). `DocumentSession.capture`, `CapturePolicy`, `DocumentCapture`. See ADR-018 and docs/benchmarks/ADR-018-capture.json. Not checked in a live window.
+
+### Added (TK-006, watching the file)
+
+- When another program changes the file of an open document (ADR-017): a document without unsaved changes is reloaded by itself, as an ordinary edit that can be undone, with a strip above the text ("changed on disk and reloaded", Undo); a document with unsaved changes is left alone and the strip offers Reload or Keep Mine; a file that was deleted or moved gets a strip with Save As. Saving still reports a conflict whatever was chosen. The document's own saves, `touch` and a rewrite with the same bytes are not changes.
+- New: `FileWatching` port, `ExternalChangeMonitor`, `VnodeFileWatcher` (kernel events on the file and its directory; re-opens a file that another program replaced by renaming over it), `DocumentFileStore.currentRevision(path:assumingUnchangedFrom:)` (with a default implementation), the general `DelayClock`. One strip above the text now serves external changes, read-only mode and the long-line warning, in that order. Not checked in a live window yet.
+
+### Added (TK-006, recovery of unsaved text)
+
+- After an unclean end, the next start offers the unsaved text back, one question per document ("Restore" / "Discard"; ADR-016). Unsaved text is written to `~/Library/Application Support/SwiftIDE/Recovery/` two seconds after the last edit (at most ten seconds after the first, however steadily one types), at once when the app goes to the background, and removed when the document is saved, saved under another name, closed without saving or quit with "Don't Save". Documents over 16 MB are not kept, and the window says so.
+- Restoring writes nothing to disk: the text becomes an ordinary unsaved edit (undoable). If the file changed on disk since, saving is a conflict as for any outside change. A file that is gone or unreadable, and a document that never had a file, open as Untitled. A copy that is cut short or altered is never offered; it is listed as unreadable.
+- New: `RecoveryStore` port, `RecoveryCoordinator`, `RecoveryRestorer`, `RecoveryJournal` (checksummed record files, private to the user, replaced atomically), `DocumentSession.subscribeToSaves`. Not checked in a live window yet.
+
+### Experiment (TK-012, step 2, not shipped)
+
+- `Tools/Experiments/LongLineSplit`: a probe that hands TextKit a long line in pieces by subclassing `NSTextContentStorage`. Typing in a 1 MB line drops from 1533 to 21 ms, but TextKit can fall into an endless layout loop after Enter or Backspace around a split line, so nothing was changed in the editor. Findings, numbers and options: docs/benchmarks/TK-012-step2-prototype.md.
+
 ### Added (TK-012, long lines, step 1)
 
 - A very long line (over 16 000 characters) now raises a notice above the text with "Make Read-Only" and "Keep Editing"; the file still opens editable by default. `LineIndex.longestLine` answers in one step per chunk, `LongLineMonitor` watches it after every change (the notice also appears when a long line is pasted and goes when it is shortened), `NoticeBanner` and `EditorContainerView` show it. Editing a long line is not faster yet. See ADR-015 and [docs/benchmarks/TK-012-long-lines.md](docs/benchmarks/TK-012-long-lines.md).
@@ -65,6 +92,15 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 - Syntax colours for Swift files (ADR-014): tree-sitter parses in the background from the document's own edits (incrementally, from a private chunked copy of the text), the editor draws the result as TextKit 2 rendering attributes. Colours follow edits at once and are replaced by the next result; the document, its revisions and undo are untouched. Files over 5 MB, lines over 1000 characters and lines with over 50 coloured runs are drawn plain (the window says so for large files). See [docs/benchmarks/TK-007c-results.md](docs/benchmarks/TK-007c-results.md).
 - New dependencies, pinned exactly: swift-tree-sitter 0.25.0 and tree-sitter-swift 0.7.4. Licences in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - New module `SyntaxInfrastructure`, the `SyntaxHighlighter` port, `SyntaxCoordinator`, `HighlightState`, `SyntaxPolicy`, `SyntaxPresenter` and `SyntaxTheme`.
+
+### Fixed (second review of TK-007c)
+
+- The 5 MB limit for syntax colours was checked only when a window opened, so pasting a large text into a small Swift file, or reloading a file that had grown, left colouring running without a limit. `SyntaxColouringController` now checks after every change: past the limit it stops the coordinator and the presenter, the highlighter drops its tree and text copy at once (`stop()`), and the colours leave the screen. They come back once the text is 10% under the limit. The oversized edit is never handed to the highlighter (session observers now run in subscription order).
+- Save As did not change the language choice (`.txt → .swift` stayed plain, `.swift → .txt` stayed coloured). The window now re-evaluates after Save As and the subtitle follows the state.
+- A presenter created for a view that was already laid out never learned what was on screen, and a released presenter left its colours drawn. Both fixed.
+- On a 10 MB file, sixty fast keystrokes queued sixty parses and left the colours 2.2 s behind; requests superseded by a newer queued one are now skipped (57 ms). The benchmark's "colour lag" measured until the result was received, not until the picture; it now reports both, plus a burst phase and the highlighter's own statistics. See docs/benchmarks/TK-007c-results.md.
+- The test helper that counted coloured pixels created an `NSColor` per pixel (about a second per picture, and a lot of memory); it reads the bitmap bytes now.
+- The highlighter test helper waited for answers against the wall clock, so a Mac that slept in the middle of a run failed tests that were fine; it uses a clock that stops during sleep.
 
 ### Fixed (review of TK-007c)
 

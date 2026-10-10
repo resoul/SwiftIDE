@@ -62,13 +62,20 @@ final class Screen {
     }
 }
 
-/// Pixels that are clearly coloured, not grey text on white.
+/// Pixels that are clearly coloured, not grey text on white. Reads the bitmap's bytes: asking an
+/// `NSColor` for every pixel took most of a second per picture and filled memory with colours.
 func colourful(_ bitmap: NSBitmapImageRep) -> Int {
+    guard let data = bitmap.bitmapData, bitmap.bitsPerSample == 8, bitmap.samplesPerPixel >= 3 else { return 0 }
+    let step = bitmap.bitsPerPixel / 8
     var count = 0
     for y in 0..<bitmap.pixelsHigh {
+        let row = data + y * bitmap.bytesPerRow
         for x in 0..<bitmap.pixelsWide {
-            guard let c = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
-            if c.saturationComponent > 0.45 && c.brightnessComponent < 0.9 { count += 1 }
+            let pixel = row + x * step
+            let r = Int(pixel[0]), g = Int(pixel[1]), b = Int(pixel[2])
+            let high = max(r, g, b), low = min(r, g, b)
+            // saturation > 0.45 and brightness < 0.9, in integers
+            if high > 0, (high - low) * 100 > 45 * high, high * 10 < 9 * 255 { count += 1 }
         }
     }
     return count

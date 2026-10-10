@@ -73,10 +73,12 @@ private final class SaveOperation {
 @MainActor
 public final class SaveDocumentUseCase {
     private let store: any DocumentFileStore
+    private let capturePolicy: CapturePolicy
     private var operations: [DocumentID: SaveOperation] = [:]
 
-    public init(store: any DocumentFileStore) {
+    public init(store: any DocumentFileStore, capturePolicy: CapturePolicy = .standard) {
         self.store = store
+        self.capturePolicy = capturePolicy
     }
 
     /// One instance must be shared across views of the same workspace.
@@ -173,16 +175,20 @@ public final class SaveDocumentUseCase {
         try await document.waitForCompositionEnd()
         try Task.checkCancellation()
         operation.isWaitingForComposition = false
+        // The copy of a large document is spread over many turns of the main thread, and what is
+        // typed meanwhile is part of it; the capture is of the instant it was complete.
+        let explicit = operation.trigger == .explicit
         let snapshot: DocumentSnapshot
         let expectation: SaveExpectation
         switch destination {
         case .current(let overwriting):
-            snapshot = document.snapshot()
+            let capture = try await document.capture(policy: capturePolicy, endsComposition: explicit)
+            snapshot = capture.snapshot
             // The disk revision is captured together with the snapshot: the write is judged
             // against the file this text was based on, whatever happens to the document meanwhile.
-            expectation = overwriting ? .overwrite : .revision(document.diskRevision)
+            expectation = overwriting ? .overwrite : .revision(capture.diskRevision)
         case .newName(let path, let target, _):
-            snapshot = document.snapshot(forPath: path)
+            snapshot = try await document.capture(forPath: path, policy: capturePolicy, endsComposition: explicit).snapshot
             switch target {
             case .newFile: expectation = .revision(nil)
             case .replacing(let confirmed): expectation = .revision(confirmed)

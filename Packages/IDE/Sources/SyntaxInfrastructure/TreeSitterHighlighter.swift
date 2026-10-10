@@ -4,6 +4,19 @@ import IDEDomain
 import SwiftTreeSitter
 import TreeSitterSwift
 
+/// What the highlighter's thread has done so far: for measuring, not for the editor.
+public struct HighlighterStatistics: Sendable, Equatable {
+    /// Requests that were answered with colours.
+    public var answered = 0
+    /// Requests dropped because the text had moved on, or a newer request was queued.
+    public var skipped = 0
+    public var parses = 0
+    public var parseMilliseconds = 0.0
+    /// Looking for a block comment that is never closed: reads the whole text after every parse.
+    public var commentSearchMilliseconds = 0.0
+    public var spanMilliseconds = 0.0
+}
+
 public enum SyntaxInfrastructureError: Error {
     case missingQuery
 }
@@ -19,9 +32,20 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
         case reset([[UInt16]], UInt64)
         case edit(DocumentChangeSet)
         case request(Range<Int>, UInt64)
+        case stop
+    }
+
+    /// The newest version colours were asked for. A request for an older one that is still in the
+    /// queue is not worth a parse: the editor discards its answer, the document moved on.
+    private final class NewestRequest: @unchecked Sendable {
+        private let lock = NSLock()
+        private var version: UInt64 = 0
+        func note(_ requested: UInt64) { lock.withLock { version = max(version, requested) } }
+        func isOlderThanNewest(_ requested: UInt64) -> Bool { lock.withLock { requested < version } }
     }
 
     private let engine: Engine
+    private let newest = NewestRequest()
     private let messages: AsyncStream<Message>.Continuation
     private let worker: Task<Void, Never>
 
@@ -30,7 +54,8 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             throw SyntaxInfrastructureError.missingQuery
         }
         let query = try Query(language: Language(tree_sitter_swift()), data: Data(contentsOf: url))
-        let engine = Engine(query: query)
+        let newest = newest
+        let engine = Engine(query: query, isStale: { newest.isOlderThanNewest($0) })
         let (stream, continuation) = AsyncStream<Message>.makeStream(bufferingPolicy: .unbounded)
         self.engine = engine
         self.messages = continuation
@@ -41,6 +66,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                 case .reset(let text, let version): await engine.reset(text: text, version: version)
                 case .edit(let changes): await engine.apply(changes)
                 case .request(let window, let version): await engine.highlights(in: window, version: version)
+                case .stop: await engine.release()
                 }
             }
         }
@@ -56,8 +82,20 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
     public func reset(text: [[UInt16]], version: UInt64) { messages.yield(.reset(text, version)) }
     public func edit(_ changes: DocumentChangeSet) { messages.yield(.edit(changes)) }
-    public func requestHighlights(in window: Range<Int>, version: UInt64) { messages.yield(.request(window, version)) }
-    public func stop() { messages.finish() }
+    public func requestHighlights(in window: Range<Int>, version: UInt64) {
+        newest.note(version)
+        messages.yield(.request(window, version))
+    }
+    /// Drops the tree and the copy of the text at once, whoever still holds this object.
+    public func stop() {
+        messages.yield(.stop)
+        messages.finish()
+    }
+
+    public func statistics() async -> HighlighterStatistics { await engine.statistics }
+
+    /// What the engine holds, for tests.
+    func retainedState() async -> (units: Int, hasTree: Bool) { await engine.retained() }
 
     // MARK: The work
 
@@ -76,11 +114,27 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
         /// An edit that did not fit the copy of the text: nothing is trusted until a reset.
         private var lost = false
         private var handler: (@Sendable (HighlightResult) -> Void)?
+        private(set) var statistics = HighlighterStatistics()
 
-        init(query: Query) {
+        private let isStale: @Sendable (UInt64) -> Bool
+
+        init(query: Query, isStale: @escaping @Sendable (UInt64) -> Bool) {
             self.query = query
+            self.isStale = isStale
             try? parser.setLanguage(Language(tree_sitter_swift()))
         }
+
+        /// Everything that grows with the document: the stop of a highlighter gives it back.
+        func release() {
+            tree = nil
+            text = ChunkedText()
+            lines = LineIndex()
+            handler = nil
+            unterminatedComment = nil
+            lost = true
+        }
+
+        func retained() -> (units: Int, hasTree: Bool) { (text.length, tree != nil) }
 
         func setHandler(_ handler: @escaping @Sendable (HighlightResult) -> Void) {
             self.handler = handler
@@ -116,21 +170,32 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
         }
 
         func highlights(in window: Range<Int>, version requested: UInt64) {
-            guard !lost, requested == version, let handler else { return }
+            guard !lost, requested == version, !isStale(requested), let handler else { statistics.skipped += 1; return }
             if needsParse || tree == nil {
                 let source = text
+                let began = ContinuousClock.now
                 tree = parser.parse(tree: tree, readBlock: { byteOffset, _ in source.bytes(fromUnit: byteOffset / 2) }) ?? tree
+                statistics.parseMilliseconds += Self.milliseconds(since: began)
+                statistics.parses += 1
                 needsParse = false
+                let searchBegan = ContinuousClock.now
                 unterminatedComment = tree.flatMap { findUnterminatedComment(in: $0) }
+                statistics.commentSearchMilliseconds += Self.milliseconds(since: searchBegan)
             }
             guard let tree else { return }
             // A window asked for before an edit can reach past the end of the text now.
             let lower = min(max(0, window.lowerBound), text.length)
             let clamped = lower..<min(text.length, max(lower, window.upperBound))
-            handler(HighlightResult(
-                version: version, window: clamped,
-                spans: spans(in: clamped, tree: tree), documentLength: text.length
-            ))
+            let spansBegan = ContinuousClock.now
+            let found = spans(in: clamped, tree: tree)
+            statistics.spanMilliseconds += Self.milliseconds(since: spansBegan)
+            statistics.answered += 1
+            handler(HighlightResult(version: version, window: clamped, spans: found, documentLength: text.length))
+        }
+
+        private static func milliseconds(since start: ContinuousClock.Instant) -> Double {
+            let d = start.duration(to: .now)
+            return Double(d.components.seconds) * 1_000 + Double(d.components.attoseconds) / 1e15
         }
 
         /// The first `/*` that the syntax tree does not take for the start of a comment or part of a

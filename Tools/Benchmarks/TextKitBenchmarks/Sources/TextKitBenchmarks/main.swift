@@ -21,7 +21,7 @@ if arguments.count >= 4, arguments[1] == "run", let shape = Shape(rawValue: argu
 } else if arguments.count >= 2, arguments[1] == "micro" {
     NSApplication.shared.setActivationPolicy(.prohibited)
     NSApp.finishLaunching()
-    Micro.run()
+    if arguments.count >= 4, arguments[2] == "teardown" { Micro.teardown(megabytes: Double(arguments[3]) ?? 1) } else { Micro.run() }
 } else if arguments.count >= 3, arguments[1] == "driver" {
     let quick = arguments.contains("--quick")
     let output = arguments.last!

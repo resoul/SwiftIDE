@@ -1,10 +1,10 @@
 import EditorPlatformTextKit
 import FileSystemInfrastructure
+import Foundation
 import IDEApplication
 import IDEDomain
 import SyntaxInfrastructure
 
-/// Only the composition layer constructs concrete adapters.
 @MainActor
 final class AppCompositionRoot {
     private static let sampleText = """
@@ -23,8 +23,9 @@ final class AppCompositionRoot {
     """
 
     private let store = AtomicDocumentFileStore()
+    private let recoveryStore: any RecoveryStore = RecoveryJournal(directory: AppCompositionRoot.recoveryDirectory)
     private let registry = DocumentRegistry()
-    /// Editors built while opening, until their window takes them over.
+    private let fileWatcher: any FileWatching = VnodeFileWatcher()
     private var pendingEditors: [DocumentID: TextKitEditor] = [:]
 
     private(set) lazy var saveDocument = SaveDocumentUseCase(store: store)
@@ -36,18 +37,54 @@ final class AppCompositionRoot {
         return session
     }
 
-    /// A scratch window without a file. Save As gives it one and registers it.
+    private static var recoveryDirectory: URL {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent("Recovery", isDirectory: true)
+    }
+
+    private lazy var restorer = RecoveryRestorer(store: recoveryStore, files: store, open: openDocument) { [unowned self] _ in
+        let editor = TextKitEditorFactory.makeEditor(loadedText: "")
+        let session = DocumentSession(path: "Untitled.swift", backend: editor.backend, isUntitled: true)
+        pendingEditors[session.id] = editor
+        return session
+    }
+
+    func scanRecovery() async throws -> RecoveryScan {
+        try await restorer.scan()
+    }
+
+    func restore(_ candidate: RecoveryCandidate) async throws -> RestoredDocument {
+        try await restorer.restore(candidate)
+    }
+
+    func discardRecovery(_ candidate: RecoveryCandidate, unlessKept key: RecoveryKey? = nil) async throws {
+        try await restorer.discard(candidate, unlessKept: key)
+    }
+
+    func retireRecovery(
+        _ candidate: RecoveryCandidate, restoredAs session: DocumentSession,
+        afterKeeping keep: @MainActor () async -> Safekeeping?
+    ) async throws {
+        try await restorer.retire(candidate, restoredAs: session, afterKeeping: keep)
+    }
+
     func makeUntitledWindow() -> WorkspaceWindowController {
         let editor = TextKitEditorFactory.makeEditor(loadedText: Self.sampleText)
         let session = DocumentSession(path: "Untitled.swift", backend: editor.backend, isUntitled: true)
         return WorkspaceWindowController(
             document: session, editor: editor, registry: registry,
             saveDocument: saveDocument, reloadDocument: reloadDocument,
+            recovery: RecoveryCoordinator(session: session, store: recoveryStore),
+            externalChanges: makeExternalChangeMonitor(for: session),
             revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter
         )
     }
 
-    /// Opens a file, or returns the window of the one that is already open.
+    private func makeExternalChangeMonitor(for session: DocumentSession) -> ExternalChangeMonitor {
+        ExternalChangeMonitor(session: session, files: store, watcher: fileWatcher, reload: reloadDocument)
+    }
+
     func open(path: String) async throws -> OpenedDocument {
         try await openDocument.execute(path: path)
     }
@@ -59,17 +96,16 @@ final class AppCompositionRoot {
         return WorkspaceWindowController(
             document: session, editor: editor, registry: registry,
             saveDocument: saveDocument, reloadDocument: reloadDocument,
+            recovery: RecoveryCoordinator(session: session, store: recoveryStore),
+            externalChanges: makeExternalChangeMonitor(for: session),
             revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter
         )
     }
 
-    /// Colours Swift source with tree-sitter; nil if the parser cannot be set up, which leaves the
-    /// window working without colours.
     private static let makeHighlighter: () -> (any SyntaxHighlighter)? = {
         try? TreeSitterHighlighter()
     }
 
-    /// The state of an existing file, for the moment a user agrees to replace it.
     private static let revisionOfFile: (String) -> FileRevision? = { path in
         (try? AtomicDocumentFileStore.currentRevision(atPath: path)) ?? nil
     }

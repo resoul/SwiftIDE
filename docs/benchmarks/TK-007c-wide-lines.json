@@ -1,0 +1,94 @@
+{
+ "machine": "Apple M2, 8 GB, macOS 27.0",
+ "note": "wide: lines of Swift array literals, 0.3 MB file, colouring unrestricted by policy",
+ "results": [
+  {
+   "line_chars": 100,
+   "spans_per_line": 31.9,
+   "baseline_p50_ms": 6.26,
+   "baseline_p95_ms": 6.434,
+   "keystroke_p50_ms": 21.614,
+   "keystroke_p95_ms": 22.824,
+   "commit_p50_ms": 2.041,
+   "colour_lag_p50_ms": 24.125,
+   "redraw_p50_ms": 11.604
+  },
+  {
+   "line_chars": 200,
+   "spans_per_line": 36.3,
+   "baseline_p50_ms": 5.546,
+   "baseline_p95_ms": 5.983,
+   "keystroke_p50_ms": 19.173,
+   "keystroke_p95_ms": 20.586,
+   "commit_p50_ms": 3.071,
+   "colour_lag_p50_ms": 21.649,
+   "redraw_p50_ms": 9.463
+  },
+  {
+   "line_chars": 300,
+   "spans_per_line": 94.8,
+   "baseline_p50_ms": 5.49,
+   "baseline_p95_ms": 5.693,
+   "keystroke_p50_ms": 24.944,
+   "keystroke_p95_ms": 25.492,
+   "commit_p50_ms": 3.922,
+   "colour_lag_p50_ms": 27.486,
+   "redraw_p50_ms": 11.981
+  },
+  {
+   "line_chars": 500,
+   "spans_per_line": 90.7,
+   "baseline_p50_ms": 5.377,
+   "baseline_p95_ms": 5.674,
+   "keystroke_p50_ms": 31.471,
+   "keystroke_p95_ms": 32.9,
+   "commit_p50_ms": 6.984,
+   "colour_lag_p50_ms": 34.109,
+   "redraw_p50_ms": 12.769
+  },
+  {
+   "line_chars": 1000,
+   "spans_per_line": 181.3,
+   "baseline_p50_ms": 5.571,
+   "baseline_p95_ms": 5.784,
+   "keystroke_p50_ms": 40.801,
+   "keystroke_p95_ms": 41.137,
+   "commit_p50_ms": 12.003,
+   "colour_lag_p50_ms": 43.903,
+   "redraw_p50_ms": 13.261
+  },
+  {
+   "line_chars": 2000,
+   "spans_per_line": 362.5,
+   "baseline_p50_ms": 6.107,
+   "baseline_p95_ms": 6.432,
+   "keystroke_p50_ms": 70.428,
+   "keystroke_p95_ms": 70.858,
+   "commit_p50_ms": 23.764,
+   "colour_lag_p50_ms": 74.353,
+   "redraw_p50_ms": 18.862
+  },
+  {
+   "line_chars": 4000,
+   "spans_per_line": 1102.8,
+   "baseline_p50_ms": 6.385,
+   "baseline_p95_ms": 6.593,
+   "keystroke_p50_ms": 114.907,
+   "keystroke_p95_ms": 115.965,
+   "commit_p50_ms": 65.608,
+   "colour_lag_p50_ms": 119.639,
+   "redraw_p50_ms": 20.212
+  },
+  {
+   "line_chars": 200,
+   "spans_per_line": 36.3,
+   "baseline_p50_ms": 5.424,
+   "baseline_p95_ms": 5.596,
+   "keystroke_p50_ms": 19.005,
+   "keystroke_p95_ms": 19.302,
+   "commit_p50_ms": 3.016,
+   "colour_lag_p50_ms": 21.441,
+   "redraw_p50_ms": 9.4
+  }
+ ]
+}

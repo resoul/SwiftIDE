@@ -1,0 +1,3005 @@
+{
+  "machine" : {
+    "chip" : "Apple M2",
+    "date" : "2026-10-09T20:27:31Z",
+    "memory_gb" : 8,
+    "os" : "Version 27.0 (Build 26A428)"
+  },
+  "results" : [
+    {
+      "exit_status" : 0,
+      "mb" : 0.040000000000000001,
+      "phases" : [
+        {
+          "bytes" : 42400,
+          "footprint_mb" : 0.109,
+          "lines" : 1538,
+          "mb" : 0.040000000000000001,
+          "phase" : "fixture",
+          "shape" : "swift",
+          "utf16_units" : 41552
+        },
+        {
+          "first_layout_draw_ms" : 55.213000000000001,
+          "footprint_after_open_mb" : 11.702999999999999,
+          "footprint_after_read_mb" : 0.29699999999999999,
+          "line_index_footprint_mb" : 0.031,
+          "line_index_ms" : 0.083000000000000004,
+          "make_editor_ms" : 24.923999999999999,
+          "mb" : 0.040000000000000001,
+          "phase" : "open",
+          "read_ms" : 0.187,
+          "session_init_ms" : 0.037999999999999999,
+          "shape" : "swift",
+          "text_kit_2" : true,
+          "total_ms" : 80.442999999999998
+        },
+        {
+          "backend_text_copy_ms" : 0.11600000000000001,
+          "compare_equal_ms" : 0.109,
+          "mb" : 0.040000000000000001,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.002,
+          "shape" : "swift",
+          "snapshot_ms" : 0.105
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 10.026999999999999,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 10.195,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 6.5099999999999998,
+          "mb" : 0.040000000000000001,
+          "phase" : "scroll",
+          "shape" : "swift"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 40,
+          "labels_end_ms" : 0.080000000000000002,
+          "labels_middle_count" : 41,
+          "labels_middle_ms" : 0.070000000000000007,
+          "labels_start_count" : 40,
+          "labels_start_ms" : 0.057000000000000002,
+          "line_count" : 1538,
+          "mb" : 0.040000000000000001,
+          "phase" : "gutter",
+          "shape" : "swift",
+          "thousand_lookups_ms" : 0.32800000000000001
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 34.781999999999996,
+          "input_to_draw" : {
+            "max_ms" : 10.387,
+            "mean_ms" : 5.9889999999999999,
+            "n" : 60,
+            "p50_ms" : 5.7320000000000002,
+            "p95_ms" : 7.1859999999999999,
+            "p99_ms" : 10.387
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 8.0640000000000001,
+            "mean_ms" : 5.0780000000000003,
+            "n" : 60,
+            "p50_ms" : 4.9509999999999996,
+            "p95_ms" : 5.5190000000000001,
+            "p99_ms" : 8.0640000000000001
+          },
+          "mb" : 0.040000000000000001,
+          "native_commit" : {
+            "max_ms" : 5.2969999999999997,
+            "mean_ms" : 0.91000000000000003,
+            "n" : 60,
+            "p50_ms" : 0.79400000000000004,
+            "p95_ms" : 1.1950000000000001,
+            "p99_ms" : 5.2969999999999997
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 33.704000000000001,
+          "input_to_draw" : {
+            "max_ms" : 7.8579999999999997,
+            "mean_ms" : 6.1429999999999998,
+            "n" : 60,
+            "p50_ms" : 5.9379999999999997,
+            "p95_ms" : 7.0380000000000003,
+            "p99_ms" : 7.8579999999999997
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 6.5250000000000004,
+            "mean_ms" : 5.3140000000000001,
+            "n" : 60,
+            "p50_ms" : 5.1630000000000003,
+            "p95_ms" : 6.0369999999999999,
+            "p99_ms" : 6.5250000000000004
+          },
+          "mb" : 0.040000000000000001,
+          "native_commit" : {
+            "max_ms" : 2.46,
+            "mean_ms" : 0.82899999999999996,
+            "n" : 60,
+            "p50_ms" : 0.77100000000000002,
+            "p95_ms" : 0.98599999999999999,
+            "p99_ms" : 2.46
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 34.875999999999998,
+          "input_to_draw" : {
+            "max_ms" : 5.6600000000000001,
+            "mean_ms" : 5.4210000000000003,
+            "n" : 60,
+            "p50_ms" : 5.4119999999999999,
+            "p95_ms" : 5.5039999999999996,
+            "p99_ms" : 5.6600000000000001
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.2629999999999999,
+            "mean_ms" : 5.032,
+            "n" : 60,
+            "p50_ms" : 5.0250000000000004,
+            "p95_ms" : 5.0960000000000001,
+            "p99_ms" : 5.2629999999999999
+          },
+          "mb" : 0.040000000000000001,
+          "native_commit" : {
+            "max_ms" : 0.46500000000000002,
+            "mean_ms" : 0.38900000000000001,
+            "n" : 60,
+            "p50_ms" : 0.38900000000000001,
+            "p95_ms" : 0.42099999999999999,
+            "p99_ms" : 0.46500000000000002
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "end"
+        },
+        {
+          "apply" : {
+            "max_ms" : 1.4399999999999999,
+            "mean_ms" : 0.53900000000000003,
+            "n" : 10,
+            "p50_ms" : 0.433,
+            "p95_ms" : 1.4399999999999999,
+            "p99_ms" : 1.4399999999999999
+          },
+          "mb" : 0.040000000000000001,
+          "phase" : "programmatic_edit",
+          "shape" : "swift"
+        },
+        {
+          "mb" : 0.040000000000000001,
+          "phase" : "undo",
+          "redo" : {
+            "max_ms" : 5.3789999999999996,
+            "mean_ms" : 5.3470000000000004,
+            "n" : 4,
+            "p50_ms" : 5.3440000000000003,
+            "p95_ms" : 5.3789999999999996,
+            "p99_ms" : 5.3789999999999996
+          },
+          "shape" : "swift",
+          "undo" : {
+            "max_ms" : 5.3529999999999998,
+            "mean_ms" : 5.3120000000000003,
+            "n" : 8,
+            "p50_ms" : 5.2939999999999996,
+            "p95_ms" : 5.3529999999999998,
+            "p99_ms" : 5.3529999999999998
+          }
+        },
+        {
+          "clean_after" : true,
+          "first_ms" : 6.5410000000000004,
+          "mb" : 0.040000000000000001,
+          "phase" : "save",
+          "second_ms" : 1.573,
+          "shape" : "swift"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 44.313000000000002,
+          "input_to_draw" : {
+            "max_ms" : 12.305,
+            "mean_ms" : 10.451000000000001,
+            "n" : 60,
+            "p50_ms" : 10.359999999999999,
+            "p95_ms" : 11.069000000000001,
+            "p99_ms" : 12.305
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 10.125,
+            "mean_ms" : 8.1400000000000006,
+            "n" : 60,
+            "p50_ms" : 8.0730000000000004,
+            "p95_ms" : 8.5090000000000003,
+            "p99_ms" : 10.125
+          },
+          "mb" : 0.040000000000000001,
+          "native_commit" : {
+            "max_ms" : 3.1789999999999998,
+            "mean_ms" : 2.3109999999999999,
+            "n" : 60,
+            "p50_ms" : 2.2759999999999998,
+            "p95_ms" : 2.5059999999999998,
+            "p99_ms" : 3.1789999999999998
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle, rendering attributes"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 48.017000000000003,
+          "input_to_draw" : {
+            "max_ms" : 41.119,
+            "mean_ms" : 10.250999999999999,
+            "n" : 60,
+            "p50_ms" : 8.8979999999999997,
+            "p95_ms" : 16.190999999999999,
+            "p99_ms" : 41.119
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 29.963999999999999,
+            "mean_ms" : 7.3890000000000002,
+            "n" : 60,
+            "p50_ms" : 6.6920000000000002,
+            "p95_ms" : 10.23,
+            "p99_ms" : 29.963999999999999
+          },
+          "mb" : 0.040000000000000001,
+          "native_commit" : {
+            "max_ms" : 30.888999999999999,
+            "mean_ms" : 2.8620000000000001,
+            "n" : 60,
+            "p50_ms" : 2.21,
+            "p95_ms" : 2.9580000000000002,
+            "p99_ms" : 30.888999999999999
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle, storage attributes"
+        },
+        {
+          "mb" : 0.040000000000000001,
+          "phase" : "attributes",
+          "rendering_end_fragments" : 40,
+          "rendering_end_spans" : 105,
+          "rendering_end_validator_ms" : 0.32500000000000001,
+          "rendering_middle_fragments" : 41,
+          "rendering_middle_spans" : 116,
+          "rendering_middle_validator_ms" : 0.35399999999999998,
+          "rendering_refresh_end_ms" : 9.9399999999999995,
+          "rendering_refresh_middle_ms" : 10.458,
+          "rendering_refresh_start_ms" : 10.012,
+          "rendering_refresh_whole_ms" : 44.683,
+          "rendering_start_fragments" : 41,
+          "rendering_start_spans" : 112,
+          "rendering_start_validator_ms" : 0.317,
+          "rendering_text_untouched" : true,
+          "shape" : "swift",
+          "storage_apply_end_ms" : 10.657999999999999,
+          "storage_apply_middle_ms" : 11.273,
+          "storage_apply_start_ms" : 12.01,
+          "storage_published_no_revision" : true
+        },
+        {
+          "final_version" : 324,
+          "footprint_end_mb" : 41.969000000000001,
+          "line_index_matches_rescan" : true,
+          "line_index_rebuilds" : 0,
+          "mb" : 0.040000000000000001,
+          "peak_resident_mb" : 116.89100000000001,
+          "phase" : "summary",
+          "published_changes" : 324,
+          "reconciled_changes" : 0,
+          "replay_matches_view" : true,
+          "shape" : "swift"
+        }
+      ],
+      "shape" : "swift",
+      "timed_out" : false,
+      "timeout_s" : 60,
+      "wall_s" : 3.6000000000000001
+    },
+    {
+      "exit_status" : 0,
+      "mb" : 1,
+      "phases" : [
+        {
+          "bytes" : 1048800,
+          "footprint_mb" : 2.3130000000000002,
+          "lines" : 38020,
+          "mb" : 1,
+          "phase" : "fixture",
+          "shape" : "swift",
+          "utf16_units" : 1027824
+        },
+        {
+          "first_layout_draw_ms" : 27.786999999999999,
+          "footprint_after_open_mb" : 17.515999999999998,
+          "footprint_after_read_mb" : 4.4379999999999997,
+          "line_index_footprint_mb" : 0.71899999999999997,
+          "line_index_ms" : 1.0860000000000001,
+          "make_editor_ms" : 9.7189999999999994,
+          "mb" : 1,
+          "phase" : "open",
+          "read_ms" : 1.5720000000000001,
+          "session_init_ms" : 0.01,
+          "shape" : "swift",
+          "text_kit_2" : true,
+          "total_ms" : 40.173999999999999
+        },
+        {
+          "backend_text_copy_ms" : 2.823,
+          "compare_equal_ms" : 2.7930000000000001,
+          "mb" : 1,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.002,
+          "shape" : "swift",
+          "snapshot_ms" : 2.7400000000000002
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 9.4060000000000006,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 10.329000000000001,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 6.8360000000000003,
+          "mb" : 1,
+          "phase" : "scroll",
+          "shape" : "swift"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 40,
+          "labels_end_ms" : 0.057000000000000002,
+          "labels_middle_count" : 41,
+          "labels_middle_ms" : 0.064000000000000001,
+          "labels_start_count" : 40,
+          "labels_start_ms" : 0.056000000000000001,
+          "line_count" : 38020,
+          "mb" : 1,
+          "phase" : "gutter",
+          "shape" : "swift",
+          "thousand_lookups_ms" : 0.35699999999999998
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 42.750999999999998,
+          "input_to_draw" : {
+            "max_ms" : 10.673,
+            "mean_ms" : 5.9509999999999996,
+            "n" : 60,
+            "p50_ms" : 5.8179999999999996,
+            "p95_ms" : 6.1200000000000001,
+            "p99_ms" : 10.673
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.6070000000000002,
+            "mean_ms" : 5.0380000000000003,
+            "n" : 60,
+            "p50_ms" : 5.0049999999999999,
+            "p95_ms" : 5.2480000000000002,
+            "p99_ms" : 5.6070000000000002
+          },
+          "mb" : 1,
+          "native_commit" : {
+            "max_ms" : 5.617,
+            "mean_ms" : 0.91300000000000003,
+            "n" : 60,
+            "p50_ms" : 0.80800000000000005,
+            "p95_ms" : 1.0409999999999999,
+            "p99_ms" : 5.617
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 41.656999999999996,
+          "input_to_draw" : {
+            "max_ms" : 7.1870000000000003,
+            "mean_ms" : 6.0940000000000003,
+            "n" : 60,
+            "p50_ms" : 6.0069999999999997,
+            "p95_ms" : 6.5819999999999999,
+            "p99_ms" : 7.1870000000000003
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 6.2009999999999996,
+            "mean_ms" : 5.3239999999999998,
+            "n" : 60,
+            "p50_ms" : 5.2859999999999996,
+            "p95_ms" : 5.6689999999999996,
+            "p99_ms" : 6.2009999999999996
+          },
+          "mb" : 1,
+          "native_commit" : {
+            "max_ms" : 1.077,
+            "mean_ms" : 0.77000000000000002,
+            "n" : 60,
+            "p50_ms" : 0.74099999999999999,
+            "p95_ms" : 0.97499999999999998,
+            "p99_ms" : 1.077
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 42.750999999999998,
+          "input_to_draw" : {
+            "max_ms" : 6.4550000000000001,
+            "mean_ms" : 5.601,
+            "n" : 60,
+            "p50_ms" : 5.5449999999999999,
+            "p95_ms" : 5.8499999999999996,
+            "p99_ms" : 6.4550000000000001
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.9889999999999999,
+            "mean_ms" : 5.1829999999999998,
+            "n" : 60,
+            "p50_ms" : 5.1310000000000002,
+            "p95_ms" : 5.3970000000000002,
+            "p99_ms" : 5.9889999999999999
+          },
+          "mb" : 1,
+          "native_commit" : {
+            "max_ms" : 0.58399999999999996,
+            "mean_ms" : 0.41799999999999998,
+            "n" : 60,
+            "p50_ms" : 0.41199999999999998,
+            "p95_ms" : 0.47799999999999998,
+            "p99_ms" : 0.58399999999999996
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "end"
+        },
+        {
+          "apply" : {
+            "max_ms" : 0.53900000000000003,
+            "mean_ms" : 0.44500000000000001,
+            "n" : 10,
+            "p50_ms" : 0.438,
+            "p95_ms" : 0.53900000000000003,
+            "p99_ms" : 0.53900000000000003
+          },
+          "mb" : 1,
+          "phase" : "programmatic_edit",
+          "shape" : "swift"
+        },
+        {
+          "mb" : 1,
+          "phase" : "undo",
+          "redo" : {
+            "max_ms" : 5.4059999999999997,
+            "mean_ms" : 5.3600000000000003,
+            "n" : 4,
+            "p50_ms" : 5.3239999999999998,
+            "p95_ms" : 5.4059999999999997,
+            "p99_ms" : 5.4059999999999997
+          },
+          "shape" : "swift",
+          "undo" : {
+            "max_ms" : 5.5369999999999999,
+            "mean_ms" : 5.4329999999999998,
+            "n" : 8,
+            "p50_ms" : 5.4249999999999998,
+            "p95_ms" : 5.5369999999999999,
+            "p99_ms" : 5.5369999999999999
+          }
+        },
+        {
+          "clean_after" : true,
+          "first_ms" : 7.1589999999999998,
+          "mb" : 1,
+          "phase" : "save",
+          "second_ms" : 6.0869999999999997,
+          "shape" : "swift"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 110.392,
+          "input_to_draw" : {
+            "max_ms" : 122.601,
+            "mean_ms" : 47.664999999999999,
+            "n" : 60,
+            "p50_ms" : 45.975000000000001,
+            "p95_ms" : 49.155000000000001,
+            "p99_ms" : 122.601
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 66.763000000000005,
+            "mean_ms" : 9.4049999999999994,
+            "n" : 60,
+            "p50_ms" : 8.3369999999999997,
+            "p95_ms" : 9.0429999999999993,
+            "p99_ms" : 66.763000000000005
+          },
+          "mb" : 1,
+          "native_commit" : {
+            "max_ms" : 55.838000000000001,
+            "mean_ms" : 38.259999999999998,
+            "n" : 60,
+            "p50_ms" : 37.591000000000001,
+            "p95_ms" : 40.112000000000002,
+            "p99_ms" : 55.838000000000001
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle, rendering attributes"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 113.173,
+          "input_to_draw" : {
+            "max_ms" : 45.808,
+            "mean_ms" : 44.600999999999999,
+            "n" : 60,
+            "p50_ms" : 44.527000000000001,
+            "p95_ms" : 45.320999999999998,
+            "p99_ms" : 45.808
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 7.2939999999999996,
+            "mean_ms" : 6.7050000000000001,
+            "n" : 60,
+            "p50_ms" : 6.6950000000000003,
+            "p95_ms" : 6.9790000000000001,
+            "p99_ms" : 7.2939999999999996
+          },
+          "mb" : 1,
+          "native_commit" : {
+            "max_ms" : 38.762999999999998,
+            "mean_ms" : 37.896000000000001,
+            "n" : 60,
+            "p50_ms" : 37.851999999999997,
+            "p95_ms" : 38.649999999999999,
+            "p99_ms" : 38.762999999999998
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle, storage attributes"
+        },
+        {
+          "mb" : 1,
+          "phase" : "attributes",
+          "rendering_end_fragments" : 40,
+          "rendering_end_spans" : 105,
+          "rendering_end_validator_ms" : 0.32400000000000001,
+          "rendering_middle_fragments" : 41,
+          "rendering_middle_spans" : 116,
+          "rendering_middle_validator_ms" : 0.34799999999999998,
+          "rendering_refresh_end_ms" : 10.000999999999999,
+          "rendering_refresh_middle_ms" : 10.491,
+          "rendering_refresh_start_ms" : 10.106,
+          "rendering_refresh_whole_ms" : 1324.7190000000001,
+          "rendering_start_fragments" : 41,
+          "rendering_start_spans" : 112,
+          "rendering_start_validator_ms" : 0.318,
+          "rendering_text_untouched" : true,
+          "shape" : "swift",
+          "storage_apply_end_ms" : 9.9369999999999994,
+          "storage_apply_middle_ms" : 19.576000000000001,
+          "storage_apply_start_ms" : 25.244,
+          "storage_published_no_revision" : true
+        },
+        {
+          "final_version" : 324,
+          "footprint_end_mb" : 107.297,
+          "line_index_matches_rescan" : true,
+          "line_index_rebuilds" : 0,
+          "mb" : 1,
+          "peak_resident_mb" : 184.96899999999999,
+          "phase" : "summary",
+          "published_changes" : 324,
+          "reconciled_changes" : 0,
+          "replay_matches_view" : true,
+          "shape" : "swift"
+        }
+      ],
+      "shape" : "swift",
+      "timed_out" : false,
+      "timeout_s" : 180,
+      "wall_s" : 9.8000000000000007
+    },
+    {
+      "exit_status" : 0,
+      "mb" : 10,
+      "phases" : [
+        {
+          "bytes" : 10486400,
+          "footprint_mb" : 22.625,
+          "lines" : 380133,
+          "mb" : 10,
+          "phase" : "fixture",
+          "shape" : "swift",
+          "utf16_units" : 10276672
+        },
+        {
+          "first_layout_draw_ms" : 23.155000000000001,
+          "footprint_after_open_mb" : 71.953000000000003,
+          "footprint_after_read_mb" : 32.765999999999998,
+          "line_index_footprint_mb" : 8.6560000000000006,
+          "line_index_ms" : 10.205,
+          "make_editor_ms" : 34.420999999999999,
+          "mb" : 10,
+          "phase" : "open",
+          "read_ms" : 14.26,
+          "session_init_ms" : 0.01,
+          "shape" : "swift",
+          "text_kit_2" : true,
+          "total_ms" : 82.051000000000002
+        },
+        {
+          "backend_text_copy_ms" : 27.524000000000001,
+          "compare_equal_ms" : 27.920999999999999,
+          "mb" : 10,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.002,
+          "shape" : "swift",
+          "snapshot_ms" : 26.885000000000002
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 10.273999999999999,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 8.7439999999999998,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 6.6849999999999996,
+          "mb" : 10,
+          "phase" : "scroll",
+          "shape" : "swift"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 40,
+          "labels_end_ms" : 0.062,
+          "labels_middle_count" : 41,
+          "labels_middle_ms" : 0.064000000000000001,
+          "labels_start_count" : 40,
+          "labels_start_ms" : 0.057000000000000002,
+          "line_count" : 380133,
+          "mb" : 10,
+          "phase" : "gutter",
+          "shape" : "swift",
+          "thousand_lookups_ms" : 0.57899999999999996
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 105.86,
+          "input_to_draw" : {
+            "max_ms" : 10.715999999999999,
+            "mean_ms" : 5.9820000000000002,
+            "n" : 60,
+            "p50_ms" : 5.7930000000000001,
+            "p95_ms" : 6.5430000000000001,
+            "p99_ms" : 10.715999999999999
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.5679999999999996,
+            "mean_ms" : 5.0750000000000002,
+            "n" : 60,
+            "p50_ms" : 4.9800000000000004,
+            "p95_ms" : 5.4829999999999997,
+            "p99_ms" : 5.5679999999999996
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 5.6369999999999996,
+            "mean_ms" : 0.90700000000000003,
+            "n" : 60,
+            "p50_ms" : 0.79000000000000004,
+            "p95_ms" : 1.0900000000000001,
+            "p99_ms" : 5.6369999999999996
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 114.767,
+          "input_to_draw" : {
+            "max_ms" : 6.6680000000000001,
+            "mean_ms" : 6.0700000000000003,
+            "n" : 60,
+            "p50_ms" : 6.0389999999999997,
+            "p95_ms" : 6.3399999999999999,
+            "p99_ms" : 6.6680000000000001
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.9660000000000002,
+            "mean_ms" : 5.3659999999999997,
+            "n" : 60,
+            "p50_ms" : 5.3380000000000001,
+            "p95_ms" : 5.4900000000000002,
+            "p99_ms" : 5.9660000000000002
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 0.85099999999999998,
+            "mean_ms" : 0.70399999999999996,
+            "n" : 60,
+            "p50_ms" : 0.69199999999999995,
+            "p95_ms" : 0.79100000000000004,
+            "p99_ms" : 0.85099999999999998
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 115.345,
+          "input_to_draw" : {
+            "max_ms" : 5.976,
+            "mean_ms" : 5.6529999999999996,
+            "n" : 60,
+            "p50_ms" : 5.641,
+            "p95_ms" : 5.8150000000000004,
+            "p99_ms" : 5.976
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.5739999999999998,
+            "mean_ms" : 5.2539999999999996,
+            "n" : 60,
+            "p50_ms" : 5.2320000000000002,
+            "p95_ms" : 5.4219999999999997,
+            "p99_ms" : 5.5739999999999998
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 0.441,
+            "mean_ms" : 0.39900000000000002,
+            "n" : 60,
+            "p50_ms" : 0.40000000000000002,
+            "p95_ms" : 0.42699999999999999,
+            "p99_ms" : 0.441
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "end"
+        },
+        {
+          "apply" : {
+            "max_ms" : 0.54600000000000004,
+            "mean_ms" : 0.47799999999999998,
+            "n" : 10,
+            "p50_ms" : 0.46300000000000002,
+            "p95_ms" : 0.54600000000000004,
+            "p99_ms" : 0.54600000000000004
+          },
+          "mb" : 10,
+          "phase" : "programmatic_edit",
+          "shape" : "swift"
+        },
+        {
+          "mb" : 10,
+          "phase" : "undo",
+          "redo" : {
+            "max_ms" : 5.532,
+            "mean_ms" : 5.4850000000000003,
+            "n" : 4,
+            "p50_ms" : 5.4660000000000002,
+            "p95_ms" : 5.532,
+            "p99_ms" : 5.532
+          },
+          "shape" : "swift",
+          "undo" : {
+            "max_ms" : 5.5890000000000004,
+            "mean_ms" : 5.4950000000000001,
+            "n" : 8,
+            "p50_ms" : 5.4699999999999998,
+            "p95_ms" : 5.5890000000000004,
+            "p99_ms" : 5.5890000000000004
+          }
+        },
+        {
+          "clean_after" : true,
+          "first_ms" : 46.843000000000004,
+          "mb" : 10,
+          "phase" : "save",
+          "second_ms" : 43.667000000000002,
+          "shape" : "swift"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 119.017,
+          "input_to_draw" : {
+            "max_ms" : 8.7230000000000008,
+            "mean_ms" : 8.3680000000000003,
+            "n" : 60,
+            "p50_ms" : 8.3559999999999999,
+            "p95_ms" : 8.5790000000000006,
+            "p99_ms" : 8.7230000000000008
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 7.8730000000000002,
+            "mean_ms" : 7.6500000000000004,
+            "n" : 60,
+            "p50_ms" : 7.6420000000000003,
+            "p95_ms" : 7.8339999999999996,
+            "p99_ms" : 7.8730000000000002
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 1.0089999999999999,
+            "mean_ms" : 0.71799999999999997,
+            "n" : 60,
+            "p50_ms" : 0.70499999999999996,
+            "p95_ms" : 0.79800000000000004,
+            "p99_ms" : 1.0089999999999999
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle, rendering attributes"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 123.923,
+          "input_to_draw" : {
+            "max_ms" : 7.9660000000000002,
+            "mean_ms" : 7.359,
+            "n" : 60,
+            "p50_ms" : 7.3300000000000001,
+            "p95_ms" : 7.5469999999999997,
+            "p99_ms" : 7.9660000000000002
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 6.9560000000000004,
+            "mean_ms" : 6.4829999999999997,
+            "n" : 60,
+            "p50_ms" : 6.4509999999999996,
+            "p95_ms" : 6.6509999999999998,
+            "p99_ms" : 6.9560000000000004
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 1.135,
+            "mean_ms" : 0.877,
+            "n" : 60,
+            "p50_ms" : 0.85999999999999999,
+            "p95_ms" : 0.94599999999999995,
+            "p99_ms" : 1.135
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle, storage attributes"
+        },
+        {
+          "mb" : 10,
+          "phase" : "attributes",
+          "rendering_end_fragments" : 40,
+          "rendering_end_spans" : 105,
+          "rendering_end_validator_ms" : 0.317,
+          "rendering_middle_fragments" : 42,
+          "rendering_middle_spans" : 105,
+          "rendering_middle_validator_ms" : 0.33100000000000002,
+          "rendering_refresh_end_ms" : 9.9960000000000004,
+          "rendering_refresh_middle_ms" : 10.243,
+          "rendering_refresh_start_ms" : 10.365,
+          "rendering_start_fragments" : 41,
+          "rendering_start_spans" : 112,
+          "rendering_start_validator_ms" : 0.33100000000000002,
+          "rendering_text_untouched" : true,
+          "shape" : "swift",
+          "storage_apply_end_ms" : 9.8960000000000008,
+          "storage_apply_middle_ms" : 9.9969999999999999,
+          "storage_apply_start_ms" : 10.380000000000001,
+          "storage_published_no_revision" : true
+        },
+        {
+          "final_version" : 324,
+          "footprint_end_mb" : 142.76599999999999,
+          "line_index_matches_rescan" : true,
+          "line_index_rebuilds" : 0,
+          "mb" : 10,
+          "peak_resident_mb" : 215.35900000000001,
+          "phase" : "summary",
+          "published_changes" : 324,
+          "reconciled_changes" : 0,
+          "replay_matches_view" : true,
+          "shape" : "swift"
+        }
+      ],
+      "shape" : "swift",
+      "timed_out" : false,
+      "timeout_s" : 360,
+      "wall_s" : 4.2000000000000002
+    },
+    {
+      "exit_status" : 0,
+      "mb" : 100,
+      "phases" : [
+        {
+          "bytes" : 104857600,
+          "footprint_mb" : 224.90600000000001,
+          "lines" : 3801089,
+          "mb" : 100,
+          "phase" : "fixture",
+          "shape" : "swift",
+          "utf16_units" : 102760448
+        },
+        {
+          "first_layout_draw_ms" : 26.384,
+          "footprint_after_open_mb" : 743.20399999999995,
+          "footprint_after_read_mb" : 425.21899999999999,
+          "line_index_footprint_mb" : 86.233999999999995,
+          "line_index_ms" : 121.693,
+          "make_editor_ms" : 285.44900000000001,
+          "mb" : 100,
+          "phase" : "open",
+          "read_ms" : 185.637,
+          "session_init_ms" : 0.010999999999999999,
+          "shape" : "swift",
+          "text_kit_2" : true,
+          "total_ms" : 619.173
+        },
+        {
+          "backend_text_copy_ms" : 291.99900000000002,
+          "compare_equal_ms" : 281.33499999999998,
+          "mb" : 100,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.002,
+          "shape" : "swift",
+          "snapshot_ms" : 270.29199999999997
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 9.8260000000000005,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 8.3819999999999997,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 6.601,
+          "mb" : 100,
+          "phase" : "scroll",
+          "shape" : "swift"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 40,
+          "labels_end_ms" : 0.075999999999999998,
+          "labels_middle_count" : 41,
+          "labels_middle_ms" : 0.070999999999999994,
+          "labels_start_count" : 40,
+          "labels_start_ms" : 0.057000000000000002,
+          "line_count" : 3801089,
+          "mb" : 100,
+          "phase" : "gutter",
+          "shape" : "swift",
+          "thousand_lookups_ms" : 0.69099999999999995
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 957.83000000000004,
+          "input_to_draw" : {
+            "max_ms" : 11.984999999999999,
+            "mean_ms" : 6.048,
+            "n" : 60,
+            "p50_ms" : 5.8970000000000002,
+            "p95_ms" : 6.3369999999999997,
+            "p99_ms" : 11.984999999999999
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.8540000000000001,
+            "mean_ms" : 5.0640000000000001,
+            "n" : 60,
+            "p50_ms" : 5.0250000000000004,
+            "p95_ms" : 5.2919999999999998,
+            "p99_ms" : 5.8540000000000001
+          },
+          "mb" : 100,
+          "native_commit" : {
+            "max_ms" : 6.8140000000000001,
+            "mean_ms" : 0.98399999999999999,
+            "n" : 60,
+            "p50_ms" : 0.85699999999999998,
+            "p95_ms" : 1.141,
+            "p99_ms" : 6.8140000000000001
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 966.58000000000004,
+          "input_to_draw" : {
+            "max_ms" : 6.4480000000000004,
+            "mean_ms" : 6.1319999999999997,
+            "n" : 60,
+            "p50_ms" : 6.1260000000000003,
+            "p95_ms" : 6.2859999999999996,
+            "p99_ms" : 6.4480000000000004
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.6289999999999996,
+            "mean_ms" : 5.4100000000000001,
+            "n" : 60,
+            "p50_ms" : 5.4029999999999996,
+            "p95_ms" : 5.5309999999999997,
+            "p99_ms" : 5.6289999999999996
+          },
+          "mb" : 100,
+          "native_commit" : {
+            "max_ms" : 0.85099999999999998,
+            "mean_ms" : 0.72199999999999998,
+            "n" : 60,
+            "p50_ms" : 0.70999999999999996,
+            "p95_ms" : 0.79600000000000004,
+            "p99_ms" : 0.85099999999999998
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 967.28300000000002,
+          "input_to_draw" : {
+            "max_ms" : 6.0229999999999997,
+            "mean_ms" : 5.7069999999999999,
+            "n" : 60,
+            "p50_ms" : 5.6980000000000004,
+            "p95_ms" : 5.8079999999999998,
+            "p99_ms" : 6.0229999999999997
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.601,
+            "mean_ms" : 5.2990000000000004,
+            "n" : 60,
+            "p50_ms" : 5.2850000000000001,
+            "p95_ms" : 5.4089999999999998,
+            "p99_ms" : 5.601
+          },
+          "mb" : 100,
+          "native_commit" : {
+            "max_ms" : 0.49099999999999999,
+            "mean_ms" : 0.40799999999999997,
+            "n" : 60,
+            "p50_ms" : 0.40500000000000003,
+            "p95_ms" : 0.46000000000000002,
+            "p99_ms" : 0.49099999999999999
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "end"
+        },
+        {
+          "apply" : {
+            "max_ms" : 0.68400000000000005,
+            "mean_ms" : 0.50900000000000001,
+            "n" : 10,
+            "p50_ms" : 0.47299999999999998,
+            "p95_ms" : 0.68400000000000005,
+            "p99_ms" : 0.68400000000000005
+          },
+          "mb" : 100,
+          "phase" : "programmatic_edit",
+          "shape" : "swift"
+        },
+        {
+          "mb" : 100,
+          "phase" : "undo",
+          "redo" : {
+            "max_ms" : 5.6340000000000003,
+            "mean_ms" : 5.5819999999999999,
+            "n" : 4,
+            "p50_ms" : 5.5469999999999997,
+            "p95_ms" : 5.6340000000000003,
+            "p99_ms" : 5.6340000000000003
+          },
+          "shape" : "swift",
+          "undo" : {
+            "max_ms" : 5.7350000000000003,
+            "mean_ms" : 5.6269999999999998,
+            "n" : 8,
+            "p50_ms" : 5.6079999999999997,
+            "p95_ms" : 5.7350000000000003,
+            "p99_ms" : 5.7350000000000003
+          }
+        },
+        {
+          "clean_after" : true,
+          "first_ms" : 412.91800000000001,
+          "mb" : 100,
+          "phase" : "save",
+          "second_ms" : 409.90300000000002,
+          "shape" : "swift"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 970.67399999999998,
+          "input_to_draw" : {
+            "max_ms" : 8.8450000000000006,
+            "mean_ms" : 8.4179999999999993,
+            "n" : 60,
+            "p50_ms" : 8.3900000000000006,
+            "p95_ms" : 8.657,
+            "p99_ms" : 8.8450000000000006
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 7.9560000000000004,
+            "mean_ms" : 7.6870000000000003,
+            "n" : 60,
+            "p50_ms" : 7.6550000000000002,
+            "p95_ms" : 7.8949999999999996,
+            "p99_ms" : 7.9560000000000004
+          },
+          "mb" : 100,
+          "native_commit" : {
+            "max_ms" : 1.071,
+            "mean_ms" : 0.73099999999999998,
+            "n" : 60,
+            "p50_ms" : 0.71399999999999997,
+            "p95_ms" : 0.79600000000000004,
+            "p99_ms" : 1.071
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle, rendering attributes"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 975.76700000000005,
+          "input_to_draw" : {
+            "max_ms" : 7.9539999999999997,
+            "mean_ms" : 7.4930000000000003,
+            "n" : 60,
+            "p50_ms" : 7.468,
+            "p95_ms" : 7.6909999999999998,
+            "p99_ms" : 7.9539999999999997
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 6.9370000000000003,
+            "mean_ms" : 6.5869999999999997,
+            "n" : 60,
+            "p50_ms" : 6.577,
+            "p95_ms" : 6.7400000000000002,
+            "p99_ms" : 6.9370000000000003
+          },
+          "mb" : 100,
+          "native_commit" : {
+            "max_ms" : 1.054,
+            "mean_ms" : 0.90600000000000003,
+            "n" : 60,
+            "p50_ms" : 0.88800000000000001,
+            "p95_ms" : 0.998,
+            "p99_ms" : 1.054
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "swift",
+          "where" : "middle, storage attributes"
+        },
+        {
+          "mb" : 100,
+          "phase" : "attributes",
+          "rendering_end_fragments" : 40,
+          "rendering_end_spans" : 105,
+          "rendering_end_validator_ms" : 0.33400000000000002,
+          "rendering_middle_fragments" : 42,
+          "rendering_middle_spans" : 105,
+          "rendering_middle_validator_ms" : 0.32200000000000001,
+          "rendering_refresh_end_ms" : 10.045999999999999,
+          "rendering_refresh_middle_ms" : 10.103999999999999,
+          "rendering_refresh_start_ms" : 10.284000000000001,
+          "rendering_start_fragments" : 41,
+          "rendering_start_spans" : 112,
+          "rendering_start_validator_ms" : 0.32200000000000001,
+          "rendering_text_untouched" : true,
+          "shape" : "swift",
+          "storage_apply_end_ms" : 9.9619999999999997,
+          "storage_apply_middle_ms" : 9.9629999999999992,
+          "storage_apply_start_ms" : 10.367000000000001,
+          "storage_published_no_revision" : true
+        },
+        {
+          "final_version" : 324,
+          "footprint_end_mb" : 1206.673,
+          "line_index_matches_rescan" : true,
+          "line_index_rebuilds" : 0,
+          "mb" : 100,
+          "peak_resident_mb" : 1260.9059999999999,
+          "phase" : "summary",
+          "published_changes" : 324,
+          "reconciled_changes" : 0,
+          "replay_matches_view" : true,
+          "shape" : "swift"
+        }
+      ],
+      "shape" : "swift",
+      "timed_out" : false,
+      "timeout_s" : 900,
+      "wall_s" : 16.699999999999999
+    },
+    {
+      "exit_status" : 0,
+      "mb" : 10,
+      "phases" : [
+        {
+          "bytes" : 10486070,
+          "footprint_mb" : 22.625,
+          "lines" : 355461,
+          "mb" : 10,
+          "phase" : "fixture",
+          "shape" : "mixed",
+          "utf16_units" : 10282950
+        },
+        {
+          "first_layout_draw_ms" : 23.457000000000001,
+          "footprint_after_open_mb" : 71.875,
+          "footprint_after_read_mb" : 32.765999999999998,
+          "line_index_footprint_mb" : 8.4380000000000006,
+          "line_index_ms" : 10.545,
+          "make_editor_ms" : 34.435000000000002,
+          "mb" : 10,
+          "phase" : "open",
+          "read_ms" : 14.413,
+          "session_init_ms" : 0.010999999999999999,
+          "shape" : "mixed",
+          "text_kit_2" : true,
+          "total_ms" : 82.861000000000004
+        },
+        {
+          "backend_text_copy_ms" : 27.390000000000001,
+          "compare_equal_ms" : 27.907,
+          "mb" : 10,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.0030000000000000001,
+          "shape" : "mixed",
+          "snapshot_ms" : 26.824000000000002
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 9.3829999999999991,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 10.618,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 6.8029999999999999,
+          "mb" : 10,
+          "phase" : "scroll",
+          "shape" : "mixed"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 40,
+          "labels_end_ms" : 0.064000000000000001,
+          "labels_middle_count" : 41,
+          "labels_middle_ms" : 0.078,
+          "labels_start_count" : 40,
+          "labels_start_ms" : 0.063,
+          "line_count" : 368156,
+          "mb" : 10,
+          "phase" : "gutter",
+          "shape" : "mixed",
+          "thousand_lookups_ms" : 0.46300000000000002
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 106.501,
+          "input_to_draw" : {
+            "max_ms" : 11.35,
+            "mean_ms" : 6.1280000000000001,
+            "n" : 60,
+            "p50_ms" : 5.9219999999999997,
+            "p95_ms" : 6.6879999999999997,
+            "p99_ms" : 11.35
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 6.5199999999999996,
+            "mean_ms" : 5.1600000000000001,
+            "n" : 60,
+            "p50_ms" : 5.0330000000000004,
+            "p95_ms" : 5.5369999999999999,
+            "p99_ms" : 6.5199999999999996
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 5.6269999999999998,
+            "mean_ms" : 0.96799999999999997,
+            "n" : 60,
+            "p50_ms" : 0.86099999999999999,
+            "p95_ms" : 1.0509999999999999,
+            "p99_ms" : 5.6269999999999998
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "mixed",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 114.767,
+          "input_to_draw" : {
+            "max_ms" : 6.7409999999999997,
+            "mean_ms" : 6.2450000000000001,
+            "n" : 60,
+            "p50_ms" : 6.2229999999999999,
+            "p95_ms" : 6.3719999999999999,
+            "p99_ms" : 6.7409999999999997
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.7140000000000004,
+            "mean_ms" : 5.3780000000000001,
+            "n" : 60,
+            "p50_ms" : 5.3639999999999999,
+            "p95_ms" : 5.4690000000000003,
+            "p99_ms" : 5.7140000000000004
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 1.0269999999999999,
+            "mean_ms" : 0.86699999999999999,
+            "n" : 60,
+            "p50_ms" : 0.85399999999999998,
+            "p95_ms" : 0.96199999999999997,
+            "p99_ms" : 1.0269999999999999
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "mixed",
+          "where" : "middle"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 115.47,
+          "input_to_draw" : {
+            "max_ms" : 5.9710000000000001,
+            "mean_ms" : 5.6500000000000004,
+            "n" : 60,
+            "p50_ms" : 5.6420000000000003,
+            "p95_ms" : 5.7430000000000003,
+            "p99_ms" : 5.9710000000000001
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.4450000000000003,
+            "mean_ms" : 5.2519999999999998,
+            "n" : 60,
+            "p50_ms" : 5.2460000000000004,
+            "p95_ms" : 5.335,
+            "p99_ms" : 5.4450000000000003
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 0.52600000000000002,
+            "mean_ms" : 0.39900000000000002,
+            "n" : 60,
+            "p50_ms" : 0.39100000000000001,
+            "p95_ms" : 0.48199999999999998,
+            "p99_ms" : 0.52600000000000002
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "mixed",
+          "where" : "end"
+        },
+        {
+          "apply" : {
+            "max_ms" : 0.70299999999999996,
+            "mean_ms" : 0.47699999999999998,
+            "n" : 10,
+            "p50_ms" : 0.45200000000000001,
+            "p95_ms" : 0.70299999999999996,
+            "p99_ms" : 0.70299999999999996
+          },
+          "mb" : 10,
+          "phase" : "programmatic_edit",
+          "shape" : "mixed"
+        },
+        {
+          "mb" : 10,
+          "phase" : "undo",
+          "redo" : {
+            "max_ms" : 5.6680000000000001,
+            "mean_ms" : 5.5700000000000003,
+            "n" : 4,
+            "p50_ms" : 5.5510000000000002,
+            "p95_ms" : 5.6680000000000001,
+            "p99_ms" : 5.6680000000000001
+          },
+          "shape" : "mixed",
+          "undo" : {
+            "max_ms" : 5.6369999999999996,
+            "mean_ms" : 5.5800000000000001,
+            "n" : 8,
+            "p50_ms" : 5.601,
+            "p95_ms" : 5.6369999999999996,
+            "p99_ms" : 5.6369999999999996
+          }
+        },
+        {
+          "clean_after" : true,
+          "first_ms" : 45.323,
+          "mb" : 10,
+          "phase" : "save",
+          "second_ms" : 43.658000000000001,
+          "shape" : "mixed"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 119.626,
+          "input_to_draw" : {
+            "max_ms" : 9.4700000000000006,
+            "mean_ms" : 9.0730000000000004,
+            "n" : 60,
+            "p50_ms" : 9.0549999999999997,
+            "p95_ms" : 9.2159999999999993,
+            "p99_ms" : 9.4700000000000006
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 8.3140000000000001,
+            "mean_ms" : 8.0609999999999999,
+            "n" : 60,
+            "p50_ms" : 8.0519999999999996,
+            "p95_ms" : 8.2240000000000002,
+            "p99_ms" : 8.3140000000000001
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 1.2350000000000001,
+            "mean_ms" : 1.012,
+            "n" : 60,
+            "p50_ms" : 0.99199999999999999,
+            "p95_ms" : 1.127,
+            "p99_ms" : 1.2350000000000001
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "mixed",
+          "where" : "middle, rendering attributes"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 123.06399999999999,
+          "input_to_draw" : {
+            "max_ms" : 7.7270000000000003,
+            "mean_ms" : 7.4480000000000004,
+            "n" : 60,
+            "p50_ms" : 7.4320000000000004,
+            "p95_ms" : 7.665,
+            "p99_ms" : 7.7270000000000003
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 6.7569999999999997,
+            "mean_ms" : 6.5090000000000003,
+            "n" : 60,
+            "p50_ms" : 6.4829999999999997,
+            "p95_ms" : 6.6749999999999998,
+            "p99_ms" : 6.7569999999999997
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 1.0720000000000001,
+            "mean_ms" : 0.93899999999999995,
+            "n" : 60,
+            "p50_ms" : 0.93200000000000005,
+            "p95_ms" : 0.997,
+            "p99_ms" : 1.0720000000000001
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "mixed",
+          "where" : "middle, storage attributes"
+        },
+        {
+          "mb" : 10,
+          "phase" : "attributes",
+          "rendering_end_fragments" : 39,
+          "rendering_end_spans" : 105,
+          "rendering_end_validator_ms" : 0.317,
+          "rendering_middle_fragments" : 41,
+          "rendering_middle_spans" : 116,
+          "rendering_middle_validator_ms" : 0.34899999999999998,
+          "rendering_refresh_end_ms" : 10.391999999999999,
+          "rendering_refresh_middle_ms" : 10.964,
+          "rendering_refresh_start_ms" : 10.832000000000001,
+          "rendering_start_fragments" : 41,
+          "rendering_start_spans" : 112,
+          "rendering_start_validator_ms" : 0.34200000000000003,
+          "rendering_text_untouched" : true,
+          "shape" : "mixed",
+          "storage_apply_end_ms" : 9.9209999999999994,
+          "storage_apply_middle_ms" : 10.124000000000001,
+          "storage_apply_start_ms" : 10.387,
+          "storage_published_no_revision" : true
+        },
+        {
+          "final_version" : 324,
+          "footprint_end_mb" : 140.56299999999999,
+          "line_index_matches_rescan" : true,
+          "line_index_rebuilds" : 0,
+          "mb" : 10,
+          "peak_resident_mb" : 215.828,
+          "phase" : "summary",
+          "published_changes" : 324,
+          "reconciled_changes" : 0,
+          "replay_matches_view" : true,
+          "shape" : "mixed"
+        }
+      ],
+      "shape" : "mixed",
+      "timed_out" : false,
+      "timeout_s" : 360,
+      "wall_s" : 4.4000000000000004
+    },
+    {
+      "exit_status" : 0,
+      "mb" : 10,
+      "phases" : [
+        {
+          "bytes" : 10485762,
+          "footprint_mb" : 20.077999999999999,
+          "lines" : 3495255,
+          "mb" : 10,
+          "phase" : "fixture",
+          "shape" : "short",
+          "utf16_units" : 10485762
+        },
+        {
+          "first_layout_draw_ms" : 19.297000000000001,
+          "footprint_after_open_mb" : 135.36000000000001,
+          "footprint_after_read_mb" : 30.25,
+          "line_index_footprint_mb" : 87.266000000000005,
+          "line_index_ms" : 26.021999999999998,
+          "make_editor_ms" : 8.4009999999999998,
+          "mb" : 10,
+          "phase" : "open",
+          "read_ms" : 10.74,
+          "session_init_ms" : 0.01,
+          "shape" : "short",
+          "text_kit_2" : true,
+          "total_ms" : 64.468999999999994
+        },
+        {
+          "backend_text_copy_ms" : 30.684999999999999,
+          "compare_equal_ms" : 28.206,
+          "mb" : 10,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.002,
+          "shape" : "short",
+          "snapshot_ms" : 30.440000000000001
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 9.9030000000000005,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 9.0860000000000003,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 7.1070000000000002,
+          "mb" : 10,
+          "phase" : "scroll",
+          "shape" : "short"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 40,
+          "labels_end_ms" : 0.069000000000000006,
+          "labels_middle_count" : 41,
+          "labels_middle_ms" : 0.067000000000000004,
+          "labels_start_count" : 40,
+          "labels_start_ms" : 0.057000000000000002,
+          "line_count" : 3495255,
+          "mb" : 10,
+          "phase" : "gutter",
+          "shape" : "short",
+          "thousand_lookups_ms" : 0.52800000000000002
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 169.93799999999999,
+          "input_to_draw" : {
+            "max_ms" : 10.77,
+            "mean_ms" : 6.1109999999999998,
+            "n" : 60,
+            "p50_ms" : 5.9569999999999999,
+            "p95_ms" : 6.5460000000000003,
+            "p99_ms" : 10.77
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 6.093,
+            "mean_ms" : 5.1890000000000001,
+            "n" : 60,
+            "p50_ms" : 5.1310000000000002,
+            "p95_ms" : 5.5510000000000002,
+            "p99_ms" : 6.093
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 5.5469999999999997,
+            "mean_ms" : 0.92200000000000004,
+            "n" : 60,
+            "p50_ms" : 0.82899999999999996,
+            "p95_ms" : 0.995,
+            "p99_ms" : 5.5469999999999997
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "short",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 179.173,
+          "input_to_draw" : {
+            "max_ms" : 6.8869999999999996,
+            "mean_ms" : 6.1059999999999999,
+            "n" : 60,
+            "p50_ms" : 6.0709999999999997,
+            "p95_ms" : 6.3879999999999999,
+            "p99_ms" : 6.8869999999999996
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 6.0869999999999997,
+            "mean_ms" : 5.4180000000000001,
+            "n" : 60,
+            "p50_ms" : 5.383,
+            "p95_ms" : 5.6660000000000004,
+            "p99_ms" : 6.0869999999999997
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 0.94799999999999995,
+            "mean_ms" : 0.68799999999999994,
+            "n" : 60,
+            "p50_ms" : 0.67900000000000005,
+            "p95_ms" : 0.78000000000000003,
+            "p99_ms" : 0.94799999999999995
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "short",
+          "where" : "middle"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 180.36000000000001,
+          "input_to_draw" : {
+            "max_ms" : 5.8849999999999998,
+            "mean_ms" : 5.7320000000000002,
+            "n" : 60,
+            "p50_ms" : 5.7119999999999997,
+            "p95_ms" : 5.8410000000000002,
+            "p99_ms" : 5.8849999999999998
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.4790000000000001,
+            "mean_ms" : 5.3289999999999997,
+            "n" : 60,
+            "p50_ms" : 5.3099999999999996,
+            "p95_ms" : 5.4480000000000004,
+            "p99_ms" : 5.4790000000000001
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 0.46400000000000002,
+            "mean_ms" : 0.40400000000000003,
+            "n" : 60,
+            "p50_ms" : 0.40600000000000003,
+            "p95_ms" : 0.437,
+            "p99_ms" : 0.46400000000000002
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "short",
+          "where" : "end"
+        },
+        {
+          "apply" : {
+            "max_ms" : 0.60499999999999998,
+            "mean_ms" : 0.5,
+            "n" : 10,
+            "p50_ms" : 0.48899999999999999,
+            "p95_ms" : 0.60499999999999998,
+            "p99_ms" : 0.60499999999999998
+          },
+          "mb" : 10,
+          "phase" : "programmatic_edit",
+          "shape" : "short"
+        },
+        {
+          "mb" : 10,
+          "phase" : "undo",
+          "redo" : {
+            "max_ms" : 5.7160000000000002,
+            "mean_ms" : 5.625,
+            "n" : 4,
+            "p50_ms" : 5.5730000000000004,
+            "p95_ms" : 5.7160000000000002,
+            "p99_ms" : 5.7160000000000002
+          },
+          "shape" : "short",
+          "undo" : {
+            "max_ms" : 5.7220000000000004,
+            "mean_ms" : 5.6360000000000001,
+            "n" : 8,
+            "p50_ms" : 5.6319999999999997,
+            "p95_ms" : 5.7220000000000004,
+            "p99_ms" : 5.7220000000000004
+          }
+        },
+        {
+          "clean_after" : true,
+          "first_ms" : 46.350999999999999,
+          "mb" : 10,
+          "phase" : "save",
+          "second_ms" : 45.652000000000001,
+          "shape" : "short"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 182.48500000000001,
+          "input_to_draw" : {
+            "max_ms" : 6.4340000000000002,
+            "mean_ms" : 6.0359999999999996,
+            "n" : 60,
+            "p50_ms" : 6.0209999999999999,
+            "p95_ms" : 6.141,
+            "p99_ms" : 6.4340000000000002
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.625,
+            "mean_ms" : 5.3520000000000003,
+            "n" : 60,
+            "p50_ms" : 5.343,
+            "p95_ms" : 5.4459999999999997,
+            "p99_ms" : 5.625
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 0.83499999999999996,
+            "mean_ms" : 0.68400000000000005,
+            "n" : 60,
+            "p50_ms" : 0.68200000000000005,
+            "p95_ms" : 0.72699999999999998,
+            "p99_ms" : 0.83499999999999996
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "short",
+          "where" : "middle, rendering attributes"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 186.45400000000001,
+          "input_to_draw" : {
+            "max_ms" : 6.9619999999999997,
+            "mean_ms" : 6.3200000000000003,
+            "n" : 60,
+            "p50_ms" : 6.2910000000000004,
+            "p95_ms" : 6.5940000000000003,
+            "p99_ms" : 6.9619999999999997
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 5.9880000000000004,
+            "mean_ms" : 5.4409999999999998,
+            "n" : 60,
+            "p50_ms" : 5.4210000000000003,
+            "p95_ms" : 5.6349999999999998,
+            "p99_ms" : 5.9880000000000004
+          },
+          "mb" : 10,
+          "native_commit" : {
+            "max_ms" : 1.044,
+            "mean_ms" : 0.878,
+            "n" : 60,
+            "p50_ms" : 0.876,
+            "p95_ms" : 0.97399999999999998,
+            "p99_ms" : 1.044
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "short",
+          "where" : "middle, storage attributes"
+        },
+        {
+          "mb" : 10,
+          "phase" : "attributes",
+          "rendering_end_fragments" : 40,
+          "rendering_end_spans" : 0,
+          "rendering_end_validator_ms" : 0.057000000000000002,
+          "rendering_middle_fragments" : 42,
+          "rendering_middle_spans" : 2,
+          "rendering_middle_validator_ms" : 0.066000000000000003,
+          "rendering_refresh_end_ms" : 7.1020000000000003,
+          "rendering_refresh_middle_ms" : 7.4279999999999999,
+          "rendering_refresh_start_ms" : 7.3029999999999999,
+          "rendering_start_fragments" : 41,
+          "rendering_start_spans" : 1,
+          "rendering_start_validator_ms" : 0.060999999999999999,
+          "rendering_text_untouched" : true,
+          "shape" : "short",
+          "storage_apply_end_ms" : 7.1349999999999998,
+          "storage_apply_middle_ms" : 7.3220000000000001,
+          "storage_apply_start_ms" : 7.1970000000000001,
+          "storage_published_no_revision" : true
+        },
+        {
+          "final_version" : 324,
+          "footprint_end_mb" : 244.09399999999999,
+          "line_index_matches_rescan" : true,
+          "line_index_rebuilds" : 0,
+          "mb" : 10,
+          "peak_resident_mb" : 314.23399999999998,
+          "phase" : "summary",
+          "published_changes" : 324,
+          "reconciled_changes" : 0,
+          "replay_matches_view" : true,
+          "shape" : "short"
+        }
+      ],
+      "shape" : "short",
+      "timed_out" : false,
+      "timeout_s" : 360,
+      "wall_s" : 4
+    },
+    {
+      "exit_status" : 0,
+      "mb" : 0.050000000000000003,
+      "phases" : [
+        {
+          "bytes" : 52444,
+          "footprint_mb" : 0.14099999999999999,
+          "lines" : 1,
+          "mb" : 0.050000000000000003,
+          "phase" : "fixture",
+          "shape" : "giant",
+          "utf16_units" : 39333
+        },
+        {
+          "first_layout_draw_ms" : 87.165000000000006,
+          "footprint_after_open_mb" : 40.280999999999999,
+          "footprint_after_read_mb" : 0.35899999999999999,
+          "line_index_footprint_mb" : 0.016,
+          "line_index_ms" : 0.048000000000000001,
+          "make_editor_ms" : 21.824999999999999,
+          "mb" : 0.050000000000000003,
+          "phase" : "open",
+          "read_ms" : 0.20899999999999999,
+          "session_init_ms" : 0.0089999999999999993,
+          "shape" : "giant",
+          "text_kit_2" : true,
+          "total_ms" : 109.256
+        },
+        {
+          "backend_text_copy_ms" : 0.14199999999999999,
+          "compare_equal_ms" : 0.13900000000000001,
+          "mb" : 0.050000000000000003,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.002,
+          "shape" : "giant",
+          "snapshot_ms" : 0.14099999999999999
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 49.781999999999996,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 48.466999999999999,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 25.032,
+          "mb" : 0.050000000000000003,
+          "phase" : "scroll",
+          "shape" : "giant"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 1,
+          "labels_end_ms" : 0.0030000000000000001,
+          "labels_middle_count" : 1,
+          "labels_middle_ms" : 0.0030000000000000001,
+          "labels_start_count" : 1,
+          "labels_start_ms" : 0.0030000000000000001,
+          "line_count" : 1,
+          "mb" : 0.050000000000000003,
+          "phase" : "gutter",
+          "shape" : "giant",
+          "thousand_lookups_ms" : 0.024
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 79.953999999999994,
+          "input_to_draw" : {
+            "max_ms" : 181.24100000000001,
+            "mean_ms" : 101.129,
+            "n" : 60,
+            "p50_ms" : 94.679000000000002,
+            "p95_ms" : 147.95699999999999,
+            "p99_ms" : 181.24100000000001
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 165.33699999999999,
+            "mean_ms" : 85.694000000000003,
+            "n" : 60,
+            "p50_ms" : 79.188000000000002,
+            "p95_ms" : 132.86099999999999,
+            "p99_ms" : 165.33699999999999
+          },
+          "mb" : 0.050000000000000003,
+          "native_commit" : {
+            "max_ms" : 19.763000000000002,
+            "mean_ms" : 15.435,
+            "n" : 60,
+            "p50_ms" : 15.385,
+            "p95_ms" : 15.904,
+            "p99_ms" : 19.763000000000002
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "giant",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 93.781999999999996,
+          "input_to_draw" : {
+            "max_ms" : 86.414000000000001,
+            "mean_ms" : 80.739000000000004,
+            "n" : 60,
+            "p50_ms" : 80.225999999999999,
+            "p95_ms" : 83.802000000000007,
+            "p99_ms" : 86.414000000000001
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 71.052999999999997,
+            "mean_ms" : 65.296999999999997,
+            "n" : 60,
+            "p50_ms" : 64.703000000000003,
+            "p95_ms" : 68.409000000000006,
+            "p99_ms" : 71.052999999999997
+          },
+          "mb" : 0.050000000000000003,
+          "native_commit" : {
+            "max_ms" : 16.645,
+            "mean_ms" : 15.441000000000001,
+            "n" : 60,
+            "p50_ms" : 15.478,
+            "p95_ms" : 15.68,
+            "p99_ms" : 16.645
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "giant",
+          "where" : "middle"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 101.07899999999999,
+          "input_to_draw" : {
+            "max_ms" : 79.132000000000005,
+            "mean_ms" : 77.893000000000001,
+            "n" : 60,
+            "p50_ms" : 77.950999999999993,
+            "p95_ms" : 78.632000000000005,
+            "p99_ms" : 79.132000000000005
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 63.167000000000002,
+            "mean_ms" : 62.334000000000003,
+            "n" : 60,
+            "p50_ms" : 62.390999999999998,
+            "p95_ms" : 62.771000000000001,
+            "p99_ms" : 63.167000000000002
+          },
+          "mb" : 0.050000000000000003,
+          "native_commit" : {
+            "max_ms" : 16.806000000000001,
+            "mean_ms" : 15.558999999999999,
+            "n" : 60,
+            "p50_ms" : 15.632,
+            "p95_ms" : 15.865,
+            "p99_ms" : 16.806000000000001
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "giant",
+          "where" : "end"
+        },
+        {
+          "apply" : {
+            "max_ms" : 0.51800000000000002,
+            "mean_ms" : 0.42299999999999999,
+            "n" : 10,
+            "p50_ms" : 0.39600000000000002,
+            "p95_ms" : 0.51800000000000002,
+            "p99_ms" : 0.51800000000000002
+          },
+          "mb" : 0.050000000000000003,
+          "phase" : "programmatic_edit",
+          "shape" : "giant"
+        },
+        {
+          "mb" : 0.050000000000000003,
+          "phase" : "undo",
+          "redo" : {
+            "max_ms" : 77.965000000000003,
+            "mean_ms" : 77.760000000000005,
+            "n" : 4,
+            "p50_ms" : 77.802000000000007,
+            "p95_ms" : 77.965000000000003,
+            "p99_ms" : 77.965000000000003
+          },
+          "shape" : "giant",
+          "undo" : {
+            "max_ms" : 77.965999999999994,
+            "mean_ms" : 77.167000000000002,
+            "n" : 8,
+            "p50_ms" : 77.165999999999997,
+            "p95_ms" : 77.965999999999994,
+            "p99_ms" : 77.965999999999994
+          }
+        },
+        {
+          "clean_after" : true,
+          "first_ms" : 57.703000000000003,
+          "mb" : 0.050000000000000003,
+          "phase" : "save",
+          "second_ms" : 2.3919999999999999,
+          "shape" : "giant"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 181.32900000000001,
+          "input_to_draw" : {
+            "max_ms" : 455.87700000000001,
+            "mean_ms" : 450.29899999999998,
+            "n" : 60,
+            "p50_ms" : 449.94999999999999,
+            "p95_ms" : 453.488,
+            "p99_ms" : 455.87700000000001
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 241.01900000000001,
+            "mean_ms" : 237.86000000000001,
+            "n" : 60,
+            "p50_ms" : 237.74799999999999,
+            "p95_ms" : 239.56899999999999,
+            "p99_ms" : 241.01900000000001
+          },
+          "mb" : 0.050000000000000003,
+          "native_commit" : {
+            "max_ms" : 218.05500000000001,
+            "mean_ms" : 212.43899999999999,
+            "n" : 60,
+            "p50_ms" : 212.23699999999999,
+            "p95_ms" : 214.24600000000001,
+            "p99_ms" : 218.05500000000001
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "giant",
+          "where" : "middle, rendering attributes"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 244.56399999999999,
+          "input_to_draw" : {
+            "max_ms" : 210.90799999999999,
+            "mean_ms" : 197.535,
+            "n" : 60,
+            "p50_ms" : 196.946,
+            "p95_ms" : 202.78399999999999,
+            "p99_ms" : 210.90799999999999
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 166.816,
+            "mean_ms" : 162.36699999999999,
+            "n" : 60,
+            "p50_ms" : 162.21799999999999,
+            "p95_ms" : 164.56800000000001,
+            "p99_ms" : 166.816
+          },
+          "mb" : 0.050000000000000003,
+          "native_commit" : {
+            "max_ms" : 48.238999999999997,
+            "mean_ms" : 35.167999999999999,
+            "n" : 60,
+            "p50_ms" : 34.710000000000001,
+            "p95_ms" : 39.371000000000002,
+            "p99_ms" : 48.238999999999997
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 0,
+          "shape" : "giant",
+          "where" : "middle, storage attributes"
+        },
+        {
+          "mb" : 0.050000000000000003,
+          "phase" : "attributes",
+          "rendering_end_fragments" : 1,
+          "rendering_end_spans" : 3748,
+          "rendering_end_validator_ms" : 8.6890000000000001,
+          "rendering_middle_fragments" : 1,
+          "rendering_middle_spans" : 3748,
+          "rendering_middle_validator_ms" : 8.5660000000000007,
+          "rendering_refresh_end_ms" : 182.69200000000001,
+          "rendering_refresh_middle_ms" : 181.75899999999999,
+          "rendering_refresh_start_ms" : 183.91499999999999,
+          "rendering_refresh_whole_ms" : 183.46899999999999,
+          "rendering_start_fragments" : 1,
+          "rendering_start_spans" : 3748,
+          "rendering_start_validator_ms" : 8.7439999999999998,
+          "rendering_text_untouched" : true,
+          "shape" : "giant",
+          "storage_apply_end_ms" : 158.71000000000001,
+          "storage_apply_middle_ms" : 159.965,
+          "storage_apply_start_ms" : 157.69200000000001,
+          "storage_published_no_revision" : true
+        },
+        {
+          "final_version" : 324,
+          "footprint_end_mb" : 238.48500000000001,
+          "line_index_matches_rescan" : true,
+          "line_index_rebuilds" : 0,
+          "mb" : 0.050000000000000003,
+          "peak_resident_mb" : 397.25,
+          "phase" : "summary",
+          "published_changes" : 324,
+          "reconciled_changes" : 0,
+          "replay_matches_view" : true,
+          "shape" : "giant"
+        }
+      ],
+      "shape" : "giant",
+      "timed_out" : false,
+      "timeout_s" : 120,
+      "wall_s" : 61.700000000000003
+    },
+    {
+      "exit_status" : 0,
+      "mb" : 0.10000000000000001,
+      "phases" : [
+        {
+          "bytes" : 104860,
+          "footprint_mb" : 0.23400000000000001,
+          "lines" : 1,
+          "mb" : 0.10000000000000001,
+          "phase" : "fixture",
+          "shape" : "giant",
+          "utf16_units" : 78645
+        },
+        {
+          "first_layout_draw_ms" : 140.53100000000001,
+          "footprint_after_open_mb" : 43.921999999999997,
+          "footprint_after_read_mb" : 0.54700000000000004,
+          "line_index_footprint_mb" : 0.14099999999999999,
+          "line_index_ms" : 0.081000000000000003,
+          "make_editor_ms" : 8.4890000000000008,
+          "mb" : 0.10000000000000001,
+          "phase" : "open",
+          "read_ms" : 0.28299999999999997,
+          "session_init_ms" : 0.0089999999999999993,
+          "shape" : "giant",
+          "text_kit_2" : true,
+          "total_ms" : 149.392
+        },
+        {
+          "backend_text_copy_ms" : 0.29499999999999998,
+          "compare_equal_ms" : 0.28000000000000003,
+          "mb" : 0.10000000000000001,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.002,
+          "shape" : "giant",
+          "snapshot_ms" : 0.28499999999999998
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 95.209999999999994,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 93.652000000000001,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 46.896999999999998,
+          "mb" : 0.10000000000000001,
+          "phase" : "scroll",
+          "shape" : "giant"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 1,
+          "labels_end_ms" : 0.0030000000000000001,
+          "labels_middle_count" : 1,
+          "labels_middle_ms" : 0.0030000000000000001,
+          "labels_start_count" : 1,
+          "labels_start_ms" : 0.0030000000000000001,
+          "line_count" : 1,
+          "mb" : 0.10000000000000001,
+          "phase" : "gutter",
+          "shape" : "giant",
+          "thousand_lookups_ms" : 0.025000000000000001
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 121.43899999999999,
+          "input_to_draw" : {
+            "max_ms" : 855.48199999999997,
+            "mean_ms" : 200.857,
+            "n" : 60,
+            "p50_ms" : 178.22,
+            "p95_ms" : 299.68599999999998,
+            "p99_ms" : 855.48199999999997
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 821.798,
+            "mean_ms" : 173.09,
+            "n" : 60,
+            "p50_ms" : 151.35599999999999,
+            "p95_ms" : 271.61000000000001,
+            "p99_ms" : 821.798
+          },
+          "mb" : 0.10000000000000001,
+          "native_commit" : {
+            "max_ms" : 33.683999999999997,
+            "mean_ms" : 27.765999999999998,
+            "n" : 60,
+            "p50_ms" : 27.838000000000001,
+            "p95_ms" : 28.466999999999999,
+            "p99_ms" : 33.683999999999997
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 60,
+          "shape" : "giant",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 127.298,
+          "input_to_draw" : {
+            "max_ms" : 174.38900000000001,
+            "mean_ms" : 157.32599999999999,
+            "n" : 60,
+            "p50_ms" : 156.13399999999999,
+            "p95_ms" : 164.78399999999999,
+            "p99_ms" : 174.38900000000001
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 146.595,
+            "mean_ms" : 129.41200000000001,
+            "n" : 60,
+            "p50_ms" : 128.00800000000001,
+            "p95_ms" : 137.11500000000001,
+            "p99_ms" : 146.595
+          },
+          "mb" : 0.10000000000000001,
+          "native_commit" : {
+            "max_ms" : 29.244,
+            "mean_ms" : 27.914000000000001,
+            "n" : 60,
+            "p50_ms" : 27.888999999999999,
+            "p95_ms" : 28.574000000000002,
+            "p99_ms" : 29.244
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 60,
+          "shape" : "giant",
+          "where" : "middle"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 166.81399999999999,
+          "input_to_draw" : {
+            "max_ms" : 157.643,
+            "mean_ms" : 151.011,
+            "n" : 60,
+            "p50_ms" : 151.21100000000001,
+            "p95_ms" : 152.864,
+            "p99_ms" : 157.643
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 127.57599999999999,
+            "mean_ms" : 122.38800000000001,
+            "n" : 60,
+            "p50_ms" : 122.383,
+            "p95_ms" : 123.858,
+            "p99_ms" : 127.57599999999999
+          },
+          "mb" : 0.10000000000000001,
+          "native_commit" : {
+            "max_ms" : 30.067,
+            "mean_ms" : 28.623000000000001,
+            "n" : 60,
+            "p50_ms" : 28.631,
+            "p95_ms" : 29.254999999999999,
+            "p99_ms" : 30.067
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 60,
+          "shape" : "giant",
+          "where" : "end"
+        },
+        {
+          "apply" : {
+            "max_ms" : 0.69699999999999995,
+            "mean_ms" : 0.56899999999999995,
+            "n" : 10,
+            "p50_ms" : 0.54500000000000004,
+            "p95_ms" : 0.69699999999999995,
+            "p99_ms" : 0.69699999999999995
+          },
+          "mb" : 0.10000000000000001,
+          "phase" : "programmatic_edit",
+          "shape" : "giant"
+        },
+        {
+          "mb" : 0.10000000000000001,
+          "phase" : "undo",
+          "redo" : {
+            "max_ms" : 152.376,
+            "mean_ms" : 151.08199999999999,
+            "n" : 4,
+            "p50_ms" : 151.083,
+            "p95_ms" : 152.376,
+            "p99_ms" : 152.376
+          },
+          "shape" : "giant",
+          "undo" : {
+            "max_ms" : 153.523,
+            "mean_ms" : 150.55000000000001,
+            "n" : 8,
+            "p50_ms" : 150.69999999999999,
+            "p95_ms" : 153.523,
+            "p99_ms" : 153.523
+          }
+        },
+        {
+          "clean_after" : true,
+          "first_ms" : 114.88200000000001,
+          "mb" : 0.10000000000000001,
+          "phase" : "save",
+          "second_ms" : 2.6539999999999999,
+          "shape" : "giant"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 417.61099999999999,
+          "input_to_draw" : {
+            "max_ms" : 948.50599999999997,
+            "mean_ms" : 906.65999999999997,
+            "n" : 44,
+            "p50_ms" : 907.15499999999997,
+            "p95_ms" : 916.15999999999997,
+            "p99_ms" : 948.50599999999997
+          },
+          "keystrokes_done" : 44,
+          "layout_draw" : {
+            "max_ms" : 524.06299999999999,
+            "mean_ms" : 477.529,
+            "n" : 44,
+            "p50_ms" : 477.072,
+            "p95_ms" : 480.83999999999997,
+            "p99_ms" : 524.06299999999999
+          },
+          "mb" : 0.10000000000000001,
+          "native_commit" : {
+            "max_ms" : 436.66300000000001,
+            "mean_ms" : 429.13099999999997,
+            "n" : 44,
+            "p50_ms" : 429.70699999999999,
+            "p95_ms" : 432.62900000000002,
+            "p99_ms" : 436.66300000000001
+          },
+          "phase" : "typing",
+          "published_versions" : 44,
+          "reconciled" : 44,
+          "shape" : "giant",
+          "where" : "middle, rendering attributes"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 510.84500000000003,
+          "input_to_draw" : {
+            "max_ms" : 432.584,
+            "mean_ms" : 399.88,
+            "n" : 60,
+            "p50_ms" : 396.82299999999998,
+            "p95_ms" : 419.00799999999998,
+            "p99_ms" : 432.584
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 350.17599999999999,
+            "mean_ms" : 328.786,
+            "n" : 60,
+            "p50_ms" : 326.60599999999999,
+            "p95_ms" : 341.79199999999997,
+            "p99_ms" : 350.17599999999999
+          },
+          "mb" : 0.10000000000000001,
+          "native_commit" : {
+            "max_ms" : 96.733000000000004,
+            "mean_ms" : 71.093999999999994,
+            "n" : 60,
+            "p50_ms" : 70.311999999999998,
+            "p95_ms" : 77.352000000000004,
+            "p99_ms" : 96.733000000000004
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 60,
+          "shape" : "giant",
+          "where" : "middle, storage attributes"
+        },
+        {
+          "mb" : 0.10000000000000001,
+          "phase" : "attributes",
+          "rendering_end_fragments" : 1,
+          "rendering_end_spans" : 7492,
+          "rendering_end_validator_ms" : 17.850000000000001,
+          "rendering_middle_fragments" : 1,
+          "rendering_middle_spans" : 7492,
+          "rendering_middle_validator_ms" : 17.876000000000001,
+          "rendering_refresh_end_ms" : 362.98399999999998,
+          "rendering_refresh_middle_ms" : 366.03699999999998,
+          "rendering_refresh_start_ms" : 364.13,
+          "rendering_refresh_whole_ms" : 364.19,
+          "rendering_start_fragments" : 1,
+          "rendering_start_spans" : 7492,
+          "rendering_start_validator_ms" : 17.803999999999998,
+          "rendering_text_untouched" : true,
+          "shape" : "giant",
+          "storage_apply_end_ms" : 336.108,
+          "storage_apply_middle_ms" : 337.589,
+          "storage_apply_start_ms" : 320.93299999999999,
+          "storage_published_no_revision" : true
+        },
+        {
+          "final_version" : 308,
+          "footprint_end_mb" : 504.798,
+          "line_index_matches_rescan" : true,
+          "line_index_rebuilds" : 0,
+          "mb" : 0.10000000000000001,
+          "peak_resident_mb" : 476.54700000000003,
+          "phase" : "summary",
+          "published_changes" : 308,
+          "reconciled_changes" : 296,
+          "replay_matches_view" : true,
+          "shape" : "giant"
+        }
+      ],
+      "shape" : "giant",
+      "timed_out" : false,
+      "timeout_s" : 120,
+      "wall_s" : 107.7
+    },
+    {
+      "exit_status" : 0,
+      "mb" : 0.25,
+      "phases" : [
+        {
+          "bytes" : 262164,
+          "footprint_mb" : 0.625,
+          "lines" : 1,
+          "mb" : 0.25,
+          "phase" : "fixture",
+          "shape" : "giant",
+          "utf16_units" : 196623
+        },
+        {
+          "first_layout_draw_ms" : 362.73000000000002,
+          "footprint_after_open_mb" : 86.796999999999997,
+          "footprint_after_read_mb" : 1.25,
+          "line_index_footprint_mb" : 0,
+          "line_index_ms" : 0.153,
+          "make_editor_ms" : 43.603000000000002,
+          "mb" : 0.25,
+          "phase" : "open",
+          "read_ms" : 2.589,
+          "session_init_ms" : 0.01,
+          "shape" : "giant",
+          "text_kit_2" : true,
+          "total_ms" : 409.08600000000001
+        },
+        {
+          "backend_text_copy_ms" : 0.73099999999999998,
+          "compare_equal_ms" : 0.69299999999999995,
+          "mb" : 0.25,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.002,
+          "shape" : "giant",
+          "snapshot_ms" : 0.72599999999999998
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 241.92599999999999,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 238.49199999999999,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 116.121,
+          "mb" : 0.25,
+          "phase" : "scroll",
+          "shape" : "giant"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 1,
+          "labels_end_ms" : 0.0030000000000000001,
+          "labels_middle_count" : 1,
+          "labels_middle_ms" : 0.0030000000000000001,
+          "labels_start_count" : 1,
+          "labels_start_ms" : 0.0030000000000000001,
+          "line_count" : 1,
+          "mb" : 0.25,
+          "phase" : "gutter",
+          "shape" : "giant",
+          "thousand_lookups_ms" : 0.024
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 477.971,
+          "input_to_draw" : {
+            "max_ms" : 8367.5920000000006,
+            "mean_ms" : 652.65499999999997,
+            "n" : 60,
+            "p50_ms" : 471.49299999999999,
+            "p95_ms" : 946.21100000000001,
+            "p99_ms" : 8367.5920000000006
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 8279.2209999999995,
+            "mean_ms" : 582.58199999999999,
+            "n" : 60,
+            "p50_ms" : 401.32400000000001,
+            "p95_ms" : 876.30600000000004,
+            "p99_ms" : 8279.2209999999995
+          },
+          "mb" : 0.25,
+          "native_commit" : {
+            "max_ms" : 88.372,
+            "mean_ms" : 70.072999999999993,
+            "n" : 60,
+            "p50_ms" : 69.980000000000004,
+            "p95_ms" : 72.530000000000001,
+            "p99_ms" : 88.372
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 60,
+          "shape" : "giant",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 498.75200000000001,
+          "input_to_draw" : {
+            "max_ms" : 500.30700000000002,
+            "mean_ms" : 417.56400000000002,
+            "n" : 60,
+            "p50_ms" : 414.66800000000001,
+            "p95_ms" : 454.89600000000002,
+            "p99_ms" : 500.30700000000002
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 432.363,
+            "mean_ms" : 346.26100000000002,
+            "n" : 60,
+            "p50_ms" : 340.39499999999998,
+            "p95_ms" : 381.47199999999998,
+            "p99_ms" : 432.363
+          },
+          "mb" : 0.25,
+          "native_commit" : {
+            "max_ms" : 76.951999999999998,
+            "mean_ms" : 71.302000000000007,
+            "n" : 60,
+            "p50_ms" : 70.947000000000003,
+            "p95_ms" : 75.311000000000007,
+            "p99_ms" : 76.951999999999998
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 60,
+          "shape" : "giant",
+          "where" : "middle"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 598.17399999999998,
+          "input_to_draw" : {
+            "max_ms" : 506.09399999999999,
+            "mean_ms" : 388.464,
+            "n" : 60,
+            "p50_ms" : 382.92599999999999,
+            "p95_ms" : 443.95100000000002,
+            "p99_ms" : 506.09399999999999
+          },
+          "keystrokes_done" : 60,
+          "layout_draw" : {
+            "max_ms" : 436.947,
+            "mean_ms" : 314.75599999999997,
+            "n" : 60,
+            "p50_ms" : 311.26999999999998,
+            "p95_ms" : 326.27100000000002,
+            "p99_ms" : 436.947
+          },
+          "mb" : 0.25,
+          "native_commit" : {
+            "max_ms" : 137.95400000000001,
+            "mean_ms" : 73.709000000000003,
+            "n" : 60,
+            "p50_ms" : 71.486000000000004,
+            "p95_ms" : 76.188999999999993,
+            "p99_ms" : 137.95400000000001
+          },
+          "phase" : "typing",
+          "published_versions" : 60,
+          "reconciled" : 60,
+          "shape" : "giant",
+          "where" : "end"
+        },
+        {
+          "apply" : {
+            "max_ms" : 2.2509999999999999,
+            "mean_ms" : 0.70499999999999996,
+            "n" : 10,
+            "p50_ms" : 0.51500000000000001,
+            "p95_ms" : 2.2509999999999999,
+            "p99_ms" : 2.2509999999999999
+          },
+          "mb" : 0.25,
+          "phase" : "programmatic_edit",
+          "shape" : "giant"
+        },
+        {
+          "mb" : 0.25,
+          "phase" : "undo",
+          "redo" : {
+            "max_ms" : 382.11799999999999,
+            "mean_ms" : 379.94900000000001,
+            "n" : 4,
+            "p50_ms" : 378.92599999999999,
+            "p95_ms" : 382.11799999999999,
+            "p99_ms" : 382.11799999999999
+          },
+          "shape" : "giant",
+          "undo" : {
+            "max_ms" : 392.35899999999998,
+            "mean_ms" : 383.959,
+            "n" : 8,
+            "p50_ms" : 383.28100000000001,
+            "p95_ms" : 392.35899999999998,
+            "p99_ms" : 392.35899999999998
+          }
+        },
+        {
+          "clean_after" : true,
+          "first_ms" : 296.59100000000001,
+          "mb" : 0.25,
+          "phase" : "save",
+          "second_ms" : 3.488,
+          "shape" : "giant"
+        },
+        {
+          "final_version" : 204,
+          "footprint_end_mb" : 736.08000000000004,
+          "line_index_matches_rescan" : true,
+          "line_index_rebuilds" : 0,
+          "mb" : 0.25,
+          "peak_resident_mb" : 1335.703,
+          "phase" : "summary",
+          "published_changes" : 204,
+          "reconciled_changes" : 192,
+          "replay_matches_view" : true,
+          "shape" : "giant"
+        }
+      ],
+      "shape" : "giant",
+      "timed_out" : false,
+      "timeout_s" : 150,
+      "wall_s" : 99.200000000000003
+    },
+    {
+      "exit_status" : -1,
+      "mb" : 1,
+      "phases" : [
+        {
+          "bytes" : 1048600,
+          "footprint_mb" : 2.2970000000000002,
+          "lines" : 1,
+          "mb" : 1,
+          "phase" : "fixture",
+          "shape" : "giant",
+          "utf16_units" : 786450
+        },
+        {
+          "first_layout_draw_ms" : 1332.346,
+          "footprint_after_open_mb" : 431.23500000000001,
+          "footprint_after_read_mb" : 4.4219999999999997,
+          "line_index_footprint_mb" : 0,
+          "line_index_ms" : 0.54200000000000004,
+          "make_editor_ms" : 11.484999999999999,
+          "mb" : 1,
+          "phase" : "open",
+          "read_ms" : 1.8180000000000001,
+          "session_init_ms" : 0.0089999999999999993,
+          "shape" : "giant",
+          "text_kit_2" : true,
+          "total_ms" : 1346.201
+        },
+        {
+          "backend_text_copy_ms" : 2.8929999999999998,
+          "compare_equal_ms" : 2.8090000000000002,
+          "mb" : 1,
+          "phase" : "primitives",
+          "planner_prepare_ms" : 0.002,
+          "shape" : "giant",
+          "snapshot_ms" : 2.8380000000000001
+        },
+        {
+          "jump_to_end_in_view" : true,
+          "jump_to_end_ms" : 975.26700000000005,
+          "jump_to_middle_in_view" : true,
+          "jump_to_middle_ms" : 967.94600000000003,
+          "jump_to_start_in_view" : true,
+          "jump_to_start_ms" : 464.23500000000001,
+          "mb" : 1,
+          "phase" : "scroll",
+          "shape" : "giant"
+        },
+        {
+          "in_view_end" : true,
+          "in_view_middle" : true,
+          "in_view_start" : true,
+          "labels_end_count" : 1,
+          "labels_end_ms" : 0.0030000000000000001,
+          "labels_middle_count" : 1,
+          "labels_middle_ms" : 0.0030000000000000001,
+          "labels_start_count" : 1,
+          "labels_start_ms" : 0.0030000000000000001,
+          "line_count" : 1,
+          "mb" : 1,
+          "phase" : "gutter",
+          "shape" : "giant",
+          "thousand_lookups_ms" : 0.024
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 2530.27,
+          "input_to_draw" : {
+            "max_ms" : 28039.084999999999,
+            "mean_ms" : 4512.5050000000001,
+            "n" : 9,
+            "p50_ms" : 1576.3130000000001,
+            "p95_ms" : 28039.084999999999,
+            "p99_ms" : 28039.084999999999
+          },
+          "keystrokes_done" : 9,
+          "layout_draw" : {
+            "max_ms" : 27726.386999999999,
+            "mean_ms" : 4220.9129999999996,
+            "n" : 9,
+            "p50_ms" : 1292.1089999999999,
+            "p95_ms" : 27726.386999999999,
+            "p99_ms" : 27726.386999999999
+          },
+          "mb" : 1,
+          "native_commit" : {
+            "max_ms" : 312.69799999999998,
+            "mean_ms" : 291.59199999999998,
+            "n" : 9,
+            "p50_ms" : 287.58699999999999,
+            "p95_ms" : 312.69799999999998,
+            "p99_ms" : 312.69799999999998
+          },
+          "phase" : "typing",
+          "published_versions" : 9,
+          "reconciled" : 9,
+          "shape" : "giant",
+          "where" : "start"
+        },
+        {
+          "aborted_for_memory" : false,
+          "caret_in_view" : true,
+          "footprint_mb" : 2614.942,
+          "input_to_draw" : {
+            "max_ms" : 1665.307,
+            "mean_ms" : 1512.3869999999999,
+            "n" : 27,
+            "p50_ms" : 1537.681,
+            "p95_ms" : 1607.2070000000001,
+            "p99_ms" : 1665.307
+          },
+          "keystrokes_done" : 27,
+          "layout_draw" : {
+            "max_ms" : 1373.1559999999999,
+            "mean_ms" : 1239.6869999999999,
+            "n" : 27,
+            "p50_ms" : 1256.5999999999999,
+            "p95_ms" : 1305.6279999999999,
+            "p99_ms" : 1373.1559999999999
+          },
+          "mb" : 1,
+          "native_commit" : {
+            "max_ms" : 301.57900000000001,
+            "mean_ms" : 272.69999999999999,
+            "n" : 27,
+            "p50_ms" : 282.09899999999999,
+            "p95_ms" : 298.35899999999998,
+            "p99_ms" : 301.57900000000001
+          },
+          "phase" : "typing",
+          "published_versions" : 26,
+          "reconciled" : 26,
+          "shape" : "giant",
+          "where" : "middle"
+        }
+      ],
+      "shape" : "giant",
+      "timed_out" : true,
+      "timeout_s" : 240,
+      "wall_s" : 242.30000000000001
+    }
+  ]
+}

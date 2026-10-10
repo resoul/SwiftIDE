@@ -72,16 +72,37 @@ public final class UnsavedChangesCoordinator {
     /// Quitting is allowed only by a pass that finds every document either clean or discarded at
     /// its current version; that last pass runs without suspending, so nothing can change
     /// between it and the caller's reply. It stops at the first answer that keeps the app running.
-    public func canQuit(documents: @MainActor () -> [DocumentSession]) async -> Bool {
+    ///
+    /// Letting go of what the app keeps for the discarded documents (their recovery copies) takes
+    /// time, and the world moves meanwhile just as it does while a sheet is open. So that is part
+    /// of the procedure, not something done after it: `release` is given the documents whose
+    /// changes the user agreed to lose, and when it returns everything is checked again; text
+    /// typed meanwhile is asked about, a new window is asked about, and documents are released
+    /// again for their new text. If the quit is then refused, `reinstate` is given every document
+    /// that was released, so that they are protected again.
+    public func canQuit(
+        documents: @MainActor () -> [DocumentSession],
+        release: @MainActor ([DocumentSession]) async -> Void = { _ in },
+        reinstate: @MainActor ([DocumentSession]) -> Void = { _ in }
+    ) async -> Bool {
         var discarded: [DocumentID: UInt64] = [:]
+        var released: [DocumentID: (session: DocumentSession, version: UInt64)] = [:]
         while true {
-            let pending = documents().first { $0.isDirty && discarded[$0.id] != $0.version }
-            guard let session = pending else { return true }
-            switch await resolve(session) {
-            case .refused: return false
-            case .settled: break
-            case .discarded(let version): discarded[session.id] = version
+            let open = documents()
+            if let session = open.first(where: { $0.isDirty && discarded[$0.id] != $0.version }) {
+                switch await resolve(session) {
+                case .refused:
+                    if !released.isEmpty { reinstate(released.values.map(\.session)) }
+                    return false
+                case .settled: break
+                case .discarded(let version): discarded[session.id] = version
+                }
+                continue
             }
+            let unreleased = open.filter { $0.isDirty && released[$0.id]?.version != $0.version }
+            guard !unreleased.isEmpty else { return true }
+            for session in unreleased { released[session.id] = (session, session.version) }
+            await release(unreleased)
         }
     }
 }
