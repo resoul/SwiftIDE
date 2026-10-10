@@ -4,8 +4,14 @@ import IDEDomain
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let composition = AppCompositionRoot()
+    private let composition: AppCompositionRoot
     private var windows: [WorkspaceWindowController] = []
+    private var projects: [String: ProjectWorkspaceController] = [:]
+    private var closingProjects: Set<String> = []
+    init(composition: AppCompositionRoot = AppCompositionRoot()) {
+        self.composition = composition
+        super.init()
+    }
     private var workspacePreview: WorkspacePreviewWindowController?
     /// Where the user jumped from, for Go Back.
     private var history = NavigationHistory()
@@ -20,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         MainMenu.install()
+        NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.activate()
         if CommandLine.arguments.contains("--workspace-preview")
             || Bundle.main.bundleIdentifier == "org.swiftide.workspace-preview" {
@@ -39,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// manifests may have changed meanwhile, and none of them tells (ADR-034).
     func applicationDidBecomeActive(_ notification: Notification) {
         Task { await composition.languageServices.refreshEnvironment() }
+        for project in projects.values { project.files.refresh() }
     }
 
     /// Leaving for the background is the moment a user may force-quit or lose power: the unsaved
@@ -83,7 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     @objc func newDocument(_ sender: Any?) {
-        show(composition.makeUntitledWindow())
+        show(composition.makeUntitledWindow(), in: activeProject)
     }
 
     @objc func showWorkspacePreview(_ sender: Any?) {
@@ -96,8 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         chooseFiles(startingAt: nil)
     }
 
-    /// File ▸ Open Folder…: the folder becomes the project of every file inside it, whatever packages
-    /// lie below it; then a file of it is chosen to open (there is no project tree yet).
+    /// File ▸ Open Folder… uses the existing explicit-root policy and opens a real Files browser.
     @objc func openFolder(_ sender: Any?) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -106,12 +113,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.prompt = "Open Folder"
         guard panel.runModal() == .OK, let folder = panel.url else { return }
 
-        composition.languageServices.contexts.open(folder: folder.path)
-        chooseFiles(startingAt: folder)
+        openProject(path: folder.path).showWorkspace()
+    }
+
+    @discardableResult
+    func openProject(path: String) -> ProjectWorkspaceController {
+        let root = DocumentPath.canonical(path)
+        if let project = projects[root] { return project }
+
+        composition.languageServices.contexts.open(folder: root)
+        let project = ProjectWorkspaceController(files: composition.makeProjectFiles(root: root), layout: composition.makeWorkspaceLayout(root: root))
+        projects[root] = project
+        project.openFile = { [weak self] path in Task { await self?.open(path: path) } }
+        project.onClose = { [weak self] in
+            self?.projects[root] = nil
+            self?.composition.languageServices.contexts.close(folder: root)
+        }
+        // A file already open keeps its session and editor; it becomes a tab of this explicit root.
+        for document in windows where composition.languageServices.contexts.context(forFile: document.session.path)?.root == root {
+            for old in projects.values where old !== project && old.documents.contains(where: { $0 === document }) {
+                old.remove(document)
+            }
+            project.add(document)
+        }
+
+        return project
+    }
+
+    private var activeProject: ProjectWorkspaceController? {
+        projects.values.first { project in
+            project.window === NSApp.keyWindow || project.documents.contains { $0.window === NSApp.keyWindow }
+        }
+    }
+
+    @objc func closeProject(_ sender: Any?) {
+        guard let project = activeProject else { return }
+
+        Task { await closeProject(project) }
+    }
+
+    func closeProject(_ project: ProjectWorkspaceController) async {
+        let root = project.files.root
+        guard closingProjects.insert(root).inserted else { return }
+
+        defer { closingProjects.remove(root) }
+        guard await unsavedChanges.canQuit(documents: { project.documents.map(\.session) }) else { return }
+
+        project.closeProject()
     }
 
     /// File ▸ Close Opened Folders: files go back to the nearest package.
     @objc func closeOpenedFolders(_ sender: Any?) {
+        // Keep the old command's meaning: release explicit roots without closing documents.
+        for project in Array(projects.values) { project.releaseDocuments() }
         let contexts = composition.languageServices.contexts
         for folder in contexts.openedFolders { contexts.close(folder: folder) }
     }
@@ -128,15 +182,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func open(path: String, revealing location: DefinitionLocation? = nil) async {
+    func open(path: String, revealing location: DefinitionLocation? = nil) async {
         do {
             let opened = try await composition.open(path: path)
             if opened.isNew {
                 let controller = composition.makeWindow(for: opened.session)
                 if location != nil, Self.isSystemFile(path) { controller.openForReading() }
-                show(controller)
+                let root = composition.languageServices.contexts.context(forFile: path)?.root
+                show(controller, in: root.flatMap { projects[$0] })
             } else {
-                windows.first { $0.session === opened.session }?.showWindow(nil)
+                windows.first { $0.session === opened.session }?.showDocument()
             }
 
             if let location {
@@ -265,7 +320,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await open(path: place.path, revealing: DefinitionLocation(path: place.path, line: place.line, character: place.character)) }
     }
 
-    private func show(_ controller: WorkspaceWindowController) {
+    private func show(_ controller: WorkspaceWindowController, in project: ProjectWorkspaceController? = nil) {
         controller.onJumpFrom = { [weak self] place in self?.history.push(place) }
         controller.onOpenLocation = { [weak self] location in
             guard let self else { return }
@@ -277,10 +332,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             composition.close(closed.session)
             windows.removeAll { $0 === closed }
+            for project in projects.values where project.documents.contains(where: { $0 === closed }) { project.remove(closed) }
         }
         controller.unsavedChanges = unsavedChanges
         windows.append(controller)
-        controller.showWindow(nil)
+        if let project { project.add(controller) } else { controller.showDocument() }
     }
 
 }
@@ -289,6 +345,7 @@ extension AppDelegate: NSMenuItemValidation {
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(goBack(_:)) { return history.canGoBack }
         if item.action == #selector(closeOpenedFolders(_:)) { return !composition.languageServices.contexts.openedFolders.isEmpty }
+        if item.action == #selector(closeProject(_:)) { return activeProject != nil }
 
         return true
     }

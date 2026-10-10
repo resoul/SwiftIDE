@@ -26,8 +26,8 @@ Arrows are compile-time imports. The UI may depend on the platform adapter to cr
 | IDEApplication | Sessions, versions, save policy, use cases, backend and I/O ports | IDEDomain |
 | EditorPlatformTextKit | TextKit storage/layout graph, the future native editing/undo bridge | IDEApplication, IDEDomain, AppKit |
 | EditorUI | Editor host, gutter, completion, decorations, commands | IDEApplication, EditorPlatformTextKit, AppKit |
-| WorkspaceUI | Project configuration dialog, readiness/target/temporary-folder presentation; later tree, tabs, Problems and palette | IDEApplication, AppKit |
-| FileSystemInfrastructure | Read/write/watch, recovery, disk revisions | IDEApplication, IDEDomain, Foundation |
+| WorkspaceUI | Project configuration dialog, status presentation, Files/resizable container and native tab adapter; later Problems and palette | IDEApplication, AppKit |
+| FileSystemInfrastructure | Read/write/watch, recovery, disk revisions and one-level project directory reads | IDEApplication, IDEDomain, Foundation |
 | LanguageInfrastructure | Ordered JSON-RPC, SourceKit, DTO/position mapping | IDEApplication, IDEDomain |
 | XcodeInfrastructure | Toolchain/project discovery, BSP configuration | IDEApplication, IDEDomain, ProcessInfrastructure |
 | BuildInfrastructure / GitInfrastructure | Tool adapters | IDEApplication, IDEDomain, ProcessInfrastructure |
@@ -54,7 +54,7 @@ Presentation tests belong to `WorkspaceUITests` in the package. App tests check 
 
 [ADR-031](07_ARCHITECTURE_DECISIONS.md#adr-031-workspace-components-git-and-file-status-colours), TK-025–TK-029, adds the planned Files/tabs, Welcome/project switcher and Git slices. Application ports describe repository status with independent index/worktree fields, project exclusions, branches and commits. GitInfrastructure uses a process adapter; WorkspaceUI renders values and invokes actions through ports/callbacks. App composes them with the shared project context and document registry. Git's repository/worktree identity is separate from the build-system root.
 
-Git status describes disk/index state, while unsaved editor changes belong to DocumentSession and remain a separate indicator. Project exclusion and Git ignore are independent policies; neither removes tracked changes from Changes, and UI exclusion does not imply control over LSP/BSP indexing. Semantic colour and folder-aggregation rules are presentation policy in WorkspaceUI, specified in [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Inspection precedes local mutations and network operations; checkout uses the existing unsaved-document workflow.
+Git status describes disk/index state, while unsaved editor changes belong to DocumentSession and remain a separate indicator. Project exclusion and Git ignore are independent policies; neither removes tracked changes from Changes, and UI exclusion does not imply control over LSP/BSP indexing. The AppKit-free FileDecoration model encodes semantic precedence and aggregation; WorkspaceUI maps tones to theme-aware colours, specified in [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Inspection precedes local mutations and network operations; checkout uses the existing unsaved-document workflow.
 
 ## A single owner of the text
 
@@ -116,3 +116,13 @@ The plan for chat/agent features keeps the same boundaries: AgentSession and Cod
 The ground for moving: a reproducible failure of the agreed latency/memory/functionality budget that cannot be acceptably fixed in the TextKit adapter. Then a new backend and UI bridge are designed; selections/undo/composition/layout will require migration work.
 
 The current PreparedDocumentEdit contains full strings and is not the optimal contract for a Piece Tree. In such a migration the preparation must become backend-specific (an immutable plan/token), keeping the public edit/version/event semantics. Saving, the workspace and the language services must not depend on this optimization.
+
+## Real Files and tabs (TK-026)
+
+ProjectFiles is an AppKit-free application model with an injected ProjectDirectoryReading port, shared expansion/selection, independent exclusion/ignore inputs and generation-checked asynchronous reads. The filesystem adapter reads only one level off the main thread; returned paths preserve their parent's spelling even when Foundation aliases `/var` and `/private/var`. Directory links are not traversed. Exclusions affect this client's Files policy, not server indexing.
+
+ProjectFilesViewController, ProjectFilesContainer and ProjectDocumentTabs belong to WorkspaceUI. App owns ProjectWorkspaceController and settings keyed by the common canonical root. Documents stay in the existing registry and WorkspaceWindowController; native tabs preserve their TextKit editor and responder/undo chains. Batch project closing uses UnsavedChangesCoordinator, including changes/new documents while a sheet is pending. Trust questions prefer the selected tab within the requesting project, never the unrelated active project. See ADR-035 for validation and limits.
+
+## Common workspace shell (TK-030)
+
+WorkspaceUI owns WorkspaceShellViewController, WorkspacePanel, WorkspaceTool and the UI-only WorkspaceLayout/WorkspaceLayoutState. Production Files/editor providers and Preview sample providers use this one layout implementation. The shell imports no language/filesystem/Git infrastructure and receives views, focus targets and display strings. App owns the canonical-root UserDefaults layout adapter, project/window lifecycle and native document controllers. A project shares one layout state across its empty browser and native tabs; each original editor remains intact. Notifications update presentation without stealing the first responder. Explicit disconnect releases layout subscriptions. Unavailable tools are disabled until a working provider exists (ADR-036).

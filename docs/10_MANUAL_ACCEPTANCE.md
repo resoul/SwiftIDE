@@ -40,7 +40,7 @@ The user subsequently confirmed Q7 and Q12 on 2026-10-11: a permitted project re
 | P. Description, jump, diagnostics | P21 | P1–P20, P22 |
 | Q. Readiness, progress, trust, opened folders, targets, configuration (TK-018) | Q1–Q5, Q7, Q12, Q20 | Q6, Q8–Q11, Q13–Q19, Q21–Q33, Q35, Q37 not run; Q34 preliminary; Q36 partial and preliminary |
 | Q. Reusable workspace UI (TK-024) | | Q38–Q39; repeat Q3–Q8 and Q12 after extraction |
-| R. Workspace and Git (TK-025–TK-029, planned) | | R1–R16; run each slice when implemented |
+| R. Workspace and Git (TK-026/030 implemented, live checks pending) | | R3/R4 (excluding Git ignore), Files part of R13 and R17–R24; remaining checks with later slices |
 
 Everything else in the sections B, C, H, I, K, M, N, O and P is still unchecked by hand; the earlier statements "not checked in a live window" stay true for those items.
 
@@ -359,9 +359,9 @@ TK-024 was implemented on 2026-10-11. These checks are pending for the extracted
 | Q38 | Open two different project windows A and B, with no saved configuration decision for A. Keep B active while A raises the configuration question | The sheet belongs to A, names A and cannot apply a choice to B; B remains usable |
 | Q39 | Close the owning project window through its lifecycle while its configuration question is pending; reopen the project with no other window for it | The pending presentation is cancelled, no decision is stored and no automatic permission is granted; the question is asked on reopening |
 
-## R. Workspace components and Git: future acceptance (TK-025–TK-029, ADR-031)
+## R. Workspace components and Git (TK-025–TK-030, ADR-031/035/036)
 
-These are future checks, not passed results or capabilities of Workspace Preview. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R4 with TK-025/026, R5–R13 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
+TK-026/030 are implemented and tested; their live checks are pending, not passed results. Welcome and Git checks are future work, not capabilities of Workspace Preview. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored remains disabled until TK-027 supplies real information. Run R1–R2 with TK-025, Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
 
 | № | Do | Expected |
 |---|---|---|
@@ -391,3 +391,22 @@ These are future checks, not passed results or capabilities of Workspace Preview
 - Completion: no placeholders and no documentation window; a 5 s timeout and a status line exist (K17–K20). Xcode projects (ADR-019) are not covered by it.
 - Highlighting exists for Swift, C, C++ and Objective-C ([ADR-025](07_ARCHITECTURE_DECISIONS.md#adr-025-highlighting-of-c-c-and-objective-c-tk-016)); Objective-C++ has none. Apple headers with macros around enumerations (`NS_OPTIONS`) are read by the Objective-C grammar with errors — the colours there are partial.
 - The Bazel context/BSP is not implemented ([ADR-023](07_ARCHITECTURE_DECISIONS.md#adr-023-support-for-bazel-projects)); a Bazel file outside SwiftPM is currently served as a single file without the project's compiler settings.
+
+### Additional live acceptance for real Files/tabs (TK-026, pending)
+
+| № | Do | Expected |
+|---|---|---|
+| R17 | Open two folders with two files each; reopen a file through a symlink; switch tabs/projects, then use Focus Editor and Files | One session per file; unrelated projects never share a tab group; original caret/selection/scroll/Undo survive; Files returns and divider widths remain useful |
+| R18 | Edit two tabs, Close Project, choose Don't Save for one and Cancel for the other; retry with Save; also close the final tab | Cancel keeps both tabs/text; successful writes and approved discards close the project; closing its last individual tab returns to Files; quit still reconciles all documents |
+| R19 | Exclude a file/folder, inspect children, Include from a child, toggle Show Excluded; reopen the folder; Save As to a new name | Orange reasons and persisted rules are correct; explicit opening is allowed; ancestor is not orange; Save As updates filename/tab/dirty dot and Files; linked folders are visible/revealable without cycles |
+| R20 | Change a directory outside the app; Refresh, then leave/re-activate; delete an expanded folder; expand a large `.build`; use Reveal in Finder | Expanded listings refresh without stealing focus or selection; deleted/unreadable folder explains failure; collapsed/excluded trees are not recursively scanned; Show Ignored is disabled with an honest explanation before TK-027 |
+
+
+### Common shell before Git (TK-030; pending)
+
+| Check | Action | Expected |
+|---|---|---|
+| R21 | Open Folder, open two files, then open Window ▸ Workspace Preview; compare light/dark appearance | Both use the same bars, rails and surfaces; real project shows real Files/editor/status, Preview labels samples; unavailable real tools and View commands are disabled |
+| R22 | Drag Files divider, switch tabs, toggle Focus Editor twice, Reset Layout; shrink to 900 × 560 and expand again | Project tabs share visibility/preferred sizes; focus restores the layout; text/Undo/caret/scroll remain; no clipped controls; small-screen compression does not overwrite preferred dimensions; actual user dragging saves its dimension |
+| R23 | Hide Files or resize it, close/reopen project and relaunch; open a different root; close while Focus Editor is active | Normal layout restores by canonical root; another root/Preview is independent; temporary Focus Editor does not persist all panels hidden; last closed tab returns to the same shell/browser |
+| R24 | Type with IME while server prepares/restarts or diagnostics change; inspect full status tooltip; use keyboard to toggle Files/focus/reset | Background presentation does not steal input/focus or alter text; existing marked-text behaviour remains; target/readiness/status are real; no fabricated branch/scheme/destination; keyboard and VoiceOver labels are usable |

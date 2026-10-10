@@ -32,6 +32,63 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     private let host: EditorHostView
     private var isSystemFile = false
     private var isReadOnlyForLongLines = false
+    private var filesContainer: ProjectFilesContainer?
+    private var filesSubscription: UUID?
+    var workspaceShell: WorkspaceShellViewController? { filesContainer?.shell }
+    var onPresentationChange: (() -> Void)?
+    var onFileSaved: (() -> Void)?
+
+    func removeFiles() {
+        filesContainer?.disconnect()
+        if let filesSubscription { filesContainer?.files.model.unsubscribe(filesSubscription) }
+        filesSubscription = nil
+        filesContainer = nil
+        window?.contentViewController = nil
+        window?.contentView = container
+        if let window { window.tabGroup?.removeWindow(window) }
+        window?.tabbingMode = .disallowed
+        window?.tab.attributedTitle = nil
+        window?.tab.title = displayName
+    }
+
+    /// Same text view and backend throughout tab changes; the Files container owns geometry only.
+    func installFiles(_ files: ProjectFiles, layout: WorkspaceLayoutState, open: @escaping (String) -> Void) {
+        guard let window else { return }
+
+        filesContainer?.disconnect()
+        if let filesSubscription { filesContainer?.files.model.unsubscribe(filesSubscription) }
+        let split = ProjectFilesContainer(model: files, editor: container, editorFocus: editor.textView, layout: layout)
+        split.files.openFile = open
+        filesContainer = split
+        window.contentViewController = split
+        window.minSize = NSSize(width: 900, height: 560)
+        window.setContentSize(NSSize(width: 1280, height: 820))
+        filesSubscription = files.subscribe { [weak self] in self?.refreshTab() }
+        refreshTab()
+        refreshSubtitle()
+    }
+
+    func showDocument() {
+        guard let window else { return }
+
+        ProjectDocumentTabs.select(window)
+        window.makeFirstResponder(editor.textView)
+    }
+
+    @objc func showPreviewFiles(_ sender: Any?) {
+        filesContainer?.shell.select(.files)
+    }
+
+    @objc func toggleFocusEditor(_ sender: Any?) {
+        filesContainer?.shell.toggleFocusEditor(sender)
+        window?.makeFirstResponder(editor.textView)
+    }
+
+    @objc func resetWorkspaceLayout(_ sender: Any?) { filesContainer?.shell.resetWorkspaceLayout(sender) }
+    @objc func showPreviewSearch(_ sender: Any?) {}
+    @objc func showPreviewSourceControl(_ sender: Any?) {}
+    @objc func showPreviewTerminal(_ sender: Any?) {}
+    @objc func showPreviewAssistant(_ sender: Any?) {}
 
     var onClose: ((WorkspaceWindowController) -> Void)?
     /// A definition is in another file: the application opens it.
@@ -88,6 +145,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         window.center()
         super.init(window: window)
         window.delegate = self
+        window.tabbingMode = .disallowed
 
         editor.compatibility.onFallback = { [weak window] in
             window?.subtitle = "⚠︎ TextKit 1 fallback"
@@ -106,6 +164,10 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         longLines.onChange = { [weak self] _ in self?.updateNotice() }
         updateNotice()
         session.subscribeToChanges { [weak self] _ in self?.refreshTitle() }
+        session.subscribeToSaves { [weak self] in
+            self?.refreshTitle()
+            self?.onFileSaved?()
+        }
         refreshTitle()
         // Completion from the language server of the document's place; the server may still be
         // starting, in which case there is simply nothing to offer yet.
@@ -265,6 +327,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         let temporary = session.isUntitled ? nil : TemporaryFolder.note(path: session.path, isCFamily: languageSelector.resolved.language.isCFamily)
         window.subtitle = [languageNote, readiness, target, temporary, features?.diagnostics.summary.text, engine, colourNote, recoveryNote, readOnly]
             .compactMap { $0 }.joined(separator: " · ")
+        filesContainer?.shell.present(detail: [target, languageNote].compactMap { $0 }.joined(separator: " · "), status: window.subtitle)
     }
 
     private func refreshTitle() {
@@ -273,11 +336,27 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         window.title = displayName
         window.representedURL = session.isUntitled ? nil : URL(fileURLWithPath: session.path)
         window.isDocumentEdited = session.isDirty
+        refreshTab()
+        onPresentationChange?()
+    }
+
+    private func refreshTab() {
+        guard let window, let files = filesContainer?.files.model else { return }
+
+        var decoration = files.decoration(for: session.path)
+        decoration.isUnsaved = session.isDirty
+        ProjectDocumentTabs.present(decoration, name: displayName, path: session.path, in: window)
     }
 
     // MARK: Menu
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if [#selector(showPreviewSearch(_:)), #selector(showPreviewSourceControl(_:)), #selector(showPreviewTerminal(_:)), #selector(showPreviewAssistant(_:))].contains(item.action) { return false }
+
+        if item.action == #selector(showPreviewFiles(_:)) || item.action == #selector(toggleFocusEditor(_:)) || item.action == #selector(resetWorkspaceLayout(_:)) {
+            return filesContainer != nil
+        }
+
         if item.action == #selector(selectLanguage(_:)) {
             let chosen = item.representedObject as? String
             item.state = chosen == languageSelector.override?.rawValue ? .on : .off
@@ -408,11 +487,16 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         guard await panel.beginSheetModal(for: window) == .OK, let url = panel.url else { return false }
 
         // The panel asks before replacing a file; what it was agreed to is that file, as it was.
+        return await saveAs(to: url, target: consent.target(for: url))
+    }
+
+    /// The write after the save panel has supplied its destination and replacement consent.
+    func saveAs(to url: URL, target: SaveAsTarget) async -> Bool {
         do {
             _ = try await saveDocument.saveAs(
                 document: session,
                 to: url.path,
-                target: consent.target(for: url),
+                target: target,
                 registry: registry
             )
             refreshTitle()
@@ -525,7 +609,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     func promptForUnsavedChanges() async -> UnsavedChangesDecision {
         guard let window else { return .cancel }
 
-        window.makeKeyAndOrderFront(nil)
+        ProjectDocumentTabs.select(window)
         let alert = NSAlert()
         alert.messageText = "Do you want to save changes to “\(displayName)”?"
         alert.informativeText = "Your changes will be lost if you don’t save them."
@@ -540,6 +624,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     }
 
     func windowWillClose(_ notification: Notification) {
+        filesContainer?.disconnect()
+        if let filesSubscription { filesContainer?.files.model.unsubscribe(filesSubscription) }
         onClose?(self)
         externalChanges.stop()
         completion?.controller.dismiss()

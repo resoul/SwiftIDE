@@ -2,49 +2,51 @@ import Foundation
 import LanguageInfrastructure
 import Testing
 
-/// Swift Testing does not run NSApplication's event loop, so its windows do not become key.
-/// This isolated application runs that loop and links the built WorkspaceUI plus the production
-/// App coordinator source, proving ownership while the other project's window really is active.
-@Test
-func aProjectQuestionBelongsToItsOwnerWhileAnotherProjectIsActuallyActive() async throws {
-    let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    let products = app.appendingPathComponent(".build/debug").resolvingSymlinksInPath()
-    let modules = FileManager.default.fileExists(atPath: products.appendingPathComponent("Modules").path)
-        ? products.appendingPathComponent("Modules") : products
-    var objects: [String] = []
-    for module in ["IDEDomain", "IDEApplication", "IDETestSupport", "WorkspaceUI"] {
-        let merged = products.appendingPathComponent("\(module).o")
-        if FileManager.default.fileExists(atPath: merged.path) {
-            objects.append(merged.path)
-        } else {
-            let directory = products.appendingPathComponent("\(module).build")
-            objects += try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
-                .filter { $0.pathExtension == "o" }.map(\.path).sorted()
+extension NativeAppTests {
+    /// Swift Testing does not run NSApplication's event loop, so its windows do not become key.
+    /// This isolated application runs that loop and links the built WorkspaceUI plus the production
+    /// App coordinator source, proving ownership while the other project's window really is active.
+    @Test
+    func aProjectQuestionBelongsToItsOwnerWhileAnotherProjectIsActuallyActive() async throws {
+        let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let products = app.appendingPathComponent(".build/debug").resolvingSymlinksInPath()
+        let modules = FileManager.default.fileExists(atPath: products.appendingPathComponent("Modules").path)
+            ? products.appendingPathComponent("Modules") : products
+        var objects: [String] = []
+        for module in ["IDEDomain", "IDEApplication", "IDETestSupport", "WorkspaceUI"] {
+            let merged = products.appendingPathComponent("\(module).o")
+            if FileManager.default.fileExists(atPath: merged.path) {
+                objects.append(merged.path)
+            } else {
+                let directory = products.appendingPathComponent("\(module).build")
+                objects += try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                    .filter { $0.pathExtension == "o" }.map(\.path).sorted()
+            }
         }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("active-project-probe-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("main.swift")
+        try activeProjectProbe.write(to: source, atomically: true, encoding: .utf8)
+        let executable = folder.appendingPathComponent("probe")
+        let coordinator = app.appendingPathComponent("Sources/SwiftIDE/Composition/ProjectTrustCoordinator.swift")
+        _ = try await BoundedProcess.run(
+            executable: URL(fileURLWithPath: "/usr/bin/xcrun"),
+            arguments: ["swiftc",
+                        "-swift-version",
+                        "6",
+                        "-I",
+                        modules.path,
+                        "-module-cache-path",
+                        folder.appendingPathComponent("modules").path,
+                        source.path,
+                        coordinator.path] + objects + ["-o", executable.path],
+            timeout: .seconds(60),
+            outputLimit: 1_000_000
+        )
+        let output = try await BoundedProcess.run(executable: executable, arguments: [], timeout: .seconds(20), outputLimit: 10_000)
+        #expect(String(decoding: output, as: UTF8.self) == "owned-A\n")
     }
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("active-project-probe-\(UUID().uuidString)")
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    defer { try? FileManager.default.removeItem(at: folder) }
-    let source = folder.appendingPathComponent("main.swift")
-    try activeProjectProbe.write(to: source, atomically: true, encoding: .utf8)
-    let executable = folder.appendingPathComponent("probe")
-    let coordinator = app.appendingPathComponent("Sources/SwiftIDE/Composition/ProjectTrustCoordinator.swift")
-    _ = try await BoundedProcess.run(
-        executable: URL(fileURLWithPath: "/usr/bin/xcrun"),
-        arguments: ["swiftc",
-                    "-swift-version",
-                    "6",
-                    "-I",
-                    modules.path,
-                    "-module-cache-path",
-                    folder.appendingPathComponent("modules").path,
-                    source.path,
-                    coordinator.path] + objects + ["-o", executable.path],
-        timeout: .seconds(60),
-        outputLimit: 1_000_000
-    )
-    let output = try await BoundedProcess.run(executable: executable, arguments: [], timeout: .seconds(20), outputLimit: 10_000)
-    #expect(String(decoding: output, as: UTF8.self) == "owned-A\n")
 }
 
 private let activeProjectProbe = #"""

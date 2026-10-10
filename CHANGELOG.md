@@ -14,6 +14,10 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-030: real project windows and Workspace Preview now use one reusable WorkspaceUI shell with top/status bars, tool rails and split-panel zones. Original Files/editor/native tabs and document lifecycle retained; project layout is shared and persisted by canonical root, Focus Editor restores the prior layout, small-window compression preserves preferred sizes and unavailable tools are disabled. Real document/target/readiness wording connects to the bars. Live acceptance R21–R24 remains pending (ADR-036).
+
+- TK-026: Open Folder now opens a real lazy Files tree and native document tabs. WorkspaceUI owns the reusable outline, resizable container, status presentation and tab adapter; App reuses document controllers/registry, Undo, save/conflict/recovery and unsaved-close reconciliation. Added persistent project exclusions, SwiftPM `.build` defaults, Reveal in Finder, refresh and accessible independent dirty/status labels. Real Git status remains unavailable until TK-027; manual checks are pending (ADR-035).
+
 - TK-024: added the reusable WorkspaceUI library and tests inside Packages/IDE. Project configuration sheets and readiness/target/temporary-folder wording moved out of App/Application presentation code. App supplies the requesting project's window instead of the active window; owner close, task cancellation and no-owner cases do not store a decision. Refusal remains the default, and old-server answers cannot persist trust. Post-extraction live-window acceptance is pending.
 
 - TK-018 follow-up (ADR-034): the project environment fingerprints the complete SourceKit-LSP configuration files, so changes to `swiftSDK`, `extraArguments` and other options now invalidate the context, reload the target layout and restart the project's server even when `debug`/`release` is unchanged. Refused project files are excluded; newly detected pending files can trigger the server's trust question without granting permission. Unchanged bytes do not cause another restart. Ten regression tests added; live-window acceptance Q34–Q37 is pending.
