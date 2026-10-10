@@ -144,6 +144,23 @@ func completionReturnsTheServersItemsWithTheirReplacementRanges() async throws {
 }
 
 @Test @MainActor
+func aLabelWithClangdsLeadingSpaceIsShownWithoutItAndInsertsWithoutIt() async throws {
+    let server = ScriptedServer(handler: ScriptedServer.standard(completion: [
+        .object(["label": "  clib_add", "filterText": "clib_add", "kind": 3]),
+        completionItem(" x", newText: "x"),
+        .object(["label": "   "]),
+    ]))
+    let rig = Rig(servers: [server])
+    try await rig.started()
+    guard case .items(let items, _) = await rig.completion() else { Issue.record("expected items"); return }
+
+    #expect(items.map(\.label) == ["clib_add", "x"], "the empty one is no item")
+    #expect(items[0].insertText == "clib_add", "no text edit and no insert text: the name")
+    #expect(items[1].insertText == "x")
+    #expect(items[0].filterText == "clib_add" && items[0].kind == .function)
+}
+
+@Test @MainActor
 func anInsertReplaceEditNamesTheReplaceRange() async throws {
     func position(_ character: Int) -> JSONValue { ["line": .int(1), "character": .int(character)] }
     let both: JSONValue = .object([

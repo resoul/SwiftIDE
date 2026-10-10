@@ -351,7 +351,12 @@ public final class SourceKitLanguageService: CompletionProviding {
         }
 
         let items = list.compactMap { item -> CompletionItem? in
-            guard let label = item["label"]?.stringValue else { return nil }
+            guard let raw = item["label"]?.stringValue else { return nil }
+
+            // clangd puts a marker in front of labels, a space or a bullet (for results from its index
+            // rather than from the file); it is not text.
+            let label = String(raw.drop(while: { $0 == " " || $0 == "\u{2022}" }))
+            guard !label.isEmpty else { return nil }
 
             var range: UTF16TextRange?
             if let edit = item["textEdit"], let r = edit["range"] ?? edit["replace"],
@@ -363,7 +368,7 @@ public final class SourceKitLanguageService: CompletionProviding {
             return CompletionItem(
                 label: label,
                 detail: item["detail"]?.stringValue,
-                insertText: item["textEdit"]?["newText"]?.stringValue ?? item["insertText"]?.stringValue,
+                insertText: item["textEdit"]?["newText"]?.stringValue ?? item["insertText"]?.stringValue ?? label,
                 sortText: item["sortText"]?.stringValue,
                 filterText: item["filterText"]?.stringValue,
                 replacementRange: range,

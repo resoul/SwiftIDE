@@ -107,7 +107,9 @@ public final class OrderedDocumentSync {
         if session.isUntitled {
             guard let virtualDirectory else { return nil }
 
-            return virtualDirectory.appendingPathComponent("Untitled-\(session.id.rawValue.uuidString.prefix(8)).swift").absoluteString
+            // A server tells the language of a file by its name, so the stand-in has the right one.
+            let name = "Untitled-\(session.id.rawValue.uuidString.prefix(8))." + Self.fileExtension(forLanguageID: languageID(session))
+            return virtualDirectory.appendingPathComponent(name).absoluteString
         }
 
         return URL(fileURLWithPath: session.path).absoluteString
@@ -348,6 +350,16 @@ public final class OrderedDocumentSync {
         let extent = index.lineExtent(line)
 
         return extent.terminator == .crlf && offset - index.startOffset(ofLine: line) == extent.content + 1
+    }
+
+    static func fileExtension(forLanguageID id: String?) -> String {
+        switch id {
+        case "c": "c"
+        case "cpp": "cpp"
+        case "objective-c": "m"
+        case "objective-cpp": "mm"
+        default: "swift"
+        }
     }
 
     static func languageID(forPath path: String) -> String? {

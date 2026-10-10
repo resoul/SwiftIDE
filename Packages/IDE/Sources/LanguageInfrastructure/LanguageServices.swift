@@ -28,7 +28,8 @@ public final class LanguageServices: CompletionProviding {
     private let makeService: MakeService
     private let languages: DocumentLanguages
     /// The languages this kind of server serves.
-    private let servedLanguages: Set<DocumentLanguage> = [.swift]
+    /// SourceKit-LSP serves Swift itself and hands the C family to its clangd (TK-017).
+    private let servedLanguages: Set<DocumentLanguage> = [.swift, .c, .cpp, .objectiveC, .objectiveCPP]
     private var services: [URL: SourceKitLanguageService] = [:]
     private var homes: [DocumentID: Home] = [:]
     private var managed: [DocumentID: Managed] = [:]
