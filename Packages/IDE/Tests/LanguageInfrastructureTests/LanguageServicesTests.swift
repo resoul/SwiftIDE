@@ -22,6 +22,7 @@ private final class Servers: @unchecked Sendable {
 private final class Rig {
     let servers = Servers()
     let services: LanguageServices
+    let languages = DocumentLanguages()
     let scratch: URL
     let base: URL
     let clock = ManualDelayClock()
@@ -30,7 +31,7 @@ private final class Rig {
         base = FileManager.default.temporaryDirectory.appendingPathComponent("services-\(UUID().uuidString)", isDirectory: true).standardizedFileURL
         scratch = base.appendingPathComponent("scratch", isDirectory: true)
         let servers = servers, clock = clock
-        services = LanguageServices(scratchRoot: scratch) { root, virtual in
+        services = LanguageServices(scratchRoot: scratch, languages: languages) { root, virtual in
             SourceKitLanguageService(
                 workspaceRoot: root, sync: OrderedDocumentSync(virtualDirectory: virtual), clock: clock,
                 channelFactory: { servers.next() }
@@ -183,4 +184,91 @@ func completionGoesToTheServerOfTheDocument() async throws {
     #expect(server.messages(named: "textDocument/completion").count == 1)
     rig.services.detach(session)
     #expect(await rig.services.completion(for: session, caret: { 4 }) == .unavailable(.notRunning))
+}
+
+// MARK: The document's language
+
+@Test @MainActor
+func aSwiftFileChosenAsAnotherLanguageLeavesItsServerAndComesBackWithTheChoiceCleared() async throws {
+    let rig = try Rig()
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    let server = rig.servers.made[0]
+    #expect(await server.waitForMethod("textDocument/didOpen"))
+    let selector = rig.languages.selector(for: session)
+
+    selector.setOverride(.plainText)
+    #expect(await server.waitUntil { server.messages(named: "textDocument/didClose").count == 1 })
+    #expect(rig.services.service(for: session) == nil)
+    #expect(await rig.services.completion(for: session, caret: { 0 }) == .unavailable(.notRunning), "no answer for the old language")
+
+    selector.setOverride(nil)
+    #expect(await rig.waitForServers(2), "the package server went away with its last document and starts again")
+    let again = rig.servers.made[1]
+    #expect(await again.waitForMethod("textDocument/didOpen"))
+    #expect(again.messages(named: "textDocument/didOpen")[0]["params"]?["textDocument"]?["languageId"]?.stringValue == "swift")
+}
+
+@Test @MainActor
+func aTextFileChosenAsSwiftIsGivenToTheServerOfItsPlace() async throws {
+    let rig = try Rig()
+    let notes = rig.session(rig.base.appendingPathComponent("A/notes.txt").path)
+    await rig.services.attach(notes)
+    #expect(rig.services.service(for: notes) == nil && rig.servers.count == 0)
+
+    rig.languages.selector(for: notes).setOverride(.swift)
+    #expect(await rig.waitForServers(1))
+    let server = rig.servers.made[0]
+    #expect(await server.waitForMethod("textDocument/didOpen"))
+    #expect(server.messages(named: "textDocument/didOpen")[0]["params"]?["textDocument"]?["languageId"]?.stringValue == "swift")
+    #expect(rig.services.service(for: notes) != nil)
+}
+
+@Test @MainActor
+func aLanguageThisServerDoesNotServeIsNotGivenToIt() async throws {
+    let rig = try Rig()
+    let header = rig.session(rig.base.appendingPathComponent("A/api.h").path)
+    await rig.services.attach(header)
+    rig.languages.selector(for: header).setOverride(.cpp)
+    rig.languages.selector(for: header).setOverride(.objectiveC)
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(rig.services.service(for: header) == nil && rig.servers.count == 0)
+}
+
+@Test @MainActor
+func aDocumentLetGoOfIsNotMovedByALaterChoice() async throws {
+    let rig = try Rig()
+    let notes = rig.session(rig.base.appendingPathComponent("A/notes.txt").path)
+    await rig.services.attach(notes)
+    rig.services.detach(notes)
+    rig.languages.selector(for: notes).setOverride(.swift)
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(rig.services.service(for: notes) == nil && rig.servers.count == 0)
+}
+
+@Test @MainActor
+func savingASwiftFileAsTextTakesItOffTheServerAndSavingItBackPutsItOnAgain() async throws {
+    let rig = try Rig()
+    let path = try rig.package("A")
+    let session = rig.session(path)
+    await rig.services.attach(session)
+    let server = rig.servers.made[0]
+    #expect(await server.waitForMethod("textDocument/didOpen"))
+    let files = MemoryDocumentFileStore()
+    let registry = DocumentRegistry()
+
+    _ = try await SaveDocumentUseCase(store: files).saveAs(document: session, to: (path as NSString).deletingLastPathComponent + "/notes.txt", target: .newFile, registry: registry)
+    #expect(await server.waitUntil { server.messages(named: "textDocument/didClose").count == 1 })
+    #expect(rig.services.service(for: session) == nil)
+
+    _ = try await SaveDocumentUseCase(store: files).saveAs(document: session, to: path, target: .newFile, registry: registry)
+    #expect(await rig.waitForServers(2))
+    #expect(await rig.servers.made[1].waitForMethod("textDocument/didOpen"))
+}
+
+@Test
+func everyLanguageButPlainTextHasAServerID() {
+    #expect(DocumentLanguage.allCases.filter { $0.languageServerID == nil } == [.plainText])
+    #expect(Set(DocumentLanguage.allCases.compactMap(\.languageServerID)).count == 5)
+    #expect(DocumentLanguage.objectiveCPP.languageServerID == "objective-cpp")
 }

@@ -88,7 +88,7 @@ public final class CompletionController {
         session: DocumentSession, provider: any CompletionProviding, environment: CompletionEnvironment,
         presenter: any CompletionPresenting, maximumRows: Int = 200, clock: any DelayClock = SystemDelayClock(),
         timeout: Duration = .seconds(5), waitingNotice: Duration = .milliseconds(300), statusDuration: Duration = .seconds(2),
-        retryDelay: Duration = .milliseconds(250), maximumEmptyAnswers: Int = 3
+        retryDelay: Duration = .milliseconds(500), maximumEmptyAnswers: Int = 20
     ) {
         self.retryDelay = retryDelay
         self.maximumEmptyAnswers = maximumEmptyAnswers
@@ -297,17 +297,17 @@ public final class CompletionController {
             switch outcome {
             case .items(let items, let cutShort):
                 // Nothing yet and "more to come": SourceKit-LSP answers so while it is still busy
-                // (a server under load, a package just opened). Ask again shortly rather than leave
-                // the user with nothing until they type; but not for ever.
-                var incomplete = cutShort
+                // (a server under load, a package being loaded). Ask again shortly rather than
+                // leave the user with nothing until they type; but not for ever.
                 if items.isEmpty && cutShort {
-                    if (self.context?.emptyAnswers ?? 0) < self.maximumEmptyAnswers {
-                        self.context?.emptyAnswers += 1
-                        self.askAgainSoon(mine)
-                        return
-                    }
-                    incomplete = false
+                    guard let current = self.context else { return }
+                    guard current.emptyAnswers < self.maximumEmptyAnswers else { return self.finish(with: .notReady) }
+                    self.context?.emptyAnswers += 1
+                    if current.visible.isEmpty { self.presenter?.showStatus(.waiting, anchorOffset: current.anchor) }
+                    self.askAgainSoon(mine)
+                    return
                 }
+                let incomplete = cutShort
                 self.context?.items = items
                 if let caret = self.context?.caret { self.context?.answerCaret = caret }
                 self.context?.isIncomplete = incomplete

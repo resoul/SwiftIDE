@@ -4,6 +4,7 @@ import EditorUI
 import IDEApplication
 import IDEDomain
 import LanguageInfrastructure
+import SyntaxInfrastructure
 import UniformTypeIdentifiers
 
 @MainActor
@@ -22,6 +23,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     private let container: EditorContainerView
     private let longLines: LongLineMonitor
     private let languageServices: LanguageServices
+    private let languages: DocumentLanguages
+    private let languageSelector: DocumentLanguageSelector
     private var completion: CompletionCoordinator?
     private var isReadOnlyForLongLines = false
 
@@ -34,10 +37,12 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         recovery: RecoveryCoordinator,
         externalChanges: ExternalChangeMonitor,
         revisionOfFile: @escaping (String) -> FileRevision?,
-        makeHighlighter: @escaping () -> (any SyntaxHighlighter)?,
-        languageServices: LanguageServices
+        makeHighlighter: @escaping (DocumentLanguage) -> (any SyntaxHighlighter)?,
+        languages: DocumentLanguages, languageServices: LanguageServices
     ) {
         self.languageServices = languageServices
+        self.languages = languages
+        languageSelector = languages.selector(for: document)
         self.revisionOfFile = revisionOfFile
         self.session = document
         self.editor = editor
@@ -49,7 +54,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         self.externalChanges = externalChanges
         let textView = editor.textView
         colouring = SyntaxColouringController(
-            session: document, source: editor.backend, policy: .standard, makeHighlighter: makeHighlighter,
+            session: document, source: editor.backend, policy: .standard, languages: languageSelector,
+            supportedLanguages: TreeSitterHighlighter.supportedLanguages, makeHighlighter: makeHighlighter,
             present: { SyntaxPresenter(textView: textView, coordinator: $0, policy: .standard) }
         )
         let window = NSWindow(
@@ -69,6 +75,11 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
             NSLog("SwiftIDE: NSTextView fell back to TextKit 1")
         }
         colouring.onChange = { [weak self] _ in self?.refreshSubtitle() }
+        languageSelector.subscribe { [weak self] _ in
+            // Whatever was asked of the old language's server is not an answer for this one.
+            self?.completion?.controller.dismiss()
+            self?.refreshSubtitle()
+        }
         recovery.onStatusChange = { [weak self] _ in self?.refreshSubtitle() }
         externalChanges.onChange = { [weak self] _ in self?.updateNotice() }
         refreshSubtitle()
@@ -170,11 +181,20 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         refreshSubtitle()
     }
 
-    /// Why a Swift file has no colours, in words for the subtitle; nothing for a file that is
-    /// not Swift, which never had any.
+    /// The language the document is treated as, how sure that is, and what is missing for it.
+    private var languageNote: String {
+        let language = languageSelector.resolved
+        return LanguageSupportNote.parts(
+            for: language, hasColours: colouring.hasColours(for: language.language),
+            hasLanguageFeatures: languageServices.serves(language.language)
+        ).joined(separator: " · ")
+    }
+
+    /// Why a file of a coloured language has no colours, in words for the subtitle; nothing for
+    /// a language that has none, which never had any.
     private var colourNote: String? {
         switch colouring.state {
-        case .on, .off(.notSwift): nil
+        case .on, .off(.languageNotSupported): nil
         case .off(.tooLarge): "syntax colours off: large file"
         case .off(.unavailable): "syntax colours unavailable"
         }
@@ -193,7 +213,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         guard let window else { return }
         let engine = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
         let readOnly = isReadOnlyForLongLines ? "read-only" : nil
-        window.subtitle = [engine, colourNote, recoveryNote, readOnly].compactMap { $0 }.joined(separator: " · ")
+        window.subtitle = [languageNote, engine, colourNote, recoveryNote, readOnly].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func refreshTitle() {
@@ -205,7 +225,18 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
     // MARK: Menu
 
-    func validateMenuItem(_ item: NSMenuItem) -> Bool { true }
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(selectLanguage(_:)) {
+            let chosen = item.representedObject as? String
+            item.state = chosen == languageSelector.override?.rawValue ? .on : .off
+        }
+        return true
+    }
+
+    /// Edit ▸ Language: the document's language, or back to deciding by name.
+    @objc func selectLanguage(_ sender: NSMenuItem) {
+        languageSelector.setOverride((sender.representedObject as? String).flatMap(DocumentLanguage.init(rawValue:)))
+    }
 
     @objc func saveDocument(_ sender: Any?) {
         Task { _ = await save() }
@@ -373,6 +404,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         externalChanges.stop()
         completion?.controller.dismiss()
         languageServices.detach(session)
+        languages.forget(session)
         // The window closes only for a clean document or one the user chose to discard: either way
         // nothing of it is to be recovered.
         Task { [recovery] in await recovery.discard() }

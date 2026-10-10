@@ -16,7 +16,10 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/tree-sitter/swift-tree-sitter", exact: "0.25.0"),
-        .package(url: "https://github.com/alex-pinkus/tree-sitter-swift", exact: "0.7.4-with-generated-files")
+        .package(url: "https://github.com/alex-pinkus/tree-sitter-swift", exact: "0.7.4-with-generated-files"),
+        .package(url: "https://github.com/tree-sitter/tree-sitter-c", exact: "0.24.2"),
+        .package(url: "https://github.com/tree-sitter/tree-sitter-cpp", exact: "0.23.4"),
+        .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-objc", exact: "3.0.2")
     ],
     targets: [
         .target(name: "IDEDomain"),
@@ -29,7 +32,10 @@ let package = Package(
             dependencies: [
                 "IDEDomain", "IDEApplication",
                 .product(name: "SwiftTreeSitter", package: "swift-tree-sitter"),
-                .product(name: "TreeSitterSwift", package: "tree-sitter-swift")
+                .product(name: "TreeSitterSwift", package: "tree-sitter-swift"),
+                .product(name: "TreeSitterC", package: "tree-sitter-c"),
+                .product(name: "TreeSitterCPP", package: "tree-sitter-cpp"),
+                .product(name: "TreeSitterObjc", package: "tree-sitter-objc")
             ],
             resources: [.copy("Resources")]
         ),

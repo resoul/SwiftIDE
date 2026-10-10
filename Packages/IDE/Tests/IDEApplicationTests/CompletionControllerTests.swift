@@ -729,40 +729,32 @@ func anEmptyCutShortAnswerIsAskedAgainShortlyUntilThereIsAList() async throws {
     try rig.type(".")
     await rig.settle()
     #expect(rig.provider.calls.count == 1 && rig.presenter.shown.isEmpty && rig.controller.isActive)
-    rig.clock.advance(by: .milliseconds(249))
+    #expect(rig.presenter.statuses == [.waiting], "the user is told the server is busy, not left with nothing")
+    rig.clock.advance(by: .milliseconds(499))
     await rig.settle()
     #expect(rig.provider.calls.count == 1, "not before the pause is over")
     rig.clock.advance(by: .milliseconds(1))
     await rig.settle()
     #expect(rig.provider.calls.count == 2)
-    rig.clock.advance(by: .milliseconds(250))
+    rig.clock.advance(by: .milliseconds(500))
     await rig.settle()
     #expect(rig.provider.calls.count == 3 && rig.controller.isShowing, "the third answer is the list")
 }
 
 @Test @MainActor
-func aServerThatStaysEmptyIsAskedAFewTimesThenGivenUpOn() async throws {
-    let manual = Rig(text: "s.")
-    manual.provider.answer = { _ in .items([], isIncomplete: true) }
-    manual.controller.requestManually()
-    await manual.settle()
-    for _ in 0..<5 {
-        manual.clock.advance(by: .milliseconds(250))
-        await manual.settle()
+func aServerThatStaysBusyIsAskedManyTimesThenTheUserIsToldItIsNotReady() async throws {
+    for manual in [true, false] {
+        let rig = Rig(text: manual ? "s." : "let s = \"a\"\ns")
+        rig.provider.answer = { _ in .items([], isIncomplete: true) }
+        if manual { rig.controller.requestManually() } else { try rig.type(".") }
+        await rig.settle()
+        for _ in 0..<30 {
+            rig.clock.advance(by: .milliseconds(500))
+            await rig.settle()
+        }
+        #expect(rig.provider.calls.count == 21, "the first question and twenty more")
+        #expect(rig.presenter.statuses.last == .notReady && !rig.controller.isActive, "manual: \(manual)")
     }
-    #expect(manual.provider.calls.count == 4, "the first question and three more")
-    #expect(manual.presenter.statuses.last == .noSuggestions && !manual.controller.isActive)
-
-    let afterDot = Rig()
-    afterDot.provider.answer = { _ in .items([], isIncomplete: true) }
-    try afterDot.type(".")
-    await afterDot.settle()
-    for _ in 0..<5 {
-        afterDot.clock.advance(by: .milliseconds(250))
-        await afterDot.settle()
-    }
-    #expect(afterDot.provider.calls.count == 4)
-    #expect(afterDot.presenter.statuses.isEmpty && !afterDot.controller.isActive, "after a dot, silence")
 }
 
 @Test @MainActor

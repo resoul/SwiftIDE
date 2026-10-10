@@ -96,7 +96,7 @@ func savingASwiftFileAsTextClearsItsColoursOnScreen() async throws {
         document: screen.session, to: "/w/Main.txt", target: .newFile, registry: DocumentRegistry()
     )
     screen.controller.refresh()
-    #expect(screen.controller.state == .off(.notSwift))
+    #expect(screen.controller.state == .off(.languageNotSupported))
     await screen.settle { colourful($0) == 0 }
     #expect(colourful(screen.render()) == 0)
 }

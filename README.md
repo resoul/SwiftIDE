@@ -103,5 +103,6 @@ The detailed design documents are currently written in Russian.
 - [Workspace UI and UX](docs/11_WORKSPACE_UI_UX.md) — agreed target layout, panel behavior, visual principles, and implementation stages; design only.
 - [Mixed-language support](docs/12_MIXED_LANGUAGE_SUPPORT.md) — accepted direction for C, C++, Objective-C and Objective-C++ within Swift projects; language selection, highlighting, build context and staged acceptance; not implemented yet.
 - [Bazel support](docs/13_BAZEL_SUPPORT.md) — accepted direction, shared project context, BSP/toolchain requirements, phased implementation and acceptance; not implemented or verified.
+- [Code style and linting](docs/14_CODE_STYLE_AND_LINTING.md) — TK-023 implementation task: SwiftFormat, SwiftLint, spacing rules and CI acceptance; not implemented yet.
 - [Third-party software notices](THIRD_PARTY_NOTICES.md)
 - [Original custom-engine concept](Swift_IDE_Architecture_and_MVP.md) — historical reference, superseded by the current TextKit MVP plan.

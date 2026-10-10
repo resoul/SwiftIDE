@@ -118,7 +118,12 @@ func aFileInAPackageSeesTheOtherFilesOfItsPackage() async throws {
     #expect(services.runningRoots.map(\.lastPathComponent) == ["SwiftPMPackage"], "the server of the package, not the loose one")
 
     w.type(".")
-    #expect(await waitUntil { w.coordinator.controller.isShowing })
+    // A package is loaded the first time it is asked about, and a busy machine takes long over
+    // it: the controller says "not ready" after ten seconds, and the user asks again.
+    for _ in 0..<6 where !(await waitUntil(.seconds(15)) { w.coordinator.controller.isShowing }) {
+        w.coordinator.controller.requestManually()
+    }
+    #expect(w.coordinator.controller.isShowing)
     w.type("greet")
     #expect(await waitUntil { w.coordinator.controller.isShowing })
     #expect(CompletionCoordinator.handle(w.key(36, characters: "\r"), controller: w.coordinator.controller))

@@ -1,0 +1,11 @@
+{
+ "what": "main-thread cost of following a document for the language server (LanguageInfrastructure)",
+ "machine": "Apple M2, 8 GB, macOS 27.0, DEBUG build under swift test (release is faster); a ticker on the main actor measures the longest stretch in which nothing else could run",
+ "note": "scripted server, not SourceKit-LSP; a single run each; a scratch test, not kept in the repository",
+ "open": [
+  {"size_mb": 1, "longest_main_thread_gap_ms_scan_on_main": 10.6, "longest_main_thread_gap_ms": 0.37, "open_returned_ms": 15.9, "server_received_ms": 28.5},
+  {"size_mb": 8, "longest_main_thread_gap_ms_scan_on_main": 73.8, "longest_main_thread_gap_ms": 0.26, "open_returned_ms": 121.7, "server_received_ms": 183.7}
+ ],
+ "edit_with_sync_following_ms_per_apply": {"1_mb": 0.134, "8_mb": 0.311},
+ "what_changed": "the line index of the opened text is built off the main thread (before: 10.6 ms at 1 MB, 73.8 ms at 8 MB); JSON is encoded by the writer, not by the caller"
+}

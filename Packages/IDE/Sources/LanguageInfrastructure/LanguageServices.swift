@@ -13,6 +13,10 @@ import IDEDomain
 public final class LanguageServices: CompletionProviding {
     public typealias MakeService = @MainActor (_ root: URL, _ virtualDirectory: URL) -> SourceKitLanguageService
 
+    private struct Managed {
+        let languageSubscription: UUID
+    }
+
     private struct Home {
         let root: URL
         let service: SourceKitLanguageService
@@ -22,19 +26,27 @@ public final class LanguageServices: CompletionProviding {
     /// The folder that stands for "no package". It stays empty.
     public let scratchRoot: URL
     private let makeService: MakeService
+    private let languages: DocumentLanguages
+    /// The languages this kind of server serves.
+    private let servedLanguages: Set<DocumentLanguage> = [.swift]
     private var services: [URL: SourceKitLanguageService] = [:]
     private var homes: [DocumentID: Home] = [:]
+    private var managed: [DocumentID: Managed] = [:]
 
     public init(
-        scratchRoot: URL,
+        scratchRoot: URL, languages: DocumentLanguages = DocumentLanguages(),
         makeService: @escaping MakeService = { root, virtual in
             SourceKitLanguageService(workspaceRoot: root, sync: OrderedDocumentSync(virtualDirectory: virtual))
         }
     ) {
         self.scratchRoot = scratchRoot.standardizedFileURL
         self.makeService = makeService
+        self.languages = languages
         try? FileManager.default.createDirectory(at: self.scratchRoot, withIntermediateDirectories: true)
     }
+
+    /// Whether this kind of server serves documents of `language`.
+    public func serves(_ language: DocumentLanguage) -> Bool { servedLanguages.contains(language) }
 
     /// The folder whose server a document belongs to.
     public func root(for session: DocumentSession) -> URL {
@@ -52,9 +64,25 @@ public final class LanguageServices: CompletionProviding {
     /// Gives `session` to the server of its place, starting that server if it is not up. Returns
     /// when the document is given; the server may still be starting.
     public func attach(_ session: DocumentSession) async {
-        guard homes[session.id] == nil else { return }
+        guard managed[session.id] == nil else { return }
+        // A change of the document's language moves it: out of the server that had it under the
+        // old language, into the one that serves the new, if there is one.
+        let subscription = languages.selector(for: session).subscribe { [weak self] _ in self?.languageChanged(session) }
+        managed[session.id] = Managed(languageSubscription: subscription)
+        await giveToServer(session)
+    }
+
+    private func languageChanged(_ session: DocumentSession) {
+        guard managed[session.id] != nil else { return }
+        release(session)
+        Task { await giveToServer(session) }
+    }
+
+    private func giveToServer(_ session: DocumentSession) async {
+        guard managed[session.id] != nil, homes[session.id] == nil,
+              servedLanguages.contains(languages.selector(for: session).resolved.language) else { return }
         let root = root(for: session)
-        let service = services[root] ?? makeService(root, scratchRoot)
+        let service = services[root] ?? serviceStarted(for: root)
         services[root] = service
         let subscription = session.subscribeToSaves { [weak self] in self?.saved(session) }
         homes[session.id] = Home(root: root, service: service, saveSubscription: subscription)
@@ -68,7 +96,20 @@ public final class LanguageServices: CompletionProviding {
         if service.state == .stopped { await service.start() }
     }
 
+    private func serviceStarted(for root: URL) -> SourceKitLanguageService {
+        let service = makeService(root, scratchRoot)
+        let (languages, served) = (languages, servedLanguages)
+        service.sync.languageID = { session in
+            let language = languages.selector(for: session).resolved.language
+            return served.contains(language) ? language.languageServerID : nil
+        }
+        return service
+    }
+
     public func detach(_ session: DocumentSession) {
+        if let entry = managed.removeValue(forKey: session.id) {
+            languages.selector(for: session).unsubscribe(entry.languageSubscription)
+        }
         release(session)
     }
 
@@ -86,7 +127,7 @@ public final class LanguageServices: CompletionProviding {
     private func saved(_ session: DocumentSession) {
         guard let home = homes[session.id], root(for: session) != home.root else { return }
         release(session)
-        Task { await attach(session) }
+        Task { await giveToServer(session) }
     }
 
     public func stopAll() async {

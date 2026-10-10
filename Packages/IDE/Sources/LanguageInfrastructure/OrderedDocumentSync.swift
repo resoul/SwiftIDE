@@ -54,6 +54,8 @@ public final class OrderedDocumentSync {
         /// Counts every time the document was given to the server anew, so a late result of an
         /// earlier attempt can tell.
         var epoch = 0
+        /// The server has the document at `uri`: `didOpen` was sent and `didClose` was not.
+        var isOpenOnServer = false
 
         init(session: DocumentSession) {
             self.session = session
@@ -79,6 +81,11 @@ public final class OrderedDocumentSync {
     /// everything it is given, and a file that does not exist on disk is fine for it: it reads the
     /// text it was sent. Nil refuses such documents.
     public let virtualDirectory: URL?
+
+    /// The `languageId` the server is told for a document, or nil if it is not a document for this
+    /// server. By default what the file name says for Swift; the application replaces it with the
+    /// document's language (`DocumentLanguageSelector`), which can be chosen by the user.
+    public var languageID: @MainActor (DocumentSession) -> String? = { OrderedDocumentSync.languageID(forPath: $0.path) }
 
     public convenience init(
         limits: Limits = Limits(), capturePolicy: CapturePolicy = .standard, virtualDirectory: URL? = nil
@@ -148,7 +155,7 @@ public final class OrderedDocumentSync {
     public func open(_ session: DocumentSession) async throws {
         guard tracked[session.id] == nil else { throw DocumentSyncError.alreadyOpen }
         guard address(of: session) != nil else { throw DocumentSyncError.untitled }
-        guard Self.languageID(forPath: session.path) != nil else { throw DocumentSyncError.unsupportedLanguage }
+        guard languageID(session) != nil else { throw DocumentSyncError.unsupportedLanguage }
         guard session.utf16Length <= limits.maximumUTF16Length else {
             throw DocumentSyncError.tooLarge(utf16Length: session.utf16Length, limit: limits.maximumUTF16Length)
         }
@@ -170,6 +177,14 @@ public final class OrderedDocumentSync {
         entry.epoch += 1
         if let id = entry.changeSubscription { session.unsubscribeFromChanges(id) }
         if let id = entry.saveSubscription { session.unsubscribeFromSaves(id) }
+        closeOnServer(entry)
+    }
+
+    /// Tells the server the document is gone, if it has it: a document saved under another name
+    /// was already closed at its old address, and one still being copied was never opened.
+    private func closeOnServer(_ entry: Tracked) {
+        guard entry.isOpenOnServer else { return }
+        entry.isOpenOnServer = false
         connection?.notify("textDocument/didClose", ["textDocument": ["uri": .string(entry.uri)]])
     }
 
@@ -196,10 +211,11 @@ public final class OrderedDocumentSync {
         entry.index = index
         entry.enqueuedVersion = capture.snapshot.version
         entry.phase = .synced
+        entry.isOpenOnServer = true
         connection?.notify("textDocument/didOpen", [
             "textDocument": [
                 "uri": .string(entry.uri),
-                "languageId": .string(Self.languageID(forPath: session.path) ?? "swift"),
+                "languageId": .string(languageID(session) ?? "swift"),
                 "version": .int(Int(capture.snapshot.version)),
                 "text": .string(capture.snapshot.text),
             ],
@@ -270,7 +286,7 @@ public final class OrderedDocumentSync {
     private func saved(_ entry: Tracked) {
         guard tracked[entry.session.id] === entry, let current = address(of: entry.session) else { return }
         guard case .synced = entry.phase, current != entry.uri else { return }
-        connection?.notify("textDocument/didClose", ["textDocument": ["uri": .string(entry.uri)]])
+        closeOnServer(entry)
         Task { await self.begin(entry) }
     }
 

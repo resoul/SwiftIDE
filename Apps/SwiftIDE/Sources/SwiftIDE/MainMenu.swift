@@ -1,4 +1,5 @@
 import AppKit
+import IDEDomain
 
 @MainActor
 enum MainMenu {
@@ -25,7 +26,8 @@ enum MainMenu {
             NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"),
             NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"),
             .separator(),
-            completeItem()
+            completeItem(),
+            languageItem()
         ]))
         
         main.addItem(submenuItem(title: "View", items: [
@@ -53,6 +55,20 @@ enum MainMenu {
         let item = NSMenuItem(title: "Complete", action: #selector(NSTextView.complete(_:)), keyEquivalent: " ")
         item.keyEquivalentModifierMask = .control
         return item
+    }
+
+    /// Edit ▸ Language: Automatic (by the file's name) or one language for this document.
+    private static func languageItem() -> NSMenuItem {
+        var items = [NSMenuItem(title: "Automatic", action: #selector(WorkspaceWindowController.selectLanguage(_:)), keyEquivalent: "")]
+        items.append(.separator())
+        for language in DocumentLanguage.allCases {
+            let item = NSMenuItem(title: language.displayName, action: #selector(WorkspaceWindowController.selectLanguage(_:)), keyEquivalent: "")
+            item.representedObject = language.rawValue
+            items.append(item)
+        }
+        let parent = submenuItem(title: "Language", items: items)
+        parent.title = "Language"
+        return parent
     }
 
     private static func submenuItem(title: String, items: [NSMenuItem]) -> NSMenuItem {

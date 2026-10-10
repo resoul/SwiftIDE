@@ -29,7 +29,8 @@ final class AppCompositionRoot {
     private let fileWatcher: any FileWatching = VnodeFileWatcher()
     private var pendingEditors: [DocumentID: TextKitEditor] = [:]
 
-    let languageServices = LanguageServices(scratchRoot: AppCompositionRoot.languageScratchDirectory)
+    let languages = DocumentLanguages(store: UserDefaultsLanguageOverrideStore())
+    lazy var languageServices = LanguageServices(scratchRoot: AppCompositionRoot.languageScratchDirectory, languages: languages)
 
     private(set) lazy var saveDocument = SaveDocumentUseCase(store: store)
     private(set) lazy var reloadDocument = ReloadDocumentUseCase(store: store)
@@ -87,7 +88,7 @@ final class AppCompositionRoot {
             recovery: RecoveryCoordinator(session: session, store: recoveryStore),
             externalChanges: makeExternalChangeMonitor(for: session),
             revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter,
-            languageServices: languageServices
+            languages: languages, languageServices: languageServices
         )
     }
 
@@ -109,12 +110,12 @@ final class AppCompositionRoot {
             recovery: RecoveryCoordinator(session: session, store: recoveryStore),
             externalChanges: makeExternalChangeMonitor(for: session),
             revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter,
-            languageServices: languageServices
+            languages: languages, languageServices: languageServices
         )
     }
 
-    private static let makeHighlighter: () -> (any SyntaxHighlighter)? = {
-        try? TreeSitterHighlighter()
+    private static let makeHighlighter: (DocumentLanguage) -> (any SyntaxHighlighter)? = { language in
+        try? TreeSitterHighlighter(language: language)
     }
 
     private static let revisionOfFile: (String) -> FileRevision? = { path in

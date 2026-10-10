@@ -245,6 +245,38 @@ func savingUnderAnotherNameClosesTheOldAddressAndOpensTheNew() async throws {
     })
 }
 
+@Test @MainActor
+func aDocumentClosedRightAfterSaveAsIsNotClosedTwiceAtTheOldAddress() async throws {
+    let files = MemoryDocumentFileStore(contents: ["/w/Old.swift": "let x = 1\n"])
+    let registry = DocumentRegistry()
+    let open = OpenDocumentUseCase(store: files, registry: registry) { file in
+        DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
+    }
+    let session = try await open.execute(path: "/w/Old.swift").session
+    let server = ScriptedServer()
+    let sync = OrderedDocumentSync()
+    sync.attach(LanguageServerConnection(channel: server, onNotification: { _, _ in }))
+    try await sync.open(session)
+
+    _ = try await SaveDocumentUseCase(store: files).saveAs(document: session, to: "/w/New.swift", target: .newFile, registry: registry)
+    sync.close(session)    // before the new address was opened
+    try await Task.sleep(for: .milliseconds(50))
+
+    #expect(server.messages(named: "textDocument/didClose").count == 1, "the old address, once")
+    #expect(server.messages(named: "textDocument/didOpen").count == 1, "and the new one is never opened for a document that was closed")
+}
+
+@Test @MainActor
+func aDocumentClosedBeforeItWasOpenedOnTheServerSaysNothingToIt() async throws {
+    let rig = Rig()
+    let opening = Task { @MainActor in try await rig.sync.open(rig.session) }
+    while !rig.sync.openDocuments.contains(where: { $0.id == rig.session.id }) { await Task.yield() }
+    rig.sync.close(rig.session)
+    _ = try? await opening.value
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(rig.server.messages(named: "textDocument/didClose").isEmpty, "there was no document there to close")
+}
+
 // MARK: Order against requests
 
 @Test @MainActor

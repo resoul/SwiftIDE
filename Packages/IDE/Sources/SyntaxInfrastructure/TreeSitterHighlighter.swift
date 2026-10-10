@@ -2,6 +2,9 @@ import Foundation
 import IDEApplication
 import IDEDomain
 import SwiftTreeSitter
+import TreeSitterC
+import TreeSitterCPP
+import TreeSitterObjc
 import TreeSitterSwift
 
 public struct HighlighterStatistics: Sendable, Equatable {
@@ -15,6 +18,44 @@ public struct HighlighterStatistics: Sendable, Equatable {
 
 public enum SyntaxInfrastructureError: Error {
     case missingQuery
+    /// No grammar for this language (plain text, or one not yet supported).
+    case unsupportedLanguage(DocumentLanguage)
+}
+
+/// What the highlighter needs to know about a language: its grammar, its queries, and how a block
+/// comment that is never closed shows up in the syntax tree.
+struct Grammar: Sendable {
+    /// Node types in which the two characters `/*` do not open a comment: they are inside one
+    /// (a comment, a string, an include path) already.
+    enum UnterminatedComment: Sendable {
+        /// The Swift grammar reads an unclosed `/*` as an operator or an error.
+        case swiftOperator
+        /// The C-family grammars: a `/*` that is not inside a comment or a literal.
+        case outsideOf(Set<String>)
+    }
+
+    let language: Language
+    let queryResource: String
+    let unterminatedComment: UnterminatedComment
+
+    static func make(for language: DocumentLanguage) -> Grammar? {
+        let literals: Set<String> = [
+            "comment", "string_literal", "string_content", "char_literal", "character", "raw_string_literal",
+            "raw_string_content", "system_lib_string", "preproc_arg", "concatenated_string",
+        ]
+        switch language {
+        case .swift:
+            return Grammar(language: Language(tree_sitter_swift()), queryResource: "swift-highlights", unterminatedComment: .swiftOperator)
+        case .c:
+            return Grammar(language: Language(tree_sitter_c()), queryResource: "c-highlights", unterminatedComment: .outsideOf(literals))
+        case .cpp:
+            return Grammar(language: Language(tree_sitter_cpp()), queryResource: "cpp-highlights", unterminatedComment: .outsideOf(literals))
+        case .objectiveC:
+            return Grammar(language: Language(tree_sitter_objc()), queryResource: "objc-highlights", unterminatedComment: .outsideOf(literals))
+        case .objectiveCPP, .plainText:
+            return nil
+        }
+    }
 }
 
 public final class TreeSitterHighlighter: SyntaxHighlighter {
@@ -38,13 +79,21 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
     private let messages: AsyncStream<Message>.Continuation
     private let worker: Task<Void, Never>
 
-    public init() throws {
-        guard let url = Bundle.module.url(forResource: "swift-highlights", withExtension: "scm", subdirectory: "Resources") else {
+    /// The languages there is a grammar for. Objective-C++ is not one of them: neither the C++ nor
+    /// the Objective-C grammar reads code that mixes the two without errors (TK-016, ADR-025).
+    public static let supportedLanguages: Set<DocumentLanguage> = [.swift, .c, .cpp, .objectiveC]
+
+    public let language: DocumentLanguage
+
+    public init(language: DocumentLanguage = .swift) throws {
+        guard let grammar = Grammar.make(for: language) else { throw SyntaxInfrastructureError.unsupportedLanguage(language) }
+        guard let url = Bundle.module.url(forResource: grammar.queryResource, withExtension: "scm", subdirectory: "Resources") else {
             throw SyntaxInfrastructureError.missingQuery
         }
-        let query = try Query(language: Language(tree_sitter_swift()), data: Data(contentsOf: url))
+        self.language = language
+        let query = try Query(language: grammar.language, data: Data(contentsOf: url))
         let newest = newest
-        let engine = Engine(query: query, isStale: { newest.isOlderThanNewest($0) })
+        let engine = Engine(query: query, grammar: grammar, isStale: { newest.isOlderThanNewest($0) })
         let (stream, continuation) = AsyncStream<Message>.makeStream(bufferingPolicy: .unbounded)
         self.engine = engine
         self.messages = continuation
@@ -87,6 +136,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
     private actor Engine {
         private let query: Query
+        private let grammar: Grammar
         private let parser = Parser()
 
         private var tree: MutableTree?
@@ -102,10 +152,11 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
         private let isStale: @Sendable (UInt64) -> Bool
 
-        init(query: Query, isStale: @escaping @Sendable (UInt64) -> Bool) {
+        init(query: Query, grammar: Grammar, isStale: @escaping @Sendable (UInt64) -> Bool) {
             self.query = query
+            self.grammar = grammar
             self.isStale = isStale
-            try? parser.setLanguage(Language(tree_sitter_swift()))
+            try? parser.setLanguage(grammar.language)
         }
 
         func release() {
@@ -186,9 +237,22 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             var found: Int?
             text.forEachPair(0x2F, 0x2A) { position in
                 let bytes = UInt32(position * 2)
-                guard let node = root.descendant(in: bytes..<(bytes + 4)) else { return true }
-                let type = node.nodeType
-                if type == "custom_operator" || (type == "ERROR" && node.byteRange.lowerBound == bytes) {
+                switch grammar.unterminatedComment {
+                case .swiftOperator:
+                    guard let node = root.descendant(in: bytes..<(bytes + 4)) else { return true }
+                    let type = node.nodeType
+                    if type == "custom_operator" || (type == "ERROR" && node.byteRange.lowerBound == bytes) {
+                        found = position
+                        return false
+                    }
+                case .outsideOf(let containers):
+                    // A `/*` that opened a comment is inside a comment node; one in a string or
+                    // after `//` is inside that. Anywhere else the comment was never closed.
+                    var node = root.descendant(in: bytes..<(bytes + 2))
+                    while let current = node {
+                        if let type = current.nodeType, containers.contains(type) { return true }
+                        node = current.parent
+                    }
                     found = position
                     return false
                 }
