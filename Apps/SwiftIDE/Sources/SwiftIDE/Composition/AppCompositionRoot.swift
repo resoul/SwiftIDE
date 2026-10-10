@@ -34,6 +34,7 @@ final class AppCompositionRoot {
     lazy var languageServices: LanguageServices = {
         let services = LanguageServices(scratchRoot: AppCompositionRoot.languageScratchDirectory, languages: languages, trustStore: projectTrust)
         services.trustPrompt = { name, _ in await ProjectTrustDialog.ask(projectName: name) }
+        services.describer = SwiftPackageDescriber(scratchDirectory: AppCompositionRoot.packageLayoutDirectory)
 
         return services
     }()
@@ -53,6 +54,14 @@ final class AppCompositionRoot {
             ?? FileManager.default.temporaryDirectory
 
         return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent("LanguageScratch", isDirectory: true)
+    }
+
+    /// Where SwiftPM keeps what it makes to describe a package, so that nothing lands in the project.
+    private static var packageLayoutDirectory: URL {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+
+        return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent("PackageLayouts", isDirectory: true)
     }
 
     private static var recoveryDirectory: URL {

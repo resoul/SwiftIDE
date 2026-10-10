@@ -82,7 +82,13 @@ private final class Project {
 
     func finish() async {
         await service.stop()
-        try? FileManager.default.removeItem(at: root)
+        // The server's preparation may still be writing into the copy for a moment after it is stopped.
+        for _ in 0..<5 {
+            try? FileManager.default.removeItem(at: root)
+            if !FileManager.default.fileExists(atPath: root.path) { break }
+
+            try? await Task.sleep(for: .milliseconds(500))
+        }
     }
 
     func hasMemberOfTheOtherModule(within timeout: Duration) async -> Bool {

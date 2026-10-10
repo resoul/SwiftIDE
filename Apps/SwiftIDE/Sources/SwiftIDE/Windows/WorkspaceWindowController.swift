@@ -259,8 +259,9 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         let engine = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
         let readOnly = isReadOnlyForLongLines ? "read-only" : (isSystemFile ? "read-only (system file)" : nil)
         let readiness = languageServices.readiness(for: session)?.reason
+        let target = TargetNote.text(names: languageServices.targetNames(for: session))
         let temporary = session.isUntitled ? nil : TemporaryFolder.note(path: session.path, isCFamily: languageSelector.resolved.language.isCFamily)
-        window.subtitle = [languageNote, readiness, temporary, features?.diagnostics.summary.text, engine, colourNote, recoveryNote, readOnly]
+        window.subtitle = [languageNote, readiness, target, temporary, features?.diagnostics.summary.text, engine, colourNote, recoveryNote, readOnly]
             .compactMap { $0 }.joined(separator: " · ")
     }
 

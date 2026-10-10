@@ -32,7 +32,7 @@ The user ran these items in a live window and reported them as working (2026-10-
 | G. File watching | G1–G7 | G8–G15 |
 | K. Swift completion | K1 | K2–K20 |
 | P. Description, jump, diagnostics | P21 | P1–P20, P22 |
-| Q. Readiness, progress, trust, opened folders (TK-018) | | Q1–Q19 |
+| Q. Readiness, progress, trust, opened folders, targets (TK-018) | | Q1–Q25 |
 | Q. Reusable workspace UI (TK-024, planned) | | Q13–Q14; repeat Q8 after extraction |
 | R. Workspace and Git (TK-025–TK-029, planned) | | R1–R16; run each slice when implemented |
 
@@ -300,7 +300,7 @@ Open the files `Fixtures/SwiftPMMixed/Sources/…` from the repository after `sw
 | P21 ✅ | A Swift file, `struct S { let a: Int }` and below `S()` (an argument is missing) | The red wavy line is not under a single character but under a word or the whole line; a red dot in the line margin |
 | P22 | Rest the pointer on the red or yellow dot in the line-number margin, then move away | Under the line a window "error: …" (with several problems line by line, the worst first); it disappears when the pointer leaves, on an edit and on scrolling; on a line without a dot nothing appears |
 
-## Q. Readiness, progress, trust and opened folders (TK-018, first and second slice, ADR-029, ADR-030)
+## Q. Readiness, progress, trust, opened folders and targets (TK-018, slices 1–3, ADR-029, ADR-030, ADR-031)
 
 Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example under `~/Library/Caches`) so that the package is cold: `rm -rf <copy>/.build`. For the trust checks add `<copy>/.sourcekit-lsp/config.json` with `{"backgroundIndexing": false}`. The previous decisions are kept in the application's settings: forget one with Project ▸ Ask About Project Configuration Again.
 
@@ -325,6 +325,12 @@ Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example unde
 | Q17 | Open a folder that holds a package nested inside another structure (for example a `MODULE.bazel` at the top and a package below) | The file is served from the opened folder, not from the nested package (the server's root is the folder) |
 | Q18 | A C file in a package that lies under `~/Library/Caches` or in your home folder, then the same under `/tmp` | The subtitle shows "temporary folder: C-family flags may be missing" only for the one under `/tmp` (and not for a Swift file there) |
 | Q19 | Open the same folder twice | Nothing changes, no restart |
+| Q20 | Open `Sources/App/main.swift` of a package | Within a few seconds the subtitle adds "Target: App"; nothing is shown before |
+| Q21 | Open a file of the test target (`Tests/LibTests/GreeterTests.swift`) and a header of a C target (`Sources/CLib/include/clib.h`, in `Fixtures/SwiftPMMixed`) | "Target: LibTests"; "Target: CLib" |
+| Q22 | Open a loose file outside any package; a new Untitled window; then Save As the Untitled one into `Sources/App/` | No target for the first two; after Save As, "Target: App" (by the folder, though the file is not yet in the manifest's list) |
+| Q23 | Rename a target in `Package.swift` (and the folder), save it | After a moment the subtitle of the open files shows the new target name |
+| Q24 | Break `Package.swift` (a syntax error), save, then open another file of that package | No error dialog and no crash; the target is not shown; the rest works as before |
+| Q25 | Open a package that has never been built and look at its folder (`ls -a`) right after the first window | The describing did not create `.build` by itself (the server's own preparation does; look only for `.build/arm64-…` appearing without it, which it does not) |
 
 ### Additional acceptance after the UI extraction (TK-024, ADR-030)
 
