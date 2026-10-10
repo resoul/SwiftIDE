@@ -1,6 +1,7 @@
 import Foundation
 import IDEApplication
 import IDEDomain
+import os
 
 /// The language servers of the running application: one for each SwiftPM package that has an open
 /// document, and one for everything else (documents with no file yet, files outside any package),
@@ -44,6 +45,12 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     public var trustStore: (any ProjectTrustStore)?
     /// Asks the user whether a project's configuration may be used.
     public var trustPrompt: TrustPrompt?
+    /// Asks a package for its targets, so that a file knows its target. Without one no target is known.
+    public var describer: (any PackageDescribing)?
+    /// What came of describing packages, newest last (also in the system log).
+    private(set) var layoutLog: [String] = []
+    private var layoutLoads: [String: Task<Void, Never>] = [:]
+    private static let log = Logger(subsystem: "SwiftIDE", category: "package-layout")
 
     public init(
         scratchRoot: URL,
@@ -108,6 +115,8 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
             release(session)
             Task { await giveToServer(session) }
         }
+        // A layout may have arrived: what the windows show of the target is read again.
+        for id in managed.keys { notifyReadinessObservers(of: id) }
     }
 
     private func languageChanged(_ session: DocumentSession) {
@@ -141,6 +150,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     private func serviceStarted(for root: URL) -> SourceKitLanguageService {
         let service = makeService(root, scratchRoot)
         service.isFallbackRoot = root == scratchRoot || contexts.isWithoutProject(root: root.path)
+        if root != scratchRoot, contexts.buildSystem(forRoot: root.path) == .swiftPM { loadLayout(ofPackageAt: root) }
         if root != scratchRoot {
             service.trustStore = trustStore
             // Read when the question comes, so a prompt set after the service started is used.
@@ -191,7 +201,12 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
 
     /// Saved under another name: the place may be another package.
     private func saved(_ session: DocumentSession) {
-        guard let home = homes[session.id], root(for: session) != home.root else { return }
+        guard let home = homes[session.id] else { return }
+
+        // The manifest decides what the targets are: describe the package again.
+        if (session.path as NSString).lastPathComponent == "Package.swift", home.root != scratchRoot { loadLayout(ofPackageAt: home.root, replacing: true) }
+
+        guard root(for: session) != home.root else { return }
 
         release(session)
         Task { await giveToServer(session) }
@@ -231,6 +246,51 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         guard let service = homes[session.id]?.service else { return .failed(.unavailable(.notRunning)) }
 
         return await service.definition(for: session, offset: offset)
+    }
+
+    // MARK: Targets
+
+    /// The names of the targets the document's file belongs to: none while unknown, one normally.
+    public func targetNames(for session: DocumentSession) -> [String] {
+        guard !session.isUntitled else { return [] }
+
+        return contexts.context(forFile: session.path)?.targetNames ?? []
+    }
+
+    /// Describes the package at `root` in the background and keeps the layout in the contexts. Once
+    /// per package unless `replacing`; a failure is recorded and leaves the target unknown (the next
+    /// server start tries again).
+    private func loadLayout(ofPackageAt root: URL, replacing: Bool = false) {
+        guard let describer else { return }
+
+        let path = DocumentPath.canonical(root.path)
+        if replacing { layoutLoads[path]?.cancel() } else if layoutLoads[path] != nil || contexts.layout(forRoot: path) != nil { return }
+
+        layoutLoads[path] = Task { [weak self] in
+            do {
+                let layout = try await describer.describe(root: path)
+                guard !Task.isCancelled else { return }
+
+                self?.layoutLoaded(layout, at: path)
+            } catch {
+                self?.layoutFailed(error, at: path)
+            }
+        }
+    }
+
+    private func layoutLoaded(_ layout: PackageLayout, at path: String) {
+        layoutLoads.removeValue(forKey: path)
+        contexts.setLayout(layout, forRoot: path)
+    }
+
+    private func layoutFailed(_ error: any Error, at path: String) {
+        layoutLoads.removeValue(forKey: path)
+        guard !(error is CancellationError) else { return }
+
+        let line = "describing \((path as NSString).lastPathComponent) failed: \(error)"
+        layoutLog.append(line)
+        if layoutLog.count > 20 { layoutLog.removeFirst() }
+        Self.log.notice("\(line, privacy: .public)")
     }
 
     // MARK: Readiness and trust

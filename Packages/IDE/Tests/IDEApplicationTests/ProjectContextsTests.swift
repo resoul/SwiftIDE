@@ -221,3 +221,57 @@ func theScanOfAFolderIsBounded() throws {
     #expect(!ProjectContexts.containsProject(below: wide, limit: 20), "gives up at the limit rather than walk a whole disk")
     #expect(ProjectContexts.containsProject(below: wide, limit: 5000))
 }
+
+// MARK: The target of a file in the context
+
+private func oneTargetLayout(root: String) -> PackageLayout {
+    PackageLayout(targets: [PackageTarget(name: "App", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])])
+}
+
+@MainActor @Test
+func aContextCarriesTheTargetOfItsFileOnceThePackageLayoutIsKnown() throws {
+    let tree = try Tree()
+    let root = try tree.make("pkg", marker: "Package.swift")
+    try tree.make("pkg/Sources/App", file: "main.swift")
+    let file = root + "/Sources/App/main.swift"
+    let contexts = ProjectContexts()
+    #expect(try #require(contexts.context(forFile: file)).targetNames.isEmpty, "unknown until the layout is")
+
+    contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
+    let context = try #require(contexts.context(forFile: file))
+    #expect(context.target == "App" && context.targetNames == ["App"])
+    #expect(try #require(contexts.context(forFile: root + "/Package.swift")).target == nil, "a file of no target has none")
+}
+
+@MainActor @Test
+func settingALayoutChangesTheRevisionAndAnObserverHearsOnlyWhenTheLayoutDiffers() throws {
+    let tree = try Tree()
+    let root = try tree.make("pkg", marker: "Package.swift")
+    let contexts = ProjectContexts()
+    let start = contexts.revision
+    var heard = 0
+    contexts.subscribe { heard += 1 }
+
+    contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
+    #expect(contexts.revision == start + 1 && heard == 1)
+    contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
+    #expect(contexts.revision == start + 1 && heard == 1, "the same layout again changes nothing")
+    contexts.setLayout(nil, forRoot: root)
+    #expect(contexts.revision == start + 2 && heard == 2 && contexts.layout(forRoot: root) == nil)
+    contexts.setLayout(nil, forRoot: root)
+    #expect(contexts.revision == start + 2, "nothing to forget")
+}
+
+@MainActor @Test
+func aLayoutBelongsToItsRootAndNotToAnother() throws {
+    let tree = try Tree()
+    let a = try tree.make("a", marker: "Package.swift")
+    let b = try tree.make("b", marker: "Package.swift")
+    try tree.make("a/Sources/App", file: "main.swift")
+    try tree.make("b/Sources/App", file: "main.swift")
+    let contexts = ProjectContexts()
+    contexts.setLayout(oneTargetLayout(root: a), forRoot: a)
+
+    #expect(contexts.context(forFile: a + "/Sources/App/main.swift")?.target == "App")
+    #expect(contexts.context(forFile: b + "/Sources/App/main.swift")?.target == nil)
+}

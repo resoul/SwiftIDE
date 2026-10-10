@@ -15,6 +15,12 @@ public struct ProjectContext: Equatable, Sendable {
     /// Chosen by the user with File ▸ Open Folder, as opposed to found by walking up from a file.
     public let isExplicit: Bool
     public let revision: Int
+    /// The names of the targets that hold the file: none while the package's layout is unknown (or
+    /// when no target does), one normally, more than one when the file is ambiguous.
+    public let targetNames: [String]
+
+    /// The file's target when it is settled.
+    public var target: String? { targetNames.count == 1 ? targetNames[0] : nil }
 }
 
 /// The folders the user opened, and the context of a file given them. An opened folder takes priority
@@ -25,8 +31,23 @@ public final class ProjectContexts {
     /// Grows each time the set of opened folders changes.
     public private(set) var revision = 0
     private var observers: [UUID: @MainActor () -> Void] = [:]
+    private var layouts: [String: PackageLayout] = [:]
 
     public init() {}
+
+    // MARK: Package layouts
+
+    public func layout(forRoot root: String) -> PackageLayout? { layouts[DocumentPath.canonical(root)] }
+
+    /// Keeps what `swift package describe` said about the package at `root` (nil forgets it). A change
+    /// is a new revision of the context: what a file's target is may have changed with it.
+    public func setLayout(_ layout: PackageLayout?, forRoot root: String) {
+        let canonical = DocumentPath.canonical(root)
+        guard layouts[canonical] != layout else { return }
+
+        layouts[canonical] = layout
+        changed()
+    }
 
     // MARK: Folders
 
@@ -71,12 +92,24 @@ public final class ProjectContexts {
         let file = DocumentPath.canonical(path)
         let holding = openedFolders.filter { file.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") }
         if let root = holding.max(by: { $0.count < $1.count }) {
-            return ProjectContext(root: root, buildSystem: Self.buildSystem(ofFolder: root), isExplicit: true, revision: revision)
+            return ProjectContext(
+                root: root,
+                buildSystem: Self.buildSystem(ofFolder: root),
+                isExplicit: true,
+                revision: revision,
+                targetNames: layouts[root]?.membership(of: file).names ?? []
+            )
         }
 
         guard let package = PackageRootLocator.root(forFile: file) else { return nil }
 
-        return ProjectContext(root: package.path, buildSystem: .swiftPM, isExplicit: false, revision: revision)
+        return ProjectContext(
+            root: package.path,
+            buildSystem: .swiftPM,
+            isExplicit: false,
+            revision: revision,
+            targetNames: layouts[package.path]?.membership(of: file).names ?? []
+        )
     }
 
     /// What the server at `root` is dealing with: an opened folder is looked into, any other root

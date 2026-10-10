@@ -478,6 +478,15 @@ private func rootUris(_ rig: Rig) -> [String] {
     rig.servers.made.compactMap { $0.messages(named: "initialize").first?["params"]?["rootUri"]?.stringValue }
 }
 
+/// The root of each server, once that many have said it: a server exists a moment before its `initialize` is read.
+@MainActor
+private func rootUris(_ rig: Rig, count: Int) async -> [String] {
+    let deadline = ContinuousClock.now + .seconds(30)
+    while ContinuousClock.now < deadline, rootUris(rig).count < count { try? await Task.sleep(for: .milliseconds(5)) }
+
+    return rootUris(rig)
+}
+
 @Test @MainActor
 func aFileInsideAnOpenedFolderGetsAServerRootedAtTheFolderNotAtANestedPackage() async throws {
     let rig = try Rig()
@@ -488,7 +497,8 @@ func aFileInsideAnOpenedFolderGetsAServerRootedAtTheFolderNotAtANestedPackage() 
     await rig.services.attach(session)
 
     #expect(await rig.waitForServers(1))
-    #expect(rootUris(rig).count == 1 && rootUris(rig)[0].hasSuffix("/repo/"), "\(rootUris(rig))")
+    let roots = await rootUris(rig, count: 1)
+    #expect(roots.count == 1 && roots[0].hasSuffix("/repo/"), "\(roots)")
     #expect(rig.services.root(for: session).path.hasSuffix("/repo"))
 }
 
@@ -499,11 +509,11 @@ func openingAFolderMovesTheDocumentsAlreadyOpenToItsServer() async throws {
     let session = rig.session(nested)
     await rig.services.attach(session)
     #expect(await rig.waitForServers(1))
-    #expect(rootUris(rig)[0].hasSuffix("/repo/lib/"))
+    #expect(await rootUris(rig, count: 1).first?.hasSuffix("/repo/lib/") == true)
 
     rig.contexts.open(folder: rig.base.appendingPathComponent("repo").path)
     #expect(await rig.waitForServers(2), "a new server at the folder")
-    #expect(rootUris(rig)[1].hasSuffix("/repo/"))
+    #expect(await rootUris(rig, count: 2).last?.hasSuffix("/repo/") == true)
     #expect(rig.services.root(for: session).path.hasSuffix("/repo"))
     #expect(await rig.servers.made[1].waitForMethod("textDocument/didOpen"), "the document is opened there")
     #expect(await rig.servers.made[0].waitForMethod("textDocument/didClose"), "and closed at the old one")
@@ -522,7 +532,7 @@ func closingTheFolderMovesTheDocumentsBackToTheirPackage() async throws {
 
     rig.contexts.close(folder: folder)
     #expect(await rig.waitForServers(2))
-    #expect(rootUris(rig)[1].hasSuffix("/repo/lib/"))
+    #expect(await rootUris(rig, count: 2).last?.hasSuffix("/repo/lib/") == true)
 }
 
 @Test @MainActor
@@ -537,7 +547,7 @@ func anOpenedFolderWithNoProjectIsServedOnFallbackSettings() async throws {
 
     #expect(await rig.waitForServers(1))
     #expect(rig.services.readiness(for: session)?.settings == .fallback)
-    #expect(rootUris(rig)[0].hasSuffix("/plain/"))
+    #expect(await rootUris(rig, count: 1).first?.hasSuffix("/plain/") == true)
 }
 
 @Test @MainActor
@@ -562,7 +572,7 @@ func aDocumentOutsideEveryOpenedFolderKeepsTheNearestPackage() async throws {
     await rig.services.attach(session)
 
     #expect(await rig.waitForServers(1))
-    #expect(rootUris(rig)[0].hasSuffix("/other/"))
+    #expect(await rootUris(rig, count: 1).first?.hasSuffix("/other/") == true)
 }
 
 @Test @MainActor
@@ -575,4 +585,181 @@ func anOpenedFolderWithAPackageBelowItIsNotCalledFallbackBecauseTheServerFindsTh
 
     #expect(await rig.waitForServers(1))
     #expect(rig.services.readiness(for: session)?.settings == .unknown, "a claim of fallback settings would be false (ADR-028)")
+}
+
+// MARK: The target of a file (TK-018)
+
+private final class FakeDescriber: PackageDescribing, @unchecked Sendable {
+    private let lock = NSLock()
+    private var asked: [String] = []
+    var layout: @Sendable (String) -> PackageLayout? = { root in
+        PackageLayout(targets: [PackageTarget(name: "App", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])])
+    }
+
+    var calls: [String] { lock.withLock { asked } }
+
+    func describe(root: String) async throws -> PackageLayout {
+        lock.withLock { asked.append(root) }
+        guard let result = layout(root) else { throw SwiftPackageDescriber.Failure.failed("no layout") }
+
+        return result
+    }
+}
+
+@MainActor
+private func waitUntil(_ condition: () -> Bool) async -> Bool {
+    let deadline = ContinuousClock.now + .seconds(10)
+    while ContinuousClock.now < deadline {
+        if condition() { return true }
+        try? await Task.sleep(for: .milliseconds(5))
+    }
+
+    return condition()
+}
+
+@Test @MainActor
+func startingTheServerOfAPackageLoadsItsLayoutAndTheDocumentKnowsItsTarget() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let file = try rig.package("A")
+    let session = rig.session(file)
+    var heard = 0
+    rig.services.subscribeToReadiness(for: session) { heard += 1 }
+    await rig.services.attach(session)
+
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+    #expect(describer.calls.count == 1 && describer.calls[0].hasSuffix("/A"))
+    #expect(heard > 0, "the window is told, to show the target")
+}
+
+@Test @MainActor
+func aSecondDocumentOfThePackageDoesNotDescribeItAgain() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let first = rig.session(try rig.package("A"))
+    let second = rig.session(try rig.package("A", file: "Sources/App/Other.swift"))
+    await rig.services.attach(first)
+    #expect(await waitUntil { rig.services.targetNames(for: first) == ["App"] })
+    await rig.services.attach(second)
+    try await Task.sleep(for: .milliseconds(100))
+
+    #expect(describer.calls.count == 1)
+    #expect(rig.services.targetNames(for: second) == ["App"], "an unlisted file of the target's folder belongs to it by its place")
+}
+
+@Test @MainActor
+func aDescriberThatFailsLeavesTheTargetUnknownAndRecordsWhy() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    describer.layout = { _ in nil }
+    rig.services.describer = describer
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await waitUntil { describer.calls.count == 1 })
+    try await Task.sleep(for: .milliseconds(100))
+
+    #expect(rig.services.targetNames(for: session).isEmpty)
+    #expect(rig.services.layoutLog.contains { $0.contains("failed") && $0.contains("no layout") }, "\(rig.services.layoutLog)")
+}
+
+@Test @MainActor
+func onlyAPackageIsDescribedNotALooseFileNorAFolderOfAnotherSystem() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let loose = rig.session("/nowhere/loose.swift", untitled: true)
+    await rig.services.attach(loose)
+
+    let bazel = rig.base.appendingPathComponent("bz")
+    try FileManager.default.createDirectory(at: bazel, withIntermediateDirectories: true)
+    try "x".write(to: bazel.appendingPathComponent("MODULE.bazel"), atomically: true, encoding: .utf8)
+    try "let x = 1\n".write(to: bazel.appendingPathComponent("a.swift"), atomically: true, encoding: .utf8)
+    rig.contexts.open(folder: bazel.path)
+    let inBazel = rig.session(bazel.appendingPathComponent("a.swift").path)
+    await rig.services.attach(inBazel)
+
+    let plain = rig.base.appendingPathComponent("plain")
+    try FileManager.default.createDirectory(at: plain, withIntermediateDirectories: true)
+    try "let x = 1\n".write(to: plain.appendingPathComponent("b.swift"), atomically: true, encoding: .utf8)
+    rig.contexts.open(folder: plain.path)
+    let inPlain = rig.session(plain.appendingPathComponent("b.swift").path)
+    await rig.services.attach(inPlain)
+
+    #expect(await rig.waitForServers(3))
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(describer.calls.isEmpty, "\(describer.calls)")
+}
+
+@Test @MainActor
+func anOpenedFolderThatIsAPackageIsDescribedAtTheFolder() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let file = try rig.package("pkg")
+    rig.contexts.open(folder: rig.base.appendingPathComponent("pkg").path)
+    let session = rig.session(file)
+    await rig.services.attach(session)
+
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+    #expect(describer.calls.count == 1)
+}
+
+@Test @MainActor
+func savingThePackageManifestDescribesThePackageAgain() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let source = try rig.package("A")
+    let manifestPath = rig.base.appendingPathComponent("A/Package.swift").path
+    let files = MemoryDocumentFileStore(contents: [manifestPath: "// package\n"])
+    let registry = DocumentRegistry()
+    let open = OpenDocumentUseCase(store: files, registry: registry) { file in
+        DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
+    }
+    let manifest = try await open.execute(path: manifestPath).session
+    let first = rig.session(source)
+    await rig.services.attach(first)
+    await rig.services.attach(manifest)
+    #expect(await waitUntil { describer.calls.count == 1 })
+
+    describer.layout = { root in
+        PackageLayout(targets: [PackageTarget(name: "Renamed", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])])
+    }
+    try manifest.replaceText("// package, edited\n", expectedVersion: manifest.version)
+    _ = try await SaveDocumentUseCase(store: files).execute(document: manifest)
+
+    #expect(await waitUntil { describer.calls.count == 2 })
+    #expect(await waitUntil { rig.services.targetNames(for: first) == ["Renamed"] }, "the target follows the manifest")
+}
+
+@Test @MainActor
+func withNoDescriberNothingIsDescribed() async throws {
+    let rig = try Rig()
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await rig.waitForServers(1))
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(rig.services.targetNames(for: session).isEmpty)
+}
+
+@Test @MainActor
+func aPackageClosedAndOpenedAgainKeepsItsLayoutAndIsNotDescribedAgain() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let file = try rig.package("A")
+    let first = rig.session(file)
+    await rig.services.attach(first)
+    #expect(await waitUntil { rig.services.targetNames(for: first) == ["App"] })
+
+    rig.services.detach(first)    // the package's server stops with its last document
+    let again = rig.session(file)
+    await rig.services.attach(again)
+    #expect(await rig.waitForServers(2), "a new server")
+    try await Task.sleep(for: .milliseconds(100))
+
+    #expect(describer.calls.count == 1, "what was learnt of the package is kept")
+    #expect(rig.services.targetNames(for: again) == ["App"])
 }
