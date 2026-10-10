@@ -4,7 +4,13 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ## Unreleased
 
+### Planned (reusable workspace UI)
+
+- Accepted ADR-030 and TK-024: a `WorkspaceUI` target in `Packages/IDE` for the project configuration dialog and project status presentation, explicit parent-window injection and package-owned UI tests. App retains composition, main-menu wiring and window lifecycle. The extraction is not implemented; this entry records the documentation decision only.
+
 ### Added
+
+- TK-018, first slice (ADR-029): the language server's readiness is kept as independent groups (server, settings, background work, trust) and its `$/progress` is read, several operations at once; the window subtitle names the one most useful reason ("Preparing package · 2 / 5", "Using fallback settings", "Project configuration disabled"). Diagnostics made while the package is first prepared are withheld and a fresh report is pulled when that ends; those on fallback settings are paler and say so. SourceKit-LSP's question whether to trust the project's configuration is asked of the user once per project (default "Don't allow"), the decision is kept and can be changed from the new Project menu. Not yet seen in a live window; File ▸ Open Folder, the explicit root and the target choice are still to come.
 
 - ADR-028 records measured facts about SourceKit-LSP of Xcode 27.0 for the shared project context (TK-018): background preparation modes, the workspace trust prompt for `.sourcekit-lsp/` and `.bsp/`, behaviour on fallback settings and `compile_flags.txt`; `Tools/CompatibilityMatrix/prepare_probe.py` reproduces the observations. The lint workflow now uses `actions/checkout@v7` and `actions/cache@v6` (Node 24). No code changed.
 

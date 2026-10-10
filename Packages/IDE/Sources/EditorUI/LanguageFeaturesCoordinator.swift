@@ -61,7 +61,7 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
             clock: clock,
             dwell: dwell,
             wordAt: { offset in WordRange.around(offset, length: session.utf16Length, text: { source.substring(in: $0) }) },
-            localMessages: { offset in diagnostics.marks(at: offset).map { "\(Self.word(for: $0.severity)): \($0.message)" } }
+            localMessages: { offset in diagnostics.marks(at: offset).map(Self.line(for:)) }
         )
         definition = DefinitionController(session: session, provider: provider)
         definition.navigator = self
@@ -116,7 +116,7 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
 
         hover.dismiss()
         popup.show(
-            marks.map { "\(Self.word(for: $0.severity)): \($0.message)" }.joined(separator: "\n"),
+            marks.map(Self.line(for:)).joined(separator: "\n"),
             anchor: UTF16TextRange(location: index.startOffset(ofLine: line), length: 0)
         )
         isShowingMarginMessage = true
@@ -197,6 +197,13 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
             try? await Task.sleep(for: .seconds(2))
             if self?.messageToken == mine { self?.popup.dismiss() }
         }
+    }
+
+    /// One problem as the small window says it; a problem found on the server's default settings says so.
+    static func line(for mark: DiagnosticMark) -> String {
+        let text = "\(word(for: mark.severity)): \(mark.message)"
+
+        return mark.basis == .fallback ? text + " (using fallback settings)" : text
     }
 
     static func word(for severity: DocumentDiagnostic.Severity) -> String {

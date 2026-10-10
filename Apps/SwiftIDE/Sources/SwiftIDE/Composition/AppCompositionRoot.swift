@@ -30,7 +30,13 @@ final class AppCompositionRoot {
     private var pendingEditors: [DocumentID: TextKitEditor] = [:]
 
     let languages = DocumentLanguages(store: UserDefaultsLanguageOverrideStore())
-    lazy var languageServices = LanguageServices(scratchRoot: AppCompositionRoot.languageScratchDirectory, languages: languages)
+    private let projectTrust = UserDefaultsProjectTrustStore()
+    lazy var languageServices: LanguageServices = {
+        let services = LanguageServices(scratchRoot: AppCompositionRoot.languageScratchDirectory, languages: languages, trustStore: projectTrust)
+        services.trustPrompt = { name, _ in await ProjectTrustDialog.ask(projectName: name) }
+
+        return services
+    }()
 
     private(set) lazy var saveDocument = SaveDocumentUseCase(store: store)
     private(set) lazy var reloadDocument = ReloadDocumentUseCase(store: store)

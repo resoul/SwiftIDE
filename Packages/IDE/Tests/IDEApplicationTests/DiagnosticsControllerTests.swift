@@ -349,3 +349,52 @@ func theProblemsOfALineAreAskedForByItsNumber() {
     #expect(rig.controller.marks(onLine: 1, lineOf: lineOf).count == 1)
     #expect(rig.controller.marks(onLine: 0, lineOf: lineOf).isEmpty)
 }
+
+// MARK: What a report was made on top of (TK-018)
+
+@Test @MainActor
+func aReportMadeDuringTheInitialPreparationIsWithheld() {
+    let rig = Rig()
+    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1, .error, "No such module 'Lib'")], version: rig.session.version, isVerified: true, basis: .preparing))
+
+    #expect(rig.controller.marks.isEmpty && rig.controller.summary.text == nil, "neither underlines nor a counter")
+    #expect(rig.presenter.last.isEmpty)
+}
+
+@Test @MainActor
+func aWithheldReportDoesNotComeBackWhenTheTextChangesOrTheViewIsRefreshed() throws {
+    let rig = Rig()
+    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1)], version: rig.session.version, isVerified: true, basis: .preparing))
+    try rig.edit(0, 0, "// typing\n")
+    #expect(rig.controller.marks.isEmpty)
+    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1)], version: rig.session.version, isVerified: true, basis: .preparing))
+    #expect(rig.controller.marks.isEmpty, "the same basis, the same answer")
+}
+
+@Test @MainActor
+func aLaterReportOnUnconfirmedSettingsIsShownAndReplacesTheWithheldOne() {
+    let rig = Rig()
+    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1)], version: rig.session.version, isVerified: false, basis: .preparing))
+    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(14, 1, .error, "real")], version: rig.session.version, isVerified: false, basis: .unconfirmed))
+
+    #expect(rig.controller.marks.map(\.message) == ["real"])
+    #expect(rig.controller.marks.first?.basis == .unconfirmed)
+    #expect(rig.controller.summary.text == "1 error")
+}
+
+@Test @MainActor
+func aReportOnFallbackSettingsIsShownAndSaysWhatItWasMadeOn() {
+    let rig = Rig()
+    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1, .error, "'api.h' file not found")], version: rig.session.version, isVerified: false, basis: .fallback))
+
+    #expect(rig.controller.marks.count == 1)
+    #expect(rig.controller.marks.first?.basis == .fallback)
+}
+
+@Test @MainActor
+func theBasisOfAMarkSurvivesEditsThatMoveIt() throws {
+    let rig = Rig()
+    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(14, 1)], version: rig.session.version, isVerified: true, basis: .fallback))
+    try rig.edit(0, 0, "// moved\n")
+    #expect(rig.controller.marks.first?.basis == .fallback && rig.controller.marks.first?.isStale == true)
+}

@@ -18,14 +18,23 @@ public struct DiagnosticMark: Equatable, Sendable {
     public let severity: DocumentDiagnostic.Severity
     public let message: String
     public let freshness: Freshness
+    /// What the report was made on top of: the server's defaults (fallback) or settings nobody confirmed.
+    public let basis: DiagnosticsBasis
 
     public var isStale: Bool { freshness == .stale }
 
-    public init(range: UTF16TextRange, severity: DocumentDiagnostic.Severity, message: String, freshness: Freshness) {
+    public init(
+        range: UTF16TextRange,
+        severity: DocumentDiagnostic.Severity,
+        message: String,
+        freshness: Freshness,
+        basis: DiagnosticsBasis = .unconfirmed
+    ) {
         self.range = range
         self.severity = severity
         self.message = message
         self.freshness = freshness
+        self.basis = basis
     }
 }
 
@@ -80,6 +89,7 @@ public final class DiagnosticsController {
     private var items: [DocumentDiagnostic] = []
     private var reportVersion: UInt64 = 0
     private var reportIsVerified = false
+    private var reportBasis: DiagnosticsBasis = .unconfirmed
     /// The document version `items` are placed for; nil when they are not placed for any.
     private var trackedVersion: UInt64?
     private var changeSubscription: UUID?
@@ -146,9 +156,20 @@ public final class DiagnosticsController {
             return publish()
         }
 
+        // Made while the project was still being prepared, a report may name a module that is not
+        // ready yet; it is not shown, and finishing the preparation does not make it reliable (a new
+        // report is needed).
+        guard report.basis != .preparing else {
+            items = []
+            trackedVersion = nil
+
+            return publish()
+        }
+
         items = report.items
         reportVersion = report.version
         reportIsVerified = report.isVerified
+        reportBasis = report.basis
         trackedVersion = report.version
         // A report for the version the document has now is placed as it is; one for an older version
         // would have been refused by the provider.
@@ -188,7 +209,7 @@ public final class DiagnosticsController {
     private func publish() {
         // Edited since: stale, whatever the report was. Not edited: as sure as the report was.
         let freshness: DiagnosticMark.Freshness = trackedVersion != reportVersion ? .stale : (reportIsVerified ? .verified : .unverified)
-        marks = items.map { DiagnosticMark(range: shown($0.range), severity: $0.severity, message: $0.message, freshness: freshness) }
+        marks = items.map { DiagnosticMark(range: shown($0.range), severity: $0.severity, message: $0.message, freshness: freshness, basis: reportBasis) }
         summary = Summary(
             errors: items.filter { $0.severity == .error }.count,
             warnings: items.filter { $0.severity == .warning }.count

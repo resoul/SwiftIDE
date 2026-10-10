@@ -72,6 +72,14 @@ Preview and pinned tabs can be added as a next stage: a modified preview tab bec
 
 The provided screenshots show no open code. The editor font, line spacing, the highlighting palette, the cursor, selection and diagnostic marks need a separate visual pass on a real Swift file.
 
+## Package and App boundaries
+
+[ADR-030](07_ARCHITECTURE_DECISIONS.md#adr-030-reusable-workspace-ui-in-the-ide-package), TK-024, fixes the implementation boundary: reusable project views and presenters belong to `WorkspaceUI` inside `Packages/IDE`; App hosts them, provides the requesting project's window and connects their actions to services. Editor-specific presentation stays in `EditorUI`. Readiness/trust rules stay in `IDEApplication`; WorkspaceUI does not launch tools or store decisions.
+
+The first extraction is the project configuration dialog and project status presentation from TK-018. The window subtitle can consume the same status presentation that a future workspace status bar uses. Root/target selectors and the shell are added when their workflows are implemented. App keeps main-menu wiring, window creation and lifecycle. This is an accepted task, not a claim that the WorkspaceUI target or the extraction already exists.
+
+The dialog is an asynchronous sheet attached to an explicitly supplied project window. The parent is modal while the sheet is open; other windows and server message processing continue. Package tests cover presentation; App tests verify that the component is connected to the correct project window.
+
 ## Implementation order
 
 1. **The workspace shell.** The top bar, two tool strips, a central editor and three panel zones. Simple content allows checking resizing, switching, focus, hiding and layout persistence before all the tools are connected.

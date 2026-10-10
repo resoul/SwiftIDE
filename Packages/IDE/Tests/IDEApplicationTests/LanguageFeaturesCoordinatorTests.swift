@@ -585,3 +585,23 @@ func theMarginIsToldOnlyWhenThePointerChangesLineNotOnEveryMove() throws {
     first.ruler.pointerMoved(toY: nil)
     #expect(told == [0, nil], "once on, once off: \(told)")
 }
+
+@Test @MainActor
+func aProblemFoundOnFallbackSettingsIsPalerAndSaysSoInItsDescription() async {
+    func mark(_ basis: DiagnosticsBasis) -> DiagnosticMark {
+        DiagnosticMark(range: UTF16TextRange(location: 0, length: 1), severity: .error, message: "bad", freshness: .verified, basis: basis)
+    }
+    let normal = DiagnosticsPresenter.colour(for: mark(.unconfirmed)).usingColorSpace(.deviceRGB)?.alphaComponent ?? 0
+    let fallback = DiagnosticsPresenter.colour(for: mark(.fallback)).usingColorSpace(.deviceRGB)?.alphaComponent ?? 1
+    #expect(fallback < normal, "paler on the server's defaults: \(fallback) < \(normal)")
+
+    let f = Fixture()
+    f.provider.publish(DocumentDiagnostics(items: [
+        DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .error, message: "cannot find 'compute'"),
+    ], version: f.session.version, isVerified: false, basis: .fallback))
+    f.textView.mouseMoved(with: f.event(.mouseMoved, at: f.point(ofCharacter: 14)))
+    await f.settle()
+    f.clock.advance(by: .milliseconds(500))
+    await f.settle()
+    #expect(f.coordinator.popup.text.hasPrefix("error: cannot find 'compute' (using fallback settings)"), Comment(rawValue: f.coordinator.popup.text))
+}

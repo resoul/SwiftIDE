@@ -1,6 +1,8 @@
 import Foundation
 import IDEApplication
 import IDEDomain
+import os
+import Synchronization
 
 public struct LanguageDiagnostic: Equatable, Sendable {
     public enum Severity: Int, Sendable { case error = 1, warning, information, hint }
@@ -27,6 +29,8 @@ public struct DiagnosticsReport: Equatable, Sendable {
     public let items: [LanguageDiagnostic]
     public let reportedVersion: Int?
     public let freshness: Freshness
+    /// What the report was made on top of when it arrived.
+    public let basis: DiagnosticsBasis
 }
 
 public enum LanguageServiceState: Equatable, Sendable {
@@ -69,9 +73,22 @@ public final class SourceKitLanguageService: CompletionProviding {
 
     public let sync: OrderedDocumentSync
     public private(set) var state: LanguageServiceState = .stopped {
-        didSet { if state != oldValue { onStateChange?(state) } }
+        didSet {
+            guard state != oldValue else { return }
+
+            onStateChange?(state)
+            refreshReadiness()
+        }
     }
     public var onStateChange: (@MainActor (LanguageServiceState) -> Void)?
+    /// Whether the server is up, what it is busy with, whether the project's configuration may be
+    /// used: kept apart, with one reason to show (TK-018, ADR-028).
+    public private(set) var readiness = ProjectReadiness.make(server: .stopped, isFallbackRoot: false, progress: ProgressTracker(), trust: .undecided)
+    public var onReadinessChange: (@MainActor (ProjectReadiness) -> Void)?
+    /// The root holds no project: the server's own default settings are what documents get.
+    public var isFallbackRoot = false {
+        didSet { refreshReadiness() }
+    }
     public var onDiagnostics: (@MainActor (DocumentSession) -> Void)?
 
     private let root: URL
@@ -82,8 +99,28 @@ public final class SourceKitLanguageService: CompletionProviding {
     /// Counts started servers; an exit report from an earlier one is ignored.
     private var serverNumber = 0
     private var restartTask: Task<Void, Never>?
-    private var diagnostics: [String: (version: Int?, items: [LanguageDiagnostic], arrivedAtVersion: UInt64?)] = [:]
+    private var diagnostics: [String: (version: Int?, items: [LanguageDiagnostic], arrivedAtVersion: UInt64?, basis: DiagnosticsBasis)] = [:]
     private var wantsRunning = false
+    /// How long a pull of diagnostics may take: a server that stays silent does not hold it forever.
+    static let pullTimeout: Duration = .seconds(5)
+    /// What came of the pulls, newest last (also written to the system log): why a withheld report
+    /// stayed withheld.
+    private(set) var diagnosticsPullLog: [String] = []
+    private var pulls: [String: Pull] = [:]
+    /// Counts the reports stored for each document, pushed or pulled: a pull whose answer comes
+    /// after a newer report was stored must not overwrite it.
+    private var diagnosticsUpdates: [String: Int] = [:]
+    private static let log = Logger(subsystem: "SwiftIDE", category: "language-diagnostics")
+    private var progress = ProgressTracker()
+    private var trust: ConfigurationTrust = .undecided
+    private var isAskingForTrust = false
+    /// Where the user's decision about the project's configuration is kept. Set by whoever owns the
+    /// application's settings; a service without one refuses the configuration and keeps nothing.
+    public var trustStore: (any ProjectTrustStore)? {
+        didSet { trust = storedTrust(); refreshReadiness() }
+    }
+    /// Asks the user. Without it the answer to the server's question is a refusal.
+    public var trustPrompt: TrustPrompt?
     /// When the current server became ready, and how many servers in a row died before staying up.
     private var runningSince: Duration?
     private var shortLivedInARow = 0
@@ -93,13 +130,27 @@ public final class SourceKitLanguageService: CompletionProviding {
         sync: OrderedDocumentSync = OrderedDocumentSync(),
         restartPolicy: RestartPolicy = RestartPolicy(),
         clock: any DelayClock = SystemDelayClock(),
+        trustStore: (any ProjectTrustStore)? = nil,
+        trustPrompt: TrustPrompt? = nil,
         channelFactory: @escaping ChannelFactory = SourceKitLanguageService.sourceKitLSP
     ) {
         root = workspaceRoot
         self.sync = sync
         self.restartPolicy = restartPolicy
         self.clock = clock
+        self.trustStore = trustStore
+        self.trustPrompt = trustPrompt
         self.channelFactory = channelFactory
+        trust = storedTrust()
+        refreshReadiness()
+    }
+
+    private func storedTrust() -> ConfigurationTrust {
+        switch trustStore?.decision(forRoot: DocumentPath.canonical(root.path)) {
+        case .granted?: .granted
+        case .refused?: .refused
+        case nil: .undecided
+        }
     }
 
     /// The `sourcekit-lsp` of the selected Xcode.
@@ -143,7 +194,15 @@ public final class SourceKitLanguageService: CompletionProviding {
             old.close()
         }
 
+        forgetWork()
         state = .stopped
+    }
+
+    /// Stops the server and starts a new one: the documents are opened again, and a changed trust
+    /// decision is what the new server is answered with.
+    public func restart() async {
+        await stop()
+        await start()
     }
 
     /// Ends the server at once, without the polite shutdown: for the moment the application quits,
@@ -154,12 +213,14 @@ public final class SourceKitLanguageService: CompletionProviding {
         serverNumber += 1
         connection?.close()
         connection = nil
+        forgetWork()
         state = .stopped
     }
 
     private func launch(attempt: Int) async {
         serverNumber += 1
         let number = serverNumber
+        forgetWork()
         state = attempt == 0 ? .starting : .restarting(attempt: attempt)
         do {
             let channel = try await channelFactory()
@@ -167,6 +228,11 @@ public final class SourceKitLanguageService: CompletionProviding {
                 channel: channel,
                 onNotification: { [weak self] method, params in
                     Task { @MainActor in self?.received(method, params, from: number) }
+                },
+                onRequest: { [weak self] method, params in
+                    guard let self else { return .null }
+
+                    return await self.answerServerRequest(method, params)
                 },
                 onClose: { [weak self] in
                     Task { @MainActor in self?.serverEnded(number) }
@@ -197,6 +263,7 @@ public final class SourceKitLanguageService: CompletionProviding {
 
         connection = nil
         sync.attach(nil)
+        forgetWork()
         // One that stayed up begins the waits again; one that died soon after starting goes on from
         // where the last one left off, so a server that cannot stay up is not restarted forever.
         if let since = runningSince, clock.now - since >= restartPolicy.stableAfter {
@@ -253,8 +320,13 @@ public final class SourceKitLanguageService: CompletionProviding {
     }
 
     public func close(_ session: DocumentSession) {
+        if let uri = sync.uri(of: session) {
+            pulls.removeValue(forKey: uri)?.cancel(.cancelled)
+            diagnostics.removeValue(forKey: uri)
+            diagnosticsUpdates.removeValue(forKey: uri)
+        }
+
         sync.close(session)
-        if let uri = sync.uri(of: session) { diagnostics.removeValue(forKey: uri) }
     }
 
     // MARK: Completion
@@ -527,7 +599,7 @@ public final class SourceKitLanguageService: CompletionProviding {
             freshness = stored.arrivedAtVersion == session.version ? .unverified : .stale
         }
 
-        return DiagnosticsReport(items: stored.items, reportedVersion: stored.version, freshness: freshness)
+        return DiagnosticsReport(items: stored.items, reportedVersion: stored.version, freshness: freshness, basis: stored.basis)
     }
 
     /// The report in the text as it is now, if the server's positions can be read against it: the
@@ -546,17 +618,34 @@ public final class SourceKitLanguageService: CompletionProviding {
             )
         }
 
-        return DocumentDiagnostics(items: items, version: session.version, isVerified: report.freshness == .current)
+        return DocumentDiagnostics(items: items, version: session.version, isVerified: report.freshness == .current, basis: report.basis)
     }
 
     func received(_ method: String, _ params: JSONValue, from number: Int) {
-        guard number == serverNumber, method == "textDocument/publishDiagnostics",
-              let uri = params["uri"]?.stringValue else { return }
+        guard number == serverNumber else { return }
+
+        switch method {
+        case "$/progress": progressReceived(params)
+        case "textDocument/publishDiagnostics": diagnosticsReceived(params)
+        default: break
+        }
+    }
+
+    private func diagnosticsReceived(_ params: JSONValue) {
+        guard let uri = params["uri"]?.stringValue else { return }
 
         let version = params["version"]?.intValue
-        let items = (params["diagnostics"]?.arrayValue ?? []).compactMap { raw -> LanguageDiagnostic? in
+        let items = Self.parseDiagnostics(params["diagnostics"])
+        let session = sync.openDocuments.first(where: { sync.uri(of: $0) == uri })
+        diagnostics[uri] = (version, items, session?.version, readiness.diagnosticsBasis)
+        diagnosticsUpdates[uri, default: 0] += 1
+        if let session { onDiagnostics?(session) }
+    }
+
+    private static func parseDiagnostics(_ list: JSONValue?) -> [LanguageDiagnostic] {
+        (list?.arrayValue ?? []).compactMap { raw -> LanguageDiagnostic? in
             guard let message = raw["message"]?.stringValue,
-                  let start = Self.position(raw["range"]?["start"]), let end = Self.position(raw["range"]?["end"]) else { return nil }
+                  let start = position(raw["range"]?["start"]), let end = position(raw["range"]?["end"]) else { return nil }
 
             return LanguageDiagnostic(
                 severity: LanguageDiagnostic.Severity(rawValue: raw["severity"]?.intValue ?? 1) ?? .error,
@@ -566,8 +655,212 @@ public final class SourceKitLanguageService: CompletionProviding {
                 end: end
             )
         }
-        let session = sync.openDocuments.first(where: { sync.uri(of: $0) == uri })
-        diagnostics[uri] = (version, items, session?.version)
-        if let session { onDiagnostics?(session) }
+    }
+
+    /// The initial preparation has just ended. A report made while it went on is withheld, and the
+    /// server may not publish another until the text changes, so a fresh one is asked for: a pull of
+    /// `textDocument/diagnostic`, which the server of Xcode 27 answers although it does not advertise
+    /// it (ADR-028). It is bounded (`pullTimeout`), cancelled when the document closes, and its answer
+    /// is used only if nothing newer came meanwhile. If it cannot be used, the withheld report stays
+    /// withheld until the next one is pushed, and the reason is recorded.
+    private func pullWithheldDiagnostics() {
+        guard let connection else { return }
+
+        let number = serverNumber
+        for session in sync.openDocuments {
+            guard let uri = sync.uri(of: session), pulls[uri] == nil else { continue }
+
+            if let stored = diagnostics[uri], stored.basis != .preparing { continue }
+
+            let sentAt = session.version
+            let updatesAtSend = diagnosticsUpdates[uri, default: 0]
+            let request = connection.request("textDocument/diagnostic", ["textDocument": ["uri": .string(uri)]])
+            let clock = clock
+            Task { @MainActor [weak self] in
+                let result: PullResult = await withCheckedContinuation { continuation in
+                    let shot = OneShot(continuation)
+                    let timer = Task {
+                        try? await clock.sleep(for: SourceKitLanguageService.pullTimeout)
+                        guard !Task.isCancelled else { return }
+
+                        shot.fulfil(.timedOut)
+                        request.cancel()
+                    }
+                    Task {
+                        do {
+                            shot.fulfil(.answer(try await request.response()))
+                        } catch {
+                            shot.fulfil(.failed(String(describing: error)))
+                        }
+                        timer.cancel()
+                    }
+                    self?.pulls[uri] = Pull(shot: shot, request: request, timer: timer)
+                }
+                self?.pullFinished(result, for: session, uri: uri, sentAtVersion: sentAt, updatesAtSend: updatesAtSend, from: number)
+            }
+        }
+    }
+
+    private func pullFinished(_ result: PullResult, for session: DocumentSession, uri: String, sentAtVersion: UInt64, updatesAtSend: Int, from number: Int) {
+        pulls.removeValue(forKey: uri)
+        let name = (uri as NSString).lastPathComponent
+        switch result {
+        case .timedOut:
+            return recordPull("pull for \(name) timed out after \(Self.pullTimeout)")
+        case .cancelled:
+            return recordPull("pull for \(name) cancelled: the document closed")
+        case .failed(let reason):
+            return recordPull("pull for \(name) failed: \(reason)")
+        case .answer(let answer):
+            guard number == serverNumber else { return recordPull("pull for \(name) ignored: the server was replaced") }
+
+            guard sync.uri(of: session) == uri else { return recordPull("pull for \(name) ignored: the document closed or moved to another address") }
+
+            guard session.version == sentAtVersion else { return recordPull("pull for \(name) ignored: the text changed") }
+
+            guard diagnosticsUpdates[uri, default: 0] == updatesAtSend else { return recordPull("pull for \(name) ignored: a newer report came") }
+
+            guard answer["kind"]?.stringValue == "full" else { return recordPull("pull for \(name) ignored: the answer was not a full report") }
+
+            diagnostics[uri] = (nil, Self.parseDiagnostics(answer["items"]), session.version, readiness.diagnosticsBasis)
+            diagnosticsUpdates[uri, default: 0] += 1
+            onDiagnostics?(session)
+        }
+    }
+
+    private func recordPull(_ line: String) {
+        diagnosticsPullLog.append(line)
+        if diagnosticsPullLog.count > 20 { diagnosticsPullLog.removeFirst() }
+        Self.log.notice("\(line, privacy: .public)")
+    }
+
+    private enum PullResult: Sendable {
+        case answer(JSONValue)
+        case failed(String)
+        case timedOut
+        case cancelled
+    }
+
+    private struct Pull {
+        let shot: OneShot<PullResult>
+        let request: LanguageServerConnection.Request
+        let timer: Task<Void, Never>
+
+        func cancel(_ result: PullResult) {
+            shot.fulfil(result)
+            timer.cancel()
+            request.cancel()
+        }
+    }
+
+    /// The first of an answer, the timeout and a cancellation decides; the others do nothing.
+    private final class OneShot<Value: Sendable>: Sendable {
+        private let continuation: Mutex<CheckedContinuation<Value, Never>?>
+
+        init(_ continuation: CheckedContinuation<Value, Never>) {
+            self.continuation = Mutex(continuation)
+        }
+
+        func fulfil(_ value: Value) {
+            let taken = continuation.withLock { held -> CheckedContinuation<Value, Never>? in
+                defer { held = nil }
+
+                return held
+            }
+            taken?.resume(returning: value)
+        }
+    }
+
+    // MARK: Readiness, progress and trust
+
+    private func refreshReadiness() {
+        let server: ServerStatus = switch state {
+        case .stopped: .stopped
+        case .starting: .starting
+        case .running: .running
+        case .restarting: .restarting
+        case .failed: .failed
+        }
+        let updated = ProjectReadiness.make(
+            server: server,
+            isFallbackRoot: isFallbackRoot,
+            progress: progress,
+            trust: trust,
+            isAskingForTrust: isAskingForTrust
+        )
+        guard updated != readiness else { return }
+
+        readiness = updated
+        onReadinessChange?(updated)
+    }
+
+    /// What a server that is gone was doing is not being done; a question it put is not waiting.
+    private func forgetWork() {
+        progress.reset()
+        isAskingForTrust = false
+        refreshReadiness()
+    }
+
+    private func progressReceived(_ params: JSONValue) {
+        let token = params["token"]?.stringValue ?? params["token"]?.intValue.map(String.init)
+        guard let token, let value = params["value"], let kind = value["kind"]?.stringValue else { return }
+
+        let message = value["message"]?.stringValue
+        let percentage = value["percentage"]?.intValue
+        let wasPreparing = progress.isInitialPreparation
+        switch kind {
+        case "begin": progress.apply(token: token, .begin(title: value["title"]?.stringValue ?? "", message: message, percentage: percentage))
+        case "report": progress.apply(token: token, .report(message: message, percentage: percentage))
+        case "end": progress.apply(token: token, .end)
+        default: return
+        }
+        refreshReadiness()
+        if wasPreparing, progress.hasCompletedInitialPreparation { pullWithheldDiagnostics() }
+    }
+
+    /// The server's requests of the client. Progress registration and everything unknown get an
+    /// empty answer; the question whether to trust the project's configuration is the user's.
+    private func answerServerRequest(_ method: String, _ params: JSONValue) async -> JSONValue {
+        guard method == "window/showMessageRequest" else { return .null }
+
+        let titles = (params["actions"]?.arrayValue ?? []).compactMap { $0["title"]?.stringValue }
+        guard let grant = titles.first(where: { $0 == "Trust Workspace" }) else { return .null }
+
+        let refuse = titles.first(where: { $0 == "Don't Trust" })
+        let decision = await decideTrust()
+        switch decision {
+        case .granted: return ["title": .string(grant)]
+        case .refused: return refuse.map { ["title": .string($0)] } ?? .null
+        }
+    }
+
+    private func decideTrust() async -> TrustDecision {
+        let key = DocumentPath.canonical(root.path)
+        if let kept = trustStore?.decision(forRoot: key) {
+            setTrust(kept)
+
+            return kept
+        }
+
+        // Nobody to ask (no window): the safe answer, and not recorded, since no one decided.
+        guard let trustPrompt else {
+            setTrust(.refused)
+
+            return .refused
+        }
+
+        isAskingForTrust = true
+        refreshReadiness()
+        let decision = await trustPrompt(root.lastPathComponent, root)
+        isAskingForTrust = false
+        trustStore?.record(decision, forRoot: key)
+        setTrust(decision)
+
+        return decision
+    }
+
+    private func setTrust(_ decision: TrustDecision) {
+        trust = decision == .granted ? .granted : .refused
+        refreshReadiness()
     }
 }

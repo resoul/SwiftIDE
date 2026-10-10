@@ -33,6 +33,13 @@ enum MainMenu {
             languageItem()
         ]))
 
+        main.addItem(submenuItem(title: "Project", items: [
+            NSMenuItem(title: "Allow Project Configuration", action: #selector(WorkspaceWindowController.allowProjectConfiguration(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Don't Allow Project Configuration", action: #selector(WorkspaceWindowController.disallowProjectConfiguration(_:)), keyEquivalent: ""),
+            .separator(),
+            NSMenuItem(title: "Ask About Project Configuration Again", action: #selector(WorkspaceWindowController.askAboutProjectConfigurationAgain(_:)), keyEquivalent: "")
+        ]))
+
         main.addItem(submenuItem(title: "View", items: [
             NSMenuItem(title: "Files", action: #selector(WorkspacePreviewWindowController.showPreviewFiles(_:)), keyEquivalent: "1"),
             NSMenuItem(title: "Search", action: #selector(WorkspacePreviewWindowController.showPreviewSearch(_:)), keyEquivalent: "2"),

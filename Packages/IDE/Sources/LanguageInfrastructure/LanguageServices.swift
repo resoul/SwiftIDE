@@ -35,10 +35,16 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     private var managed: [DocumentID: Managed] = [:]
     private var latestDiagnostics: [DocumentID: DocumentDiagnostics] = [:]
     private var diagnosticsObservers: [UUID: (document: DocumentID, observer: @MainActor () -> Void)] = [:]
+    private var readinessObservers: [UUID: (document: DocumentID, observer: @MainActor () -> Void)] = [:]
+    /// Where the user's decisions about projects' configuration are kept (the application's settings).
+    public var trustStore: (any ProjectTrustStore)?
+    /// Asks the user whether a project's configuration may be used.
+    public var trustPrompt: TrustPrompt?
 
     public init(
         scratchRoot: URL,
         languages: DocumentLanguages = DocumentLanguages(),
+        trustStore: (any ProjectTrustStore)? = nil,
         makeService: @escaping MakeService = { root, virtual in
             SourceKitLanguageService(workspaceRoot: root, sync: OrderedDocumentSync(virtualDirectory: virtual))
         }
@@ -46,6 +52,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         self.scratchRoot = scratchRoot.standardizedFileURL
         self.makeService = makeService
         self.languages = languages
+        self.trustStore = trustStore
         try? FileManager.default.createDirectory(at: self.scratchRoot, withIntermediateDirectories: true)
     }
 
@@ -94,6 +101,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         services[root] = service
         let subscription = session.subscribeToSaves { [weak self] in self?.saved(session) }
         homes[session.id] = Home(root: root, service: service, saveSubscription: subscription)
+        notifyReadinessObservers(of: session.id)
         do {
             try await service.open(session)
         } catch {
@@ -107,6 +115,18 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
 
     private func serviceStarted(for root: URL) -> SourceKitLanguageService {
         let service = makeService(root, scratchRoot)
+        service.isFallbackRoot = root == scratchRoot
+        if root != scratchRoot {
+            service.trustStore = trustStore
+            // Read when the question comes, so a prompt set after the service started is used.
+            service.trustPrompt = { [weak self] name, root in await self?.trustPrompt?(name, root) ?? .refused }
+        }
+
+        service.onReadinessChange = { [weak self, weak service] _ in
+            guard let self, let service else { return }
+
+            self.readinessChanged(of: service)
+        }
         service.onDiagnostics = { [weak self, weak service] session in
             guard let self, let service, self.homes[session.id]?.service === service else { return }
 
@@ -136,6 +156,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         if latestDiagnostics.removeValue(forKey: session.id) != nil { notifyDiagnosticsObservers(of: session.id) }
 
         session.unsubscribeFromSaves(home.saveSubscription)
+        notifyReadinessObservers(of: session.id)
         home.service.close(session)
         if home.root != scratchRoot, home.service.sync.openDocuments.isEmpty, services[home.root] === home.service {
             services.removeValue(forKey: home.root)
@@ -185,6 +206,55 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         guard let service = homes[session.id]?.service else { return .failed(.unavailable(.notRunning)) }
 
         return await service.definition(for: session, offset: offset)
+    }
+
+    // MARK: Readiness and trust
+
+    /// What is known about the document's server: nil when it has none.
+    public func readiness(for session: DocumentSession) -> ProjectReadiness? { homes[session.id]?.service.readiness }
+
+    @discardableResult
+    public func subscribeToReadiness(for session: DocumentSession, _ observer: @escaping @MainActor () -> Void) -> UUID {
+        let id = UUID()
+        readinessObservers[id] = (session.id, observer)
+
+        return id
+    }
+
+    public func unsubscribeFromReadiness(_ id: UUID) {
+        readinessObservers.removeValue(forKey: id)
+    }
+
+    private func readinessChanged(of service: SourceKitLanguageService) {
+        for entry in Array(readinessObservers.values) where homes[entry.document]?.service === service { entry.observer() }
+    }
+
+    private func notifyReadinessObservers(of document: DocumentID) {
+        for entry in Array(readinessObservers.values) where entry.document == document { entry.observer() }
+    }
+
+    /// Whether the document belongs to a project (a package), which is what has a configuration.
+    public func isInProject(_ session: DocumentSession) -> Bool {
+        homes[session.id].map { $0.root != scratchRoot } ?? false
+    }
+
+    /// What the user decided about the configuration of the document's project; nil when undecided.
+    public func trustDecision(for session: DocumentSession) -> TrustDecision? {
+        guard let home = homes[session.id], home.root != scratchRoot else { return nil }
+
+        return trustStore?.decision(forRoot: DocumentPath.canonical(home.root.path))
+    }
+
+    /// Records the decision (nil forgets it, so the question is asked again) and starts the
+    /// project's server again, because the server asks only when it starts. A document with no
+    /// project has no configuration to decide about.
+    public func setTrust(_ decision: TrustDecision?, for session: DocumentSession) {
+        guard let home = homes[session.id], home.root != scratchRoot, let trustStore else { return }
+
+        let key = DocumentPath.canonical(home.root.path)
+        if let decision { trustStore.record(decision, forRoot: key) } else { trustStore.forget(root: key) }
+        let service = home.service
+        Task { await service.restart() }
     }
 
     // MARK: DiagnosticsProviding

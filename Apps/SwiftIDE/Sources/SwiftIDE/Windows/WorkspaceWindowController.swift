@@ -23,6 +23,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     private let container: EditorContainerView
     private let longLines: LongLineMonitor
     private let languageServices: LanguageServices
+    private var readinessSubscription: UUID?
     private let languages: DocumentLanguages
     private let languageSelector: DocumentLanguageSelector
     private var completion: CompletionCoordinator?
@@ -123,6 +124,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
             self.onJumpFrom?(place)
         }
+        // What the server is busy with (preparing the package, a decision awaited, fallback settings).
+        readinessSubscription = languageServices.subscribeToReadiness(for: document) { [weak self] in self?.refreshSubtitle() }
         Task { [languageServices] in await languageServices.attach(document) }
     }
 
@@ -255,7 +258,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
         let engine = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
         let readOnly = isReadOnlyForLongLines ? "read-only" : (isSystemFile ? "read-only (system file)" : nil)
-        window.subtitle = [languageNote, features?.diagnostics.summary.text, engine, colourNote, recoveryNote, readOnly].compactMap { $0 }.joined(separator: " · ")
+        let readiness = languageServices.readiness(for: session)?.reason
+        window.subtitle = [languageNote, readiness, features?.diagnostics.summary.text, engine, colourNote, recoveryNote, readOnly].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func refreshTitle() {
@@ -272,6 +276,18 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         if item.action == #selector(selectLanguage(_:)) {
             let chosen = item.representedObject as? String
             item.state = chosen == languageSelector.override?.rawValue ? .on : .off
+        }
+
+        if item.action == #selector(allowProjectConfiguration(_:)) || item.action == #selector(disallowProjectConfiguration(_:))
+            || item.action == #selector(askAboutProjectConfigurationAgain(_:)) {
+            let decision = languageServices.trustDecision(for: session)
+            if item.action == #selector(allowProjectConfiguration(_:)) { item.state = decision == .granted ? .on : .off }
+            if item.action == #selector(disallowProjectConfiguration(_:)) { item.state = decision == .refused ? .on : .off }
+
+            // Only a document of a project has a configuration to decide about; asking again needs a decision to forget.
+            if item.action == #selector(askAboutProjectConfigurationAgain(_:)) { return decision != nil }
+
+            return languageServices.isInProject(session)
         }
 
         return true
@@ -320,6 +336,20 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     }
 
     /// Edit ▸ Language: the document's language, or back to deciding by name.
+    /// Project ▸ Allow Project Configuration: the server's `.sourcekit-lsp/` and `.bsp/` may be used.
+    @objc func allowProjectConfiguration(_ sender: Any?) {
+        languageServices.setTrust(.granted, for: session)
+    }
+
+    @objc func disallowProjectConfiguration(_ sender: Any?) {
+        languageServices.setTrust(.refused, for: session)
+    }
+
+    /// Forgets the decision: the question is asked again when the server next finds a configuration.
+    @objc func askAboutProjectConfigurationAgain(_ sender: Any?) {
+        languageServices.setTrust(nil, for: session)
+    }
+
     @objc func selectLanguage(_ sender: NSMenuItem) {
         languageSelector.setOverride((sender.representedObject as? String).flatMap(DocumentLanguage.init(rawValue:)))
     }
@@ -509,6 +539,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         externalChanges.stop()
         completion?.controller.dismiss()
         features?.hover.dismiss()
+        if let readinessSubscription { languageServices.unsubscribeFromReadiness(readinessSubscription) }
         languageServices.detach(session)
         languages.forget(session)
         // The window closes only for a clean document or one the user chose to discard: either way

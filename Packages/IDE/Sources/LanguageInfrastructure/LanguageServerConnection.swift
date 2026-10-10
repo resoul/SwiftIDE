@@ -9,6 +9,9 @@ import Synchronization
 /// per message, would not promise it: two tasks started in order may run in either.
 public final class LanguageServerConnection: Sendable {
     public typealias NotificationHandler = @Sendable (_ method: String, _ params: JSONValue) -> Void
+    /// Answers a request the server makes of the client (progress registration, a question for the
+    /// user, configuration). It may take as long as it needs: nothing else waits for it.
+    public typealias RequestHandler = @Sendable (_ method: String, _ params: JSONValue) async -> JSONValue
 
     private enum Outbound {
         /// Encoded when it is written, by the writer, not by whoever put it in the outbox: a
@@ -31,16 +34,19 @@ public final class LanguageServerConnection: Sendable {
     private let state = Mutex(State())
     private let wake: AsyncStream<Void>.Continuation
     private let onNotification: NotificationHandler
+    private let onRequest: RequestHandler
     private let onClose: @Sendable () -> Void
     private let tasks = Mutex<[Task<Void, Never>]>([])
 
     public init(
         channel: any LSPChannel,
         onNotification: @escaping NotificationHandler,
+        onRequest: @escaping RequestHandler = { _, _ in .null },
         onClose: @escaping @Sendable () -> Void = {}
     ) {
         self.channel = channel
         self.onNotification = onNotification
+        self.onRequest = onRequest
         self.onClose = onClose
         let (wakeStream, wake) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         self.wake = wake
@@ -199,10 +205,15 @@ public final class LanguageServerConnection: Sendable {
         let method = message["method"]?.stringValue
         switch (method, id) {
         case (let method?, let id?):
-            // A request from the server (progress, registration, configuration). None of them is
-            // acted on; an empty answer lets the server go on.
-            _ = enqueue(.message(["jsonrpc": "2.0", "id": id, "result": .null]))
-            _ = method
+            // A request from the server (progress registration, a question, configuration). The
+            // handler answers in its own time, so one that waits for the user holds nothing up.
+            let params = message["params"] ?? .null
+            let handler = onRequest
+            let task = Task { [weak self] in
+                let result = await handler(method, params)
+                _ = self?.enqueue(.message(["jsonrpc": "2.0", "id": id, "result": result]))
+            }
+            tasks.withLock { $0.append(task) }
         case (let method?, nil):
             onNotification(method, message["params"] ?? .null)
         case (nil, let id?):

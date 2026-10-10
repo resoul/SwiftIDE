@@ -151,3 +151,53 @@ func aDeferredNotificationIsBuiltWhenItsTurnComes() async throws {
     #expect(server.messages(named: "later").first?["params"]?["value"] == .int(2), "built at the time of writing")
     connection.close()
 }
+
+// MARK: Requests from the server
+
+@Test
+func aRequestFromTheServerIsAnsweredWithWhatTheHandlerSaysAndByDefaultWithNull() async throws {
+    let server = ScriptedServer(handler: nil)
+    let seen = Locked<[String]>([])
+    let connection = LanguageServerConnection(
+        channel: server,
+        onNotification: { _, _ in },
+        onRequest: { method, params in
+            seen.withLock { $0.append(method) }
+
+            return method == "window/showMessageRequest" ? ["title": "Don't Trust"] : .null
+        }
+    )
+    server.send(["jsonrpc": "2.0", "id": 7, "method": "window/showMessageRequest", "params": ["message": "?"]])
+    server.send(["jsonrpc": "2.0", "id": 8, "method": "window/workDoneProgress/create", "params": ["token": "t"]])
+
+    #expect(await server.waitUntil { server.received.filter { $0["method"] == nil && $0["id"] != nil }.count == 2 })
+    let answers = server.received.filter { $0["method"] == nil }
+    #expect(answers.first(where: { $0["id"] == 7 })?["result"] == ["title": "Don't Trust"])
+    #expect(answers.first(where: { $0["id"] == 8 })?["result"] == .null)
+    #expect(seen.withLock { $0 } == ["window/showMessageRequest", "window/workDoneProgress/create"])
+    connection.close()
+}
+
+@Test
+func aSlowAnswerToTheServerDoesNotHoldUpWhatElseArrives() async throws {
+    let server = ScriptedServer(handler: nil)
+    let notifications = Locked<[String]>([])
+    let gate = Locked<CheckedContinuation<Void, Never>?>(nil)
+    let connection = LanguageServerConnection(
+        channel: server,
+        onNotification: { method, _ in notifications.withLock { $0.append(method) } },
+        onRequest: { _, _ in
+            await withCheckedContinuation { continuation in gate.withLock { $0 = continuation } }
+
+            return ["title": "late"]
+        }
+    )
+    server.send(["jsonrpc": "2.0", "id": 1, "method": "window/showMessageRequest", "params": [:]])
+    server.notify("test/after", [:])
+    #expect(await server.waitUntil { notifications.withLock { $0 } == ["test/after"] }, "a question waiting for the user holds nothing up")
+
+    #expect(await server.waitUntil { gate.withLock { $0 != nil } })
+    gate.withLock { $0 }?.resume()
+    #expect(await server.waitUntil { server.received.contains { $0["id"] == 1 && $0["result"] != nil } })
+    connection.close()
+}

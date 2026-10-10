@@ -26,7 +26,7 @@ Arrows are compile-time imports. The UI may depend on the platform adapter to cr
 | IDEApplication | Sessions, versions, save policy, use cases, backend and I/O ports | IDEDomain |
 | EditorPlatformTextKit | TextKit storage/layout graph, the future native editing/undo bridge | IDEApplication, IDEDomain, AppKit |
 | EditorUI | Editor host, gutter, completion, decorations, commands | IDEApplication, EditorPlatformTextKit, AppKit |
-| WorkspaceUI | Project tree, tabs, Problems, palette | IDEApplication, IDEDomain, AppKit/SwiftUI |
+| WorkspaceUI | Project configuration dialog, project status presentation; later tree, tabs, Problems and palette | IDEApplication, IDEDomain, AppKit/SwiftUI |
 | FileSystemInfrastructure | Read/write/watch, recovery, disk revisions | IDEApplication, IDEDomain, Foundation |
 | LanguageInfrastructure | Ordered JSON-RPC, SourceKit, DTO/position mapping | IDEApplication, IDEDomain |
 | XcodeInfrastructure | Toolchain/project discovery, BSP configuration | IDEApplication, IDEDomain, ProcessInfrastructure |
@@ -35,6 +35,18 @@ Arrows are compile-time imports. The UI may depend on the platform adapter to cr
 | SwiftIDEApp | Composition Root, windows, lifecycle | The UI and the concrete implementations |
 
 At the start there are 5–6 SPM targets, then a split along real boundaries. The current example combines the memory file store and the String backend in IDEInfrastructure. EditorCore/EditorLayout/EditorRendering are not part of the mandatory MVP graph.
+
+## Reusable UI and the application shell
+
+Accepted on 2026-10-10 ([ADR-030](07_ARCHITECTURE_DECISIONS.md#adr-030-reusable-workspace-ui-in-the-ide-package), TK-024): reusable project UI belongs to a `WorkspaceUI` target and library product inside `Packages/IDE`. A separate Swift package is not needed. This is a planned extraction: the target does not exist yet, and the project configuration dialog is currently in `Apps/SwiftIDE`.
+
+`EditorUI` keeps the document view, gutter, completion, hover and diagnostic decorations. `WorkspaceUI` owns the project configuration dialog and project status presentation, followed by root/target selection and the workspace shell as those features are implemented. `IDEApplication` owns readiness values, trust policy, use cases and ports without AppKit. App owns the Composition Root, windows, main menu, lifecycle and the selection of concrete services and persistence adapters.
+
+Workspace components receive state and actions through constructor arguments, ports or callbacks. They do not import `LanguageInfrastructure`, launch processes, restart servers or write trust decisions to `UserDefaults`. App connects the UI result to the use case and chooses the persistence implementation. Formatting project status for display belongs to WorkspaceUI; readiness and diagnostic policy remain in IDEApplication.
+
+The project configuration presenter receives an explicit parent `NSWindow` selected by App for the requesting project. It must not find a parent through `NSApp.keyWindow` or `NSApp.mainWindow`. App resolves the owner and the no-window case; closing that owner cancels the pending presentation without recording a user decision. An asynchronous sheet is modal to its parent window; other windows and language-server message handling continue.
+
+Presentation tests belong to `WorkspaceUITests` in the package. App tests check composition, menu wiring, the association with the right project window and a small number of end-to-end workflows. The extraction preserves the refusal default, wording, stored-decision behaviour and diagnostics policy of ADR-028/029.
 
 ## A single owner of the text
 

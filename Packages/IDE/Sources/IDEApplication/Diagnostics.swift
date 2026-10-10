@@ -31,11 +31,15 @@ public struct DocumentDiagnostics: Equatable, Sendable {
     /// The server named the version it analysed. SourceKit-LSP of Xcode 27 does not, so its
     /// reports are not verified: they are as fresh as the last edit before they arrived.
     public let isVerified: Bool
+    /// What the report was made on top of: settings nobody confirmed, a preparation still going on,
+    /// or the server's defaults. It is fixed when the report arrives and never improves by itself.
+    public let basis: DiagnosticsBasis
 
-    public init(items: [DocumentDiagnostic], version: UInt64, isVerified: Bool) {
+    public init(items: [DocumentDiagnostic], version: UInt64, isVerified: Bool, basis: DiagnosticsBasis = .unconfirmed) {
         self.items = items
         self.version = version
         self.isVerified = isVerified
+        self.basis = basis
     }
 }
 

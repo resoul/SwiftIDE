@@ -28,11 +28,11 @@ private final class Rig {
     let base: URL
     let clock = ManualDelayClock()
 
-    init() throws {
+    init(store: (any ProjectTrustStore)? = nil) throws {
         base = FileManager.default.temporaryDirectory.appendingPathComponent("services-\(UUID().uuidString)", isDirectory: true).standardizedFileURL
         scratch = base.appendingPathComponent("scratch", isDirectory: true)
         let servers = servers, clock = clock
-        services = LanguageServices(scratchRoot: scratch, languages: languages) { root, virtual in
+        services = LanguageServices(scratchRoot: scratch, languages: languages, trustStore: store) { root, virtual in
             SourceKitLanguageService(
                 workspaceRoot: root,
                 sync: OrderedDocumentSync(virtualDirectory: virtual),
@@ -401,4 +401,71 @@ func hoverAndDefinitionGoToTheServerOfTheDocument() async throws {
     rig.services.detach(session)
     #expect(await rig.services.hover(for: session, offset: { 4 }) == .failed(.unavailable(.notRunning)))
     #expect(await rig.services.definition(for: session, offset: { 4 }) == .failed(.unavailable(.notRunning)))
+}
+
+// MARK: Readiness, trust (TK-018)
+
+@Test @MainActor
+func aDocumentOfAPackageHasItsServersReadinessAndAnObserverHearsOfChanges() async throws {
+    let rig = try Rig()
+    let a = rig.session(try rig.package("A"))
+    #expect(rig.services.readiness(for: a) == nil, "no server yet")
+    var heard = 0
+    let id = rig.services.subscribeToReadiness(for: a) { heard += 1 }
+    await rig.services.attach(a)
+    #expect(await rig.waitForServers(1))
+    #expect(rig.services.readiness(for: a)?.settings == .unknown)
+
+    let before = heard
+    rig.servers.made[0].notify("$/progress", ["token": "indexing.A", "value": ["kind": "begin", "title": "Indexing", "message": "1 / 2"]])
+    let deadline = ContinuousClock.now + .seconds(10)
+    while rig.services.readiness(for: a)?.reason == nil, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+    #expect(rig.services.readiness(for: a)?.reason == "Preparing package · 1 / 2")
+    #expect(heard > before)
+
+    rig.services.unsubscribeFromReadiness(id)
+    let after = heard
+    rig.servers.made[0].notify("$/progress", ["token": "indexing.A", "value": ["kind": "end"]])
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(heard == after, "an unsubscribed observer hears nothing")
+}
+
+@Test @MainActor
+func aDocumentWithNoProjectIsOnFallbackSettings() async throws {
+    let rig = try Rig()
+    let loose = rig.session("/nowhere/loose.swift", untitled: true)
+    await rig.services.attach(loose)
+    #expect(await rig.waitForServers(1))
+    #expect(rig.services.readiness(for: loose)?.settings == .fallback)
+    #expect(rig.services.readiness(for: loose)?.reason == "Using fallback settings")
+}
+
+@Test @MainActor
+func theTrustDecisionOfADocumentsProjectIsRecordedAndTheServerStartedAgain() async throws {
+    let store = MemoryProjectTrustStore()
+    let rig = try Rig(store: store)
+    let a = rig.session(try rig.package("A"))
+    await rig.services.attach(a)
+    #expect(await rig.waitForServers(1))
+    #expect(rig.services.trustDecision(for: a) == nil)
+
+    rig.services.setTrust(.granted, for: a)
+    #expect(await rig.waitForServers(2), "a new server is what the new decision is passed to")
+    #expect(rig.services.trustDecision(for: a) == .granted)
+    #expect(store.decision(forRoot: DocumentPath.canonical(rig.services.root(for: a).path)) == .granted)
+    #expect(await rig.servers.made[1].waitForMethod("textDocument/didOpen"), "the document is opened again")
+
+    rig.services.setTrust(nil, for: a)
+    #expect(rig.services.trustDecision(for: a) == nil, "revoked: the question will be asked again")
+}
+
+@Test @MainActor
+func theTrustOfAFolderWithNoProjectHasNothingToDecide() async throws {
+    let store = MemoryProjectTrustStore()
+    let rig = try Rig(store: store)
+    let loose = rig.session("/nowhere/loose.swift", untitled: true)
+    await rig.services.attach(loose)
+    rig.services.setTrust(.granted, for: loose)
+    #expect(store.decision(forRoot: DocumentPath.canonical(rig.scratch.path)) == nil)
+    #expect(rig.servers.count == 1, "nothing was restarted")
 }

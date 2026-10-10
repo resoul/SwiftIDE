@@ -45,11 +45,16 @@ public final class DiagnosticsPresenter: DiagnosticsPresenting {
         case .information, .hint: .systemGray
         }
 
-        switch mark.freshness {
-        case .verified: return base
-        case .unverified: return base.withAlphaComponent(0.7)
-        case .stale: return base.withAlphaComponent(0.4)
+        // Paler the less sure the place is; paler still when the server had only its default
+        // settings, which can blame the user's code for what the missing settings cause.
+        let alpha: CGFloat = switch mark.freshness {
+        case .verified: 1
+        case .unverified: 0.7
+        case .stale: 0.4
         }
+        let factor: CGFloat = mark.basis == .fallback ? 0.6 : 1
+
+        return alpha * factor == 1 ? base : base.withAlphaComponent(alpha * factor)
     }
 }
 

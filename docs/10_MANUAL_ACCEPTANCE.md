@@ -32,6 +32,8 @@ The user ran these items in a live window and reported them as working (2026-10-
 | G. File watching | G1–G7 | G8–G15 |
 | K. Swift completion | K1 | K2–K20 |
 | P. Description, jump, diagnostics | P21 | P1–P20, P22 |
+| Q. Readiness, progress, trust (TK-018) | | Q1–Q12 |
+| Q. Reusable workspace UI (TK-024, planned) | | Q13–Q14; repeat Q8 after extraction |
 
 Everything else in the sections B, C, H, I, K, M, N, O and P is still unchecked by hand; the earlier statements "not checked in a live window" stay true for those items.
 
@@ -296,6 +298,34 @@ Open the files `Fixtures/SwiftPMMixed/Sources/…` from the repository after `sw
 | P20 | Unverified diagnostics: type an error and quickly keep typing | The line is paler than usual at once (the server names no version), after the next edit paler still, after a new report it returns |
 | P21 ✅ | A Swift file, `struct S { let a: Int }` and below `S()` (an argument is missing) | The red wavy line is not under a single character but under a word or the whole line; a red dot in the line margin |
 | P22 | Rest the pointer on the red or yellow dot in the line-number margin, then move away | Under the line a window "error: …" (with several problems line by line, the worst first); it disappears when the pointer leaves, on an edit and on scrolling; on a line without a dot nothing appears |
+
+## Q. Readiness, progress and trust of the project configuration (TK-018, first slice, ADR-029)
+
+Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example under `~/Library/Caches`) so that the package is cold: `rm -rf <copy>/.build`. For the trust checks add `<copy>/.sourcekit-lsp/config.json` with `{"backgroundIndexing": false}`. The previous decisions are kept in the application's settings: forget one with Project ▸ Ask About Project Configuration Again.
+
+| № | Do | Expected |
+|---|---|---|
+| Q1 | Open `Sources/App/main.swift` of the cold copy (no `.sourcekit-lsp` folder) | No dialog. While the package is prepared the subtitle shows "Preparing package · n / m" (or "Reloading package") and then nothing |
+| Q2 | Add `let bad: Int = "text"` to `main.swift` right after opening, while the subtitle still says "Preparing package" | No underline and no counter while it prepares; when it has finished the error appears (a fresh report is asked for), without typing anything |
+| Q3 | Add the `.sourcekit-lsp/config.json` above, reopen the file | A dialog "Allow the project configuration?" with the buttons "Don't allow" (default, Return) and "Allow configuration" |
+| Q4 | Press "Don't allow" | The subtitle says "Project configuration disabled"; the package is still prepared and completion across modules still works (the configuration is ignored, the preparation is not stopped) |
+| Q5 | Close the window, open the file again | No dialog (the decision is kept); the subtitle still says "Project configuration disabled" |
+| Q6 | Project ▸ Allow Project Configuration | The server restarts (the subtitle shows "Language server restarting"/"starting"); no dialog; completion of a member of another module no longer works within a few seconds (indexing is off, as the configuration says); the menu item is checked |
+| Q7 | Project ▸ Ask About Project Configuration Again, then reopen the file | The dialog is asked again; the menu item is unchecked while undecided |
+| Q8 | Leave the dialog open and look at the window; switch to another open document window | The subtitle says "Waiting for your decision on the project configuration". The sheet blocks editing in its parent window; the other window and language-server message processing continue |
+| Q9 | A file outside any package (⌘O on `/tmp/small.swift`, or a new window) and a C file that includes a header from another folder | The subtitle says "Using fallback settings"; the errors of the missing header look paler and their description ends with "(using fallback settings)" |
+| Q10 | Project menu with a window of a loose file | The trust items are disabled (no project, nothing to decide) |
+| Q11 | While "Preparing package" shows, `pkill sourcekit-lsp` | The subtitle changes to "Language server restarting", then the new server prepares afresh; no stale "Preparing package · n / m" from the old one |
+| Q12 | Quit and start the application again, open the trusted copy | No dialog, the stored decision applies |
+
+### Additional acceptance after the UI extraction (TK-024, ADR-030)
+
+These are planned checks, not results for the currently implemented TK-018 slice. Repeat Q3–Q8 and Q12 after the extraction to confirm that the refusal default, wording, status and stored decisions are preserved.
+
+| № | Do | Expected |
+|---|---|---|
+| Q13 | Open two different project windows A and B, with no saved configuration decision for A. Keep B active while A raises the configuration question | The sheet belongs to A, names A and cannot apply a choice to B; B remains usable |
+| Q14 | Close the owning project window through its lifecycle while its configuration question is pending; reopen the project with no other window for it | The pending presentation is cancelled, no decision is stored and no automatic permission is granted; the question is asked on reopening |
 
 ## Known limitations that should not be taken for errors
 
