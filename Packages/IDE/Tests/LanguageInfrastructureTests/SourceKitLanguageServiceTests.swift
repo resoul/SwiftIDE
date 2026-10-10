@@ -749,3 +749,27 @@ func definitionAcceptsASingleLocationAndALocationLinkAndIgnoresWhatIsNotAFile() 
         #expect(await rig.definition() == expected, "\(answer)")
     }
 }
+
+// MARK: The toolchain's server
+
+@Test @MainActor
+func theServerIsStartedFromTheSourceKitLSPOfTheToolchainItIsGiven() async throws {
+    let marker = FileManager.default.temporaryDirectory.appendingPathComponent("started-\(UUID().uuidString)")
+    let script = FileManager.default.temporaryDirectory.appendingPathComponent("fake-lsp-\(UUID().uuidString).sh")
+    try "#!/bin/sh\ntouch '\(marker.path)'\nexec cat\n".write(to: script, atomically: true, encoding: .utf8)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+    defer {
+        try? FileManager.default.removeItem(at: marker)
+        try? FileManager.default.removeItem(at: script)
+    }
+    let service = SourceKitLanguageService(workspaceRoot: FileManager.default.temporaryDirectory)
+    service.toolchain = Toolchain(swift: "/x/swift", sourceKitLSP: script.path, version: "test")
+
+    let starting = Task { await service.start() }
+    let deadline = ContinuousClock.now + .seconds(60)
+    while !FileManager.default.fileExists(atPath: marker.path), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+    service.terminateNow()
+    starting.cancel()
+
+    #expect(FileManager.default.fileExists(atPath: marker.path), "the server of the toolchain was run, not the one `xcrun` finds")
+}

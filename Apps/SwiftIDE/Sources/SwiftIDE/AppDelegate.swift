@@ -35,6 +35,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Back in front: the selected Xcode, the language server's configuration files and the package
+    /// manifests may have changed meanwhile, and none of them tells (ADR-034).
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { await composition.languageServices.refreshEnvironment() }
+    }
+
     /// Leaving for the background is the moment a user may force-quit or lose power: the unsaved
     /// text is written now instead of waiting for the next pause in typing.
     func applicationDidResignActive(_ notification: Notification) {

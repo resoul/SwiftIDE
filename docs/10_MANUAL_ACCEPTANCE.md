@@ -300,7 +300,7 @@ Open the files `Fixtures/SwiftPMMixed/Sources/…` from the repository after `sw
 | P21 ✅ | A Swift file, `struct S { let a: Int }` and below `S()` (an argument is missing) | The red wavy line is not under a single character but under a word or the whole line; a red dot in the line margin |
 | P22 | Rest the pointer on the red or yellow dot in the line-number margin, then move away | Under the line a window "error: …" (with several problems line by line, the worst first); it disappears when the pointer leaves, on an edit and on scrolling; on a line without a dot nothing appears |
 
-## Q. Readiness, progress, trust, opened folders and targets (TK-018, slices 1–3, ADR-029, ADR-030, ADR-031)
+## Q. Readiness, progress, trust, opened folders and targets (TK-018, slices 1–4, ADR-029, ADR-032, ADR-033, ADR-034)
 
 Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example under `~/Library/Caches`) so that the package is cold: `rm -rf <copy>/.build`. For the trust checks add `<copy>/.sourcekit-lsp/config.json` with `{"backgroundIndexing": false}`. The previous decisions are kept in the application's settings: forget one with Project ▸ Ask About Project Configuration Again.
 
@@ -325,12 +325,20 @@ Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example unde
 | Q17 | Open a folder that holds a package nested inside another structure (for example a `MODULE.bazel` at the top and a package below) | The file is served from the opened folder, not from the nested package (the server's root is the folder) |
 | Q18 | A C file in a package that lies under `~/Library/Caches` or in your home folder, then the same under `/tmp` | The subtitle shows "temporary folder: C-family flags may be missing" only for the one under `/tmp` (and not for a Swift file there) |
 | Q19 | Open the same folder twice | Nothing changes, no restart |
-| Q20 | Open `Sources/App/main.swift` of a package | Within a few seconds the subtitle adds "Target: App"; nothing is shown before |
-| Q21 | Open a file of the test target (`Tests/LibTests/GreeterTests.swift`) and a header of a C target (`Sources/CLib/include/clib.h`, in `Fixtures/SwiftPMMixed`) | "Target: LibTests"; "Target: CLib" |
-| Q22 | Open a loose file outside any package; a new Untitled window; then Save As the Untitled one into `Sources/App/` | No target for the first two; after Save As, "Target: App" (by the folder, though the file is not yet in the manifest's list) |
+| Q20 | Open `Sources/App/main.swift` of a package | Within a few seconds the subtitle adds "Target: App" (the package lists the file, so no qualifier); nothing is shown before |
+| Q21 | Open a file of the test target (`Tests/LibTests/GreeterTests.swift`) and a header of a C target (`Sources/CLib/include/clib.h`, in `Fixtures/SwiftPMMixed`) | "Target: LibTests"; "Target: CLib (inferred)" (a header is not in the package's list of sources) |
+| Q22 | Open a loose file outside any package; a new Untitled window; then Save As the Untitled one into `Sources/App/` | No target for the first two; after Save As, "Target: App (inferred)" (by the folder, the file is not yet in the manifest's list) |
 | Q23 | Rename a target in `Package.swift` (and the folder), save it | After a moment the subtitle of the open files shows the new target name |
 | Q24 | Break `Package.swift` (a syntax error), save, then open another file of that package | No error dialog and no crash; the target is not shown; the rest works as before |
 | Q25 | Open a package that has never been built and look at its folder (`ls -a`) right after the first window | The describing did not create `.build` by itself (the server's own preparation does; look only for `.build/arm64-…` appearing without it, which it does not) |
+| Q26 | A package with two targets sharing one folder (`.target(name: "A", path: "Sources/Shared", sources: ["A.swift"])` and the same for `B`); open `A.swift`, `B.swift`, then add `C.swift` to that folder and open it | "Target: A", "Target: B", and for `C.swift` "Target: ambiguous (A, B)" (no chooser yet) |
+| Q27 | In a target's folder add `Skip/S.swift` and put `exclude: ["Skip"]` in the manifest; save the manifest, open `Skip/S.swift` | "Target: App (inferred)": the exclusion is not reported by SwiftPM, so the guess is shown as a guess |
+| Q28 | With "Target: App" showing, break `Package.swift` (syntax error) and save it in the application | After a moment the target disappears from the subtitle (it does not stay as if the old manifest still held); mend the manifest, save: it returns |
+| Q29 | Add `.sourcekit-lsp/config.json` with `{"swiftPM": {"configuration": "release"}}` to a trusted project (Project ▸ Allow) and save it in the application | The language server restarts once (subtitle "Language server restarting/starting"); the target is shown again after a moment. `ls <copy>/.build/index-build/*/` shows a `release` folder after the preparation. Without trust ("Don't allow") the same file leaves the preparation in `debug` |
+| Q30 | Change the same file with another editor while the application is in the background, then switch back to it | The server restarts once on activation; nothing happens on activating when nothing changed |
+| Q31 | Edit `Package.swift` with another editor (rename a target), switch back to the application | The subtitle shows the new target name after a moment, without saving anything in the application |
+| Q32 | `sudo xcode-select -s` another Xcode (if you have two), switch back to the application | The server restarts with the other toolchain; the open files keep working. Skip if there is one Xcode |
+| Q33 | With the application running, `ps aux \| grep -E "sourcekit-lsp\|swift-package"` | The server and the description are of the same Xcode as `xcrun --find sourcekit-lsp` / `swift` print |
 
 ### Additional acceptance after the UI extraction (TK-024, ADR-030)
 

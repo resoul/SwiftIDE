@@ -92,7 +92,10 @@ public final class SourceKitLanguageService: CompletionProviding {
     public var onDiagnostics: (@MainActor (DocumentSession) -> Void)?
 
     private let root: URL
-    private let channelFactory: ChannelFactory
+    private let channelFactory: ChannelFactory?
+    /// The toolchain whose `sourcekit-lsp` is run (the next start uses a changed one). Without it, and
+    /// without a channel factory, the `sourcekit-lsp` of the selected Xcode is looked for at each start.
+    public var toolchain: Toolchain?
     private let restartPolicy: RestartPolicy
     private let clock: any DelayClock
     private var connection: LanguageServerConnection?
@@ -113,6 +116,10 @@ public final class SourceKitLanguageService: CompletionProviding {
     private static let log = Logger(subsystem: "SwiftIDE", category: "language-diagnostics")
     private var progress = ProgressTracker()
     private var trust: ConfigurationTrust = .undecided
+    /// What the server was answered about the project's configuration, or the stored decision before it asks.
+    public var configurationTrust: ConfigurationTrust { trust }
+    /// The answer to the server's question changed: what it obeys of the project's files has.
+    public var onTrustChange: (@MainActor () -> Void)?
     private var isAskingForTrust = false
     /// Where the user's decision about the project's configuration is kept. Set by whoever owns the
     /// application's settings; a service without one refuses the configuration and keeps nothing.
@@ -132,7 +139,7 @@ public final class SourceKitLanguageService: CompletionProviding {
         clock: any DelayClock = SystemDelayClock(),
         trustStore: (any ProjectTrustStore)? = nil,
         trustPrompt: TrustPrompt? = nil,
-        channelFactory: @escaping ChannelFactory = SourceKitLanguageService.sourceKitLSP
+        channelFactory: ChannelFactory? = nil
     ) {
         root = workspaceRoot
         self.sync = sync
@@ -154,7 +161,12 @@ public final class SourceKitLanguageService: CompletionProviding {
     }
 
     /// The `sourcekit-lsp` of the selected Xcode.
-    public nonisolated static let sourceKitLSP: ChannelFactory = {
+    public nonisolated static let sourceKitLSP: ChannelFactory = { try sourceKitLSPChannel(path: nil) }
+
+    /// A channel to `sourcekit-lsp` at `path`, or to the one `xcrun` finds.
+    nonisolated static func sourceKitLSPChannel(path: String?) throws -> any LSPChannel {
+        if let path { return try ProcessChannel(executable: URL(fileURLWithPath: path)) }
+
         let finder = Process()
         finder.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
         finder.arguments = ["--find", "sourcekit-lsp"]
@@ -163,11 +175,11 @@ public final class SourceKitLanguageService: CompletionProviding {
         finder.standardError = FileHandle.nullDevice
         try finder.run()
         finder.waitUntilExit()
-        let path = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        let found = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard finder.terminationStatus == 0, !path.isEmpty else { throw LSPError.notRunning }
+        guard finder.terminationStatus == 0, !found.isEmpty else { throw LSPError.notRunning }
 
-        return try ProcessChannel(executable: URL(fileURLWithPath: path))
+        return try ProcessChannel(executable: URL(fileURLWithPath: found))
     }
 
     // MARK: Starting and restarting
@@ -223,7 +235,7 @@ public final class SourceKitLanguageService: CompletionProviding {
         forgetWork()
         state = attempt == 0 ? .starting : .restarting(attempt: attempt)
         do {
-            let channel = try await channelFactory()
+            let channel = if let channelFactory { try await channelFactory() } else { try Self.sourceKitLSPChannel(path: toolchain?.sourceKitLSP) }
             let connection = LanguageServerConnection(
                 channel: channel,
                 onNotification: { [weak self] method, params in
@@ -850,7 +862,8 @@ public final class SourceKitLanguageService: CompletionProviding {
         }
 
         isAskingForTrust = true
-        refreshReadiness()
+        // Until the user answers, the server has not been answered either.
+        setTrust(nil)
         let decision = await trustPrompt(root.lastPathComponent, root)
         isAskingForTrust = false
         trustStore?.record(decision, forRoot: key)
@@ -859,8 +872,14 @@ public final class SourceKitLanguageService: CompletionProviding {
         return decision
     }
 
-    private func setTrust(_ decision: TrustDecision) {
-        trust = decision == .granted ? .granted : .refused
+    private func setTrust(_ decision: TrustDecision?) {
+        let before = trust
+        trust = switch decision {
+        case .granted?: .granted
+        case .refused?: .refused
+        case nil: .undecided
+        }
         refreshReadiness()
+        if trust != before { onTrustChange?() }
     }
 }

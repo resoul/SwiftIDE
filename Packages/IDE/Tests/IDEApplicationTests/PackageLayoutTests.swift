@@ -32,17 +32,17 @@ func theTargetsOfAPackageAreReadFromWhatDescribeGives() throws {
 @Test
 func aFileListedInATargetBelongsToThatTarget() throws {
     let l = try layout()
-    #expect(l.membership(of: "/w/pkg/Sources/Lib/Greeter.swift") == .one(l.targets[1]))
-    #expect(l.membership(of: "/w/pkg/Tests/LibTests/GreeterTests.swift") == .one(l.targets[0]))
-    #expect(l.membership(of: "/w/pkg/Sources/App/main.swift") == .one(l.targets[2]))
+    #expect(l.membership(of: "/w/pkg/Sources/Lib/Greeter.swift") == .one(l.targets[1], .listed))
+    #expect(l.membership(of: "/w/pkg/Tests/LibTests/GreeterTests.swift") == .one(l.targets[0], .listed))
+    #expect(l.membership(of: "/w/pkg/Sources/App/main.swift") == .one(l.targets[2], .listed))
 }
 
 @Test
 func aFileNotYetListedButInsideATargetsFolderBelongsToItByItsPlace() throws {
     let l = try layout()
     // A file made after describe ran, and a header: neither is in `sources`.
-    #expect(l.membership(of: "/w/pkg/Sources/Lib/New.swift") == .one(l.targets[1]))
-    #expect(l.membership(of: "/w/pkg/Sources/CLib/include/clib.h") == .one(l.targets[3]))
+    #expect(l.membership(of: "/w/pkg/Sources/Lib/New.swift") == .one(l.targets[1], .inferred))
+    #expect(l.membership(of: "/w/pkg/Sources/CLib/include/clib.h") == .one(l.targets[3], .inferred))
 }
 
 @Test
@@ -67,9 +67,9 @@ func theInnermostTargetFolderWinsForAnUnlistedFile() throws {
       { "name": "Inner", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Outer/Inner", "sources": ["b.swift"] }
     ] }
     """)
-    #expect(nested.membership(of: "/w/pkg/Sources/Outer/Inner/new.swift") == .one(nested.targets[1]))
-    #expect(nested.membership(of: "/w/pkg/Sources/Outer/other.swift") == .one(nested.targets[0]))
-    #expect(nested.membership(of: "/w/pkg/Sources/Outer/Inner/b.swift") == .one(nested.targets[1]))
+    #expect(nested.membership(of: "/w/pkg/Sources/Outer/Inner/new.swift") == .one(nested.targets[1], .inferred))
+    #expect(nested.membership(of: "/w/pkg/Sources/Outer/other.swift") == .one(nested.targets[0], .inferred))
+    #expect(nested.membership(of: "/w/pkg/Sources/Outer/Inner/b.swift") == .one(nested.targets[1], .listed))
 }
 
 @Test
@@ -80,7 +80,7 @@ func aFileListedInTwoTargetsIsAmbiguousAndSaysWhichTwo() throws {
       { "name": "B", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Shared", "sources": ["x.swift"] }
     ] }
     """)
-    guard case .several(let candidates) = two.membership(of: "/w/pkg/Sources/Shared/x.swift") else {
+    guard case .several(let candidates, _) = two.membership(of: "/w/pkg/Sources/Shared/x.swift") else {
         Issue.record("expected an ambiguous membership")
 
         return
@@ -103,7 +103,7 @@ func twoTargetsWithTheSameFolderAreAmbiguousForAnUnlistedFileToo() throws {
         return
     }
 
-    #expect(two.membership(of: "/w/pkg/Sources/Shared/a.swift") == .one(two.targets[0]), "a listed file settles it")
+    #expect(two.membership(of: "/w/pkg/Sources/Shared/a.swift") == .one(two.targets[0], .listed), "a listed file settles it")
 }
 
 @Test
@@ -112,7 +112,7 @@ func aTargetWithNoSourcesListStillHoldsItsFolder() throws {
     { "targets": [ { "name": "Plugin", "type": "plugin", "module_type": "PluginTarget", "path": "Plugins/P" } ] }
     """)
     #expect(l.targets[0].kind == .other)
-    #expect(l.membership(of: "/w/pkg/Plugins/P/plugin.swift") == .one(l.targets[0]))
+    #expect(l.membership(of: "/w/pkg/Plugins/P/plugin.swift") == .one(l.targets[0], .inferred))
 }
 
 @Test
@@ -131,6 +131,46 @@ func theLayoutOfAPackageWithNoTargetsIsEmptyNotAnError() throws {
 @Test
 func theSubtitleNamesTheTargetAndSaysWhenItIsAmbiguous() {
     #expect(TargetNote.text(names: []) == nil, "nothing is said while it is unknown")
-    #expect(TargetNote.text(names: ["App"]) == "Target: App")
-    #expect(TargetNote.text(names: ["A", "B"]) == "Target: ambiguous (A, B)")
+    #expect(TargetNote.text(names: ["App"], basis: .listed) == "Target: App")
+    #expect(TargetNote.text(names: ["A", "B"], basis: .inferred) == "Target: ambiguous (A, B)")
+}
+
+@Test
+func aTargetGuessedFromTheFilesPlaceIsSaidToBeInferred() {
+    #expect(TargetNote.text(names: ["App"], basis: .inferred) == "Target: App (inferred)")
+    #expect(TargetNote.text(names: ["App"], basis: .listed) == "Target: App", "a listed file is a fact and carries no qualifier")
+}
+
+@Test
+func aFileThePackageListsIsListedAndOneItDoesNotIsInferred() throws {
+    let l = try layout()
+    #expect(l.membership(of: "/w/pkg/Sources/Lib/Greeter.swift").basis == .listed)
+    #expect(l.membership(of: "/w/pkg/Sources/Lib/New.swift").basis == .inferred)
+    #expect(l.membership(of: "/w/pkg/README.md").basis == nil, "no target, nothing to qualify")
+}
+
+/// Checked with the real `swift package describe` (Xcode 27.0): SwiftPM accepts two targets in one
+/// folder when each lists its own sources, so an ambiguous file does occur in a package.
+@Test
+func twoTargetsSharingAFolderWithExplicitSourcesAreAmbiguousForAFileNeitherLists() throws {
+    let shared = try layout("""
+    { "targets": [
+      { "name": "A", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Shared", "sources": ["A.swift"] },
+      { "name": "B", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Shared", "sources": ["B.swift"] }
+    ] }
+    """)
+    #expect(shared.membership(of: "/w/pkg/Sources/Shared/A.swift") == .one(shared.targets[0], .listed))
+    #expect(shared.membership(of: "/w/pkg/Sources/Shared/B.swift") == .one(shared.targets[1], .listed))
+    let other = shared.membership(of: "/w/pkg/Sources/Shared/C.swift")
+    #expect(other.names == ["A", "B"] && other.basis == .inferred)
+}
+
+/// `swift package describe` does not report `exclude`: a file the manifest leaves out looks like any
+/// unlisted file in the folder, which is why such a target is only inferred.
+@Test
+func aFileTheManifestExcludesIsStillOnlyInferredToBeInTheTargetsFolder() throws {
+    let l = try layout("""
+    { "targets": [ { "name": "App", "type": "executable", "module_type": "SwiftTarget", "path": "Sources/App", "sources": ["main.swift"] } ] }
+    """)
+    #expect(l.membership(of: "/w/pkg/Sources/App/Skip/S.swift") == .one(l.targets[0], .inferred))
 }

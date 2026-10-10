@@ -275,3 +275,84 @@ func aLayoutBelongsToItsRootAndNotToAnother() throws {
     #expect(contexts.context(forFile: a + "/Sources/App/main.swift")?.target == "App")
     #expect(contexts.context(forFile: b + "/Sources/App/main.swift")?.target == nil)
 }
+
+@MainActor @Test
+func aContextCarriesHowItsTargetWasSettled() throws {
+    let tree = try Tree()
+    let root = try tree.make("pkg", marker: "Package.swift")
+    try tree.make("pkg/Sources/App", file: "main.swift")
+    let contexts = ProjectContexts()
+    contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
+
+    #expect(contexts.context(forFile: root + "/Sources/App/main.swift")?.targetBasis == .listed)
+    #expect(contexts.context(forFile: root + "/Sources/App/new.swift")?.targetBasis == .inferred)
+    #expect(contexts.context(forFile: root + "/Package.swift")?.targetBasis == nil)
+}
+
+// MARK: Toolchain and configuration in the context
+
+private let toolchain = Toolchain(swift: "/x/swift", sourceKitLSP: "/x/sourcekit-lsp", version: "Swift 6.4")
+
+@MainActor @Test
+func aContextKnowsNothingOfItsToolsUntilTheyAreSet() throws {
+    let tree = try Tree()
+    let root = try tree.make("pkg", marker: "Package.swift")
+    let contexts = ProjectContexts()
+    let context = try #require(contexts.context(forFile: root + "/Sources/a.swift"))
+
+    #expect(context.environment == ProjectEnvironment() && context.environment.toolchain == nil && context.environment.configuration == .unknown)
+}
+
+@MainActor @Test
+func theEnvironmentIsKeptPerRootAndShownInTheContextsOfItsFiles() throws {
+    let tree = try Tree()
+    let a = try tree.make("a", marker: "Package.swift")
+    let b = try tree.make("b", marker: "Package.swift")
+    let contexts = ProjectContexts()
+    let environment = ProjectEnvironment(toolchain: toolchain, configuration: .selected("release"))
+    contexts.setEnvironment(environment, forRoot: a)
+
+    #expect(contexts.context(forFile: a + "/Sources/x.swift")?.environment == environment)
+    #expect(contexts.context(forFile: b + "/Sources/x.swift")?.environment == ProjectEnvironment())
+    #expect(contexts.environment(forRoot: a) == environment && contexts.environment(forRoot: b) == nil)
+}
+
+@MainActor @Test
+func aChangedEnvironmentIsANewRevisionAndAnUnchangedOneIsNot() throws {
+    let tree = try Tree()
+    let root = try tree.make("pkg", marker: "Package.swift")
+    let contexts = ProjectContexts()
+    var heard = 0
+    contexts.subscribe { heard += 1 }
+    let release = ProjectEnvironment(toolchain: toolchain, configuration: .selected("release"))
+
+    contexts.setEnvironment(release, forRoot: root)
+    let revision = contexts.revision
+    contexts.setEnvironment(release, forRoot: root)
+    #expect(contexts.revision == revision && heard == 1, "the same environment again changes nothing")
+
+    contexts.setEnvironment(ProjectEnvironment(toolchain: toolchain, configuration: .inherited("debug")), forRoot: root)
+    #expect(contexts.revision == revision + 1 && heard == 2, "another configuration makes another context")
+    let other = Toolchain(swift: "/y/swift", sourceKitLSP: "/y/sourcekit-lsp", version: "Swift 6.5")
+    contexts.setEnvironment(ProjectEnvironment(toolchain: other, configuration: .inherited("debug")), forRoot: root)
+    #expect(contexts.revision == revision + 2, "another toolchain makes another context")
+}
+
+@MainActor @Test
+func aChangedEnvironmentDropsTheLayoutAnUnchangedOneKeepsIt() throws {
+    let tree = try Tree()
+    let root = try tree.make("pkg", marker: "Package.swift")
+    let contexts = ProjectContexts()
+    let first = ProjectEnvironment(toolchain: toolchain, configuration: .inherited("debug"))
+    contexts.setEnvironment(first, forRoot: root)
+    contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
+
+    contexts.setEnvironment(first, forRoot: root)
+    #expect(contexts.layout(forRoot: root) != nil, "nothing changed: the layout is still the answer")
+    contexts.setEnvironment(ProjectEnvironment(toolchain: toolchain, configuration: .selected("release")), forRoot: root)
+    #expect(contexts.layout(forRoot: root) == nil, "made under another configuration: asked for again")
+
+    contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
+    contexts.setEnvironment(ProjectEnvironment(toolchain: Toolchain(swift: "/y/swift", sourceKitLSP: "/y/s", version: "6.5"), configuration: .selected("release")), forRoot: root)
+    #expect(contexts.layout(forRoot: root) == nil, "made by another toolchain: asked for again")
+}

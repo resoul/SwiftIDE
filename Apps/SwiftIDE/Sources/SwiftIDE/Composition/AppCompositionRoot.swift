@@ -35,6 +35,7 @@ final class AppCompositionRoot {
         let services = LanguageServices(scratchRoot: AppCompositionRoot.languageScratchDirectory, languages: languages, trustStore: projectTrust)
         services.trustPrompt = { name, _ in await ProjectTrustDialog.ask(projectName: name) }
         services.describer = SwiftPackageDescriber(scratchDirectory: AppCompositionRoot.packageLayoutDirectory)
+        services.toolchainResolver = XcodeToolchainResolver()
 
         return services
     }()

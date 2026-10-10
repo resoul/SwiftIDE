@@ -21,19 +21,37 @@ public struct PackageTarget: Equatable, Sendable {
     }
 }
 
+/// How a file's target was settled.
+public enum MembershipBasis: Equatable, Sendable {
+    /// The package lists the file among the sources of the target.
+    case listed
+    /// The package does not list the file (made since, a header, or left out by the manifest's own
+    /// `exclude`, which `swift package describe` does not report), so the target is the one whose
+    /// folder holds it. A guess about the place, not a fact about the build.
+    case inferred
+}
+
 /// Which target a file belongs to.
 public enum TargetMembership: Equatable, Sendable {
     case none
-    case one(PackageTarget)
-    /// More than one target claims the file. SwiftPM refuses overlapping sources, so a package does not
-    /// give this; a build system that can (Xcode) will, and the user then chooses.
-    case several([PackageTarget])
+    case one(PackageTarget, MembershipBasis)
+    /// More than one target claims the file. SwiftPM accepts targets that share a folder when each
+    /// lists its own sources, so a file of that folder that neither lists is claimed by both (and
+    /// build systems other than SwiftPM can claim a file twice outright); the user then chooses.
+    case several([PackageTarget], MembershipBasis)
 
     public var names: [String] {
         switch self {
         case .none: []
-        case .one(let target): [target.name]
-        case .several(let targets): targets.map(\.name)
+        case .one(let target, _): [target.name]
+        case .several(let targets, _): targets.map(\.name)
+        }
+    }
+
+    public var basis: MembershipBasis? {
+        switch self {
+        case .none: nil
+        case .one(_, let basis), .several(_, let basis): basis
         }
     }
 }
@@ -91,30 +109,35 @@ public struct PackageLayout: Equatable, Sendable {
         }
 
         let listed = targets.filter { target in relative(to: target.directory).map(target.sources.contains) ?? false }
-        if !listed.isEmpty { return Self.membership(of: listed) }
+        if !listed.isEmpty { return Self.membership(of: listed, .listed) }
 
         let holding = targets.filter { relative(to: $0.directory) != nil }
         guard let deepest = holding.map({ $0.directory.count }).max() else { return .none }
 
-        return Self.membership(of: holding.filter { $0.directory.count == deepest })
+        return Self.membership(of: holding.filter { $0.directory.count == deepest }, .inferred)
     }
 
-    private static func membership(of targets: [PackageTarget]) -> TargetMembership {
-        targets.count == 1 ? .one(targets[0]) : .several(targets)
+    private static func membership(of targets: [PackageTarget], _ basis: MembershipBasis) -> TargetMembership {
+        targets.count == 1 ? .one(targets[0], basis) : .several(targets, basis)
     }
 }
 
 /// Asks a package for its layout. The implementation runs a process, so it is async and bounded.
 public protocol PackageDescribing: Sendable {
-    func describe(root: String) async throws -> PackageLayout
+    /// With the `swift` of `toolchain` when there is one.
+    func describe(root: String, toolchain: Toolchain?) async throws -> PackageLayout
+}
+
+public extension PackageDescribing {
+    func describe(root: String) async throws -> PackageLayout { try await describe(root: root, toolchain: nil) }
 }
 
 /// The words about a file's target for the window subtitle.
 public enum TargetNote {
-    public static func text(names: [String]) -> String? {
+    public static func text(names: [String], basis: MembershipBasis? = .listed) -> String? {
         switch names.count {
         case 0: nil
-        case 1: "Target: \(names[0])"
+        case 1: basis == .inferred ? "Target: \(names[0]) (inferred)" : "Target: \(names[0])"
         default: "Target: ambiguous (\(names.joined(separator: ", ")))"
         }
     }

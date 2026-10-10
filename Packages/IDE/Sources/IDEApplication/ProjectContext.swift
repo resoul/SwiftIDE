@@ -8,7 +8,8 @@ public enum BuildSystem: String, Sendable, Equatable {
 
 /// The project a document belongs to: where its root is, what builds it, and the revision of the
 /// set of opened folders it was made at, so that a consumer can tell that the context it holds is
-/// not the current one. (The target, configuration and toolchain join it with the target choice.)
+/// not the current one. It also holds the target of the file, the toolchain and the build
+/// configuration, which a change of makes an earlier answer stale (ADR-034).
 public struct ProjectContext: Equatable, Sendable {
     public let root: String
     public let buildSystem: BuildSystem
@@ -18,6 +19,11 @@ public struct ProjectContext: Equatable, Sendable {
     /// The names of the targets that hold the file: none while the package's layout is unknown (or
     /// when no target does), one normally, more than one when the file is ambiguous.
     public let targetNames: [String]
+    /// Whether the package lists the file or the target is a guess from the file's place; nil with no target.
+    public let targetBasis: MembershipBasis?
+    /// The tools and the build configuration the project's server is run with; unknown until a
+    /// server for the project has started.
+    public let environment: ProjectEnvironment
 
     /// The file's target when it is settled.
     public var target: String? { targetNames.count == 1 ? targetNames[0] : nil }
@@ -32,6 +38,7 @@ public final class ProjectContexts {
     public private(set) var revision = 0
     private var observers: [UUID: @MainActor () -> Void] = [:]
     private var layouts: [String: PackageLayout] = [:]
+    private var environments: [String: ProjectEnvironment] = [:]
 
     public init() {}
 
@@ -46,6 +53,22 @@ public final class ProjectContexts {
         guard layouts[canonical] != layout else { return }
 
         layouts[canonical] = layout
+        changed()
+    }
+
+    // MARK: Environment
+
+    public func environment(forRoot root: String) -> ProjectEnvironment? { environments[DocumentPath.canonical(root)] }
+
+    /// Keeps the tools and the build configuration the project at `root` is served with. A change
+    /// is a new revision, and drops the package's layout: what it says of the targets was made by
+    /// the earlier tools and under the earlier configuration, and is asked for again.
+    public func setEnvironment(_ environment: ProjectEnvironment, forRoot root: String) {
+        let canonical = DocumentPath.canonical(root)
+        guard environments[canonical] != environment else { return }
+
+        environments[canonical] = environment
+        layouts[canonical] = nil
         changed()
     }
 
@@ -92,23 +115,25 @@ public final class ProjectContexts {
         let file = DocumentPath.canonical(path)
         let holding = openedFolders.filter { file.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") }
         if let root = holding.max(by: { $0.count < $1.count }) {
-            return ProjectContext(
-                root: root,
-                buildSystem: Self.buildSystem(ofFolder: root),
-                isExplicit: true,
-                revision: revision,
-                targetNames: layouts[root]?.membership(of: file).names ?? []
-            )
+            return makeContext(root: root, buildSystem: Self.buildSystem(ofFolder: root), isExplicit: true, file: file)
         }
 
         guard let package = PackageRootLocator.root(forFile: file) else { return nil }
 
+        return makeContext(root: package.path, buildSystem: .swiftPM, isExplicit: false, file: file)
+    }
+
+    private func makeContext(root: String, buildSystem: BuildSystem, isExplicit: Bool, file: String) -> ProjectContext {
+        let membership = layouts[root]?.membership(of: file) ?? .none
+
         return ProjectContext(
-            root: package.path,
-            buildSystem: .swiftPM,
-            isExplicit: false,
+            root: root,
+            buildSystem: buildSystem,
+            isExplicit: isExplicit,
             revision: revision,
-            targetNames: layouts[package.path]?.membership(of: file).names ?? []
+            targetNames: membership.names,
+            targetBasis: membership.basis,
+            environment: environments[root] ?? ProjectEnvironment()
         )
     }
 

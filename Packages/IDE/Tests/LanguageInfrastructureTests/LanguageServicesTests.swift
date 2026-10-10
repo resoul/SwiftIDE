@@ -29,6 +29,8 @@ private final class Rig {
     let clock = ManualDelayClock()
 
     let contexts = ProjectContexts()
+    /// What SourceKit-LSP's configuration files say; empty unless a test sets it.
+    let configuration = FakeConfigurationFiles()
 
     init(store: (any ProjectTrustStore)? = nil) throws {
         base = FileManager.default.temporaryDirectory.appendingPathComponent("services-\(UUID().uuidString)", isDirectory: true).standardizedFileURL
@@ -42,6 +44,7 @@ private final class Rig {
                 channelFactory: { servers.next() }
             )
         }
+        services.configurationFiles = configuration
     }
 
     /// A package folder with a source file; returns the path of the file.
@@ -592,19 +595,65 @@ func anOpenedFolderWithAPackageBelowItIsNotCalledFallbackBecauseTheServerFindsTh
 private final class FakeDescriber: PackageDescribing, @unchecked Sendable {
     private let lock = NSLock()
     private var asked: [String] = []
+    private var toolchainsAsked: [Toolchain?] = []
     var layout: @Sendable (String) -> PackageLayout? = { root in
         PackageLayout(targets: [PackageTarget(name: "App", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])])
     }
 
-    var calls: [String] { lock.withLock { asked } }
+    /// Called with the number of the call (from 1) before it answers; may hold the answer back.
+    var beforeAnswering: (@Sendable (Int) async -> Void)?
 
-    func describe(root: String) async throws -> PackageLayout {
-        lock.withLock { asked.append(root) }
-        guard let result = layout(root) else { throw SwiftPackageDescriber.Failure.failed("no layout") }
+    var calls: [String] { lock.withLock { asked } }
+    var toolchains: [Toolchain?] { lock.withLock { toolchainsAsked } }
+
+    func describe(root: String, toolchain: Toolchain?) async throws -> PackageLayout {
+        let number = lock.withLock { () -> Int in
+            asked.append(root)
+            toolchainsAsked.append(toolchain)
+
+            return asked.count
+        }
+        let result = layout(root)
+        await beforeAnswering?(number)
+        guard let result else { throw SwiftPackageDescriber.Failure.failed("no layout") }
 
         return result
     }
 }
+
+private final class FakeConfigurationFiles: ConfigurationFileReading, @unchecked Sendable {
+    private let lock = NSLock()
+    private var project: [String: ConfigurationFile] = [:]
+    private var user: [ConfigurationFile] = []
+
+    func setProject(_ file: ConfigurationFile, root: String) { lock.withLock { project[DocumentPath.canonical(root)] = file } }
+    func setUser(_ files: [ConfigurationFile]) { lock.withLock { user = files } }
+
+    func projectFile(root: String) -> ConfigurationFile { lock.withLock { project[DocumentPath.canonical(root)] ?? .absent } }
+    func userFiles() -> [ConfigurationFile] { lock.withLock { user } }
+}
+
+private final class FakeToolchainResolver: ToolchainResolving, @unchecked Sendable {
+    private let lock = NSLock()
+    private var found: Toolchain?
+    private var asked = 0
+
+    init(_ found: Toolchain?) { self.found = found }
+
+    var toolchain: Toolchain? {
+        get { lock.withLock { found } }
+        set { lock.withLock { found = newValue } }
+    }
+
+    var calls: Int { lock.withLock { asked } }
+
+    func resolve() async -> Toolchain? {
+        lock.withLock { asked += 1; return found }
+    }
+}
+
+private let xcode27 = Toolchain(swift: "/X27/swift", sourceKitLSP: "/X27/sourcekit-lsp", version: "Swift 6.4")
+private let xcode28 = Toolchain(swift: "/X28/swift", sourceKitLSP: "/X28/sourcekit-lsp", version: "Swift 6.5")
 
 @MainActor
 private func waitUntil(_ condition: () -> Bool) async -> Bool {
@@ -762,4 +811,307 @@ func aPackageClosedAndOpenedAgainKeepsItsLayoutAndIsNotDescribedAgain() async th
 
     #expect(describer.calls.count == 1, "what was learnt of the package is kept")
     #expect(rig.services.targetNames(for: again) == ["App"])
+}
+
+// MARK: A failed or stale description, the toolchain and the configuration (TK-018)
+
+@MainActor
+private func environment(_ rig: Rig, _ name: String = "A") -> ProjectEnvironment? {
+    rig.contexts.environment(forRoot: rig.base.appendingPathComponent(name).path)
+}
+
+/// A package whose source file and `Package.swift` are both open; saving the manifest is what the
+/// returned closure does.
+@MainActor
+private func openedPackageWithManifest(
+    _ rig: Rig,
+    name: String = "A"
+) async throws -> (source: DocumentSession, saveManifest: () async throws -> Void) {
+    let source = try rig.package(name)
+    let manifestPath = rig.base.appendingPathComponent("\(name)/Package.swift").path
+    let files = MemoryDocumentFileStore(contents: [manifestPath: "// package\n"])
+    let open = OpenDocumentUseCase(store: files, registry: DocumentRegistry()) { file in
+        DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
+    }
+    let manifest = try await open.execute(path: manifestPath).session
+    let sourceSession = rig.session(source)
+    await rig.services.attach(sourceSession)
+    await rig.services.attach(manifest)
+    var edits = 0
+
+    return (sourceSession, {
+        edits += 1
+        try manifest.replaceText("// package, edit \(edits)\n", expectedVersion: manifest.version)
+        _ = try await SaveDocumentUseCase(store: files).execute(document: manifest)
+    })
+}
+
+@Test @MainActor
+func aFailedDescriptionAfterASuccessfulOneDoesNotKeepTheOldTarget() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let (source, saveManifest) = try await openedPackageWithManifest(rig)
+    #expect(await waitUntil { rig.services.targetNames(for: source) == ["App"] })
+
+    describer.layout = { _ in nil }    // the manifest is broken now
+    try await saveManifest()
+
+    #expect(await waitUntil { describer.calls.count == 2 })
+    #expect(await waitUntil { rig.services.targetNames(for: source).isEmpty }, "the target of the earlier manifest is not the target now")
+    #expect(rig.services.projectContext(for: source)?.targetBasis == nil)
+    #expect(rig.services.layoutLog.contains { $0.contains("failed") })
+
+    describer.layout = { root in PackageLayout(targets: [PackageTarget(name: "App", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])]) }
+    try await saveManifest()
+    #expect(await waitUntil { rig.services.targetNames(for: source) == ["App"] }, "mended: known again")
+}
+
+@Test @MainActor
+func aFailureOfAnOlderQuestionDoesNotEraseTheAnswerToANewerOne() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    describer.layout = { _ in nil }                      // the first question will fail, late
+    describer.beforeAnswering = { number in
+        // Not cancellable: the old question answers after the new one, as a process that is slow to end would.
+        if number == 1 { await Task.detached { try? await Task.sleep(for: .milliseconds(300)) }.value }
+    }
+    rig.services.describer = describer
+    let (source, saveManifest) = try await openedPackageWithManifest(rig)
+    #expect(await waitUntil { describer.calls.count == 1 })
+
+    describer.layout = { root in PackageLayout(targets: [PackageTarget(name: "New", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])]) }
+    try await saveManifest()
+    #expect(await waitUntil { rig.services.targetNames(for: source) == ["New"] })
+    try await Task.sleep(for: .milliseconds(500))
+
+    #expect(rig.services.targetNames(for: source) == ["New"], "the late failure was about the manifest of before")
+    #expect(!rig.services.layoutLog.contains { $0.contains("failed") }, "\(rig.services.layoutLog)")
+}
+
+@Test @MainActor
+func theToolchainIsFoundBeforeTheServerIsStartedAndBothTheServerAndTheDescriptionUseIt() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let resolver = FakeToolchainResolver(xcode27)
+    rig.services.toolchainResolver = resolver
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+
+    #expect(await waitUntil { describer.calls.count == 1 })
+    #expect(describer.toolchains == [xcode27], "the description is of the toolchain the server is of")
+    #expect(rig.services.service(for: session)?.toolchain == xcode27)
+    #expect(environment(rig)?.toolchain == xcode27)
+    #expect(rig.services.projectContext(for: session)?.environment.toolchain == xcode27)
+    #expect(resolver.calls == 1)
+}
+
+@Test @MainActor
+func theToolchainIsFoundOnceForManyServers() async throws {
+    let rig = try Rig()
+    let resolver = FakeToolchainResolver(xcode27)
+    rig.services.toolchainResolver = resolver
+    await rig.services.attach(rig.session(try rig.package("A")))
+    await rig.services.attach(rig.session(try rig.package("B")))
+    #expect(await rig.waitForServers(2))
+
+    #expect(resolver.calls == 1)
+}
+
+@Test @MainActor
+func aToolchainThatCannotBeFoundDoesNotKeepTheServerFromStartingAndIsAskedForAgain() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let resolver = FakeToolchainResolver(nil)
+    rig.services.toolchainResolver = resolver
+    let first = rig.session(try rig.package("A"))
+    await rig.services.attach(first)
+
+    #expect(await rig.waitForServers(1))
+    #expect(await waitUntil { describer.calls.count == 1 })
+    #expect(describer.toolchains == [nil] && environment(rig)?.toolchain == nil && rig.services.toolchain == nil)
+
+    resolver.toolchain = xcode27
+    await rig.services.attach(rig.session(try rig.package("B")))
+    #expect(rig.services.toolchain == xcode27, "the next server start tries again")
+}
+
+@Test @MainActor
+func theConfigurationIsTheServersDefaultWhenNoFileSaysOtherwise() async throws {
+    let rig = try Rig()
+    await rig.services.attach(rig.session(try rig.package("A")))
+
+    #expect(environment(rig)?.configuration == .inherited("debug"))
+}
+
+@Test @MainActor
+func aTrustedProjectsFileSelectsTheConfigurationAndARefusedOnesDoesNot() async throws {
+    let granted = MemoryProjectTrustStore(), refused = MemoryProjectTrustStore()
+    for (store, decision, expected) in [(granted, TrustDecision.granted, BuildConfigurationSetting.selected("release")),
+                                        (refused, .refused, .inherited("debug"))] {
+        let rig = try Rig(store: store)
+        let session = rig.session(try rig.package("A"))
+        store.record(decision, forRoot: DocumentPath.canonical(rig.base.appendingPathComponent("A").path))
+        rig.configuration.setProject(.present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)), root: rig.base.appendingPathComponent("A").path)
+        await rig.services.attach(session)
+
+        #expect(environment(rig)?.configuration == expected, "\(decision)")
+    }
+}
+
+@Test @MainActor
+func untilTheUserAnswersWhatTheServerWillObeyIsUnknownAndThenItIsSelected() async throws {
+    let store = MemoryProjectTrustStore()
+    let rig = try Rig(store: store)
+    rig.services.trustPrompt = { _, _ in .granted }
+    rig.configuration.setProject(.present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)), root: rig.base.appendingPathComponent("A").path)
+    await rig.services.attach(rig.session(try rig.package("A")))
+    #expect(await rig.waitForServers(1))
+    #expect(environment(rig)?.configuration == .unknown, "nobody has decided")
+
+    rig.servers.made[0].send([
+        "jsonrpc": "2.0",
+        "id": .int(77),
+        "method": "window/showMessageRequest",
+        "params": ["message": "Do you trust the authors of the files in \"A\"?", "actions": [["title": "Trust Workspace"], ["title": "Don't Trust"]], "type": 2],
+    ])
+
+    #expect(await waitUntil { environment(rig)?.configuration == .selected("release") })
+    #expect(rig.servers.count == 1, "the server was answered; it needs no restart")
+}
+
+@Test @MainActor
+func savingTheProjectsConfigurationFileStartsTheServerAgainAndAsksForTheLayoutAgain() async throws {
+    let store = MemoryProjectTrustStore()
+    let rig = try Rig(store: store)
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let source = try rig.package("A")
+    let root = rig.base.appendingPathComponent("A").path
+    store.record(.granted, forRoot: DocumentPath.canonical(root))
+    let configPath = root + "/.sourcekit-lsp/config.json"
+    let files = MemoryDocumentFileStore(contents: [configPath: "{}\n"])
+    let open = OpenDocumentUseCase(store: files, registry: DocumentRegistry()) { file in
+        DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
+    }
+    let config = try await open.execute(path: configPath).session
+    let session = rig.session(source)
+    await rig.services.attach(session)
+    await rig.services.attach(config)
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+    #expect(environment(rig)?.configuration == .inherited("debug") && rig.servers.count == 1)
+
+    rig.configuration.setProject(.present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)), root: root)
+    try config.replaceText("{\"swiftPM\": {\"configuration\": \"release\"}}\n", expectedVersion: config.version)
+    _ = try await SaveDocumentUseCase(store: files).execute(document: config)
+
+    #expect(await waitUntil { environment(rig)?.configuration == .selected("release") })
+    #expect(await rig.waitForServers(2), "the server reads its configuration when it starts")
+    #expect(await waitUntil { describer.calls.count == 2 }, "the layout was made under the other configuration")
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+}
+
+@Test @MainActor
+func aFileThatIsNotTheProjectsConfigurationChangesNothingWhenSaved() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let source = try rig.package("A")
+    let other = rig.base.appendingPathComponent("A/Sources/App/config.json").path
+    let files = MemoryDocumentFileStore(contents: [other: "{}\n"])
+    let open = OpenDocumentUseCase(store: files, registry: DocumentRegistry()) { file in
+        DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
+    }
+    let json = try await open.execute(path: other).session
+    await rig.services.attach(rig.session(source))
+    await rig.services.attach(json)
+    #expect(await waitUntil { describer.calls.count == 1 })
+
+    rig.configuration.setProject(.present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)), root: rig.base.appendingPathComponent("A").path)
+    try json.replaceText("{\"a\": 1}\n", expectedVersion: json.version)
+    _ = try await SaveDocumentUseCase(store: files).execute(document: json)
+    try await Task.sleep(for: .milliseconds(150))
+
+    #expect(rig.servers.count == 1 && describer.calls.count == 1 && environment(rig)?.configuration == .inherited("debug"))
+}
+
+@Test @MainActor
+func aSwitchedToolchainRestartsTheServersAndDescribesThePackagesAgainWithTheNewOne() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let resolver = FakeToolchainResolver(xcode27)
+    rig.services.toolchainResolver = resolver
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+    let revision = rig.contexts.revision
+
+    resolver.toolchain = xcode28
+    await rig.services.refreshEnvironment()
+
+    #expect(rig.services.toolchain == xcode28 && rig.services.service(for: session)?.toolchain == xcode28)
+    #expect(environment(rig)?.toolchain == xcode28 && rig.contexts.revision > revision)
+    #expect(await rig.waitForServers(2), "the server runs the tools it was started with")
+    #expect(await waitUntil { describer.calls.count == 2 })
+    #expect(describer.toolchains == [xcode27, xcode28])
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+}
+
+@Test @MainActor
+func lookingAgainWhenNothingChangedRestartsAndDescribesNothing() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    rig.services.toolchainResolver = FakeToolchainResolver(xcode27)
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
+    let revision = rig.contexts.revision
+
+    await rig.services.refreshEnvironment()
+    try await Task.sleep(for: .milliseconds(100))
+
+    #expect(rig.servers.count == 1 && describer.calls.count == 1 && rig.contexts.revision == revision)
+}
+
+@Test @MainActor
+func aConfigurationFileChangedBehindTheApplicationsBackIsNoticedWhenLookingAgain() async throws {
+    let store = MemoryProjectTrustStore()
+    let rig = try Rig(store: store)
+    let root = rig.base.appendingPathComponent("A").path
+    store.record(.granted, forRoot: DocumentPath.canonical(root))
+    await rig.services.attach(rig.session(try rig.package("A")))
+    #expect(environment(rig)?.configuration == .inherited("debug"))
+
+    rig.configuration.setUser([.present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8))])
+    await rig.services.refreshEnvironment()
+
+    #expect(environment(rig)?.configuration == .inherited("release"))
+    #expect(await rig.waitForServers(2))
+}
+
+@Test @MainActor
+func aManifestChangedBehindTheApplicationsBackIsDescribedAgainWhenLookingAgain() async throws {
+    let rig = try Rig()
+    let describer = FakeDescriber()
+    rig.services.describer = describer
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await waitUntil { describer.calls.count == 1 })
+
+    await rig.services.refreshEnvironment()
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(describer.calls.count == 1, "the manifest is as it was")
+
+    let manifest = rig.base.appendingPathComponent("A/Package.swift")
+    try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(60)], ofItemAtPath: manifest.path)
+    await rig.services.refreshEnvironment()
+    #expect(await waitUntil { describer.calls.count == 2 }, "a changed manifest does not leave the layout of the old one")
+
+    await rig.services.refreshEnvironment()
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(describer.calls.count == 2, "and once is enough")
 }
