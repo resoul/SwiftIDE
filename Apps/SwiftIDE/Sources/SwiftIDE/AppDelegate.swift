@@ -87,9 +87,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func openDocument(_ sender: Any?) {
+        chooseFiles(startingAt: nil)
+    }
+
+    /// File ▸ Open Folder…: the folder becomes the project of every file inside it, whatever packages
+    /// lie below it; then a file of it is chosen to open (there is no project tree yet).
+    @objc func openFolder(_ sender: Any?) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Open Folder"
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+
+        composition.languageServices.contexts.open(folder: folder.path)
+        chooseFiles(startingAt: folder)
+    }
+
+    /// File ▸ Close Opened Folders: files go back to the nearest package.
+    @objc func closeOpenedFolders(_ sender: Any?) {
+        let contexts = composition.languageServices.contexts
+        for folder in contexts.openedFolders { contexts.close(folder: folder) }
+    }
+
+    private func chooseFiles(startingAt folder: URL?) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
+        panel.directoryURL = folder
         guard panel.runModal() == .OK else { return }
 
         for url in panel.urls {
@@ -257,6 +282,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: NSMenuItemValidation {
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(goBack(_:)) { return history.canGoBack }
+        if item.action == #selector(closeOpenedFolders(_:)) { return !composition.languageServices.contexts.openedFolders.isEmpty }
 
         return true
     }

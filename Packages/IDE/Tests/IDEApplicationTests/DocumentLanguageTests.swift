@@ -195,3 +195,8 @@ func aLinkAndItsTargetShareOneChoice() throws {
     #expect(DocumentLanguageSelector(session: session(target), store: store).resolved.language == .cpp)
     #expect(store.override(forPath: DocumentPath.canonical(target)) == .cpp, "kept under the name the registry uses")
 }
+
+@Test
+func onlyCAndItsRelativesAreTheCFamily() {
+    #expect(DocumentLanguage.allCases.filter(\.isCFamily) == [.c, .cpp, .objectiveC, .objectiveCPP])
+}

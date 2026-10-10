@@ -48,6 +48,12 @@ The project configuration presenter receives an explicit parent `NSWindow` selec
 
 Presentation tests belong to `WorkspaceUITests` in the package. App tests check composition, menu wiring, the association with the right project window and a small number of end-to-end workflows. The extraction preserves the refusal default, wording, stored-decision behaviour and diagnostics policy of ADR-028/029.
 
+## Workspace paths and Git
+
+[ADR-031](07_ARCHITECTURE_DECISIONS.md#adr-031-workspace-components-git-and-file-status-colours), TK-025–TK-029, adds the planned Files/tabs, Welcome/project switcher and Git slices. Application ports describe repository status with independent index/worktree fields, project exclusions, branches and commits. GitInfrastructure uses a process adapter; WorkspaceUI renders values and invokes actions through ports/callbacks. App composes them with the shared project context and document registry. Git's repository/worktree identity is separate from the build-system root.
+
+Git status describes disk/index state, while unsaved editor changes belong to DocumentSession and remain a separate indicator. Project exclusion and Git ignore are independent policies; neither removes tracked changes from Changes, and UI exclusion does not imply control over LSP/BSP indexing. Semantic colour and folder-aggregation rules are presentation policy in WorkspaceUI, specified in [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Inspection precedes local mutations and network operations; checkout uses the existing unsaved-document workflow.
+
 ## A single owner of the text
 
 DocumentSession receives `any DocumentEditingBackend` in its initializer. It keeps id/path/version/savedVersion and the subscribers; `text` is a computed read of the backend. A mutable String is not kept next to NSTextStorage.

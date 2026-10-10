@@ -14,6 +14,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     public typealias MakeService = @MainActor (_ root: URL, _ virtualDirectory: URL) -> SourceKitLanguageService
 
     private struct Managed {
+        let session: DocumentSession
         let languageSubscription: UUID
     }
 
@@ -36,6 +37,9 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     private var latestDiagnostics: [DocumentID: DocumentDiagnostics] = [:]
     private var diagnosticsObservers: [UUID: (document: DocumentID, observer: @MainActor () -> Void)] = [:]
     private var readinessObservers: [UUID: (document: DocumentID, observer: @MainActor () -> Void)] = [:]
+    /// The folders the user opened and the project each file belongs to.
+    public let contexts: ProjectContexts
+    private var contextsSubscription: UUID?
     /// Where the user's decisions about projects' configuration are kept (the application's settings).
     public var trustStore: (any ProjectTrustStore)?
     /// Asks the user whether a project's configuration may be used.
@@ -44,6 +48,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     public init(
         scratchRoot: URL,
         languages: DocumentLanguages = DocumentLanguages(),
+        contexts: ProjectContexts = ProjectContexts(),
         trustStore: (any ProjectTrustStore)? = nil,
         makeService: @escaping MakeService = { root, virtual in
             SourceKitLanguageService(workspaceRoot: root, sync: OrderedDocumentSync(virtualDirectory: virtual))
@@ -53,7 +58,13 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         self.makeService = makeService
         self.languages = languages
         self.trustStore = trustStore
+        self.contexts = contexts
         try? FileManager.default.createDirectory(at: self.scratchRoot, withIntermediateDirectories: true)
+        contextsSubscription = contexts.subscribe { [weak self] in self?.contextsChanged() }
+    }
+
+    isolated deinit {
+        if let contextsSubscription { contexts.unsubscribe(contextsSubscription) }
     }
 
     /// Whether this kind of server serves documents of `language`.
@@ -63,7 +74,9 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     public func root(for session: DocumentSession) -> URL {
         if session.isUntitled { return scratchRoot }
 
-        return PackageRootLocator.root(forFile: session.path) ?? scratchRoot
+        guard let context = contexts.context(forFile: session.path) else { return scratchRoot }
+
+        return URL(fileURLWithPath: context.root, isDirectory: true).standardizedFileURL
     }
 
     /// The service a document is with, if any.
@@ -81,8 +94,20 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         // A change of the document's language moves it: out of the server that had it under the
         // old language, into the one that serves the new, if there is one.
         let subscription = languages.selector(for: session).subscribe { [weak self] _ in self?.languageChanged(session) }
-        managed[session.id] = Managed(languageSubscription: subscription)
+        managed[session.id] = Managed(session: session, languageSubscription: subscription)
         await giveToServer(session)
+    }
+
+    /// A folder was opened or closed: a document whose project is now another goes to the server of
+    /// that one (and leaves the old, which stops if it has no document left).
+    private func contextsChanged() {
+        for entry in Array(managed.values) {
+            let session = entry.session
+            guard let home = homes[session.id], root(for: session) != home.root else { continue }
+
+            release(session)
+            Task { await giveToServer(session) }
+        }
     }
 
     private func languageChanged(_ session: DocumentSession) {
@@ -115,7 +140,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
 
     private func serviceStarted(for root: URL) -> SourceKitLanguageService {
         let service = makeService(root, scratchRoot)
-        service.isFallbackRoot = root == scratchRoot
+        service.isFallbackRoot = root == scratchRoot || contexts.isWithoutProject(root: root.path)
         if root != scratchRoot {
             service.trustStore = trustStore
             // Read when the question comes, so a prompt set after the service started is used.

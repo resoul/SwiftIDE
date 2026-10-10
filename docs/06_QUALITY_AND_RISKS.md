@@ -57,6 +57,14 @@ The integration is not yet implemented. For the spike and acceptance per the [Ba
 
 Setup and Build/Test are accepted as separate scenarios: viewing/saving settings, regenerating the config, save-before-build, streaming results and cancellation. The language features of other languages are checked separately under TK-017; existing SwiftPM/Xcode runs do not count for Bazel.
 
+## Workspace and Git (TK-025–TK-029): planned checks
+
+The accepted contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md); it is not implemented. Test real temporary repositories for independent staged/unstaged status, untracked/ignored entries, rename/delete/conflict, initial/detached HEAD, linked worktrees, unusual path names and external repository changes. Verify invalidation and cancellation so a response from the old project cannot replace the current tree, branch or diff.
+
+UI checks cover red/green/blue/orange semantic colours, folder aggregation, independent project-exclusion/Git-ignore reasons and filters, unknown/error states, selection/focus preservation and lazy expansion of a large excluded `.build`. Unsaved buffers stay distinct from disk/index changes. A Files exclusion must not conceal tracked changes from Changes or be described as an LSP indexing guarantee. Local mutations must preserve buffers and reconcile checkout with unsaved documents; network operations first use a local bare remote, then receive separate authentication/offline/cancellation acceptance. A cancelled mutation is not assumed rolled back.
+
+Live acceptance is section R in [10_MANUAL_ACCEPTANCE.md](10_MANUAL_ACCEPTANCE.md): both appearances, selected-row readability, keyboard/VoiceOver, two project windows, empty/missing recent projects, diff limits and branch changes. No Git hosting CI status is fabricated from local history.
+
 ## Sets of hard data
 
 - An empty file, one very long line, LF/CRLF/mixed, a file without a final newline.

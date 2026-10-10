@@ -32,8 +32,9 @@ The user ran these items in a live window and reported them as working (2026-10-
 | G. File watching | G1–G7 | G8–G15 |
 | K. Swift completion | K1 | K2–K20 |
 | P. Description, jump, diagnostics | P21 | P1–P20, P22 |
-| Q. Readiness, progress, trust (TK-018) | | Q1–Q12 |
+| Q. Readiness, progress, trust, opened folders (TK-018) | | Q1–Q19 |
 | Q. Reusable workspace UI (TK-024, planned) | | Q13–Q14; repeat Q8 after extraction |
+| R. Workspace and Git (TK-025–TK-029, planned) | | R1–R16; run each slice when implemented |
 
 Everything else in the sections B, C, H, I, K, M, N, O and P is still unchecked by hand; the earlier statements "not checked in a live window" stay true for those items.
 
@@ -299,7 +300,7 @@ Open the files `Fixtures/SwiftPMMixed/Sources/…` from the repository after `sw
 | P21 ✅ | A Swift file, `struct S { let a: Int }` and below `S()` (an argument is missing) | The red wavy line is not under a single character but under a word or the whole line; a red dot in the line margin |
 | P22 | Rest the pointer on the red or yellow dot in the line-number margin, then move away | Under the line a window "error: …" (with several problems line by line, the worst first); it disappears when the pointer leaves, on an edit and on scrolling; on a line without a dot nothing appears |
 
-## Q. Readiness, progress and trust of the project configuration (TK-018, first slice, ADR-029)
+## Q. Readiness, progress, trust and opened folders (TK-018, first and second slice, ADR-029, ADR-030)
 
 Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example under `~/Library/Caches`) so that the package is cold: `rm -rf <copy>/.build`. For the trust checks add `<copy>/.sourcekit-lsp/config.json` with `{"backgroundIndexing": false}`. The previous decisions are kept in the application's settings: forget one with Project ▸ Ask About Project Configuration Again.
 
@@ -317,6 +318,13 @@ Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example unde
 | Q10 | Project menu with a window of a loose file | The trust items are disabled (no project, nothing to decide) |
 | Q11 | While "Preparing package" shows, `pkill sourcekit-lsp` | The subtitle changes to "Language server restarting", then the new server prepares afresh; no stale "Preparing package · n / m" from the old one |
 | Q12 | Quit and start the application again, open the trusted copy | No dialog, the stored decision applies |
+| Q13 | File ▸ Open Folder… and choose a folder that holds a package one level down (no `Package.swift` in the folder itself); then choose a file of that package | A file panel opens inside the folder; the file opens; completion of a member of another module of that package works; the subtitle does not say "Using fallback settings" |
+| Q14 | With a file of a package already open, File ▸ Open Folder… on the package's parent folder | The open document keeps working after a moment (it moved to the folder's server: the subtitle may show "Language server starting"); completion still works |
+| Q15 | File ▸ Close Opened Folders (enabled only while a folder is open) | The document goes back to the package's own server and keeps working; the item is disabled afterwards |
+| Q16 | Open a folder with no project anywhere below it and a file in it | The subtitle says "Using fallback settings"; a member of another file of the folder is not suggested |
+| Q17 | Open a folder that holds a package nested inside another structure (for example a `MODULE.bazel` at the top and a package below) | The file is served from the opened folder, not from the nested package (the server's root is the folder) |
+| Q18 | A C file in a package that lies under `~/Library/Caches` or in your home folder, then the same under `/tmp` | The subtitle shows "temporary folder: C-family flags may be missing" only for the one under `/tmp` (and not for a Swift file there) |
+| Q19 | Open the same folder twice | Nothing changes, no restart |
 
 ### Additional acceptance after the UI extraction (TK-024, ADR-030)
 
@@ -326,6 +334,29 @@ These are planned checks, not results for the currently implemented TK-018 slice
 |---|---|---|
 | Q13 | Open two different project windows A and B, with no saved configuration decision for A. Keep B active while A raises the configuration question | The sheet belongs to A, names A and cannot apply a choice to B; B remains usable |
 | Q14 | Close the owning project window through its lifecycle while its configuration question is pending; reopen the project with no other window for it | The pending presentation is cancelled, no decision is stored and no automatic permission is granted; the question is asked on reopening |
+
+## R. Workspace components and Git: future acceptance (TK-025–TK-029, ADR-031)
+
+These are future checks, not passed results or capabilities of Workspace Preview. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R4 with TK-025/026, R5–R13 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
+
+| № | Do | Expected |
+|---|---|---|
+| R1 | Search recent projects in Welcome, open a folder, select an already open project in the switcher | Correct project/window; no duplicate project caused by a canonical-path alias; empty and loading states are useful |
+| R2 | Remove a recent entry; choose an entry whose folder has been moved/deleted | Removal affects only the list; missing path explains the problem without deleting files or showing an empty working project |
+| R3 | Expand Files, open two documents and switch tabs, scroll/type, close a modified tab | Real editor sessions; selection/caret/scroll survive switching; dirty indicator and existing save/cancel procedure work |
+| R4 | Expand an excluded `.build` and toggle Show Excluded/Show Ignored | Folder and affected children are orange; children load lazily; filters are independent; included ancestor is not orange solely because of `.build` |
+| R5 | Create an untracked file, add it externally with Git, then edit it on disk | Red untracked → green added → blue with both added/modified states; refresh preserves selection |
+| R6 | Modify an existing tracked file, stage part of its changes, then edit again | Blue; Changes and diff distinguish index and working-tree changes, including when both apply |
+| R7 | Ignore one untracked file through Git, exclude a different tracked/modified file through project settings; include an ordinary untracked `.bak` | Ignored/excluded are orange with different reasons; excluded tracked change remains in Changes; `.bak` is red unless a real rule applies; Files exclusion makes no server-indexing promise |
+| R8 | Collapse a folder containing changed descendants, then stage/unstage/add/conflict in a disposable repository | Folder aggregation follows the documented policy without scanning excluded contents; conflicts have a distinct badge, not just red |
+| R9 | Rename/delete a tracked file and create a conflict externally | Changes identifies old/new paths, deletion and conflict explicitly; missing paths do not appear as ordinary readable tree files; orange remains an exclusion/ignore colour |
+| R10 | Open a file in a linked worktree, a repository with no commits, a detached HEAD and a non-Git folder | Correct identity and honest branch/status states; no assumption that `.git` is a directory or that no result means clean |
+| R11 | Inspect a file with unsaved editor text; select a diff, a binary/large diff and commits in paginated Log | Git comparison is disk/index with unsaved text marked separately; no silent save; limited previews are explained; history does not block the editor |
+| R12 | Switch project windows during a slow refresh; change repository externally; make Git unavailable or fail a refresh | Old-project answers are discarded; no focus/selection theft; errors do not turn Changes into a clean empty list; last known state is identified if retained |
+| R13 | Switch light/dark appearance; select coloured rows; navigate tree/pickers/Changes/Log by keyboard and VoiceOver | Red/green/blue/orange remain readable; selected rows preserve status; accessible labels explain statuses and exclusions without colour |
+| R14 | Stage/unstage whole files, commit selected index contents and create a branch in a disposable repository | Explicit operations report the actual result; staged/unstaged views refresh; errors and cancellation preserve buffers and do not claim rollback |
+| R15 | Switch a branch while a document has unsaved changes; cancel, then resolve changes and retry | Existing unsaved-document reconciliation runs; cancellation keeps text/checkout; successful switch reconciles affected open sessions without losing text |
+| R16 | Clone from a local remote, cancel/fail a clone, Fetch/Push, then Pull using the selected policy with a conflict | Progress/errors/credentials/cancellation are clear; project opens only on successful clone; conflicts have a recovery workflow; offline inspection works; locally known remote refs are not claimed current without a fetch |
 
 ## Known limitations that should not be taken for errors
 

@@ -10,6 +10,14 @@ public enum DocumentLanguage: String, CaseIterable, Codable, Sendable {
     case objectiveCPP
     case plainText
 
+    /// C and the languages built on it, which are served by clangd and need the build's flags.
+    public var isCFamily: Bool {
+        switch self {
+        case .c, .cpp, .objectiveC, .objectiveCPP: true
+        case .swift, .plainText: false
+        }
+    }
+
     public var displayName: String {
         switch self {
         case .swift: "Swift"

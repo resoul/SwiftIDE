@@ -80,14 +80,23 @@ The first extraction is the project configuration dialog and project status pres
 
 The dialog is an asynchronous sheet attached to an explicitly supplied project window. The parent is modal while the sheet is open; other windows and server message processing continue. Package tests cover presentation; App tests verify that the component is connected to the correct project window.
 
+## Files and Git status presentation
+
+The additional screenshots and user decision are recorded in [ADR-031](07_ARCHITECTURE_DECISIONS.md#adr-031-workspace-components-git-and-file-status-colours) and [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Files and matching tab labels use red for untracked files, green for index additions, blue for changed files and orange for project-excluded or Git-ignored paths. Those two orange states have separate reasons and labels. Unchanged files use the normal theme foreground; unsaved editor text has a separate indicator.
+
+Folders aggregate changed descendants; an excluded/ignored folder and its affected children are orange, as in the `.build` screenshot. Merely containing an excluded subtree does not colour the included parent orange. Conflicts, renames/deletions and staged/unstaged combinations have explicit badges, so colour is never the only explanation. Excluded/ignored entries remain inspectable through lazy expansion and independent visibility filters. Full precedence, aggregation, search behaviour and accessibility rules live in the linked contract.
+
+Welcome and the project switcher list recent/open projects. The top branch picker supports search and local/remote groups. Changes lives in a left panel, Git Log in the bottom panel and the selected file/commit diff in the central area. Initial Git integration is inspection; staging/commit/checkout and then network operations are separate slices. CI badges require hosting integration, and a full lane graph is later work.
+
 ## Implementation order
 
 1. **The workspace shell.** The top bar, two tool strips, a central editor and three panel zones. Simple content allows checking resizing, switching, focus, hiding and layout persistence before all the tools are connected.
-2. **Files and tabs.** Connect the tree and the existing document sessions, opening, saving, switching documents and the empty state. Check the document warnings in the new shell.
-3. **Tools.** Connect search, Problems, build, terminal and the Xcode context as the corresponding services become ready. The scheme and destination reflect the real configuration.
-4. **Later capabilities.** Split editor, structure, inspector and chat. Having room for a right panel does not change the priority of the agent integration from the [separate plan](09_CLAUDE_AGENT_INTEGRATION.md).
+2. **Package boundary, Files and tabs (TK-024/026).** Extract reusable project UI, connect the tree and the existing document sessions, opening, saving, switching documents and the empty state. Replace the editor placeholder, preserve document warnings and add project exclusions/status presentation.
+3. **Git inspection (TK-027).** Connect Changes and read-only diff, then the branch picker and paginated Log. Welcome/project switching (TK-025) can proceed alongside this against the shared opening contract. Local Git mutations (TK-028) and network workflows (TK-029) follow separately.
+4. **Other tools.** Connect search, Problems, build, terminal and the Xcode context as the corresponding services become ready. The scheme and destination reflect the real configuration.
+5. **Later capabilities.** Split editor, structure, inspector and chat. Having room for a right panel does not change the priority of the agent integration from the [separate plan](09_CLAUDE_AGENT_INTEGRATION.md).
 
-A welcome window with recent projects is considered separately. The reference sets the direction for the list of projects and the open actions; creating projects and Clone need their own working scenarios.
+A welcome window with recent projects and Open Folder is planned as TK-025. Clone is connected under TK-029 with its own working scenario; creating projects from templates remains separate work. None of these tasks is implemented by the layout preview.
 
 ## Acceptance of the shell
 

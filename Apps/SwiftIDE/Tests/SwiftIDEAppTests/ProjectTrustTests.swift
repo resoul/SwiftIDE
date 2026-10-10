@@ -57,3 +57,18 @@ struct ProjectTrustTests {
         ])
     }
 }
+
+struct OpenFolderMenuTests {
+    @Test @MainActor func theFileMenuOffersToOpenAndToCloseFolders() throws {
+        _ = NSApplication.shared
+        MainMenu.install()
+        let file = try #require(NSApp.mainMenu?.items.first { $0.submenu?.title == "File" }?.submenu)
+
+        let open = try #require(file.items.first { $0.title == "Open Folder…" })
+        #expect(open.action == #selector(AppDelegate.openFolder(_:)))
+        #expect(open.keyEquivalent == "O" && open.keyEquivalentModifierMask.contains(.command))
+
+        let close = try #require(file.items.first { $0.title == "Close Opened Folders" })
+        #expect(close.action == #selector(AppDelegate.closeOpenedFolders(_:)))
+    }
+}

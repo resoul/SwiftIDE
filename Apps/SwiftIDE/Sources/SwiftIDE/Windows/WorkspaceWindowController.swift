@@ -259,7 +259,9 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         let engine = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
         let readOnly = isReadOnlyForLongLines ? "read-only" : (isSystemFile ? "read-only (system file)" : nil)
         let readiness = languageServices.readiness(for: session)?.reason
-        window.subtitle = [languageNote, readiness, features?.diagnostics.summary.text, engine, colourNote, recoveryNote, readOnly].compactMap { $0 }.joined(separator: " · ")
+        let temporary = session.isUntitled ? nil : TemporaryFolder.note(path: session.path, isCFamily: languageSelector.resolved.language.isCFamily)
+        window.subtitle = [languageNote, readiness, temporary, features?.diagnostics.summary.text, engine, colourNote, recoveryNote, readOnly]
+            .compactMap { $0 }.joined(separator: " · ")
     }
 
     private func refreshTitle() {

@@ -8,7 +8,13 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 - Accepted ADR-030 and TK-024: a `WorkspaceUI` target in `Packages/IDE` for the project configuration dialog and project status presentation, explicit parent-window injection and package-owned UI tests. App retains composition, main-menu wiring and window lifecycle. The extraction is not implemented; this entry records the documentation decision only.
 
+### Planned (workspace and Git)
+
+- Accepted ADR-031 and TK-025–TK-029: Welcome/project switching, real Files/tabs, Git Changes/diff/branches/history, then local actions and network workflows. Recorded red untracked files, green index additions, blue changes and orange excluded/ignored files and folders, with distinct reasons, badges and folder aggregation. Added docs/15 and future manual acceptance section R. No implementation or Git action was performed for this documentation change.
+
 ### Added
+
+- TK-018, second slice (ADR-030): File ▸ Open Folder… makes a folder the project of every file inside it, over the nearest package (nested packages do not change the workspace), and File ▸ Close Opened Folders undoes it; documents move to the server of their new project at once. The context is now a value (root, build system, explicit or found, revision). A folder is called one of fallback settings only when no project lies a few levels below it, because the server finds a package there (measured). The subtitle warns that C-family flags may be missing for a file in the system temporary folders. Not yet seen in a live window; the target choice and the "prepare language features" command are still to come.
 
 - TK-018, first slice (ADR-029): the language server's readiness is kept as independent groups (server, settings, background work, trust) and its `$/progress` is read, several operations at once; the window subtitle names the one most useful reason ("Preparing package · 2 / 5", "Using fallback settings", "Project configuration disabled"). Diagnostics made while the package is first prepared are withheld and a fresh report is pulled when that ends; those on fallback settings are paler and say so. SourceKit-LSP's question whether to trust the project's configuration is asked of the user once per project (default "Don't allow"), the decision is kept and can be changed from the new Project menu. Not yet seen in a live window; File ▸ Open Folder, the explicit root and the target choice are still to come.
 

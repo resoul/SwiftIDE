@@ -28,11 +28,13 @@ private final class Rig {
     let base: URL
     let clock = ManualDelayClock()
 
+    let contexts = ProjectContexts()
+
     init(store: (any ProjectTrustStore)? = nil) throws {
         base = FileManager.default.temporaryDirectory.appendingPathComponent("services-\(UUID().uuidString)", isDirectory: true).standardizedFileURL
         scratch = base.appendingPathComponent("scratch", isDirectory: true)
         let servers = servers, clock = clock
-        services = LanguageServices(scratchRoot: scratch, languages: languages, trustStore: store) { root, virtual in
+        services = LanguageServices(scratchRoot: scratch, languages: languages, contexts: contexts, trustStore: store) { root, virtual in
             SourceKitLanguageService(
                 workspaceRoot: root,
                 sync: OrderedDocumentSync(virtualDirectory: virtual),
@@ -468,4 +470,109 @@ func theTrustOfAFolderWithNoProjectHasNothingToDecide() async throws {
     rig.services.setTrust(.granted, for: loose)
     #expect(store.decision(forRoot: DocumentPath.canonical(rig.scratch.path)) == nil)
     #expect(rig.servers.count == 1, "nothing was restarted")
+}
+
+// MARK: Opened folders (TK-018)
+
+private func rootUris(_ rig: Rig) -> [String] {
+    rig.servers.made.compactMap { $0.messages(named: "initialize").first?["params"]?["rootUri"]?.stringValue }
+}
+
+@Test @MainActor
+func aFileInsideAnOpenedFolderGetsAServerRootedAtTheFolderNotAtANestedPackage() async throws {
+    let rig = try Rig()
+    let nested = try rig.package("repo/vendor/lib")
+    try "x".write(to: rig.base.appendingPathComponent("repo/MODULE.bazel"), atomically: true, encoding: .utf8)
+    rig.contexts.open(folder: rig.base.appendingPathComponent("repo").path)
+    let session = rig.session(nested)
+    await rig.services.attach(session)
+
+    #expect(await rig.waitForServers(1))
+    #expect(rootUris(rig).count == 1 && rootUris(rig)[0].hasSuffix("/repo/"), "\(rootUris(rig))")
+    #expect(rig.services.root(for: session).path.hasSuffix("/repo"))
+}
+
+@Test @MainActor
+func openingAFolderMovesTheDocumentsAlreadyOpenToItsServer() async throws {
+    let rig = try Rig()
+    let nested = try rig.package("repo/lib")
+    let session = rig.session(nested)
+    await rig.services.attach(session)
+    #expect(await rig.waitForServers(1))
+    #expect(rootUris(rig)[0].hasSuffix("/repo/lib/"))
+
+    rig.contexts.open(folder: rig.base.appendingPathComponent("repo").path)
+    #expect(await rig.waitForServers(2), "a new server at the folder")
+    #expect(rootUris(rig)[1].hasSuffix("/repo/"))
+    #expect(rig.services.root(for: session).path.hasSuffix("/repo"))
+    #expect(await rig.servers.made[1].waitForMethod("textDocument/didOpen"), "the document is opened there")
+    #expect(await rig.servers.made[0].waitForMethod("textDocument/didClose"), "and closed at the old one")
+    #expect(rig.services.runningRoots.count == 1, "the old server, left with no document, is stopped")
+}
+
+@Test @MainActor
+func closingTheFolderMovesTheDocumentsBackToTheirPackage() async throws {
+    let rig = try Rig()
+    let nested = try rig.package("repo/lib")
+    let folder = rig.base.appendingPathComponent("repo").path
+    rig.contexts.open(folder: folder)
+    let session = rig.session(nested)
+    await rig.services.attach(session)
+    #expect(await rig.waitForServers(1))
+
+    rig.contexts.close(folder: folder)
+    #expect(await rig.waitForServers(2))
+    #expect(rootUris(rig)[1].hasSuffix("/repo/lib/"))
+}
+
+@Test @MainActor
+func anOpenedFolderWithNoProjectIsServedOnFallbackSettings() async throws {
+    let rig = try Rig()
+    let file = rig.base.appendingPathComponent("plain/a.swift")
+    try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try "let x = 1\n".write(to: file, atomically: true, encoding: .utf8)
+    rig.contexts.open(folder: file.deletingLastPathComponent().path)
+    let session = rig.session(file.path)
+    await rig.services.attach(session)
+
+    #expect(await rig.waitForServers(1))
+    #expect(rig.services.readiness(for: session)?.settings == .fallback)
+    #expect(rootUris(rig)[0].hasSuffix("/plain/"))
+}
+
+@Test @MainActor
+func anOpenedFolderThatIsAPackageIsNotOnFallbackSettings() async throws {
+    let rig = try Rig()
+    let file = try rig.package("pkg")
+    rig.contexts.open(folder: rig.base.appendingPathComponent("pkg").path)
+    let session = rig.session(file)
+    await rig.services.attach(session)
+
+    #expect(await rig.waitForServers(1))
+    #expect(rig.services.readiness(for: session)?.settings == .unknown)
+}
+
+@Test @MainActor
+func aDocumentOutsideEveryOpenedFolderKeepsTheNearestPackage() async throws {
+    let rig = try Rig()
+    let other = try rig.package("other")
+    _ = try rig.package("repo")
+    rig.contexts.open(folder: rig.base.appendingPathComponent("repo").path)
+    let session = rig.session(other)
+    await rig.services.attach(session)
+
+    #expect(await rig.waitForServers(1))
+    #expect(rootUris(rig)[0].hasSuffix("/other/"))
+}
+
+@Test @MainActor
+func anOpenedFolderWithAPackageBelowItIsNotCalledFallbackBecauseTheServerFindsThePackage() async throws {
+    let rig = try Rig()
+    let nested = try rig.package("repo/lib")
+    rig.contexts.open(folder: rig.base.appendingPathComponent("repo").path)
+    let session = rig.session(nested)
+    await rig.services.attach(session)
+
+    #expect(await rig.waitForServers(1))
+    #expect(rig.services.readiness(for: session)?.settings == .unknown, "a claim of fallback settings would be false (ADR-028)")
 }

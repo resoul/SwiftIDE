@@ -132,3 +132,41 @@ func aPackageWithoutConfigurationIsNeverAskedAbout() async throws {
     #expect(project.asked.count == 0 && project.service.readiness.trust == .undecided)
     await project.finish()
 }
+
+@Test(.enabled(if: toolAvailable)) @MainActor
+func aFileOfAPackageBelowAnOpenedFolderIsServedFromTheFolderAndStillSeesItsModules() async throws {
+    let base = repository.appendingPathComponent("Packages/IDE/.build/e2e-folder-\(UUID().uuidString)", isDirectory: true)
+    let repo = base.appendingPathComponent("repo", isDirectory: true)
+    try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+    try FileManager.default.copyItem(at: fixture, to: repo.appendingPathComponent("pkg"))
+    try? FileManager.default.removeItem(at: repo.appendingPathComponent("pkg/.build"))
+
+    let contexts = ProjectContexts()
+    contexts.open(folder: repo.path)
+    let services = LanguageServices(scratchRoot: base.appendingPathComponent("scratch"), contexts: contexts)
+    let file = repo.appendingPathComponent("pkg/Sources/App/main.swift")
+    let text = try String(contentsOf: file, encoding: .utf8) + "\ngreeter."
+    let session = DocumentSession(path: file.path, backend: StringDocumentBackend(loadedText: text))
+    await services.attach(session)
+    #expect(services.root(for: session).path == DocumentPath.canonical(repo.path), "the opened folder, not the nested package")
+
+    var found = false
+    let deadline = ContinuousClock.now + .seconds(90)
+    while ContinuousClock.now < deadline, !found {
+        if case .items(let items, _) = await services.completion(for: session, caret: { session.utf16Length }) {
+            found = items.contains { $0.label.hasPrefix("greeting") }
+        }
+
+        if !found { try await Task.sleep(for: .milliseconds(500)) }
+    }
+    #expect(found, "the server rooted at the folder found the package below it")
+    #expect(services.readiness(for: session)?.settings == .unknown, "not claimed to be fallback")
+    await services.stopAll()
+    // The server's preparation may still be writing into the copy for a moment after it is stopped.
+    for _ in 0..<5 {
+        try? FileManager.default.removeItem(at: base)
+        if !FileManager.default.fileExists(atPath: base.path) { break }
+
+        try await Task.sleep(for: .milliseconds(500))
+    }
+}

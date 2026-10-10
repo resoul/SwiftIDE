@@ -111,5 +111,6 @@ Current planning and snapshot operations copy text and have O(n) costs. Large-fi
 - [Mixed-language support](docs/12_MIXED_LANGUAGE_SUPPORT.md) — accepted direction for C, C++, Objective-C and Objective-C++ within Swift projects; language selection, highlighting, build context and staged acceptance; not implemented yet.
 - [Bazel support](docs/13_BAZEL_SUPPORT.md) — accepted direction, shared project context, BSP/toolchain requirements, phased implementation and acceptance; not implemented or verified.
 - [Code style and linting](docs/14_CODE_STYLE_AND_LINTING.md) — TK-023: pinned SwiftFormat and SwiftLint, a SwiftSyntax blank-line checker, local commands and a CI workflow; the workflow has passed on the `xcode-27` runner image.
+- [Workspace components and Git](docs/15_WORKSPACE_AND_GIT.md) — planned Welcome/Files/tabs, Git inspection then local/network actions, file/folder colours and exclusions; TK-025–TK-029, not implemented.
 - [Third-party software notices](THIRD_PARTY_NOTICES.md)
 - [Original custom-engine concept](Swift_IDE_Architecture_and_MVP.md) — historical reference, superseded by the current TextKit MVP plan.
