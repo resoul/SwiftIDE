@@ -12,7 +12,7 @@ In the production package `Packages/IDE`:
 - `DocumentChangeSet` — one version-tagged batch of programmatic edits in source coordinates.
 - The Composition Root chooses the TextKit backend; save receives an independent snapshot.
 
-`Packages/IDE` already has `TextKitEditorFactory`, `EditorHostView` and a compatibility monitor; `Apps/SwiftIDE` creates a window with an NSTextView over the backend's storage graph. Native input, document-scoped undo and the composition bridge (TK-005) are implemented, see the section "TK-005 implementation"; real file open/save is not implemented. The window itself does not confirm the usability and performance of a finished editor.
+`Packages/IDE` already has `TextKitEditorFactory`, `EditorHostView` and a compatibility monitor; `Apps/SwiftIDE` creates a window with an NSTextView over the backend's storage graph. Native input, document-scoped undo and the composition bridge (TK-005) are implemented, see the section "TK-005 implementation"; real file open/save was implemented later (TK-006, ADR-011). The window itself does not confirm the usability and performance of a finished editor.
 
 ## 1. Native view factory
 

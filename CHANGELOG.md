@@ -6,6 +6,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- ADR-028 records measured facts about SourceKit-LSP of Xcode 27.0 for the shared project context (TK-018): background preparation modes, the workspace trust prompt for `.sourcekit-lsp/` and `.bsp/`, behaviour on fallback settings and `compile_flags.txt`; `Tools/CompatibilityMatrix/prepare_probe.py` reproduces the observations. The lint workflow now uses `actions/checkout@v7` and `actions/cache@v6` (Node 24). No code changed.
+
 - The design documents in `docs/` and `Swift_IDE_Architecture_and_MVP.md` are translated from Russian into English; links between them (including the section anchors of the architecture decisions) are updated.
 
 - Added the TK-023 implementation task for pinned SwiftFormat/SwiftLint, parameter layout, guard/return/if spacing checks and CI. Initial mass formatting is planned as a separate commit; tooling is not connected yet.

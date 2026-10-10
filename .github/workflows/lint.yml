@@ -8,7 +8,7 @@ jobs:
   lint:
     runs-on: xcode-27
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Swift 6.4 / SwiftSyntax 604 are pinned in Tools/Lint/Package.swift: the toolchain of Xcode 27.
       # Nothing is selected by hand: a wrong path fails the job (it did, once). Show what is there instead.
@@ -19,7 +19,7 @@ jobs:
           swift --version
           ls -d /Applications/Xcode*
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             Tools/Lint/.tools

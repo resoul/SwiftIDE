@@ -10,6 +10,7 @@ Tools that ask SourceKit-LSP the same four questions (diagnostic, hover, definit
 | `bsp_ask.py ROOT FILE` | Speaks BSP directly to the build server of `ROOT/buildServer.json`, without sourcekit-lsp |
 | `cost_probe.py CASE.json OUT` | Memory of the process tree under sourcekit-lsp while it works |
 | `write_build_server.py` | Writes `buildServer.json` for `sourcekit-xcode-bsp` (its `init` is interactive) |
+| `prepare_probe.py ROOT FILE LANG APPEND EXPECT` | Asks completion until the expected item appears and prints a timeline of progress, trust prompts and diagnostics (research for [ADR-028](../../docs/07_ARCHITECTURE_DECISIONS.md#adr-028-sourcekit-lsp-preparation-modes-workspace-trust-and-fallback-settings-research-for-tk-018); `--init JSON`, `--args "…"`, `--seconds N`) |
 | `guard_tree.py` | Kills a command's whole process tree over a memory/time limit (8 GB machine) |
 | `cases/*.json`, `results/*.json` | The questions and the recorded answers |
 

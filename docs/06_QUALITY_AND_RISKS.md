@@ -43,7 +43,7 @@ The target's tests live next to the package (`Tests/<Target>Tests`), and cross-p
 
 ## Mixed languages (TK-015–TK-017): the check plan
 
-Support for C/C++/Objective-C/Objective-C++ is not yet implemented or verified. Criteria per [ADR-021](07_ARCHITECTURE_DECISIONS.md#adr-021-support-for-the-languages-of-a-mixed-swift-project) and the [plan](12_MIXED_LANGUAGE_SUPPORT.md):
+Highlighting and the first language features of C/C++/Objective-C are implemented (TK-016, TK-017) but not yet accepted in a live window; Objective-C++ and the Xcode/Bazel/compilation-database contexts are not implemented or verified. Criteria per [ADR-021](07_ARCHITECTURE_DECISIONS.md#adr-021-support-for-the-languages-of-a-mixed-swift-project) and the [plan](12_MIXED_LANGUAGE_SUPPORT.md):
 
 - One language choice is used by highlighting/LSP/commands. A manual `.h` mode, a rename through Save As and a change of target leave no results of the previous context, even when the text version is unchanged.
 - For every grammar: strings/comments/preprocessor, unfinished code, UTF-16/CRLF, edits/Undo/IME, theme change and return into the viewport. In `.mm` check Objective-C and C++ constructs at the same time. Colours do not change the text, dirty state or Undo; no server or build is needed.

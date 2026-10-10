@@ -1,6 +1,6 @@
 # Engine contracts and the main workflows
 
-The current backend is TextKit 2. The custom engine in the original document is a historical algorithmic variant. Below is the production design; the programmatic and native transaction bridge and the save gate are already implemented in Packages/IDE; a real file store is still to come.
+The current backend is TextKit 2. The custom engine in the original document is a historical algorithmic variant. Below is the production design; the programmatic and native transaction bridge and the save gate are already implemented in Packages/IDE; the real file store (open/save, recovery, watching) is implemented as well, see ADR-011, ADR-016 and ADR-017.
 
 ## Document transaction
 

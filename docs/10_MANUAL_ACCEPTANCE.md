@@ -19,15 +19,31 @@ python3 -c "print('let a = 1\n' * 600000, end='')" > /tmp/big.swift
 python3 -c "print('struct A { var b = 1 }\n// comment\nlet s = \"x\"', end='')" > /tmp/small.swift
 ```
 
+## Results of the manual runs
+
+The user ran these items in a live window and reported them as working (2026-10-10, one run each, on one machine). ✅ marks them in the tables below.
+
+| Section | Items passed | Not yet run |
+|---|---|---|
+| A. Highlighting | A1–A5 | |
+| D. Editing | D1, D5 | D2 (IME), D3, D4, D6, D7 |
+| E. Saving and closing | E1, E2 | E3 |
+| F. Recovery | F1, F2 | F3–F16 |
+| G. File watching | G1–G7 | G8–G15 |
+| K. Swift completion | K1 | K2–K20 |
+| P. Description, jump, diagnostics | P21 | P1–P20, P22 |
+
+Everything else in the sections B, C, H, I, K, M, N, O and P is still unchecked by hand; the earlier statements "not checked in a live window" stay true for those items.
+
 ## A. Highlighting (TK-007)
 
 | № | Do | Expected | Already checked automatically |
 |---|---|---|---|
-| A1 | ⌘O → `/tmp/small.swift` | Colours of keywords, strings, comments. Window subtitle: "TextKit 2". | Pixels in the light theme; both themes by eye from screenshots (readable) |
-| A2 | Switch the system appearance light ↔ dark with the window open | The colours change by themselves and stay readable | Only screenshots of the two themes; I did not check the change on the fly |
-| A3 | Type `/*` at the start of the file | Everything below turns grey (a comment). Type `*/` — the colours come back | Tests and a screenshot |
-| A4 | Scroll down, return up after edits | No stale colours in a place already seen | Tests (with TextKit off screen) |
-| A5 | Fast, continuous typing in a large file | Input without delays; the colours catch up within fractions of a second | Benchmark: input ≈ 9 ms with highlighting; colours ready after 57 ms (10 MB) after a burst |
+| A1 ✅ | ⌘O → `/tmp/small.swift` | Colours of keywords, strings, comments. Window subtitle: "TextKit 2". | Pixels in the light theme; both themes by eye from screenshots (readable) |
+| A2 ✅ | Switch the system appearance light ↔ dark with the window open | The colours change by themselves and stay readable | Only screenshots of the two themes; I did not check the change on the fly |
+| A3 ✅ | Type `/*` at the start of the file | Everything below turns grey (a comment). Type `*/` — the colours come back | Tests and a screenshot |
+| A4 ✅ | Scroll down, return up after edits | No stale colours in a place already seen | Tests (with TextKit off screen) |
+| A5 ✅ | Fast, continuous typing in a large file | Input without delays; the colours catch up within fractions of a second | Benchmark: input ≈ 9 ms with highlighting; colours ready after 57 ms (10 MB) after a burst |
 
 ## B. File size and type (new, remarks 1–2)
 
@@ -57,11 +73,11 @@ python3 -c "print('struct A { var b = 1 }\n// comment\nlet s = \"x\"', end='')" 
 
 | № | Do | Expected |
 |---|---|---|
-| D1 | Type a few words in a coloured file, ⌘Z, ⇧⌘Z | Undo and redo by words as usual; highlighting creates no undo steps of its own (window title: the "edited" mark disappears after undoing everything) |
+| D1 ✅ | Type a few words in a coloured file, ⌘Z, ⇧⌘Z | Undo and redo by words as usual; highlighting creates no undo steps of its own (window title: the "edited" mark disappears after undoing everything) |
 | D2 | **IME** (Japanese, Chinese or Korean): type a composition in the middle of a code line and inside a comment, confirm with Enter | The text is inserted correctly; the colours do not flicker during the composition and update after it; Backspace in the composition works |
 | D3 | Dead keys: Option+E, then e (é), Option+U, u (ü) | The character is inserted correctly, the colours are fine |
 | D4 | Select several lines with the mouse, drag the text, paste | Works as before, without losing colours |
-| D5 | Double-click on a word, triple-click on a line | Word and line selection as in an ordinary NSTextView |
+| D5 ✅ | Double-click on a word, triple-click on a line | Word and line selection as in an ordinary NSTextView |
 | D6 | Search (⌘F) — if connected in the menu | Not related to these changes; note it if something looks strange |
 | D7 | VoiceOver: reading a coloured file | Not checked at all; the colours must not affect reading |
 
@@ -69,8 +85,8 @@ python3 -c "print('struct A { var b = 1 }\n// comment\nlet s = \"x\"', end='')" 
 
 | № | Do | Expected |
 |---|---|---|
-| E1 | Edit, ⌘S, close | No question; the subtitle does not change |
-| E2 | Edit, close without saving | The question "Do you want to save changes…" |
+| E1 ✅ | Edit, ⌘S, close | No question; the subtitle does not change |
+| E2 ✅ | Edit, close without saving | The question "Do you want to save changes…" |
 | E3 | Save a file of about 6 MB (`/tmp/big.swift` with an edit) | It is saved; the window may freeze for a fraction of a second (known: a copy of the text on the main thread, 100 MB ≈ 0.27 s) |
 
 ## F. Recovery of unsaved text (TK-006, ADR-016)
@@ -79,8 +95,8 @@ The record directory: `~/Library/Application Support/SwiftIDE/Recovery/` (`ls -l
 
 | № | Do | Expected |
 |---|---|---|
-| F1 | Open `/tmp/small.swift`, type a line, wait 3 s, `pkill -9 -x SwiftIDE`, start again | The dialog "Restore unsaved changes to “small.swift”?". "Restore": a window with your text, the title shows "edited"; the file on disk has not changed |
-| F2 | In F1, after restoring, press ⌘Z | The edit is undone back to the file's text (restoring is an ordinary edit) |
+| F1 ✅ | Open `/tmp/small.swift`, type a line, wait 3 s, `pkill -9 -x SwiftIDE`, start again | The dialog "Restore unsaved changes to “small.swift”?". "Restore": a window with your text, the title shows "edited"; the file on disk has not changed |
+| F2 ✅ | In F1, after restoring, press ⌘Z | The edit is undone back to the file's text (restoring is an ordinary edit) |
 | F3 | In F1 press "Discard" | The record is deleted (`ls` of the directory is empty), an Untitled window |
 | F4 | Type a line and at once (within 2 s) switch to another application, then `pkill -9` | The edit still comes back (a record is written on going to the background) |
 | F5 | Type without a pause for 15 seconds, then `pkill -9` | Text no older than ≈ 10 s comes back |
@@ -104,13 +120,13 @@ The checks need two windows: SwiftIDE and a terminal. The file: `/tmp/small.swif
 
 | № | Do | Expected |
 |---|---|---|
-| G1 | In the terminal: `echo '// from terminal' >> /tmp/small.swift` (the document in the window is clean) | After a second the text in the window is updated, a bar "was changed on disk and reloaded" with Undo and OK buttons at the top. The title has no "edited" mark |
-| G2 | In G1 press Undo | The text returns to what it was; the window is "edited" (⌘S will now show a conflict with the disk) |
-| G3 | Instead of `echo`, replace the whole file: `printf 'let replaced = 1\n' > /tmp/x && mv /tmp/x /tmp/small.swift` (many editors save this way) | The same as G1. **Repeat the `mv` a second time after the update: the window is updated again** (an important check, the watching must not fall off after a replacement) |
-| G4 | Type a line (unsaved edits), then `echo '// x' >> /tmp/small.swift` | The text does **not** change; a bar "was changed on disk. This window has unsaved changes" with Reload and Keep Mine |
-| G5 | In G4 press Reload | The text is replaced by the file's contents, your edits are gone, but ⌘Z brings them back |
-| G6 | In G4 press Keep Mine | The bar disappears; the same `echo` repeated does not bring it back, a **different** change does. ⌘S shows the conflict dialog (Overwrite / Reload / Cancel) |
-| G7 | `rm /tmp/small.swift` | A bar "was deleted or moved" with Save As… and OK; the text in the window is intact |
+| G1 ✅ | In the terminal: `echo '// from terminal' >> /tmp/small.swift` (the document in the window is clean) | After a second the text in the window is updated, a bar "was changed on disk and reloaded" with Undo and OK buttons at the top. The title has no "edited" mark |
+| G2 ✅ | In G1 press Undo | The text returns to what it was; the window is "edited" (⌘S will now show a conflict with the disk) |
+| G3 ✅ | Instead of `echo`, replace the whole file: `printf 'let replaced = 1\n' > /tmp/x && mv /tmp/x /tmp/small.swift` (many editors save this way) | The same as G1. **Repeat the `mv` a second time after the update: the window is updated again** (an important check, the watching must not fall off after a replacement) |
+| G4 ✅ | Type a line (unsaved edits), then `echo '// x' >> /tmp/small.swift` | The text does **not** change; a bar "was changed on disk. This window has unsaved changes" with Reload and Keep Mine |
+| G5 ✅ | In G4 press Reload | The text is replaced by the file's contents, your edits are gone, but ⌘Z brings them back |
+| G6 ✅ | In G4 press Keep Mine | The bar disappears; the same `echo` repeated does not bring it back, a **different** change does. ⌘S shows the conflict dialog (Overwrite / Reload / Cancel) |
+| G7 ✅ | `rm /tmp/small.swift` | A bar "was deleted or moved" with Save As… and OK; the text in the window is intact |
 | G8 | In G7 put the file back with the same contents (`cp` of a copy) | The bar disappears |
 | G9 | In G7 press Save As… | A save dialog; after saving, the watching follows the new name (check G1 on the new file) |
 | G10 | Save the document (⌘S) in SwiftIDE | No bars after its own save, even 2 seconds later |
@@ -164,7 +180,7 @@ Xcode 27 is needed (`xcrun --find sourcekit-lsp`). The package for the checks is
 
 | № | Do | Expected |
 |---|---|---|
-| K1 | At the end of `main.swift`, on a new line, type `greeter.` | Right after the dot a list under the caret with methods and icons; focus stays in the text, typing goes on |
+| K1 ✅ | At the end of `main.swift`, on a new line, type `greeter.` | Right after the dot a list under the caret with methods and icons; focus stays in the text, typing goes on |
 | K2 | Continue typing `greeter.gre`, then on another line `"x".pre` | The first list narrows to `greeting()` with no new request; in the second `prefix(_:)` is higher, `hasPrefix(_:)` (the start of the second word of the name) lower; a substring in the middle of a word does not match |
 | K3 | Choose an item with Return, then separately with Tab; arrows ↑/↓, Page Up/Down | The typed word is replaced by the item; for a call with arguments the caret is inside the parentheses, for a property after it; ↑/↓ and Page move the selection, not the caret |
 | K4 | Accept an item, press ⌘Z once | The insertion disappears in one step (only what was typed remains), not character by character |
@@ -278,7 +294,7 @@ Open the files `Fixtures/SwiftPMMixed/Sources/…` from the repository after `sw
 | P18 | After a jump to another file, Edit ▸ Go Back (⌃⌘←) | A return to the place the jump started from, in its window; the item is inactive until there has been a jump; a second "Back" goes to the previous jump |
 | P19 | A project located in `/Applications/…` or `/opt/…`, and a jump into its file | The file opens for editing (without "read-only (system file)"); SDK files and `.swiftinterface` — read-only |
 | P20 | Unverified diagnostics: type an error and quickly keep typing | The line is paler than usual at once (the server names no version), after the next edit paler still, after a new report it returns |
-| P21 | A Swift file, `struct S { let a: Int }` and below `S()` (an argument is missing) | The red wavy line is not under a single character but under a word or the whole line; a red dot in the line margin |
+| P21 ✅ | A Swift file, `struct S { let a: Int }` and below `S()` (an argument is missing) | The red wavy line is not under a single character but under a word or the whole line; a red dot in the line margin |
 | P22 | Rest the pointer on the red or yellow dot in the line-number margin, then move away | Under the line a window "error: …" (with several problems line by line, the worst first); it disappears when the pointer leaves, on an edit and on scrolling; on a line without a dot nothing appears |
 
 ## Known limitations that should not be taken for errors

@@ -8,7 +8,7 @@ The main gap is that the editor implementation is so far better described than t
 
 The product promise for the first version: **fast and predictable Swift editing, convenient navigation, and a clear state of the build and of the language services**. AppCode level is a direction of growth, not a criterion for the first delivery.
 
-The direction of supporting related C, C++, Objective-C and Objective-C++ files in mixed Swift projects is accepted. First a shared language choice and local highlighting, then language features on verified build settings. The current implementation supports only Swift; support for each additional language is accepted separately. Scope, order and criteria: [mixed-project support](12_MIXED_LANGUAGE_SUPPORT.md).
+The direction of supporting related C, C++, Objective-C and Objective-C++ files in mixed Swift projects is accepted. First a shared language choice and local highlighting, then language features on verified build settings. The current implementation supports Swift fully and the C family (C, C++, Objective-C) in a built SwiftPM package; Objective-C++ has no highlighting, and support for each additional language is accepted separately. Scope, order and criteria: [mixed-project support](12_MIXED_LANGUAGE_SUPPORT.md).
 
 ## Priorities
 
