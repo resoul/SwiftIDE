@@ -16,7 +16,9 @@ private struct Setup {
     let key: RecoveryKey
 
     init(
-        path: String = "/w/Main.swift", text: String = "let a = 1\n", policy: RecoveryPolicy = .standard,
+        path: String = "/w/Main.swift",
+        text: String = "let a = 1\n",
+        policy: RecoveryPolicy = .standard,
         scratch: Bool = false
     ) async throws {
         files = MemoryDocumentFileStore(contents: [path: text])
@@ -30,6 +32,7 @@ private struct Setup {
             session = try await open.execute(path: path).session
             key = .file(atPath: path)
         }
+
         coordinator = RecoveryCoordinator(session: session, store: recovery, policy: policy, clock: clock)
     }
 
@@ -158,7 +161,10 @@ func saveAsMovesTheProtectionToTheNewName() async throws {
     #expect(await s.recovery.keys == [.file(atPath: "/w/Old.swift")])
 
     _ = try await SaveDocumentUseCase(store: s.files).saveAs(
-        document: s.session, to: "/w/New.swift", target: .newFile, registry: s.registry
+        document: s.session,
+        to: "/w/New.swift",
+        target: .newFile,
+        registry: s.registry
     )
     await s.settle()
     #expect(await s.recovery.keys.isEmpty, "saved under the new name: nothing unsaved is left")
@@ -211,7 +217,8 @@ func aDocumentOverTheSizeLimitIsNotKeptAndSaysSo() async throws {
     #expect(s.coordinator.status == .tooLarge)
 
     try s.session.apply(
-        [DocumentEdit(range: UTF16TextRange(location: 0, length: 200), replacement: "")], expectedVersion: s.session.version
+        [DocumentEdit(range: UTF16TextRange(location: 0, length: 200), replacement: "")],
+        expectedVersion: s.session.version
     )
     await s.advance(2)
     #expect(await s.recovery.keys == [s.key])
@@ -242,8 +249,10 @@ func aFailedWriteIsReportedAndTriedAgainAfterTheNextEdit() async throws {
     await s.advance(2)
     guard case .failing = s.coordinator.status else {
         Issue.record("expected a failing status, got \(s.coordinator.status)")
+
         return
     }
+
     await s.recovery.setFailingWrites(false)
     try s.edit("y")
     await s.advance(2)
@@ -321,6 +330,7 @@ private struct TypingDuringWrite: DocumentFileStore {
 
     func write(_ snapshot: DocumentSnapshot, expecting: SaveExpectation) async throws -> FileRevision {
         await whileWriting()
+
         return try await base.write(snapshot, expecting: expecting)
     }
 
@@ -346,7 +356,10 @@ func textTypedWhileSavingUnderANewNameIsKeptOnlyUnderTheNewName() async throws {
         }
     }
     _ = try await SaveDocumentUseCase(store: store).saveAs(
-        document: s.session, to: "/w/New.swift", target: .newFile, registry: s.registry
+        document: s.session,
+        to: "/w/New.swift",
+        target: .newFile,
+        registry: s.registry
     )
     #expect(s.session.isDirty, "text typed during the write is not saved")
     await s.advance(2)

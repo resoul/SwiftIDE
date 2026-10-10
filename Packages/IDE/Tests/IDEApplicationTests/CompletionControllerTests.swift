@@ -12,6 +12,7 @@ private final class FakeProvider: CompletionProviding {
 
     func completion(for session: DocumentSession, caret: @MainActor () -> Int) async -> CompletionOutcome {
         calls.append(Call(version: session.version, caret: caret()))
+
         return await answer(calls.count)
     }
 }
@@ -64,13 +65,15 @@ private final class Rig {
         provider.answer = { _ in .items(items, isIncomplete: incomplete) }
         var box: Rig?
         controller = CompletionController(
-            session: session, provider: provider,
+            session: session,
+            provider: provider,
             environment: CompletionEnvironment(
                 caret: { box.flatMap { $0.hasCaret ? $0.caret : nil } },
                 text: { range in (session.text as NSString).substring(with: NSRange(location: range.location, length: range.length)) },
                 setCaret: { box?.carets.append($0); box?.caret = $0 }
             ),
-            presenter: presenter, clock: clock
+            presenter: presenter,
+            clock: clock
         )
         box = self
     }
@@ -79,7 +82,8 @@ private final class Rig {
     func type(_ text: String, origin: EditOrigin = .typing) throws {
         try session.apply(
             [DocumentEdit(range: UTF16TextRange(location: caret, length: 0), replacement: text)],
-            expectedVersion: session.version, origin: origin
+            expectedVersion: session.version,
+            origin: origin
         )
         caret += (text as NSString).length
     }
@@ -87,7 +91,8 @@ private final class Rig {
     func backspace() throws {
         try session.apply(
             [DocumentEdit(range: UTF16TextRange(location: caret - 1, length: 1), replacement: "")],
-            expectedVersion: session.version, origin: .typing
+            expectedVersion: session.version,
+            origin: .typing
         )
         caret -= 1
     }
@@ -321,6 +326,7 @@ func dismissingWhileTheServerThinksDropsItsAnswer() async throws {
     var release: CheckedContinuation<Void, Never>?
     rig.provider.answer = { _ in
         await withCheckedContinuation { release = $0 }
+
         return .items(members, isIncomplete: false)
     }
     try rig.type(".")
@@ -337,6 +343,7 @@ func theAnswerToAnEarlierRequestDoesNotReplaceTheLaterOne() async throws {
     var gates: [CheckedContinuation<Void, Never>] = []
     rig.provider.answer = { call in
         if call == 1 { await withCheckedContinuation { gates.append($0) } }
+
         // Both match what is typed by then, so only the check of which request it was tells them apart.
         return .items(call == 1 ? [item("nOld")] : [item("new")], isIncomplete: true)
     }
@@ -464,8 +471,12 @@ func theFilterUsesTheFilterTextNotTheLabel() {
 // MARK: The range the server names
 
 private func ranged(_ label: String, insert: String? = nil, from: Int, to: Int) -> CompletionItem {
-    CompletionItem(label: label, insertText: insert ?? label, sortText: label, filterText: label,
-                   replacementRange: UTF16TextRange(location: from, length: to - from), kind: .property)
+    CompletionItem(label: label,
+                   insertText: insert ?? label,
+                   sortText: label,
+                   filterText: label,
+                   replacementRange: UTF16TextRange(location: from, length: to - from),
+                   kind: .property)
 }
 
 @Test @MainActor
@@ -530,6 +541,7 @@ private func hold(_ rig: Rig) -> Box<CheckedContinuation<CompletionOutcome, Neve
     rig.provider.answer = { _ in
         await withCheckedContinuation { held.value = $0 }
     }
+
     return held
 }
 
@@ -581,6 +593,7 @@ func anAnswerThatNeverComesIsWithdrawnAndTheUserToldAtTheTimeout() async throws 
         await withTaskCancellationHandler {
             await withCheckedContinuation { (_: CheckedContinuation<Void, Never>) in }
         } onCancel: { cancelled.raise() }
+
         return .items(members, isIncomplete: false)
     }
     try rig.type(".")
@@ -632,6 +645,7 @@ func aListThatIsOnScreenSurvivesTheTimeoutOfTheNextQuestion() async throws {
         await withTaskCancellationHandler {
             await withCheckedContinuation { held.value = $0 }
         } onCancel: { cancelled.raise() }
+
         return .items([item("appeared")], isIncomplete: true)
     }
     try rig.type("a")
@@ -651,8 +665,11 @@ func aListThatIsOnScreenSurvivesTheTimeoutOfTheNextQuestion() async throws {
 @Test @MainActor
 func eachReasonTheServerCannotBeUsedHasItsOwnStatusWhenAskedByHand() async throws {
     let cases: [(LanguageServiceUnavailable, CompletionStatus)] = [
-        (.starting, .starting), (.restarting, .restarting), (.documentNotSynced, .notReady),
-        (.failed("boom"), .unavailable), (.notRunning, .unavailable),
+        (.starting, .starting),
+        (.restarting, .restarting),
+        (.documentNotSynced, .notReady),
+        (.failed("boom"), .unavailable),
+        (.notRunning, .unavailable),
     ]
     for (reason, status) in cases {
         let rig = Rig(text: "s.")

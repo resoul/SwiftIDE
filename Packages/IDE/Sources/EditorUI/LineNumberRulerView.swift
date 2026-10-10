@@ -40,7 +40,9 @@ public final class LineNumberRulerView: NSRulerView {
             (NSView.frameDidChangeNotification, textView as NSView)
         ] {
             observers.append(NotificationCenter.default.addObserver(
-                forName: name, object: object, queue: .main
+                forName: name,
+                object: object,
+                queue: .main
             ) { [weak self] _ in
                 MainActor.assumeIsolated { self?.needsDisplay = true }
             })
@@ -70,6 +72,7 @@ public final class LineNumberRulerView: NSRulerView {
     public func visibleLabels() -> [Label] {
         guard let layoutManager = textView.textLayoutManager,
               let content = layoutManager.textContentManager else { return [] }
+
         let index = lineIndex.current
         let origin = textView.textContainerOrigin
         let visible = textView.visibleRect
@@ -79,6 +82,7 @@ public final class LineNumberRulerView: NSRulerView {
         var labels: [Label] = []
         func baseline(of row: NSTextLineFragment, in frame: CGRect) -> CGFloat {
             let inText = frame.minY + row.typographicBounds.minY + row.glyphOrigin.y + origin.y
+
             return convert(NSPoint(x: 0, y: inText), from: textView).y
         }
         let documentEnd = index.utf16Length
@@ -88,10 +92,12 @@ public final class LineNumberRulerView: NSRulerView {
             guard frame.maxY + origin.y >= visible.minY, let row = fragment.textLineFragments.first else {
                 return true
             }
+
             let offset = content.offset(from: content.documentRange.location, to: fragment.rangeInElement.location)
             if let line = index.lineStarting(at: offset) {
                 labels.append(Label(number: line + 1, baseline: baseline(of: row, in: frame)))
             }
+
             // After a final line break the layout adds an empty row to the last fragment: that
             // row is the document's last, empty line.
             let end = content.offset(from: content.documentRange.location, to: fragment.rangeInElement.endLocation)
@@ -99,15 +105,19 @@ public final class LineNumberRulerView: NSRulerView {
                index.lineStarting(at: documentEnd) == index.lineCount - 1 {
                 labels.append(Label(number: index.lineCount, baseline: baseline(of: extra, in: frame)))
             }
+
             return true
         }
         // An empty document has no fragment at all; its one row is where the insertion point is.
         if documentEnd == 0 {
             var top: CGFloat?
             layoutManager.enumerateTextSegments(
-                in: NSTextRange(location: layoutManager.documentRange.endLocation), type: .standard, options: []
+                in: NSTextRange(location: layoutManager.documentRange.endLocation),
+                type: .standard,
+                options: []
             ) { _, rect, _, _ in
                 top = rect.minY
+
                 return false
             }
             if let top, let font = textView.font {
@@ -115,6 +125,7 @@ public final class LineNumberRulerView: NSRulerView {
                 labels.append(Label(number: 1, baseline: convert(NSPoint(x: 0, y: inText), from: textView).y))
             }
         }
+
         return labels
     }
 
@@ -125,7 +136,8 @@ public final class LineNumberRulerView: NSRulerView {
         NSRect(x: bounds.maxX - 1, y: rect.minY, width: 1, height: rect.height).fill()
 
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: font, .foregroundColor: NSColor.secondaryLabelColor
+            .font: font,
+            .foregroundColor: NSColor.secondaryLabelColor
         ]
         for label in visibleLabels() {
             let text = NSAttributedString(string: String(label.number), attributes: attributes)

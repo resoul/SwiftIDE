@@ -16,11 +16,13 @@ private let mainFile = fixture.appendingPathComponent("Sources/App/main.swift")
 
 private let toolAvailable: Bool = {
     guard FileManager.default.fileExists(atPath: mainFile.path) else { return false }
+
     let finder = Process()
     finder.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
     finder.arguments = ["--find", "sourcekit-lsp"]
     finder.standardOutput = FileHandle.nullDevice
     finder.standardError = FileHandle.nullDevice
+
     return (try? finder.run()) != nil && { finder.waitUntilExit(); return finder.terminationStatus == 0 }()
 }()
 
@@ -46,10 +48,12 @@ private final class Real {
         caret = (text as NSString).length
         let channels = channels
         service = SourceKitLanguageService(
-            workspaceRoot: fixture, restartPolicy: .init(delays: [.milliseconds(100), .milliseconds(300)]),
+            workspaceRoot: fixture,
+            restartPolicy: .init(delays: [.milliseconds(100), .milliseconds(300)]),
             channelFactory: {
                 let channel = try await SourceKitLanguageService.sourceKitLSP() as! ProcessChannel
                 channels.add(channel)
+
                 return channel
             }
         )
@@ -75,6 +79,7 @@ private final class Real {
             if case .items(let items, _) = outcome, !items.isEmpty { return items.map(\.label) }
             try? await Task.sleep(for: .milliseconds(300))
         }
+
         return []
     }
 }
@@ -148,6 +153,7 @@ func diagnosticsOfTheRealServerAreUnversionedSoTheyAreOnlyAsFreshAsTheLastEdit()
             report = current
             break
         }
+
         try await Task.sleep(for: .milliseconds(100))
     }
     let found = try #require(report, "no diagnostic arrived")

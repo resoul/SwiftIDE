@@ -17,8 +17,10 @@ private final class Supply: @unchecked Sendable {
         try lock.withLock {
             asked += 1
             guard !queue.isEmpty else { throw LSPError.notRunning }
+
             let server = queue.removeFirst()
             made.append(server)
+
             return server
         }
     }
@@ -34,13 +36,18 @@ private final class Rig {
     var caret = 0
 
     init(
-        servers: [ScriptedServer] = [ScriptedServer()], text: String = "let x = 1\nx.\n", delays: [Duration] = [.seconds(1), .seconds(2)],
+        servers: [ScriptedServer] = [ScriptedServer()],
+        text: String = "let x = 1\nx.\n",
+        delays: [Duration] = [.seconds(1), .seconds(2)],
         sync: OrderedDocumentSync = OrderedDocumentSync()
     ) {
         supply = Supply(servers)
         let supply = supply
         service = SourceKitLanguageService(
-            workspaceRoot: URL(fileURLWithPath: "/w"), sync: sync, restartPolicy: .init(delays: delays), clock: clock,
+            workspaceRoot: URL(fileURLWithPath: "/w"),
+            sync: sync,
+            restartPolicy: .init(delays: delays),
+            clock: clock,
             channelFactory: { try supply.next() }
         )
         backend = StringDocumentBackend(loadedText: text)
@@ -61,6 +68,7 @@ private final class Rig {
             if condition() { return true }
             try? await Task.sleep(for: .milliseconds(5))
         }
+
         return condition()
     }
 
@@ -81,6 +89,7 @@ private func completionItem(_ label: String, newText: String? = nil, line: Int =
     if let newText {
         item["textEdit"] = ["range": ["start": ["line": .int(line), "character": .int(from)], "end": ["line": .int(line), "character": .int(to)]], "newText": .string(newText)]
     }
+
     return .object(item)
 }
 
@@ -126,6 +135,7 @@ func completionReturnsTheServersItemsWithTheirReplacementRanges() async throws {
     let rig = Rig(servers: [server])
     try await rig.started()
     guard case .items(let items, let incomplete) = await rig.completion() else { Issue.record("expected items"); return }
+
     #expect(!incomplete)
     #expect(items.map(\.label) == ["bitWidth", "magnitude"])
     #expect(items[0].replacementRange == UTF16TextRange(location: 12, length: 0), "line 1, character 2 of \"let x = 1\\nx.\\n\"")
@@ -144,6 +154,7 @@ func anInsertReplaceEditNamesTheReplaceRange() async throws {
     let rig = Rig(servers: [server])
     try await rig.started()
     guard case .items(let items, _) = await rig.completion() else { Issue.record("expected items"); return }
+
     #expect(items[0].replacementRange == UTF16TextRange(location: 10, length: 2), "the replace range, not the insert one")
 }
 
@@ -189,6 +200,7 @@ func manyEditsAndACompletionArriveInTheOrderTheyWereMade() async throws {
 func anAnswerForTextThatHasChangedSinceIsDropped() async throws {
     let silent = ScriptedServer(handler: { message, server in
         guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
+
         if method == "initialize" { server.reply(id, ["capabilities": [:]]) }
         // completion: no answer yet
     })
@@ -205,6 +217,7 @@ func anAnswerForTextThatHasChangedSinceIsDropped() async throws {
 func anAnswerForACaretThatMovedIsDropped() async throws {
     let silent = ScriptedServer(handler: { message, server in
         guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
+
         if method == "initialize" { server.reply(id, ["capabilities": [:]]) }
     })
     let rig = Rig(servers: [silent])
@@ -231,6 +244,7 @@ func completionDoesNotTouchMarkedText() async throws {
 func compositionThatBeginsWhileACompletionIsOutMakesItsAnswerStale() async throws {
     let silent = ScriptedServer(handler: { message, server in
         guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
+
         if method == "initialize" { server.reply(id, ["capabilities": [:]]) }
     })
     let rig = Rig(servers: [silent])
@@ -247,6 +261,7 @@ func compositionThatBeginsWhileACompletionIsOutMakesItsAnswerStale() async throw
 func cancellingACompletionTellsTheServerAndReportsItStale() async throws {
     let silent = ScriptedServer(handler: { message, server in
         guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
+
         if method == "initialize" { server.reply(id, ["capabilities": [:]]) }
         if method == "$/cancelRequest" { _ = id }
     })
@@ -326,6 +341,7 @@ func aServerThatDiesIsReplacedAndGivenTheDocumentsAgain() async throws {
 func aCompletionOutWhenTheServerDiesIsStaleNotAnError() async throws {
     let first = ScriptedServer(handler: { message, server in
         guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
+
         if method == "initialize" { server.reply(id, ["capabilities": [:]]) }
     })
     let rig = Rig(servers: [first, ScriptedServer()])
@@ -348,13 +364,15 @@ func theLastWordOfADeadServerIsNotMistakenForTheNewOnes() async throws {
     // A report that the first server sent before it died, delivered late (the hop from its reader
     // thread to the main actor can take as long as it likes).
     rig.service.received("textDocument/publishDiagnostics", [
-        "uri": "file:///w/Main.swift", "version": 0,
+        "uri": "file:///w/Main.swift",
+        "version": 0,
         "diagnostics": [["message": "from the dead", "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 1]]]],
     ], from: 1)
     #expect(rig.service.diagnostics(for: rig.session) == nil)
     // The current server is believed.
     rig.service.received("textDocument/publishDiagnostics", [
-        "uri": "file:///w/Main.swift", "version": 0,
+        "uri": "file:///w/Main.swift",
+        "version": 0,
         "diagnostics": [["message": "from the living", "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 1]]]],
     ], from: 2)
     #expect(rig.service.diagnostics(for: rig.session)?.items.first?.message == "from the living")
@@ -394,15 +412,21 @@ func diagnosticsAreCurrentOnlyForTheVersionTheyWereMadeFor() async throws {
     let rig = Rig(servers: [server])
     try await rig.started()
     server.notify("textDocument/publishDiagnostics", [
-        "uri": "file:///w/Main.swift", "version": 0,
-        "diagnostics": [["severity": 1, "message": "oops", "source": "sourcekitd",
+        "uri": "file:///w/Main.swift",
+        "version": 0,
+        "diagnostics": [["severity": 1,
+                         "message": "oops",
+                         "source": "sourcekitd",
                          "range": ["start": ["line": 1, "character": 0], "end": ["line": 1, "character": 1]]]],
     ])
     #expect(await rig.waitFor { rig.service.diagnostics(for: rig.session) != nil })
     var report = try #require(rig.service.diagnostics(for: rig.session))
     #expect(report.freshness == .current && report.reportedVersion == 0)
-    #expect(report.items == [LanguageDiagnostic(severity: .error, message: "oops", source: "sourcekitd",
-                                                start: LSPPosition(line: 1, character: 0), end: LSPPosition(line: 1, character: 1))])
+    #expect(report.items == [LanguageDiagnostic(severity: .error,
+                                                message: "oops",
+                                                source: "sourcekitd",
+                                                start: LSPPosition(line: 1, character: 0),
+                                                end: LSPPosition(line: 1, character: 1))])
     try rig.edit(0, "// newer\n")
     report = try #require(rig.service.diagnostics(for: rig.session))
     #expect(report.freshness == .stale, "for version 0; the text is version 1 now")
@@ -464,8 +488,10 @@ func aServerThatRanForAWhileGetsTheShortWaitAgain() async throws {
 
 private func notReadyYet(failures: Int) -> ScriptedServer.Handler {
     let remaining = Locked(failures)
+
     return { message, server in
         guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
+
         switch method {
         case "initialize":
             server.reply(id, ["capabilities": [:]])
@@ -487,6 +513,7 @@ func aServerThatIsNotReadyForTheDocumentYetIsAskedAgainRatherThanGivingUp() asyn
     let rig = Rig(servers: [server])
     try await rig.started()
     guard case .items(let items, _) = await rig.completion() else { Issue.record("expected items after the retries"); return }
+
     #expect(items.map(\.label) == ["member"])
     #expect(server.messages(named: "textDocument/completion").count == 3)
 }
@@ -497,6 +524,7 @@ func aServerThatNeverGetsReadyEndsInAnErrorNotAnEndlessWait() async throws {
     let rig = Rig(servers: [server])
     try await rig.started()
     guard case .unavailable(.failed) = await rig.completion() else { Issue.record("expected unavailable"); return }
+
     #expect(server.messages(named: "textDocument/completion").count <= 5)
 }
 
@@ -527,6 +555,7 @@ private final class SecondCopyHeld {
             isHolding = true
             await withCheckedContinuation { gate = $0 }
         }
+
         return capture
     }
 
@@ -550,6 +579,7 @@ func aCompletionAskedWhileTheDocumentIsBeingGivenToTheServerWaitsForIt() async t
     #expect(server.messages(named: "textDocument/completion").isEmpty, "nothing is asked of a server that has not been given the text")
     held.release()
     guard case .items(let items, _) = await asking.value else { Issue.record("expected the answer, not a refusal"); return }
+
     #expect(items.map(\.label) == ["member"])
 }
 

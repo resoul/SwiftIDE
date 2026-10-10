@@ -22,6 +22,7 @@ public final class DocumentRegistry {
 
     public func session(atPath path: String) -> DocumentSession? {
         let canonical = DocumentPath.canonical(path)
+
         return sessions.first { !$0.isUntitled && $0.path == canonical }
     }
 
@@ -45,7 +46,9 @@ public final class DocumentRegistry {
         let canonical = DocumentPath.canonical(path)
         if let other = session(atPath: canonical), other !== document { return .openElsewhere }
         guard reservations[canonical] == nil else { return .reserved }
+
         reservations[canonical] = document.id
+
         return .granted
     }
 

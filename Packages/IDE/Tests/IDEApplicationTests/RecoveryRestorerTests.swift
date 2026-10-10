@@ -20,7 +20,9 @@ private struct World {
             DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
         }
         restorer = RecoveryRestorer(
-            store: recovery, files: files, open: open,
+            store: recovery,
+            files: files,
+            open: open,
             makeScratch: { title in
                 DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: ""), isUntitled: true)
             }
@@ -31,19 +33,31 @@ private struct World {
     func leftBehind(_ path: String, text: String, base: String? = nil) async throws -> RecoveryRecord {
         let revision = try await files.read(path: path, maximumBytes: .max).revision
         let record = RecoveryRecord(
-            key: .file(atPath: path), path: path, title: (path as NSString).lastPathComponent, text: text,
-            encoding: .utf8, baseRevision: revision, savedAt: Date(timeIntervalSince1970: 1_000)
+            key: .file(atPath: path),
+            path: path,
+            title: (path as NSString).lastPathComponent,
+            text: text,
+            encoding: .utf8,
+            baseRevision: revision,
+            savedAt: Date(timeIntervalSince1970: 1_000)
         )
         await recovery.seed(record)
+
         return record
     }
 
     func scratchRecord(_ text: String) async -> RecoveryRecord {
         let record = RecoveryRecord(
-            key: .scratch(DocumentID()), path: nil, title: "Untitled", text: text, encoding: .utf8,
-            baseRevision: nil, savedAt: Date(timeIntervalSince1970: 2_000)
+            key: .scratch(DocumentID()),
+            path: nil,
+            title: "Untitled",
+            text: text,
+            encoding: .utf8,
+            baseRevision: nil,
+            savedAt: Date(timeIntervalSince1970: 2_000)
         )
         await recovery.seed(record)
+
         return record
     }
 }
@@ -230,7 +244,8 @@ func theOldRecordStaysWhenTheNewDocumentIsTooLargeToKeep() async throws {
     let candidate = RecoveryCandidate(record: record, disk: .missing)
     let session = try #require(try await w.restorer.restore(candidate).session)
     let coordinator = RecoveryCoordinator(
-        session: session, store: w.recovery,
+        session: session,
+        store: w.recovery,
         policy: RecoveryPolicy(debounce: .seconds(2), maximumDelay: .seconds(10), maximumUTF16Length: 5),
         clock: ManualDelayClock()
     )

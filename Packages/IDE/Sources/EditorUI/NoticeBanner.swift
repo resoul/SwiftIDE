@@ -77,6 +77,7 @@ public final class NoticeBanner: NSView {
 
     @objc private func pressed(_ sender: NSButton) {
         guard actions.indices.contains(sender.tag) else { return }
+
         actions[sender.tag]()
     }
 }

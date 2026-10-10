@@ -35,8 +35,10 @@ public final class UnsavedChangesCoordinator {
 
     private func resolve(_ session: DocumentSession) async -> Outcome {
         guard session.isDirty else { return .settled }
+
         // One question per document at a time; a second request does not stack another sheet.
         guard deciding.insert(session.id).inserted else { return .refused }
+
         defer { deciding.remove(session.id) }
 
         // What the user is looking at when asked. Their answer covers this and nothing later.
@@ -48,6 +50,7 @@ public final class UnsavedChangesCoordinator {
             return .discarded(version: seen)
         case .save:
             guard await save(session) else { return .refused }
+
             // A successful write only covers the text it captured. Anything typed while it was
             // being written is new and unsaved, and closing now would lose it.
             return session.isDirty ? .refused : .settled
@@ -93,14 +96,17 @@ public final class UnsavedChangesCoordinator {
                 switch await resolve(session) {
                 case .refused:
                     if !released.isEmpty { reinstate(released.values.map(\.session)) }
+
                     return false
                 case .settled: break
                 case .discarded(let version): discarded[session.id] = version
                 }
                 continue
             }
+
             let unreleased = open.filter { $0.isDirty && released[$0.id]?.version != $0.version }
             guard !unreleased.isEmpty else { return true }
+
             for session in unreleased { released[session.id] = (session, session.version) }
             await release(unreleased)
         }

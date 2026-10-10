@@ -25,6 +25,7 @@ private struct ReferenceLines {
                     lines.append(Line(start: start, content: index - start, terminator: .cr))
                     index += 1
                 }
+
                 start = index
             } else {
                 index += 1
@@ -35,13 +36,17 @@ private struct ReferenceLines {
 }
 
 private func expectAgrees(
-    _ index: LineIndex, with units: [UInt16], _ note: @autoclosure () -> String = "",
-    everyLine: Bool = true, sourceLocation: SourceLocation = #_sourceLocation
+    _ index: LineIndex,
+    with units: [UInt16],
+    _ note: @autoclosure () -> String = "",
+    everyLine: Bool = true,
+    sourceLocation: SourceLocation = #_sourceLocation
 ) {
     let reference = ReferenceLines(units)
     #expect(index.utf16Length == units.count, "length \(note())", sourceLocation: sourceLocation)
     #expect(index.lineCount == reference.lines.count, "line count \(note())", sourceLocation: sourceLocation)
     guard index.lineCount == reference.lines.count else { return }
+
     // Checking every line is slow in a debug build; large documents do it on some steps only.
     let numbers = everyLine ? Array(reference.lines.indices) : (0..<80).map { _ in Int.random(in: 0..<reference.lines.count) }
     for number in numbers {
@@ -50,6 +55,7 @@ private func expectAgrees(
         guard index.startOffset(ofLine: number) == expected.start,
               extent.content == expected.content, extent.terminator == expected.terminator else {
             Issue.record("line \(number) differs \(note())", sourceLocation: sourceLocation)
+
             return
         }
     }
@@ -63,19 +69,23 @@ private func expectAgrees(
         let expectedLine = reference.lines.lastIndex { $0.start <= offset }!
         guard index.line(containing: offset) == expectedLine else {
             Issue.record("line(containing: \(offset)) \(note())", sourceLocation: sourceLocation)
+
             return
         }
+
         let isStart = reference.lines[expectedLine].start == offset
         guard index.lineStarting(at: offset) == (isStart ? expectedLine : nil) else {
             Issue.record("lineStarting(at: \(offset)) \(note())", sourceLocation: sourceLocation)
+
             return
         }
     }
 }
 
-
 private func replaceOK(
-    _ index: inout LineIndex, _ range: UTF16TextRange, with replacement: String,
+    _ index: inout LineIndex,
+    _ range: UTF16TextRange,
+    with replacement: String,
     sourceLocation: SourceLocation = #_sourceLocation
 ) {
     let applied = index.replace(range, with: replacement)
@@ -83,7 +93,9 @@ private func replaceOK(
 }
 
 private func rejects(
-    _ index: inout LineIndex, _ range: UTF16TextRange, with replacement: String,
+    _ index: inout LineIndex,
+    _ range: UTF16TextRange,
+    with replacement: String,
     sourceLocation: SourceLocation = #_sourceLocation
 ) {
     let applied = index.replace(range, with: replacement)
@@ -95,6 +107,7 @@ private struct SeededGenerator: RandomNumberGenerator {
     init(seed: UInt64) { state = seed }
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
+
         return state
     }
 }

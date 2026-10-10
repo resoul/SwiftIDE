@@ -26,7 +26,8 @@ public struct CompletionEnvironment {
     public var setCaret: @MainActor (Int) -> Void
 
     public init(
-        caret: @escaping @MainActor () -> Int?, text: @escaping @MainActor (UTF16TextRange) -> String,
+        caret: @escaping @MainActor () -> Int?,
+        text: @escaping @MainActor (UTF16TextRange) -> String,
         setCaret: @escaping @MainActor (Int) -> Void
     ) {
         self.caret = caret
@@ -85,10 +86,17 @@ public final class CompletionController {
     private var compositionSubscription: UUID?
 
     public init(
-        session: DocumentSession, provider: any CompletionProviding, environment: CompletionEnvironment,
-        presenter: any CompletionPresenting, maximumRows: Int = 200, clock: any DelayClock = SystemDelayClock(),
-        timeout: Duration = .seconds(5), waitingNotice: Duration = .milliseconds(300), statusDuration: Duration = .seconds(2),
-        retryDelay: Duration = .milliseconds(500), maximumEmptyAnswers: Int = 20
+        session: DocumentSession,
+        provider: any CompletionProviding,
+        environment: CompletionEnvironment,
+        presenter: any CompletionPresenting,
+        maximumRows: Int = 200,
+        clock: any DelayClock = SystemDelayClock(),
+        timeout: Duration = .seconds(5),
+        waitingNotice: Duration = .milliseconds(300),
+        statusDuration: Duration = .seconds(2),
+        retryDelay: Duration = .milliseconds(500),
+        maximumEmptyAnswers: Int = 20
     ) {
         self.retryDelay = retryDelay
         self.maximumEmptyAnswers = maximumEmptyAnswers
@@ -127,6 +135,7 @@ public final class CompletionController {
     /// Completion at the caret, asked for by the user.
     public func requestManually() {
         guard !session.isComposing, let caret = environment.caret(), caret >= 0, caret <= session.utf16Length else { return }
+
         let window = UTF16TextRange(location: max(0, caret - 128), length: caret - max(0, caret - 128))
         let before = Array(environment.text(window).utf16)
         var start = before.count
@@ -151,23 +160,29 @@ public final class CompletionController {
 
     private func maybeStartAfterDot(_ change: DocumentChangeSet) {
         guard change.origin == .typing, change.edits.count == 1, !session.isComposing else { return }
+
         let edit = change.edits[0]
         guard edit.range.length == 0, edit.replacement == ".", edit.range.location > 0 else { return }
+
         let lookBack = min(edit.range.location, 64)
         let before = Array(environment.text(UTF16TextRange(location: edit.range.location - lookBack, length: lookBack)).utf16)
         guard Self.endsMemberBase(before) else { return }
+
         begin(anchor: edit.range.location + 1, caret: edit.range.location + 1)
     }
 
     /// `x.`, `foo().`, `a[0].`, `x?.`; not `1.`, not `..`, not `. ` after a space.
     static func endsMemberBase(_ units: [UInt16]) -> Bool {
         guard let last = units.last else { return false }
+
         if let scalar = Unicode.Scalar(last), ")]?!}>".unicodeScalars.contains(scalar) { return true }
         guard isWordUnit(last) else { return false }
+
         var start = units.count
         while start > 0, isWordUnit(units[start - 1]) { start -= 1 }
         // A run of digits alone is a number; one that starts with a letter or "_" is a name.
         let first = units[start]
+
         return !(first >= 0x30 && first <= 0x39)
     }
 
@@ -175,14 +190,17 @@ public final class CompletionController {
 
     private func follow(_ change: DocumentChangeSet) {
         guard var current = context else { return }
+
         // Only typing at the end of the word keeps it going: a character added to it, or taken off.
         guard change.origin == .typing, change.edits.count == 1 else { return dismiss() }
+
         let edit = change.edits[0]
         let end = edit.range.location + edit.range.length
         let units = Array(edit.replacement.utf16)
         guard end == current.caret, edit.range.location >= current.anchor, units.allSatisfy(Self.isWordUnit) else {
             return dismiss()
         }
+
         current.caret = edit.range.location + units.count
         context = current
         refilter()
@@ -192,6 +210,7 @@ public final class CompletionController {
     /// Chooses among the rows by `delta`, wrapping at the ends.
     public func moveSelection(by delta: Int) {
         guard var current = context, !current.visible.isEmpty else { return }
+
         let count = current.visible.count
         current.selected = ((current.selected + delta) % count + count) % count
         context = current
@@ -201,6 +220,7 @@ public final class CompletionController {
     /// Points the selection at a row (a click).
     public func select(row: Int) {
         guard var current = context, current.visible.indices.contains(row) else { return }
+
         current.selected = row
         context = current
         presenter?.select(row)
@@ -210,16 +230,21 @@ public final class CompletionController {
     @discardableResult
     public func accept() -> Bool {
         guard let current = context, current.visible.indices.contains(current.selected) else { return false }
+
         guard environment.caret() == current.caret else {
             dismiss()
+
             return false
         }
+
         let item = current.visible[current.selected]
         let text = item.insertText ?? item.label
         guard let range = Self.replacement(of: item, in: current) else {
             dismiss()
+
             return false
         }
+
         dismiss()   // before the edit: it is the controller's own, not the user's typing
         do {
             try session.apply([DocumentEdit(range: range, replacement: text)], expectedVersion: session.version, origin: .languageAction)
@@ -227,6 +252,7 @@ public final class CompletionController {
             return false
         }
         environment.setCaret(range.location + Self.caretOffset(afterInserting: text, for: item))
+
         return true
     }
 
@@ -246,18 +272,21 @@ public final class CompletionController {
     /// The completion is over and the user is told why there is no list.
     private func finish(with status: CompletionStatus) {
         guard let current = context else { return }
+
         let anchor = current.anchor
         dismiss()
         presenter?.showStatus(status, anchorOffset: anchor)
         statusIsShowing = true
         statusTimer = Task { @MainActor [weak self, clock, statusDuration] in
             guard (try? await clock.sleep(for: statusDuration)) != nil else { return }
+
             self?.removeStatus()
         }
     }
 
     private func removeStatus() {
         guard statusIsShowing else { return }
+
         statusTimer?.cancel()
         statusIsShowing = false
         presenter?.dismiss()
@@ -269,8 +298,10 @@ public final class CompletionController {
     public func selectionDidChange() {
         removeStatus()
         guard context != nil else { return }
+
         Task { @MainActor [weak self] in
             guard let self, let current = self.context else { return }
+
             if self.environment.caret() != current.caret { self.dismiss() }
         }
     }
@@ -285,14 +316,17 @@ public final class CompletionController {
         let mine = token
         watch = Task { @MainActor [weak self, clock, waitingNotice, timeout] in
             guard (try? await clock.sleep(for: waitingNotice)) != nil else { return }
+
             self?.noticeWaiting(mine)
             guard (try? await clock.sleep(for: timeout - waitingNotice)) != nil else { return }
+
             self?.giveUp(mine)
         }
         let provider = provider, session = session
         request = Task { @MainActor [weak self] in
             let outcome = await provider.completion(for: session, caret: { self?.context?.caret ?? -1 })
             guard let self, self.token == mine, self.context != nil else { return }
+
             self.watch?.cancel()
             switch outcome {
             case .items(let items, let cutShort):
@@ -301,12 +335,16 @@ public final class CompletionController {
                 // leave the user with nothing until they type; but not for ever.
                 if items.isEmpty && cutShort {
                     guard let current = self.context else { return }
+
                     guard current.emptyAnswers < self.maximumEmptyAnswers else { return self.finish(with: .notReady) }
+
                     self.context?.emptyAnswers += 1
                     if current.visible.isEmpty { self.presenter?.showStatus(.waiting, anchorOffset: current.anchor) }
                     self.askAgainSoon(mine)
+
                     return
                 }
+
                 let incomplete = cutShort
                 self.context?.items = items
                 if let caret = self.context?.caret { self.context?.answerCaret = caret }
@@ -333,7 +371,9 @@ public final class CompletionController {
     private func askAgainSoon(_ mine: UInt64) {
         retry = Task { @MainActor [weak self, clock, retryDelay] in
             guard (try? await clock.sleep(for: retryDelay)) != nil else { return }
+
             guard let self, self.token == mine, self.context != nil else { return }
+
             self.ask()
         }
     }
@@ -354,6 +394,7 @@ public final class CompletionController {
     /// The answer is slow: say so, unless there is a list to look at already.
     private func noticeWaiting(_ mine: UInt64) {
         guard token == mine, let current = context, current.visible.isEmpty else { return }
+
         presenter?.showStatus(.waiting, anchorOffset: current.anchor)
     }
 
@@ -361,6 +402,7 @@ public final class CompletionController {
     /// was cut short, but it is something); otherwise the user is told.
     private func giveUp(_ mine: UInt64) {
         guard token == mine, let current = context else { return }
+
         request?.cancel()
         token += 1
         if current.visible.isEmpty {
@@ -374,6 +416,7 @@ public final class CompletionController {
 
     private func refilter() {
         guard var current = context, current.hasAnswer else { return }
+
         let prefix = current.caret > current.anchor
             ? environment.text(UTF16TextRange(location: current.anchor, length: current.caret - current.anchor))
             : ""
@@ -389,7 +432,8 @@ public final class CompletionController {
         } else {
             presenter?.present(
                 rows: current.visible.map { CompletionRow(label: $0.label, detail: $0.detail, kind: $0.kind) },
-                selected: current.selected, anchorOffset: current.anchor
+                selected: current.selected,
+                anchorOffset: current.anchor
             )
         }
     }
@@ -402,9 +446,11 @@ public final class CompletionController {
         guard let named = item.replacementRange else {
             return UTF16TextRange(location: context.anchor, length: context.caret - context.anchor)
         }
+
         let start = named.location
         let end = named.location + named.length + (context.caret - context.answerCaret)
         guard start >= 0, start <= context.caret, context.caret <= end else { return nil }
+
         return UTF16TextRange(location: start, length: end - start)
     }
 
@@ -412,6 +458,7 @@ public final class CompletionController {
     /// case, then the start of a later word of the name; in the server's order within each.
     static func filter(_ items: [CompletionItem], prefix: String, limit: Int) -> [CompletionItem] {
         guard !prefix.isEmpty else { return Array(items.sorted(by: Self.serverOrder).prefix(limit)) }
+
         let lowered = prefix.lowercased()
         var ranked: [(rank: Int, item: CompletionItem)] = []
         for item in items {
@@ -425,6 +472,7 @@ public final class CompletionController {
             }
         }
         let order = ranked.sorted { a, b in a.rank != b.rank ? a.rank < b.rank : serverOrder(a.item, b.item) }
+
         return Array(order.prefix(limit).map(\.item))
     }
 
@@ -435,13 +483,16 @@ public final class CompletionController {
         let lowered = Array(text.lowercased().unicodeScalars)
         let wanted = Array(loweredPrefix.unicodeScalars)
         guard original.count == lowered.count, original.count > 1, !wanted.isEmpty else { return false }
+
         for i in 1..<original.count where i + wanted.count <= lowered.count {
             let previous = original[i - 1], current = original[i]
             let humpAfterSmall = current.properties.isUppercase && !previous.properties.isUppercase && previous != "_"
                 && (previous.properties.isLowercase || ("0"..."9").contains(previous))
             guard previous == "_" || humpAfterSmall else { continue }
+
             if Array(lowered[i..<(i + wanted.count)]) == wanted { return true }
         }
+
         return false
     }
 
@@ -456,6 +507,7 @@ public final class CompletionController {
         let length = text.utf16.count
         let callable = item.kind == .method || item.kind == .function || item.kind == .initializer
         if callable, text.hasSuffix(")"), !item.label.contains("()") { return length - 1 }
+
         return length
     }
 

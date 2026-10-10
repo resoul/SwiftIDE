@@ -23,7 +23,9 @@ private final class ManagedScreen {
         self.editor = editor
         session = DocumentSession(path: path, backend: editor.backend)
         controller = SyntaxColouringController(
-            session: session, source: editor.backend, policy: policy,
+            session: session,
+            source: editor.backend,
+            policy: policy,
             makeHighlighter: { try? TreeSitterHighlighter() },
             present: { SyntaxPresenter(textView: editor.textView, coordinator: $0, policy: policy) }
         )
@@ -38,6 +40,7 @@ private final class ManagedScreen {
         scroll.layoutSubtreeIfNeeded()
         let bitmap = scroll.bitmapImageRepForCachingDisplay(in: scroll.bounds)!
         scroll.cacheDisplay(in: scroll.bounds, to: bitmap)
+
         return bitmap
     }
 
@@ -93,7 +96,10 @@ func savingASwiftFileAsTextClearsItsColoursOnScreen() async throws {
 
     let store = MemoryDocumentFileStore()
     _ = try await SaveDocumentUseCase(store: store).saveAs(
-        document: screen.session, to: "/w/Main.txt", target: .newFile, registry: DocumentRegistry()
+        document: screen.session,
+        to: "/w/Main.txt",
+        target: .newFile,
+        registry: DocumentRegistry()
     )
     screen.controller.refresh()
     #expect(screen.controller.state == .off(.languageNotSupported))
@@ -108,7 +114,10 @@ func savingATextFileAsSwiftColoursItOnScreen() async throws {
     #expect(colourful(screen.render()) == 0, "a text file is plain")
 
     _ = try await SaveDocumentUseCase(store: MemoryDocumentFileStore()).saveAs(
-        document: screen.session, to: "/w/Notes.swift", target: .newFile, registry: DocumentRegistry()
+        document: screen.session,
+        to: "/w/Notes.swift",
+        target: .newFile,
+        registry: DocumentRegistry()
     )
     screen.controller.refresh()
     #expect(screen.controller.state == .on)

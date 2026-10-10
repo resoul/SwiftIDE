@@ -15,6 +15,7 @@ private final class ScriptedProvider: CompletionProviding {
 
     func completion(for session: DocumentSession, caret: @MainActor () -> Int) async -> CompletionOutcome {
         carets.append(caret())
+
         return .items(items, isIncomplete: incomplete)
     }
 }
@@ -65,8 +66,16 @@ private struct Fixture {
 
     func key(_ code: UInt16, characters: String = "", modifiers: NSEvent.ModifierFlags = []) -> NSEvent {
         NSEvent.keyEvent(
-            with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0, windowNumber: window.windowNumber,
-            context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: code
         )!
     }
 

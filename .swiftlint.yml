@@ -1,0 +1,23 @@
+# SwiftLint 0.65.1 (pinned in Tools/Lint/install.sh). An explicit set of rules (TK-023).
+only_rules:
+  - multiline_parameters
+  - force_try
+  - force_cast
+
+multiline_parameters:
+  severity: error
+  allows_single_line: true      # a short signature may stay on one line
+
+# Policy: multiline_parameters is an error; force_try / force_cast are warnings, listed in the
+# output but not failing the check (Tools/Lint/lint.sh prints their count).
+force_try: warning
+force_cast: warning
+
+included:
+  - Apps/SwiftIDE
+  - Packages/IDE
+excluded:
+  - "**/.build"
+  - "**/.swiftpm"
+  - "**/vendor"
+  - "**/Generated"

@@ -50,6 +50,7 @@ public final class LongLineMonitor {
     /// The user chose to go on: no more warnings for this document.
     public func dismiss() {
         guard state != .dismissed else { return }
+
         state = .dismissed
         onChange?(state)
     }
@@ -57,8 +58,10 @@ public final class LongLineMonitor {
     private func look() {
         longestLength = lineIndex.current.longestLine.length
         guard state != .dismissed else { return }
+
         let wanted: State = longestLength > policy.threshold ? .warning : .normal
         guard wanted != state else { return }
+
         state = wanted
         onChange?(state)
     }

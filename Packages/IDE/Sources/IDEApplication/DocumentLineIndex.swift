@@ -36,6 +36,7 @@ public final class DocumentLineIndex {
     public func subscribe(_ observer: @escaping @MainActor () -> Void) -> UUID {
         let id = UUID()
         observers[id] = observer
+
         return id
     }
 
@@ -46,12 +47,14 @@ public final class DocumentLineIndex {
     /// The index, rebuilt first if it is known to be out of step and the text can be trusted.
     public var current: LineIndex {
         if trackedVersion == nil { rebuild() }
+
         return index
     }
 
     private func apply(_ changes: DocumentChangeSet) {
         defer { for observer in Array(observers.values) { observer() } }
         guard changes.oldVersion == trackedVersion else { return rebuild() }
+
         for edit in changes.edits {   // descending: earlier positions stay valid
             guard index.replace(edit.range, with: edit.replacement) else { return rebuild() }
         }

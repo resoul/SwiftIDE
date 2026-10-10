@@ -11,7 +11,8 @@ public struct SyntaxPolicy: Sendable, Equatable {
     public var maximumSpansPerFragment: Int
 
     public init(
-        maximumDocumentLength: Int = 5 * 1_048_576, maximumFragmentLength: Int = 1_000,
+        maximumDocumentLength: Int = 5 * 1_048_576,
+        maximumFragmentLength: Int = 1_000,
         maximumSpansPerFragment: Int = 50
     ) {
         self.maximumDocumentLength = maximumDocumentLength

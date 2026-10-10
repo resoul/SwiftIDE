@@ -60,8 +60,10 @@ func aResultForTheCurrentVersionBecomesTheStateAndReportsWhatChanged() async {
     let s = Setup(String(repeating: "x", count: 100))
     s.coordinator.setVisible(0..<40)
     s.highlighter.answer(HighlightResult(
-        version: 0, window: 0..<40,
-        spans: [HighlightSpan(location: 3, length: 4, kind: .keyword)], documentLength: 100
+        version: 0,
+        window: 0..<40,
+        spans: [HighlightSpan(location: 3, length: 4, kind: .keyword)],
+        documentLength: 100
     ))
     await s.settle()
     #expect(s.coordinator.state.spans == [HighlightSpan(location: 3, length: 4, kind: .keyword)])
@@ -73,8 +75,10 @@ func aResultForAnOlderVersionIsDropped() async throws {
     let s = Setup(String(repeating: "x", count: 100))
     try s.insert("a", at: 0)
     s.highlighter.answer(HighlightResult(
-        version: 0, window: 0..<40,
-        spans: [HighlightSpan(location: 3, length: 4, kind: .keyword)], documentLength: 100
+        version: 0,
+        window: 0..<40,
+        spans: [HighlightSpan(location: 3, length: 4, kind: .keyword)],
+        documentLength: 100
     ))
     await s.settle()
     #expect(s.coordinator.state.spans.isEmpty)
@@ -85,8 +89,10 @@ func aResultForAnOlderVersionIsDropped() async throws {
 func coloursFollowEditsUntilTheNextResult() async throws {
     let s = Setup(String(repeating: "x", count: 100))
     s.highlighter.answer(HighlightResult(
-        version: 0, window: 0..<40,
-        spans: [HighlightSpan(location: 10, length: 4, kind: .keyword)], documentLength: 100
+        version: 0,
+        window: 0..<40,
+        spans: [HighlightSpan(location: 10, length: 4, kind: .keyword)],
+        documentLength: 100
     ))
     await s.settle()
     try s.insert("ZZ", at: 0)
@@ -138,8 +144,10 @@ func changesAreHeldWhileAnInputMethodComposesAndReportedWhenItEnds() async {
     s.coordinator.setVisible(0..<40)
     s.backend.simulateComposition(.began)
     s.highlighter.answer(HighlightResult(
-        version: 0, window: 0..<40,
-        spans: [HighlightSpan(location: 3, length: 4, kind: .keyword)], documentLength: 100
+        version: 0,
+        window: 0..<40,
+        spans: [HighlightSpan(location: 3, length: 4, kind: .keyword)],
+        documentLength: 100
     ))
     await s.settle()
     #expect(s.coordinator.state.spans.count == 1, "the state is up to date")
@@ -154,8 +162,10 @@ func aChangeOutOfViewWaitsUntilItsTextIsScrolledTo() async {
     let s = Setup(String(repeating: "x", count: 1_000))
     s.coordinator.setVisible(0..<40)
     s.highlighter.answer(HighlightResult(
-        version: 0, window: 0..<600,
-        spans: [HighlightSpan(location: 500, length: 10, kind: .string)], documentLength: 1_000
+        version: 0,
+        window: 0..<600,
+        spans: [HighlightSpan(location: 500, length: 10, kind: .string)],
+        documentLength: 1_000
     ))
     await s.settle()
     #expect(s.changed.ranges.isEmpty, "the change is far from what is in view: nothing is redrawn")
@@ -172,8 +182,10 @@ func whatIsInViewMovesWithTheText() async throws {
     s.coordinator.setVisible(100..<140)
     try s.insert(String(repeating: "y", count: 20), at: 0)     // the view's text is at 120..<160 now
     s.highlighter.answer(HighlightResult(
-        version: 1, window: 100..<200,
-        spans: [HighlightSpan(location: 150, length: 5, kind: .keyword)], documentLength: 1_020
+        version: 1,
+        window: 100..<200,
+        spans: [HighlightSpan(location: 150, length: 5, kind: .keyword)],
+        documentLength: 1_020
     ))
     await s.settle()
     #expect(s.changed.ranges == [[150..<155]], "inside the view as it has moved, though not as it was")
@@ -236,6 +248,7 @@ func anAreaSeenBeforeAnEditIsAskedForAgainWhenItComesBackIntoView() async throws
     s.coordinator.setVisible(20..<60)
     #expect(s.highlighter.calls.contains { call in
         if case .request(let window, let version) = call { return version == 1 && window.contains(20) && window.contains(59) }
+
         return false
     }, "the answer for version 1 covers only the area in view when it was asked")
 }

@@ -34,8 +34,13 @@ public struct RecoveryRecord: Equatable, Sendable {
     public let savedAt: Date
 
     public init(
-        key: RecoveryKey, path: String?, title: String, text: String, encoding: FileEncoding,
-        baseRevision: FileRevision?, savedAt: Date
+        key: RecoveryKey,
+        path: String?,
+        title: String,
+        text: String,
+        encoding: FileEncoding,
+        baseRevision: FileRevision?,
+        savedAt: Date
     ) {
         self.key = key
         self.path = path
@@ -78,7 +83,8 @@ public struct RecoveryPolicy: Sendable, Equatable {
     public var maximumUTF16Length: Int
 
     public init(
-        debounce: Duration = .seconds(2), maximumDelay: Duration = .seconds(10),
+        debounce: Duration = .seconds(2),
+        maximumDelay: Duration = .seconds(10),
         maximumUTF16Length: Int = 16 * 1_048_576
     ) {
         self.debounce = debounce

@@ -35,7 +35,9 @@ public final class LanguageServerConnection: Sendable {
     private let tasks = Mutex<[Task<Void, Never>]>([])
 
     public init(
-        channel: any LSPChannel, onNotification: @escaping NotificationHandler, onClose: @escaping @Sendable () -> Void = {}
+        channel: any LSPChannel,
+        onNotification: @escaping NotificationHandler,
+        onClose: @escaping @Sendable () -> Void = {}
     ) {
         self.channel = channel
         self.onNotification = onNotification
@@ -45,6 +47,7 @@ public final class LanguageServerConnection: Sendable {
         let writer = Task.detached { [weak self] in
             for await _ in wakeStream {
                 guard let self else { return }
+
                 await self.drain()
             }
         }
@@ -95,17 +98,22 @@ public final class LanguageServerConnection: Sendable {
         let slot = ResponseSlot()
         let id: Int? = state.withLock { state in
             guard !state.closed else { return nil }
+
             let id = state.nextID
             state.nextID += 1
             state.pending[id] = slot
             state.outbox.append(.message(["jsonrpc": "2.0", "id": .int(id), "method": .string(method), "params": params]))
+
             return id
         }
         guard let id else {
             slot.fulfil(.failure(LSPError.connectionClosed))
+
             return Request(id: 0, slot: slot, connection: self)
         }
+
         wake.yield()
+
         return Request(id: id, slot: slot, connection: self)
     }
 
@@ -133,6 +141,7 @@ public final class LanguageServerConnection: Sendable {
 
         public func cancel() {
             guard id != 0 else { return }
+
             connection.notify("$/cancelRequest", ["id": .int(id)])
         }
     }
@@ -140,10 +149,13 @@ public final class LanguageServerConnection: Sendable {
     private func enqueue(_ item: Outbound) -> Bool {
         let accepted = state.withLock { state -> Bool in
             guard !state.closed else { return false }
+
             state.outbox.append(item)
+
             return true
         }
         if accepted { wake.yield() }
+
         return accepted
     }
 
@@ -153,6 +165,7 @@ public final class LanguageServerConnection: Sendable {
                 state.outbox.isEmpty ? nil : state.outbox.removeFirst()
             }
             guard let next else { return }
+
             let data: Data?
             switch next {
             case .message(let message):
@@ -165,11 +178,13 @@ public final class LanguageServerConnection: Sendable {
                 }
             }
             guard let data else { continue }
+
             do {
                 try await channel.write(LSPFraming.frame(data))
                 state.withLock { $0.sent += 1 }
             } catch {
                 finish()
+
                 return
             }
         }
@@ -179,6 +194,7 @@ public final class LanguageServerConnection: Sendable {
 
     private func receive(_ body: Data) {
         guard let message = try? JSONDecoder().decode(JSONValue.self, from: body) else { return }
+
         let id = message["id"]
         let method = message["method"]?.stringValue
         switch (method, id) {
@@ -191,6 +207,7 @@ public final class LanguageServerConnection: Sendable {
             onNotification(method, message["params"] ?? .null)
         case (nil, let id?):
             guard let number = id.intValue else { return }
+
             let slot = state.withLock { $0.pending.removeValue(forKey: number) }
             if let error = message["error"] {
                 slot?.fulfil(.failure(LSPError.server(code: error["code"]?.intValue ?? 0, message: error["message"]?.stringValue ?? "")))
@@ -209,6 +226,7 @@ public final class LanguageServerConnection: Sendable {
             state.outbox.removeAll()
             let slots = Array(state.pending.values)
             state.pending.removeAll()
+
             return (slots, was)
         }
         for slot in pending { slot.fulfil(.failure(LSPError.connectionClosed)) }
@@ -226,6 +244,7 @@ public final class LanguageServerConnection: Sendable {
     private static func encode(_ message: JSONValue) -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes, .sortedKeys]
+
         return (try? encoder.encode(message)) ?? Data()
     }
 }
@@ -242,8 +261,10 @@ final class ResponseSlot: Sendable {
     func fulfil(_ result: Result<JSONValue, any Error>) {
         let waiter: CheckedContinuation<JSONValue, any Error>? = state.withLock { state in
             guard state.result == nil else { return nil }
+
             state.result = result
             defer { state.waiter = nil }
+
             return state.waiter
         }
         waiter?.resume(with: result)
@@ -254,6 +275,7 @@ final class ResponseSlot: Sendable {
             let ready: Result<JSONValue, any Error>? = state.withLock { state in
                 if let result = state.result { return result }
                 state.waiter = continuation
+
                 return nil
             }
             if let ready { continuation.resume(with: ready) }

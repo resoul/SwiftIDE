@@ -22,11 +22,13 @@ public final class ReloadDocumentUseCase {
         // Save As gives the document another file without changing its version; what was read is
         // the old file's text and is not for this document any more.
         guard document.path == path else { throw DocumentError.pathChanged }
+
         if !file.text.hasSameContents(as: document.text) {
             try document.replaceText(file.text, expectedVersion: baseVersion)
         } else if document.version != baseVersion {
             throw DocumentError.staleVersion(expected: baseVersion, actual: document.version)
         }
+
         document.acknowledgeLoad(of: file)
     }
 }

@@ -34,7 +34,8 @@ public final class LanguageServices: CompletionProviding {
     private var managed: [DocumentID: Managed] = [:]
 
     public init(
-        scratchRoot: URL, languages: DocumentLanguages = DocumentLanguages(),
+        scratchRoot: URL,
+        languages: DocumentLanguages = DocumentLanguages(),
         makeService: @escaping MakeService = { root, virtual in
             SourceKitLanguageService(workspaceRoot: root, sync: OrderedDocumentSync(virtualDirectory: virtual))
         }
@@ -51,6 +52,7 @@ public final class LanguageServices: CompletionProviding {
     /// The folder whose server a document belongs to.
     public func root(for session: DocumentSession) -> URL {
         if session.isUntitled { return scratchRoot }
+
         return PackageRootLocator.root(forFile: session.path) ?? scratchRoot
     }
 
@@ -65,6 +67,7 @@ public final class LanguageServices: CompletionProviding {
     /// when the document is given; the server may still be starting.
     public func attach(_ session: DocumentSession) async {
         guard managed[session.id] == nil else { return }
+
         // A change of the document's language moves it: out of the server that had it under the
         // old language, into the one that serves the new, if there is one.
         let subscription = languages.selector(for: session).subscribe { [weak self] _ in self?.languageChanged(session) }
@@ -74,6 +77,7 @@ public final class LanguageServices: CompletionProviding {
 
     private func languageChanged(_ session: DocumentSession) {
         guard managed[session.id] != nil else { return }
+
         release(session)
         Task { await giveToServer(session) }
     }
@@ -81,6 +85,7 @@ public final class LanguageServices: CompletionProviding {
     private func giveToServer(_ session: DocumentSession) async {
         guard managed[session.id] != nil, homes[session.id] == nil,
               servedLanguages.contains(languages.selector(for: session).resolved.language) else { return }
+
         let root = root(for: session)
         let service = services[root] ?? serviceStarted(for: root)
         services[root] = service
@@ -91,6 +96,7 @@ public final class LanguageServices: CompletionProviding {
         } catch {
             // Too large, not Swift: no completion for this one, and no server for it either.
             release(session)
+
             return
         }
         if service.state == .stopped { await service.start() }
@@ -101,8 +107,10 @@ public final class LanguageServices: CompletionProviding {
         let (languages, served) = (languages, servedLanguages)
         service.sync.languageID = { session in
             let language = languages.selector(for: session).resolved.language
+
             return served.contains(language) ? language.languageServerID : nil
         }
+
         return service
     }
 
@@ -110,11 +118,13 @@ public final class LanguageServices: CompletionProviding {
         if let entry = managed.removeValue(forKey: session.id) {
             languages.selector(for: session).unsubscribe(entry.languageSubscription)
         }
+
         release(session)
     }
 
     private func release(_ session: DocumentSession) {
         guard let home = homes.removeValue(forKey: session.id) else { return }
+
         session.unsubscribeFromSaves(home.saveSubscription)
         home.service.close(session)
         if home.root != scratchRoot, home.service.sync.openDocuments.isEmpty, services[home.root] === home.service {
@@ -126,6 +136,7 @@ public final class LanguageServices: CompletionProviding {
     /// Saved under another name: the place may be another package.
     private func saved(_ session: DocumentSession) {
         guard let home = homes[session.id], root(for: session) != home.root else { return }
+
         release(session)
         Task { await giveToServer(session) }
     }
@@ -148,6 +159,7 @@ public final class LanguageServices: CompletionProviding {
 
     public func completion(for session: DocumentSession, caret: @MainActor () -> Int) async -> CompletionOutcome {
         guard let service = homes[session.id]?.service else { return .unavailable(.notRunning) }
+
         return await service.completion(for: session, caret: caret)
     }
 }

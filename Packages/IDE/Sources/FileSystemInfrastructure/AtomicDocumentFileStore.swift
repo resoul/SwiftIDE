@@ -31,6 +31,7 @@ public struct AtomicDocumentFileStore: DocumentFileStore {
 
     public func read(path: String, maximumBytes: Int) async throws -> LoadedFile {
         try Task.checkCancellation()
+
         return try await Task.detached(priority: .userInitiated) {
             try FileReader.read(path: path, maximumBytes: maximumBytes)
         }.value
@@ -38,18 +39,22 @@ public struct AtomicDocumentFileStore: DocumentFileStore {
 
     public func currentRevision(path: String, assumingUnchangedFrom known: FileRevision?) async throws -> FileRevision? {
         try Task.checkCancellation()
+
         return try await Task.detached(priority: .utility) {
             var info = stat()
             if stat(path, &info) != 0 {
                 if errno == ENOENT || errno == ENOTDIR { return nil }
                 throw POSIX.error(errno)
             }
+
             guard POSIX.isRegular(info) else { throw FileStoreError.notRegularFile }
+
             if let known, known.fileID == FileIdentity(device: UInt64(info.st_dev), inode: UInt64(info.st_ino)),
                known.size == UInt64(info.st_size),
                known.modificationTime == Int64(info.st_mtimespec.tv_sec) * 1_000_000_000 + Int64(info.st_mtimespec.tv_nsec) {
                 return known
             }
+
             return try Self.currentRevision(atPath: path)
         }.value
     }
@@ -57,6 +62,7 @@ public struct AtomicDocumentFileStore: DocumentFileStore {
     public func write(_ snapshot: DocumentSnapshot, expecting: SaveExpectation) async throws -> FileRevision {
         try Task.checkCancellation()
         let transfer = metadataTransfer
+
         return try await Task.detached(priority: .userInitiated) {
             try FileWriter.write(snapshot, expecting: expecting, metadataTransfer: transfer)
         }.value
@@ -79,15 +85,18 @@ public struct MetadataTransfer: Sendable {
     public static let system = MetadataTransfer { source, descriptor, destination in
         var original = stat()
         guard stat(source, &original) == 0 else { throw POSIX.error(errno) }
+
         func fail() -> FileStoreError { .cannotPreserveMetadata(code: errno) }
 
         if copyfile(source, destination, nil, copyfile_flags_t(COPYFILE_ACL | COPYFILE_XATTR)) != 0 { throw fail() }
         var replacement = stat()
         guard fstat(descriptor, &replacement) == 0 else { throw fail() }
+
         // Owner first: changing it clears set-uid/set-gid bits that the mode below restores.
         if replacement.st_uid != original.st_uid || replacement.st_gid != original.st_gid {
             if fchown(descriptor, original.st_uid, original.st_gid) != 0 { throw fail() }
         }
+
         if fchmod(descriptor, original.st_mode & 0o7777) != 0 { throw fail() }
     }
 }
@@ -130,12 +139,15 @@ enum POSIX {
                 if errno == EINTR { continue }
                 throw error(errno)
             }
+
             if count == 0 { break }
             total += count
         }
         // More bytes than fstat promised: the file grew while it was read.
         guard total == expected else { throw FileStoreError.changedWhileReading }
+
         bytes.removeLast()
+
         return bytes
     }
 
@@ -151,22 +163,30 @@ private enum FileReader {
     static func read(path: String, maximumBytes: Int) throws -> LoadedFile {
         let fd = open(path, O_RDONLY | O_CLOEXEC)
         guard fd >= 0 else { throw POSIX.error(errno) }
+
         defer { close(fd) }
 
         var before = stat()
         guard fstat(fd, &before) == 0 else { throw POSIX.error(errno) }
+
         guard POSIX.isRegular(before) else { throw FileStoreError.notRegularFile }
+
         guard before.st_size <= maximumBytes else {
             throw FileStoreError.tooLarge(size: UInt64(before.st_size), limit: maximumBytes)
         }
+
         let bytes = try POSIX.readAll(fd: fd, expected: Int(before.st_size))
         var after = stat()
         guard fstat(fd, &after) == 0 else { throw POSIX.error(errno) }
+
         guard POSIX.metadataMatches(before, after) else { throw FileStoreError.changedWhileReading }
 
         let (text, encoding) = try decode(bytes)
+
         return LoadedFile(
-            path: path, text: text, encoding: encoding,
+            path: path,
+            text: text,
+            encoding: encoding,
             revision: POSIX.revision(of: after, digest: POSIX.digest(of: bytes))
         )
     }
@@ -176,15 +196,19 @@ private enum FileReader {
     static func revisionOfBytes(at path: String) throws -> FileRevision {
         let fd = open(path, O_RDONLY | O_CLOEXEC)
         guard fd >= 0 else { throw POSIX.error(errno) }
+
         defer { close(fd) }
         var before = stat()
         guard fstat(fd, &before) == 0 else { throw POSIX.error(errno) }
+
         guard POSIX.isRegular(before) else { throw FileStoreError.notRegularFile }
+
         let bytes = try POSIX.readAll(fd: fd, expected: Int(before.st_size))
         var after = stat()
         guard fstat(fd, &after) == 0, POSIX.metadataMatches(before, after) else {
             throw FileStoreError.changedWhileReading
         }
+
         return POSIX.revision(of: after, digest: POSIX.digest(of: bytes))
     }
 
@@ -195,10 +219,12 @@ private enum FileReader {
             || bytes.starts(with: [0x00, 0x00, 0xFE, 0xFF]) {
             throw FileStoreError.unsupportedEncoding
         }
+
         if bytes.contains(0) { throw FileStoreError.binary }
         let hasBOM = bytes.starts(with: [0xEF, 0xBB, 0xBF])
         let body = hasBOM ? bytes.dropFirst(3) : bytes[...]
         guard let text = String(bytes: body, encoding: .utf8) else { throw FileStoreError.notUTF8 }
+
         return (text, hasBOM ? .utf8WithBOM : .utf8)
     }
 }
@@ -207,28 +233,37 @@ private enum FileReader {
 
 private enum FileWriter {
     static func write(
-        _ snapshot: DocumentSnapshot, expecting: SaveExpectation, metadataTransfer: MetadataTransfer
+        _ snapshot: DocumentSnapshot,
+        expecting: SaveExpectation,
+        metadataTransfer: MetadataTransfer
     ) throws -> FileRevision {
         // A link is never replaced by a file: the target is what gets written.
         let url = URL(fileURLWithPath: snapshot.path).resolvingSymlinksInPath()
         var outcome: Result<FileRevision, Error> = .failure(FileStoreError.io(code: EINVAL))
         var coordinationError: NSError?
         NSFileCoordinator(filePresenter: nil).coordinate(
-            writingItemAt: url, options: .forReplacing, error: &coordinationError
+            writingItemAt: url,
+            options: .forReplacing,
+            error: &coordinationError
         ) { coordinatedURL in
             outcome = Result {
                 try replace(
-                    path: coordinatedURL.path, with: snapshot, expecting: expecting,
+                    path: coordinatedURL.path,
+                    with: snapshot,
+                    expecting: expecting,
                     metadataTransfer: metadataTransfer
                 )
             }
         }
         if let coordinationError { throw FileStoreError.io(code: Int32(truncatingIfNeeded: coordinationError.code)) }
+
         return try outcome.get()
     }
 
     private static func replace(
-        path: String, with snapshot: DocumentSnapshot, expecting: SaveExpectation,
+        path: String,
+        with snapshot: DocumentSnapshot,
+        expecting: SaveExpectation,
         metadataTransfer: MetadataTransfer
     ) throws -> FileRevision {
         var existing = stat()
@@ -239,6 +274,7 @@ private enum FileWriter {
         if case .revision(let expected) = expecting {
             try verify(expected: expected, path: path, existing: exists ? existing : nil)
         }
+
         if exists, access(path, W_OK) != 0 { throw FileStoreError.permissionDenied }
 
         var data = [UInt8]()
@@ -250,6 +286,7 @@ private enum FileWriter {
         var template = Array("\(directory)/.\(name).swiftide-XXXXXX".utf8CString)
         let fd = mkstemp(&template)
         guard fd >= 0 else { throw POSIX.error(errno) }
+
         let temporary = String(decoding: template.dropLast().map { UInt8(bitPattern: $0) }, as: UTF8.self)
         var renamed = false
         defer {
@@ -264,13 +301,17 @@ private enum FileWriter {
             umask(mask)
             guard fchmod(fd, 0o666 & ~mask) == 0 else { throw FileStoreError.cannotPreserveMetadata(code: errno) }
         }
+
         try writeAll(fd: fd, bytes: data)
         guard fsync(fd) == 0 else { throw POSIX.error(errno) }
+
         guard rename(temporary, path) == 0 else { throw POSIX.error(errno) }
+
         renamed = true
 
         var written = stat()
         guard stat(path, &written) == 0 else { throw POSIX.error(errno) }
+
         return POSIX.revision(of: written, digest: POSIX.digest(of: data))
     }
 
@@ -300,6 +341,7 @@ private enum FileWriter {
                 if errno == EINTR { continue }
                 throw POSIX.error(errno)
             }
+
             offset += count
         }
     }

@@ -32,13 +32,17 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     var unsavedChanges: UnsavedChangesCoordinator?
 
     init(
-        document: DocumentSession, editor: TextKitEditor, registry: DocumentRegistry,
-        saveDocument: SaveDocumentUseCase, reloadDocument: ReloadDocumentUseCase,
+        document: DocumentSession,
+        editor: TextKitEditor,
+        registry: DocumentRegistry,
+        saveDocument: SaveDocumentUseCase,
+        reloadDocument: ReloadDocumentUseCase,
         recovery: RecoveryCoordinator,
         externalChanges: ExternalChangeMonitor,
         revisionOfFile: @escaping (String) -> FileRevision?,
         makeHighlighter: @escaping (DocumentLanguage) -> (any SyntaxHighlighter)?,
-        languages: DocumentLanguages, languageServices: LanguageServices
+        languages: DocumentLanguages,
+        languageServices: LanguageServices
     ) {
         self.languageServices = languageServices
         self.languages = languages
@@ -54,14 +58,19 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         self.externalChanges = externalChanges
         let textView = editor.textView
         colouring = SyntaxColouringController(
-            session: document, source: editor.backend, policy: .standard, languages: languageSelector,
-            supportedLanguages: TreeSitterHighlighter.supportedLanguages, makeHighlighter: makeHighlighter,
+            session: document,
+            source: editor.backend,
+            policy: .standard,
+            languages: languageSelector,
+            supportedLanguages: TreeSitterHighlighter.supportedLanguages,
+            makeHighlighter: makeHighlighter,
             present: { SyntaxPresenter(textView: textView, coordinator: $0, policy: .standard) }
         )
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered, defer: false
+            backing: .buffered,
+            defer: false
         )
         container = EditorContainerView(host: EditorHostView(editor: editor, lineIndex: lineIndex))
         longLines = LongLineMonitor(lineIndex: lineIndex)
@@ -104,16 +113,21 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         let banner = container.banner
         if let notice = externalNotice() {
             banner.show(message: notice.message, buttons: notice.buttons)
+
             return
         }
+
         if isReadOnlyForLongLines {
             banner.show(
                 message: "This window is read-only because of a very long line.",
                 buttons: [.init(title: "Allow Editing") { [weak self] in self?.allowEditing() }]
             )
+
             return
         }
+
         guard longLines.state == .warning else { return banner.hide() }
+
         let length = longLines.longestLength.formatted()
         banner.show(
             message: "This file has a line of \(length) characters. Editing long lines can be slow, and syntax colours are off for them.",
@@ -148,6 +162,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
                 "“\(displayName)” was deleted or moved.",
                 [.init(title: "Save As…") { [weak self] in
                     guard let self else { return }
+
                     Task { _ = await self.saveAs() }
                 }, dismiss]
             )
@@ -184,8 +199,10 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     /// The language the document is treated as, how sure that is, and what is missing for it.
     private var languageNote: String {
         let language = languageSelector.resolved
+
         return LanguageSupportNote.parts(
-            for: language, hasColours: colouring.hasColours(for: language.language),
+            for: language,
+            hasColours: colouring.hasColours(for: language.language),
             hasLanguageFeatures: languageServices.serves(language.language)
         ).joined(separator: " · ")
     }
@@ -211,6 +228,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
     private func refreshSubtitle() {
         guard let window else { return }
+
         let engine = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
         let readOnly = isReadOnlyForLongLines ? "read-only" : nil
         window.subtitle = [languageNote, engine, colourNote, recoveryNote, readOnly].compactMap { $0 }.joined(separator: " · ")
@@ -218,6 +236,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
     private func refreshTitle() {
         guard let window else { return }
+
         window.title = displayName
         window.representedURL = session.isUntitled ? nil : URL(fileURLWithPath: session.path)
         window.isDocumentEdited = session.isDirty
@@ -230,6 +249,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
             let chosen = item.representedObject as? String
             item.state = chosen == languageSelector.override?.rawValue ? .on : .off
         }
+
         return true
     }
 
@@ -256,6 +276,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         do {
             _ = try await saveDocument.execute(document: session)
             refreshTitle()
+
             return true
         } catch FileStoreError.conflict {
             return await resolveConflict()
@@ -263,6 +284,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
             return false
         } catch {
             present(error, doing: "save")
+
             return false
         }
     }
@@ -270,6 +292,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     /// Asks for a name and saves the document there; from then on the document is that file.
     func saveAs() async -> Bool {
         guard let window else { return false }
+
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
         panel.allowedContentTypes = [.swiftSource]
@@ -278,6 +301,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         if !session.isUntitled {
             panel.directoryURL = URL(fileURLWithPath: session.path).deletingLastPathComponent()
         }
+
         let consent = SavePanelConsent(revisionOfFile: revisionOfFile)
         panel.delegate = consent
         guard await panel.beginSheetModal(for: window) == .OK, let url = panel.url else { return false }
@@ -285,15 +309,20 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         // The panel asks before replacing a file; what it was agreed to is that file, as it was.
         do {
             _ = try await saveDocument.saveAs(
-                document: session, to: url.path, target: consent.target(for: url), registry: registry
+                document: session,
+                to: url.path,
+                target: consent.target(for: url),
+                registry: registry
             )
             refreshTitle()
             colouring.refresh()   // the name may have changed the kind of file
+
             return true
         } catch is CancellationError {
             return false
         } catch {
             present(error, doing: "save", fileName: url.lastPathComponent)
+
             return false
         }
     }
@@ -308,14 +337,17 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         alert.addButton(withTitle: "Reload from Disk")
         alert.addButton(withTitle: "Overwrite")
         guard let window else { return false }
+
         switch await alert.beginSheetModal(for: window) {
         case .alertThirdButtonReturn:
             do {
                 _ = try await saveDocument.execute(document: session, overwritingExternalChanges: true)
                 refreshTitle()
+
                 return true
             } catch {
                 present(error, doing: "save")
+
                 return false
             }
         case .alertSecondButtonReturn:
@@ -325,6 +357,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
             } catch {
                 present(error, doing: "reload")
             }
+
             return false
         default:
             return false
@@ -343,9 +376,11 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         if let document = error as? DocumentError, document == .pathChanged {
             return "The document was saved under another name meanwhile. Nothing was changed."
         }
+
         if error is OpenDocumentError {
             return "That file is being saved by another window right now. Try again in a moment."
         }
+
         if let save = error as? SaveError {
             switch save {
             case .targetOpenElsewhere: return "That file is already open in another window. Close it or choose another name."
@@ -354,6 +389,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
             case .untitled: return "This document has no file yet. Choose a name first."
             }
         }
+
         switch error as? FileStoreError {
         case .notFound?: return "The file or its folder no longer exists."
         case .permissionDenied?: return "You do not have permission to change this file."
@@ -374,10 +410,12 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard session.isDirty, let unsavedChanges else { return true }
+
         // Answered asynchronously: refuse now, close when the decision procedure allows it.
         Task {
             if await unsavedChanges.canClose(session) { window?.close() }
         }
+
         return false
     }
 
@@ -385,6 +423,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     /// name first; if that is cancelled the document stays open.
     func promptForUnsavedChanges() async -> UnsavedChangesDecision {
         guard let window else { return .cancel }
+
         window.makeKeyAndOrderFront(nil)
         let alert = NSAlert()
         alert.messageText = "Do you want to save changes to “\(displayName)”?"

@@ -20,10 +20,12 @@ public final class CompletionCoordinator {
         let source = editor.backend
         popup = CompletionPopup(textView: textView)
         controller = CompletionController(
-            session: session, provider: provider,
+            session: session,
+            provider: provider,
             environment: CompletionEnvironment(
                 caret: { [weak textView] in
                     guard let range = textView?.selectedRange(), range.length == 0, range.location != NSNotFound else { return nil }
+
                     return range.location
                 },
                 text: { source.substring(in: $0) },
@@ -40,7 +42,9 @@ public final class CompletionCoordinator {
         input.requestCompletion = { controller.requestManually() }
         input.interceptKey = { Self.handle($0, controller: controller) }
         selectionObserver = NotificationCenter.default.addObserver(
-            forName: NSTextView.didChangeSelectionNotification, object: textView, queue: .main
+            forName: NSTextView.didChangeSelectionNotification,
+            object: textView,
+            queue: .main
         ) { _ in MainActor.assumeIsolated { controller.selectionDidChange() } }
     }
 
@@ -55,25 +59,32 @@ public final class CompletionCoordinator {
     /// Tab is a tab, the arrows move the caret.
     static func handle(_ event: NSEvent, controller: CompletionController) -> Bool {
         guard event.type == .keyDown else { return false }
+
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
         guard modifiers.isEmpty else { return false }
+
         switch event.keyCode {
         case 53 where controller.isActive:        // Escape ends a request still out, too
             controller.dismiss()
+
             return true
         case 36, 76, 48:                          // Return, Enter, Tab
             return controller.isShowing && controller.accept()
         case 126 where controller.isShowing:      // Up
             controller.moveSelection(by: -1)
+
             return true
         case 125 where controller.isShowing:      // Down
             controller.moveSelection(by: 1)
+
             return true
         case 116 where controller.isShowing:      // Page Up
             controller.moveSelection(by: -CompletionPopup.maximumVisibleRows)
+
             return true
         case 121 where controller.isShowing:      // Page Down
             controller.moveSelection(by: CompletionPopup.maximumVisibleRows)
+
             return true
         default:
             return false

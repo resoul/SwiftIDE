@@ -14,6 +14,7 @@ private final class Harness {
         self.store = store ?? MemoryDocumentFileStore(contents: files)
         open = OpenDocumentUseCase(store: self.store, registry: registry, maximumBytes: maximumBytes) { [unowned self] file in
             created += 1
+
             return DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
         }
     }
@@ -87,6 +88,7 @@ private actor GatedReadStore: DocumentFileStore {
         hasStarted = true
         started?.resume()
         await withCheckedContinuation { gate = $0 }
+
         return LoadedFile(path: path, text: "late", encoding: .utf8, revision: .stub())
     }
 
@@ -107,6 +109,7 @@ func cancelledOpenLeavesNoLateDocumentBehind() async throws {
     var created = 0
     let open = OpenDocumentUseCase(store: store, registry: registry) { file in
         created += 1
+
         return DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
     }
     let task = Task { try await open.execute(path: "/w/Main.swift") }

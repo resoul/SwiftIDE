@@ -35,6 +35,7 @@ private actor ControlledFileStore: DocumentFileStore {
         guard let continuation = pending else {
             preconditionFailure("finish must follow waitUntilStarted")
         }
+
         pending = nil
         if failing {
             continuation.resume(throwing: TestStoreError.writeFailed)

@@ -40,6 +40,15 @@ swift test --package-path Packages/IDE
 swift test --package-path Apps/SwiftIDE
 ```
 
+Code style and linting (TK-023) run from the repository, with SwiftFormat and SwiftLint pinned and downloaded into `Tools/Lint/.tools` on first use (SHA-256 checked), and a SwiftSyntax checker for the blank-line rules that is built with SwiftPM:
+
+```sh
+Tools/Lint/lint.sh        # checks everything, changes nothing; exit 1 on a violation
+Tools/Lint/format.sh      # rewrites the code to the agreed style; commit its result on its own
+Tools/Lint/selftest.sh    # the tools against each other on small fixtures
+swift test --package-path Tools/Lint
+```
+
 The tests cover edit validation, UTF-16 boundaries, versioning, immutable snapshots, change subscriptions, save races, disk revisions, the file store on real temporary files (BOM, malformed UTF-8, symlinks, permissions, external changes), and the TextKit editor factory. Native-view tests exercise typing, undo/redo, group ownership, composition, and save coordination. Real CJK input, dead keys, and interactive IME behavior still need manual coverage.
 
 ## Implemented
@@ -61,7 +70,7 @@ The tests cover edit validation, UTF-16 boundaries, versioning, immutable snapsh
 
 **TK-005: the native input, undo, and IME transaction bridge** is implemented and covered by automated tests. Manual acceptance testing with real input methods remains before closing the milestone; **TK-006: real file open/save with a disk revision policy** is implemented as well.
 
-Swift completion is connected to the editor window; live acceptance, request timeouts, diagnostic presentation and Xcode/build integration remain planned. The next language stages are a shared document language choice, local C/C++/Objective-C/Objective-C++ highlighting, then language services verified on mixed-project fixtures. Additional languages are not implemented yet; see the [mixed-language plan](docs/12_MIXED_LANGUAGE_SUPPORT.md). Bazel is an accepted direction: shared project context, a SourceKit-LSP/BSP spike, language services for a configured workspace, then setup and Build/Test; see the [Bazel plan](docs/13_BAZEL_SUPPORT.md). Bazel integration is not implemented or verified. Multi-cursor editing and split views are deferred. A custom text engine is an option only if measurements justify replacing TextKit.
+Swift completion is connected to the editor window, with a status line and a request timeout; live acceptance, diagnostic presentation and Xcode/build integration remain planned. The document language is chosen in one place (Edit ▸ Language), and C, C++ and Objective-C have syntax colours; Objective-C++ has none. The next language stages are language services verified on mixed-project fixtures and the shared project context. Language services for the other languages are not implemented yet; see the [mixed-language plan](docs/12_MIXED_LANGUAGE_SUPPORT.md). Bazel is an accepted direction: shared project context, a SourceKit-LSP/BSP spike, language services for a configured workspace, then setup and Build/Test; see the [Bazel plan](docs/13_BAZEL_SUPPORT.md). Bazel integration is not implemented or verified. Multi-cursor editing and split views are deferred. A custom text engine is an option only if measurements justify replacing TextKit.
 
 See the [development plan](docs/05_DEVELOPMENT_PLAN.md), [TextKit implementation plan](docs/08_TEXTKIT_IMPLEMENTATION_PLAN.md), and [changelog](CHANGELOG.md).
 
@@ -103,6 +112,6 @@ The detailed design documents are currently written in Russian.
 - [Workspace UI and UX](docs/11_WORKSPACE_UI_UX.md) — agreed target layout, panel behavior, visual principles, and implementation stages; design only.
 - [Mixed-language support](docs/12_MIXED_LANGUAGE_SUPPORT.md) — accepted direction for C, C++, Objective-C and Objective-C++ within Swift projects; language selection, highlighting, build context and staged acceptance; not implemented yet.
 - [Bazel support](docs/13_BAZEL_SUPPORT.md) — accepted direction, shared project context, BSP/toolchain requirements, phased implementation and acceptance; not implemented or verified.
-- [Code style and linting](docs/14_CODE_STYLE_AND_LINTING.md) — TK-023 implementation task: SwiftFormat, SwiftLint, spacing rules and CI acceptance; not implemented yet.
+- [Code style and linting](docs/14_CODE_STYLE_AND_LINTING.md) — TK-023: pinned SwiftFormat and SwiftLint, a SwiftSyntax blank-line checker, local commands and a CI workflow; the workflow has not run on a runner yet.
 - [Third-party software notices](THIRD_PARTY_NOTICES.md)
 - [Original custom-engine concept](Swift_IDE_Architecture_and_MVP.md) — historical reference, superseded by the current TextKit MVP plan.

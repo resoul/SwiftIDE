@@ -30,7 +30,8 @@ let package = Package(
         .target(
             name: "SyntaxInfrastructure",
             dependencies: [
-                "IDEDomain", "IDEApplication",
+                "IDEDomain",
+                "IDEApplication",
                 .product(name: "SwiftTreeSitter", package: "swift-tree-sitter"),
                 .product(name: "TreeSitterSwift", package: "tree-sitter-swift"),
                 .product(name: "TreeSitterC", package: "tree-sitter-c"),

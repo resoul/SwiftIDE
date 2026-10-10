@@ -28,24 +28,36 @@ private final class Sandbox {
 
     func permissions(of url: URL) -> Int {
         let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+
         return ((attributes?[.posixPermissions] as? NSNumber)?.intValue ?? -1) & 0o777
     }
 }
 
 private func revision(_ tick: Int64 = 7) -> FileRevision {
     FileRevision(
-        fileID: FileIdentity(device: 16_777_231, inode: 9_001), size: 1234, modificationTime: 1_760_000_000_123_456_789 + tick,
+        fileID: FileIdentity(device: 16_777_231, inode: 9_001),
+        size: 1234,
+        modificationTime: 1_760_000_000_123_456_789 + tick,
         contentDigest: ContentDigest(bytes: (0..<32).map { UInt8(truncatingIfNeeded: $0 &* 7 &+ Int(tick)) })
     )
 }
 
 private func record(
-    _ key: RecoveryKey = .file(atPath: "/w/Main.swift"), text: String = "let a = 1\n", savedAt: Double = 1_760_000_000.5,
-    path: String? = "/w/Main.swift", base: FileRevision? = revision(), encoding: FileEncoding = .utf8
+    _ key: RecoveryKey = .file(atPath: "/w/Main.swift"),
+    text: String = "let a = 1\n",
+    savedAt: Double = 1_760_000_000.5,
+    path: String? = "/w/Main.swift",
+    base: FileRevision? = revision(),
+    encoding: FileEncoding = .utf8
 ) -> RecoveryRecord {
     RecoveryRecord(
-        key: key, path: path, title: path.map { ($0 as NSString).lastPathComponent } ?? "Untitled", text: text,
-        encoding: encoding, baseRevision: base, savedAt: Date(timeIntervalSince1970: savedAt)
+        key: key,
+        path: path,
+        title: path.map { ($0 as NSString).lastPathComponent } ?? "Untitled",
+        text: text,
+        encoding: encoding,
+        baseRevision: base,
+        savedAt: Date(timeIntervalSince1970: savedAt)
     )
 }
 

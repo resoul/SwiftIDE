@@ -30,7 +30,9 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
         self.textView = textView
         panel = CompletionPanel(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 100),
-            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: true
         )
         super.init()
         panel.isOpaque = false
@@ -98,6 +100,7 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
 
     public func present(rows: [CompletionRow], selected: Int, anchorOffset: Int) {
         guard let textView, let window = textView.window else { return }
+
         self.rows = rows
         statusLabel.isHidden = true
         scroll.isHidden = false
@@ -110,6 +113,7 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
 
     public func showStatus(_ status: CompletionStatus, anchorOffset: Int) {
         guard let textView, let window = textView.window else { return }
+
         rows = []
         table.reloadData()
         scroll.isHidden = true
@@ -148,12 +152,14 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
 
     public func select(_ index: Int) {
         guard rows.indices.contains(index) else { return }
+
         table.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
         table.scrollRowToVisible(index)
     }
 
     public func dismiss() {
         guard isVisible else { return }
+
         isVisible = false
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
@@ -170,6 +176,7 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
             if origin.y < screen.minY { origin.y = character.maxY + 2 }
             origin.x = min(max(origin.x, screen.minX), screen.maxX - size.width)
         }
+
         return NSRect(origin: origin, size: size)
     }
 
@@ -178,21 +185,25 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
         let widest = rows.prefix(200).map { row -> CGFloat in
             let label = (row.label as NSString).size(withAttributes: [.font: font]).width
             let detail = ((row.detail ?? "") as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 11)]).width
+
             return 26 + label + 16 + detail + 12
         }.max() ?? 280
+
         return min(max(widest, 280), 560)
     }
 
     private func watchForReasonsToClose(in window: NSWindow, textView: NSTextView) {
         let center = NotificationCenter.default
         var names: [(Notification.Name, AnyObject?)] = [
-            (NSWindow.didResignKeyNotification, window), (NSWindow.didResizeNotification, window),
+            (NSWindow.didResignKeyNotification, window),
+            (NSWindow.didResizeNotification, window),
             (NSApplication.didResignActiveNotification, nil),
         ]
         if let clip = textView.enclosingScrollView?.contentView {
             clip.postsBoundsChangedNotifications = true
             names.append((NSView.boundsDidChangeNotification, clip))
         }
+
         for (name, object) in names {
             observers.append(center.addObserver(forName: name, object: object, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.onClose?() }
@@ -207,11 +218,13 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
 
     @objc private func clicked() {
         guard table.clickedRow >= 0 else { return }
+
         onClick?(table.clickedRow, false)
     }
 
     @objc private func doubleClicked() {
         guard table.clickedRow >= 0 else { return }
+
         onClick?(table.clickedRow, true)
     }
 
@@ -222,6 +235,7 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
         let cell = (tableView.makeView(withIdentifier: id, owner: self) as? CompletionCell) ?? CompletionCell()
         cell.identifier = id
         cell.configure(rows[row])
+
         return cell
     }
 }

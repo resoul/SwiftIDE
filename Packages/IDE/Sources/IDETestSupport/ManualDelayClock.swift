@@ -25,6 +25,7 @@ public final class ManualDelayClock: DelayClock, @unchecked Sendable {
                 let cancelledAlready = lock.withLock { () -> Bool in
                     if Task.isCancelled { return true }
                     sleepers.append(Sleeper(id: id, deadline: current + duration, continuation: continuation))
+
                     return false
                 }
                 if cancelledAlready { continuation.resume(throwing: CancellationError()) }
@@ -32,17 +33,19 @@ public final class ManualDelayClock: DelayClock, @unchecked Sendable {
         } onCancel: {
             let sleeper = lock.withLock { () -> Sleeper? in
                 guard let index = sleepers.firstIndex(where: { $0.id == id }) else { return nil }
+
                 return sleepers.remove(at: index)
             }
             sleeper?.continuation.resume(throwing: CancellationError())
         }
     }
-    
+
     public func advance(by duration: Duration) {
         let due = lock.withLock { () -> [Sleeper] in
             current += duration
             let ready = sleepers.filter { $0.deadline <= current }
             sleepers.removeAll { $0.deadline <= current }
+
             return ready
         }
         for sleeper in due { sleeper.continuation.resume() }

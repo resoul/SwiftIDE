@@ -29,7 +29,7 @@ enum MainMenu {
             completeItem(),
             languageItem()
         ]))
-        
+
         main.addItem(submenuItem(title: "View", items: [
             NSMenuItem(title: "Files", action: #selector(WorkspacePreviewWindowController.showPreviewFiles(_:)), keyEquivalent: "1"),
             NSMenuItem(title: "Search", action: #selector(WorkspacePreviewWindowController.showPreviewSearch(_:)), keyEquivalent: "2"),
@@ -54,6 +54,7 @@ enum MainMenu {
     private static func completeItem() -> NSMenuItem {
         let item = NSMenuItem(title: "Complete", action: #selector(NSTextView.complete(_:)), keyEquivalent: " ")
         item.keyEquivalentModifierMask = .control
+
         return item
     }
 
@@ -68,6 +69,7 @@ enum MainMenu {
         }
         let parent = submenuItem(title: "Language", items: items)
         parent.title = "Language"
+
         return parent
     }
 
@@ -76,6 +78,7 @@ enum MainMenu {
         let menu = NSMenu(title: title)
         items.forEach(menu.addItem)
         item.submenu = menu
+
         return item
     }
 }

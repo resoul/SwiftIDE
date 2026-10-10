@@ -8,6 +8,7 @@ import Testing
 @MainActor
 private func makeBackend(textKit: Bool, text: String) -> any DocumentEditingBackend {
     if textKit { return TextKitDocumentBackend(loadedText: text) }
+
     return StringDocumentBackend(loadedText: text)
 }
 

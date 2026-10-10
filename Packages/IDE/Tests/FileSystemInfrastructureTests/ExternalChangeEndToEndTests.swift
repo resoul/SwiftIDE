@@ -29,7 +29,10 @@ private final class Rig {
         }
         session = try await open.execute(path: path).session
         monitor = ExternalChangeMonitor(
-            session: session, files: store, watcher: VnodeFileWatcher(), reload: ReloadDocumentUseCase(store: store),
+            session: session,
+            files: store,
+            watcher: VnodeFileWatcher(),
+            reload: ReloadDocumentUseCase(store: store),
             policy: ExternalChangePolicy(debounce: .milliseconds(80), settle: .milliseconds(80))
         )
         try await Task.sleep(for: .milliseconds(150))   // the watch arms itself
@@ -60,6 +63,7 @@ private final class Rig {
             if condition() { return true }
             try? await Task.sleep(for: .milliseconds(25))
         }
+
         return condition()
     }
 }
@@ -95,7 +99,8 @@ func twoReplacementsInARowAreBothFollowed() async throws {
 func theDocumentsOwnSaveRaisesNothing() async throws {
     let rig = try await Rig()
     try rig.session.apply(
-        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// mine\n")], expectedVersion: 0
+        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// mine\n")],
+        expectedVersion: 0
     )
     _ = try await SaveDocumentUseCase(store: rig.store).execute(document: rig.session)
     try? await Task.sleep(for: .milliseconds(900))   // the events of the save, looked at and judged
@@ -108,7 +113,8 @@ func theDocumentsOwnSaveRaisesNothing() async throws {
 func aDocumentWithUnsavedChangesIsNotReloadedAndStillConflictsOnSave() async throws {
     let rig = try await Rig()
     try rig.session.apply(
-        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// mine\n")], expectedVersion: 0
+        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// mine\n")],
+        expectedVersion: 0
     )
     try rig.replaceAtomically("let a = 'theirs'\n")
     #expect(await rig.eventually { rig.monitor.state == .changedWhileEdited })

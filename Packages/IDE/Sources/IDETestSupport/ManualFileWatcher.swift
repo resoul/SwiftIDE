@@ -25,6 +25,7 @@ public final class ManualFileWatcher: FileWatching, @unchecked Sendable {
     public func watch(path: String, onEvent: @escaping @Sendable () -> Void) -> any FileWatchHandle {
         let watch = Watch(path: path, onEvent: onEvent)
         lock.withLock { watches.append(watch) }
+
         return watch
     }
 

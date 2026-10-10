@@ -30,7 +30,7 @@ public struct FileRevision: Hashable, Sendable {
         self.modificationTime = modificationTime
         self.contentDigest = contentDigest
     }
-    
+
     public func hasSameContent(as other: FileRevision) -> Bool {
         size == other.size && contentDigest == other.contentDigest
     }

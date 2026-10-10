@@ -38,18 +38,21 @@ final class AppCompositionRoot {
         let editor = TextKitEditorFactory.makeEditor(loadedText: file.text)
         let session = DocumentSession(loaded: file, backend: editor.backend)
         pendingEditors[session.id] = editor
+
         return session
     }
 
     private static var languageScratchDirectory: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
+
         return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent("LanguageScratch", isDirectory: true)
     }
 
     private static var recoveryDirectory: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
+
         return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent("Recovery", isDirectory: true)
     }
 
@@ -57,6 +60,7 @@ final class AppCompositionRoot {
         let editor = TextKitEditorFactory.makeEditor(loadedText: "")
         let session = DocumentSession(path: "Untitled.swift", backend: editor.backend, isUntitled: true)
         pendingEditors[session.id] = editor
+
         return session
     }
 
@@ -73,7 +77,8 @@ final class AppCompositionRoot {
     }
 
     func retireRecovery(
-        _ candidate: RecoveryCandidate, restoredAs session: DocumentSession,
+        _ candidate: RecoveryCandidate,
+        restoredAs session: DocumentSession,
         afterKeeping keep: @MainActor () async -> Safekeeping?
     ) async throws {
         try await restorer.retire(candidate, restoredAs: session, afterKeeping: keep)
@@ -82,13 +87,19 @@ final class AppCompositionRoot {
     func makeUntitledWindow() -> WorkspaceWindowController {
         let editor = TextKitEditorFactory.makeEditor(loadedText: Self.sampleText)
         let session = DocumentSession(path: "Untitled.swift", backend: editor.backend, isUntitled: true)
+
         return WorkspaceWindowController(
-            document: session, editor: editor, registry: registry,
-            saveDocument: saveDocument, reloadDocument: reloadDocument,
+            document: session,
+            editor: editor,
+            registry: registry,
+            saveDocument: saveDocument,
+            reloadDocument: reloadDocument,
             recovery: RecoveryCoordinator(session: session, store: recoveryStore),
             externalChanges: makeExternalChangeMonitor(for: session),
-            revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter,
-            languages: languages, languageServices: languageServices
+            revisionOfFile: Self.revisionOfFile,
+            makeHighlighter: Self.makeHighlighter,
+            languages: languages,
+            languageServices: languageServices
         )
     }
 
@@ -104,13 +115,19 @@ final class AppCompositionRoot {
         guard let editor = pendingEditors.removeValue(forKey: session.id) else {
             preconditionFailure("A new document must come with its editor")
         }
+
         return WorkspaceWindowController(
-            document: session, editor: editor, registry: registry,
-            saveDocument: saveDocument, reloadDocument: reloadDocument,
+            document: session,
+            editor: editor,
+            registry: registry,
+            saveDocument: saveDocument,
+            reloadDocument: reloadDocument,
             recovery: RecoveryCoordinator(session: session, store: recoveryStore),
             externalChanges: makeExternalChangeMonitor(for: session),
-            revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter,
-            languages: languages, languageServices: languageServices
+            revisionOfFile: Self.revisionOfFile,
+            makeHighlighter: Self.makeHighlighter,
+            languages: languages,
+            languageServices: languageServices
         )
     }
 

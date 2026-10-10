@@ -55,7 +55,8 @@ final class DocumentUndoManager: UndoManager, @unchecked Sendable {
 
     /// A programmatic step: always its own undo step, and the next typing is separated from it.
     func registerProgrammatic<Target: AnyObject>(
-        target: Target, handler: @escaping @Sendable (Target) -> Void
+        target: Target,
+        handler: @escaping @Sendable (Target) -> Void
     ) {
         separateIfNeeded(force: true)
         isRegistering = true
@@ -66,8 +67,10 @@ final class DocumentUndoManager: UndoManager, @unchecked Sendable {
 
     private func separateIfNeeded(force: Bool) {
         guard force || boundaryPending, !isUndoing, !isRedoing else { return }
+
         alignGroups()
         guard groupingLevel > 0, !groups.contains(.caller) else { return }
+
         while groupingLevel > 0 {
             groups.removeLast()
             super.endUndoGrouping()

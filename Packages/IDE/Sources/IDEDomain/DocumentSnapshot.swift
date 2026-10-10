@@ -7,7 +7,10 @@ public struct DocumentSnapshot: Equatable, Sendable {
     public let encoding: FileEncoding
 
     public init(
-        documentID: DocumentID, path: String, version: UInt64, text: String,
+        documentID: DocumentID,
+        path: String,
+        version: UInt64,
+        text: String,
         encoding: FileEncoding = .utf8
     ) {
         self.documentID = documentID

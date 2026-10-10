@@ -25,6 +25,7 @@ public enum LSPPositionMapper {
         let clamped = min(max(offset, 0), index.utf16Length)
         let line = index.line(containing: clamped)
         let content = index.lineExtent(line).content
+
         return LSPPosition(line: line, character: min(clamped - index.startOffset(ofLine: line), content))
     }
 
@@ -32,8 +33,11 @@ public enum LSPPositionMapper {
     /// and a line past the end of the document means the end of the document.
     public static func offset(of position: LSPPosition, in index: LineIndex) -> Int {
         guard position.line >= 0 else { return 0 }
+
         guard position.line < index.lineCount else { return index.utf16Length }
+
         let content = index.lineExtent(position.line).content
+
         return index.startOffset(ofLine: position.line) + min(max(position.character, 0), content)
     }
 }

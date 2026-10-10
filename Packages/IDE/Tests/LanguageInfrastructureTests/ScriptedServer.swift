@@ -28,6 +28,7 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
     static func standard(completion: [JSONValue] = []) -> Handler {
         { message, server in
             guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
+
             switch method {
             case "initialize": server.reply(id, ["capabilities": [:]])
             case "textDocument/completion": server.reply(id, ["isIncomplete": false, "items": .array(completion)])
@@ -43,6 +44,7 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
             writes += 1
             var pause: Duration?
             if let (every, duration) = delayEvery, writes % every == 0 { pause = duration }
+
             return (held, pause)
         }
         if shouldHold { await withCheckedContinuation { c in lock.withLock { waiting.append(c) } } }
@@ -51,10 +53,12 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
             framing.append(data)
             var out: [Data] = []
             while let body = framing.next() { out.append(body) }
+
             return out
         }
         for body in bodies {
             guard let message = try? JSONDecoder().decode(JSONValue.self, from: body) else { continue }
+
             lock.withLock { messages.append(message) }
             handler?(message, self)
         }
@@ -69,6 +73,7 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
         let continuations = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
             held = false
             defer { waiting.removeAll() }
+
             return waiting
         }
         for continuation in continuations { continuation.resume() }
@@ -86,6 +91,7 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
     func model() -> LSPDocumentModel {
         var model = LSPDocumentModel()
         for message in received { model.consume(message) }
+
         return model
     }
 
@@ -99,6 +105,7 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
             if condition() { return true }
             try? await Task.sleep(for: .milliseconds(5))
         }
+
         return condition()
     }
 
@@ -125,6 +132,7 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
         var data = Data("Content-Length: \(body.count)\r\n\r\n".utf8)
         data.append(body)
         guard let size else { continuation.yield(data); return }
+
         var start = data.startIndex
         while start < data.endIndex {
             let end = data.index(start, offsetBy: size, limitedBy: data.endIndex) ?? data.endIndex
@@ -140,12 +148,16 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
         mutating func append(_ data: Data) { buffer.append(data) }
         mutating func next() -> Data? {
             guard let range = buffer.range(of: Data("\r\n\r\n".utf8)) else { return nil }
+
             let header = String(decoding: buffer[buffer.startIndex..<range.lowerBound], as: UTF8.self)
             guard let length = header.split(separator: ":").last.flatMap({ Int($0.trimmingCharacters(in: .whitespaces)) }) else { return nil }
+
             guard buffer.distance(from: range.upperBound, to: buffer.endIndex) >= length else { return nil }
+
             let end = buffer.index(range.upperBound, offsetBy: length)
             let body = Data(buffer[range.upperBound..<end])
             buffer.removeSubrange(buffer.startIndex..<end)
+
             return body
         }
     }
@@ -161,6 +173,7 @@ struct LSPDocumentModel {
 
     mutating func consume(_ message: JSONValue) {
         guard let method = message["method"]?.stringValue, let params = message["params"] else { return }
+
         let uri = params["textDocument"]?["uri"]?.stringValue ?? ""
         switch method {
         case "textDocument/didOpen":
@@ -171,6 +184,7 @@ struct LSPDocumentModel {
             versions.removeValue(forKey: uri)
         case "textDocument/didChange":
             guard var units = texts[uri] else { return problems.append("change for unopened \(uri)") }
+
             for change in params["contentChanges"]?.arrayValue ?? [] {
                 let text = Array((change["text"]?.stringValue ?? "").utf16)
                 if let range = change["range"] {
@@ -178,6 +192,7 @@ struct LSPDocumentModel {
                         problems.append("bad range \(range)")
                         continue
                     }
+
                     units.replaceSubrange(start..<end, with: text)
                 } else {
                     units = text
@@ -199,6 +214,7 @@ struct LSPDocumentModel {
 
     private func offset(_ position: JSONValue?, in units: [UInt16]) -> Int? {
         guard let line = position?["line"]?.intValue, let character = position?["character"]?.intValue else { return nil }
+
         var starts = [0]
         var i = 0
         while i < units.count {
@@ -207,13 +223,16 @@ struct LSPDocumentModel {
                 if i + 1 < units.count, units[i + 1] == 0x0A { i += 1 }
                 starts.append(i + 1)
             }
+
             i += 1
         }
         guard line < starts.count else { return nil }
+
         let start = starts[line]
         let lineEnd = line + 1 < starts.count ? starts[line + 1] : units.count
         var content = lineEnd - start
         while content > 0, units[start + content - 1] == 0x0A || units[start + content - 1] == 0x0D { content -= 1 }
+
         return start + min(character, content)
     }
 }

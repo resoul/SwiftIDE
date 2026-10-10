@@ -88,7 +88,9 @@ public final class OrderedDocumentSync {
     public var languageID: @MainActor (DocumentSession) -> String? = { OrderedDocumentSync.languageID(forPath: $0.path) }
 
     public convenience init(
-        limits: Limits = Limits(), capturePolicy: CapturePolicy = .standard, virtualDirectory: URL? = nil
+        limits: Limits = Limits(),
+        capturePolicy: CapturePolicy = .standard,
+        virtualDirectory: URL? = nil
     ) {
         self.init(limits: limits, capturePolicy: capturePolicy, virtualDirectory: virtualDirectory, capture: { try await $0.capture(policy: $1) })
     }
@@ -104,8 +106,10 @@ public final class OrderedDocumentSync {
     func address(of session: DocumentSession) -> String? {
         if session.isUntitled {
             guard let virtualDirectory else { return nil }
+
             return virtualDirectory.appendingPathComponent("Untitled-\(session.id.rawValue.uuidString.prefix(8)).swift").absoluteString
         }
+
         return URL(fileURLWithPath: session.path).absoluteString
     }
 
@@ -123,6 +127,7 @@ public final class OrderedDocumentSync {
         generation += 1
         self.connection = connection
         guard connection != nil else { return }
+
         for entry in tracked.values { Task { await self.begin(entry) } }
     }
 
@@ -132,6 +137,7 @@ public final class OrderedDocumentSync {
 
     public func isSynced(_ session: DocumentSession) -> Bool {
         guard let entry = tracked[session.id], case .synced = entry.phase else { return false }
+
         return entry.enqueuedVersion == session.version
     }
 
@@ -141,12 +147,14 @@ public final class OrderedDocumentSync {
     /// the document's current text when `isSynced`.
     public func position(of offset: Int, in session: DocumentSession) -> LSPPosition? {
         guard isSynced(session), let entry = tracked[session.id] else { return nil }
+
         return LSPPositionMapper.position(of: offset, in: entry.index)
     }
 
     /// The offset a server's position refers to, in the same text.
     public func offset(of position: LSPPosition, in session: DocumentSession) -> Int? {
         guard isSynced(session), let entry = tracked[session.id] else { return nil }
+
         return LSPPositionMapper.offset(of: position, in: entry.index)
     }
 
@@ -154,19 +162,25 @@ public final class OrderedDocumentSync {
     /// given the text (written to the outbox, not necessarily read).
     public func open(_ session: DocumentSession) async throws {
         guard tracked[session.id] == nil else { throw DocumentSyncError.alreadyOpen }
+
         guard address(of: session) != nil else { throw DocumentSyncError.untitled }
+
         guard languageID(session) != nil else { throw DocumentSyncError.unsupportedLanguage }
+
         guard session.utf16Length <= limits.maximumUTF16Length else {
             throw DocumentSyncError.tooLarge(utf16Length: session.utf16Length, limit: limits.maximumUTF16Length)
         }
+
         let entry = Tracked(session: session)
         tracked[session.id] = entry
         entry.changeSubscription = session.subscribeToChanges { [weak self, weak entry] change in
             guard let self, let entry else { return }
+
             self.changed(entry, change)
         }
         entry.saveSubscription = session.subscribeToSaves { [weak self, weak entry] in
             guard let self, let entry else { return }
+
             self.saved(entry)
         }
         await begin(entry)
@@ -174,6 +188,7 @@ public final class OrderedDocumentSync {
 
     public func close(_ session: DocumentSession) {
         guard let entry = tracked.removeValue(forKey: session.id) else { return }
+
         entry.epoch += 1
         if let id = entry.changeSubscription { session.unsubscribeFromChanges(id) }
         if let id = entry.saveSubscription { session.unsubscribeFromSaves(id) }
@@ -184,6 +199,7 @@ public final class OrderedDocumentSync {
     /// was already closed at its old address, and one still being copied was never opened.
     private func closeOnServer(_ entry: Tracked) {
         guard entry.isOpenOnServer else { return }
+
         entry.isOpenOnServer = false
         connection?.notify("textDocument/didClose", ["textDocument": ["uri": .string(entry.uri)]])
     }
@@ -192,6 +208,7 @@ public final class OrderedDocumentSync {
 
     private func begin(_ entry: Tracked) async {
         guard tracked[entry.session.id] === entry else { return }
+
         entry.epoch += 1
         let epoch = entry.epoch
         entry.phase = .opening(buffered: [])
@@ -233,6 +250,7 @@ public final class OrderedDocumentSync {
         case .opening(var buffered):
             buffered.append(change)
             entry.phase = .opening(buffered: buffered)
+
             return
         case .resyncing:
             return   // the full text that is waiting in the outbox covers this
@@ -245,6 +263,7 @@ public final class OrderedDocumentSync {
         if change.oldVersion != entry.enqueuedVersion || connection.pendingOutbound >= limits.maximumPendingMessages {
             return scheduleResync(entry)
         }
+
         var contentChanges: [JSONValue] = []
         for edit in change.edits {   // descending: each range is valid in the text the edits before it leave
             contentChanges.append(Self.contentChange(for: edit, in: entry.index))
@@ -255,6 +274,7 @@ public final class OrderedDocumentSync {
         if change.newVersion == entry.session.version, entry.index.utf16Length != entry.session.utf16Length {
             return scheduleResync(entry)
         }
+
         entry.enqueuedVersion = change.newVersion
         connection.notify("textDocument/didChange", [
             "textDocument": ["uri": .string(entry.uri), "version": .int(Int(change.newVersion))],
@@ -264,17 +284,20 @@ public final class OrderedDocumentSync {
 
     private func scheduleResync(_ entry: Tracked) {
         guard let connection else { return }
+
         entry.phase = .resyncing
         resyncCount += 1
         let epoch = entry.epoch
         connection.notifyLater { [weak self, weak entry] in
             guard let self, let entry, self.tracked[entry.session.id] === entry, entry.epoch == epoch else { return nil }
+
             // On the main actor, at the moment of writing: the text and its version are of now, and
             // from here the index follows the document again.
             let snapshot = entry.session.snapshot()
             entry.index = LineIndex(snapshot.text)
             entry.enqueuedVersion = snapshot.version
             entry.phase = .synced
+
             return ("textDocument/didChange", [
                 "textDocument": ["uri": .string(entry.uri), "version": .int(Int(snapshot.version))],
                 "contentChanges": [["text": .string(snapshot.text)]],
@@ -285,7 +308,9 @@ public final class OrderedDocumentSync {
     /// A Save As gives the document another address: the server is told it closed there and opened here.
     private func saved(_ entry: Tracked) {
         guard tracked[entry.session.id] === entry, let current = address(of: entry.session) else { return }
+
         guard case .synced = entry.phase, current != entry.uri else { return }
+
         closeOnServer(entry)
         Task { await self.begin(entry) }
     }
@@ -301,10 +326,12 @@ public final class OrderedDocumentSync {
             start -= 1
             text = "\r" + text
         }
+
         if isInsideCRLF(end, in: index) {
             end += 1
             text += "\n"
         }
+
         return [
             "range": [
                 "start": LSPPositionMapper.position(of: start, in: index).json,
@@ -316,8 +343,10 @@ public final class OrderedDocumentSync {
 
     private static func isInsideCRLF(_ offset: Int, in index: LineIndex) -> Bool {
         guard offset > 0, offset < index.utf16Length else { return false }
+
         let line = index.line(containing: offset)
         let extent = index.lineExtent(line)
+
         return extent.terminator == .crlf && offset - index.startOffset(ofLine: line) == extent.content + 1
     }
 

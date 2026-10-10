@@ -5,6 +5,7 @@ enum LSPFraming {
     static func frame(_ body: Data) -> Data {
         var data = Data("Content-Length: \(body.count)\r\n\r\n".utf8)
         data.append(body)
+
         return data
     }
 
@@ -20,6 +21,7 @@ enum LSPFraming {
         /// be understood throws: the stream is out of step and nothing after it can be trusted.
         mutating func next() throws -> Data? {
             guard let separator = buffer.range(of: Data("\r\n\r\n".utf8)) else { return nil }
+
             let header = String(decoding: buffer[buffer.startIndex..<separator.lowerBound], as: UTF8.self)
             var length: Int?
             for line in header.split(separator: "\r\n") {
@@ -29,10 +31,13 @@ enum LSPFraming {
                 }
             }
             guard let length, length >= 0 else { throw LSPError.malformedHeader(header) }
+
             let bodyStart = separator.upperBound
             guard buffer.distance(from: bodyStart, to: buffer.endIndex) >= length else { return nil }
+
             let body = Data(buffer[bodyStart..<buffer.index(bodyStart, offsetBy: length)])
             buffer.removeSubrange(buffer.startIndex..<buffer.index(bodyStart, offsetBy: length))
+
             return body
         }
     }

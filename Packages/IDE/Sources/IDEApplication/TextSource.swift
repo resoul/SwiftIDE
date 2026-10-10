@@ -51,7 +51,9 @@ public struct StringTextSource: TextSource {
 /// Bulk UTF-16 reading of an `NSString`, shared by the backends that store text in one.
 public enum NSStringUnits {
     public static func enumerate(
-        _ string: NSString, in range: UTF16TextRange, using body: (UnsafeBufferPointer<UInt16>) -> Void
+        _ string: NSString,
+        in range: UTF16TextRange,
+        using body: (UnsafeBufferPointer<UInt16>) -> Void
     ) {
         let piece = 1 << 16
         var buffer = [UInt16](repeating: 0, count: min(piece, max(range.length, 1)))

@@ -29,12 +29,14 @@ private struct Surface {
         scroll.layoutSubtreeIfNeeded()
         let bitmap = scroll.bitmapImageRepForCachingDisplay(in: scroll.bounds)!
         scroll.cacheDisplay(in: scroll.bounds, to: bitmap)
+
         return bitmap
     }
 
     func range(_ location: Int, _ length: Int) -> NSTextRange {
         let content = layoutManager.textContentManager!
         let start = content.location(content.documentRange.location, offsetBy: location)!
+
         return NSTextRange(location: start, end: content.location(start, offsetBy: length)!)!
     }
 
@@ -46,6 +48,7 @@ private struct Surface {
         for y in 0..<bitmap.pixelsHigh {
             for x in 0..<bitmap.pixelsWide {
                 guard let c = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+
                 switch colour {
                 case .red where c.redComponent > 0.7 && c.greenComponent < 0.3 && c.blueComponent < 0.3: count += 1
                 case .blue where c.blueComponent > 0.7 && c.redComponent < 0.3 && c.greenComponent < 0.65: count += 1
@@ -53,6 +56,7 @@ private struct Surface {
                 }
             }
         }
+
         return count
     }
 
@@ -113,8 +117,10 @@ func renderingAttributesFollowEditsAndTypedTextStartsPlain() {
                 let start = content.offset(from: content.documentRange.location, to: range.location)
                 runs.append(NSRange(location: start, length: content.offset(from: range.location, to: range.endLocation)))
             }
+
             return true
         }
+
         return runs
     }
 
@@ -187,6 +193,7 @@ func aValidatorMustClearItsFragmentBecauseOldColoursStayOtherwise() {
             MainActor.assumeIsolated {
                 if clears { manager.removeRenderingAttribute(.foregroundColor, for: fragment.rangeInElement) }
                 guard colours else { return }
+
                 let content = manager.textContentManager!
                 let start = fragment.rangeInElement.location
                 if let end = content.location(start, offsetBy: 3), let range = NSTextRange(location: start, end: end) {

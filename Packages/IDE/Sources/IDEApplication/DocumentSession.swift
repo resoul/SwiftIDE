@@ -55,8 +55,12 @@ public final class DocumentSession: NativeEditReceiver {
 
     /// Represents content already loaded from storage.
     public init(
-        id: DocumentID = DocumentID(), path: String, backend: any DocumentEditingBackend,
-        diskRevision: FileRevision? = nil, encoding: FileEncoding = .utf8, isUntitled: Bool = false
+        id: DocumentID = DocumentID(),
+        path: String,
+        backend: any DocumentEditingBackend,
+        diskRevision: FileRevision? = nil,
+        encoding: FileEncoding = .utf8,
+        isUntitled: Bool = false
     ) {
         self.id = id
         self.path = path
@@ -72,8 +76,11 @@ public final class DocumentSession: NativeEditReceiver {
     /// A document whose text, encoding and disk revision come from a file just read.
     public convenience init(id: DocumentID = DocumentID(), loaded: LoadedFile, backend: any DocumentEditingBackend) {
         self.init(
-            id: id, path: loaded.path, backend: backend,
-            diskRevision: loaded.revision, encoding: loaded.encoding
+            id: id,
+            path: loaded.path,
+            backend: backend,
+            diskRevision: loaded.revision,
+            encoding: loaded.encoding
         )
     }
 
@@ -85,17 +92,24 @@ public final class DocumentSession: NativeEditReceiver {
     }
 
     public func apply(
-        _ edits: [DocumentEdit], expectedVersion: UInt64, origin: EditOrigin = .command
+        _ edits: [DocumentEdit],
+        expectedVersion: UInt64,
+        origin: EditOrigin = .command
     ) throws {
         guard !isPublishing, !isCommitting else { throw DocumentError.reentrantEdit }
+
         guard !isComposing else { throw DocumentError.compositionInProgress }
+
         // A mutation nobody reported must not let a plan be built from outdated text.
         reconcileUnobservedMutation()
         guard expectedVersion == version else {
             throw DocumentError.staleVersion(expected: expectedVersion, actual: version)
         }
+
         guard let plan = try DocumentEditPlanner.prepare(edits, in: backend) else { return }
+
         guard version < UInt64.max else { throw DocumentError.versionExhausted }
+
         let oldVersion = version
         isCommitting = true
         backend.commit(plan)
@@ -104,8 +118,11 @@ public final class DocumentSession: NativeEditReceiver {
         knownGeneration = backend.editGeneration
         version += 1
         publish(DocumentChangeSet(
-            documentID: id, oldVersion: oldVersion, newVersion: version,
-            edits: plan.edits, origin: origin
+            documentID: id,
+            oldVersion: oldVersion,
+            newVersion: version,
+            edits: plan.edits,
+            origin: origin
         ))
     }
 
@@ -113,6 +130,7 @@ public final class DocumentSession: NativeEditReceiver {
     public func subscribeToChanges(_ observer: @escaping @MainActor (DocumentChangeSet) -> Void) -> UUID {
         let id = UUID()
         observers.append((id, observer))
+
         return id
     }
 
@@ -126,6 +144,7 @@ public final class DocumentSession: NativeEditReceiver {
     public func subscribeToSaves(_ observer: @escaping @MainActor () -> Void) -> UUID {
         let id = UUID()
         saveObservers[id] = observer
+
         return id
     }
 
@@ -145,6 +164,7 @@ public final class DocumentSession: NativeEditReceiver {
     /// The same, addressed to another file: what Save As writes.
     func snapshot(forPath target: String) -> DocumentSnapshot {
         reconcileUnobservedMutation()
+
         return DocumentSnapshot(documentID: id, path: target, version: version, text: backend.text, encoding: encoding)
     }
 
@@ -193,14 +213,18 @@ public final class DocumentSession: NativeEditReceiver {
     public func nativeEditDidCommit(_ commit: NativeEditCommit) {
         // A programmatic commit publishes itself once it returns from the backend.
         guard !isCommitting else { return }
+
         guard !isPublishing else {
             // Observers must not edit; if storage changed anyway, account for it after the
             // publication in progress, in order, instead of reordering the change being delivered.
             deferredNativeCommits.append(commit)
+
             return
         }
+
         // A commit that covers only passes already accounted for is a repeated delivery.
         guard commit.generation > knownGeneration else { return }
+
         // Passes the session did not hear about mean someone edited behind its back: the
         // commit's coordinates are then relative to text the session never saw.
         let heardAbout = commit.generation >= UInt64(commit.passes)
@@ -208,6 +232,7 @@ public final class DocumentSession: NativeEditReceiver {
         guard heardAbout else {
             knownGeneration = commit.generation
             publishWholeDocumentReplacement(origin: commit.origin, transactionID: commit.transactionID)
+
             return
         }
 
@@ -216,6 +241,7 @@ public final class DocumentSession: NativeEditReceiver {
         switch commit.effect {
         case .unchanged:
             knownGeneration = commit.generation
+
             return
         case .replaced(let range, let replacement, let isExact):
             let expected = length - range.length + replacement.utf16.count
@@ -224,28 +250,38 @@ public final class DocumentSession: NativeEditReceiver {
                 // The commit does not describe what is in the backend.
                 knownGeneration = commit.generation
                 publishWholeDocumentReplacement(origin: commit.origin, transactionID: commit.transactionID)
+
                 return
             }
+
             edit = DocumentEdit(range: range, replacement: replacement)
             isReconciled = !isExact
             if isReconciled { reconciliationCount += 1 }
         case .unknown:
             knownGeneration = commit.generation
             publishWholeDocumentReplacement(origin: commit.origin, transactionID: commit.transactionID)
+
             return
         }
         guard version < UInt64.max else {
             length = backend.utf16Length
             knownGeneration = commit.generation
+
             return
         }
+
         let oldVersion = version
         length = backend.utf16Length
         knownGeneration = commit.generation
         version += 1
         publish(DocumentChangeSet(
-            documentID: id, oldVersion: oldVersion, newVersion: version, edits: [edit],
-            origin: commit.origin, transactionID: commit.transactionID, isReconciled: isReconciled
+            documentID: id,
+            oldVersion: oldVersion,
+            newVersion: version,
+            edits: [edit],
+            origin: commit.origin,
+            transactionID: commit.transactionID,
+            isReconciled: isReconciled
         ))
     }
 
@@ -258,12 +294,17 @@ public final class DocumentSession: NativeEditReceiver {
         knownGeneration = backend.editGeneration
         reconciliationCount += 1
         guard version < UInt64.max else { return }
+
         let oldVersion = version
         version += 1
         publish(DocumentChangeSet(
-            documentID: id, oldVersion: oldVersion, newVersion: version,
+            documentID: id,
+            oldVersion: oldVersion,
+            newVersion: version,
             edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: oldLength), replacement: replacement)],
-            origin: origin, transactionID: transactionID, isReconciled: true
+            origin: origin,
+            transactionID: transactionID,
+            isReconciled: true
         ))
     }
 
@@ -275,6 +316,7 @@ public final class DocumentSession: NativeEditReceiver {
 
     func reconcileUnobservedMutation() {
         guard backend.editGeneration != knownGeneration else { return }
+
         publishWholeDocumentReplacement(origin: .typing, transactionID: TransactionID())
     }
 
@@ -285,6 +327,7 @@ public final class DocumentSession: NativeEditReceiver {
         for subscribed in observers {
             // One that an earlier observer just unsubscribed must not be called any more.
             guard observers.contains(where: { $0.id == subscribed.id }) else { continue }
+
             subscribed.call(change)
         }
         isPublishing = false
@@ -307,6 +350,7 @@ public final class DocumentSession: NativeEditReceiver {
     public func subscribeToComposition(_ observer: @escaping @MainActor (CompositionEvent) -> Void) -> UUID {
         let id = UUID()
         compositionObservers[id] = observer
+
         return id
     }
 
@@ -317,6 +361,7 @@ public final class DocumentSession: NativeEditReceiver {
     /// Asks the editor to finish marked text the standard way. May complete later.
     public func requestCompositionEnd() {
         guard isComposing else { return }
+
         backend.endComposition()
     }
 

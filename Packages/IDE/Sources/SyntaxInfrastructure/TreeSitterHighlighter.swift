@@ -40,8 +40,16 @@ struct Grammar: Sendable {
 
     static func make(for language: DocumentLanguage) -> Grammar? {
         let literals: Set<String> = [
-            "comment", "string_literal", "string_content", "char_literal", "character", "raw_string_literal",
-            "raw_string_content", "system_lib_string", "preproc_arg", "concatenated_string",
+            "comment",
+            "string_literal",
+            "string_content",
+            "char_literal",
+            "character",
+            "raw_string_literal",
+            "raw_string_content",
+            "system_lib_string",
+            "preproc_arg",
+            "concatenated_string",
         ]
         switch language {
         case .swift:
@@ -87,9 +95,11 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
     public init(language: DocumentLanguage = .swift) throws {
         guard let grammar = Grammar.make(for: language) else { throw SyntaxInfrastructureError.unsupportedLanguage(language) }
+
         guard let url = Bundle.module.url(forResource: grammar.queryResource, withExtension: "scm", subdirectory: "Resources") else {
             throw SyntaxInfrastructureError.missingQuery
         }
+
         self.language = language
         let query = try Query(language: grammar.language, data: Data(contentsOf: url))
         let newest = newest
@@ -185,18 +195,25 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
         func apply(_ changes: DocumentChangeSet) {
             guard !lost else { return }
+
             for edit in changes.edits {
                 let start = edit.range.location
                 let oldEnd = start + edit.range.length
                 let units = Array(edit.replacement.utf16)
                 guard oldEnd <= lines.utf16Length else { lost = true; return }
+
                 let startPoint = point(at: start), oldEndPoint = point(at: oldEnd)
                 guard lines.replace(edit.range, with: edit.replacement),
                       text.replace(start..<oldEnd, with: units) else { lost = true; return }
+
                 let newEnd = start + units.count
                 tree?.edit(InputEdit(
-                    startByte: start * 2, oldEndByte: oldEnd * 2, newEndByte: newEnd * 2,
-                    startPoint: startPoint, oldEndPoint: oldEndPoint, newEndPoint: point(at: newEnd)
+                    startByte: start * 2,
+                    oldEndByte: oldEnd * 2,
+                    newEndByte: newEnd * 2,
+                    startPoint: startPoint,
+                    oldEndPoint: oldEndPoint,
+                    newEndPoint: point(at: newEnd)
                 ))
             }
             version = changes.newVersion
@@ -205,6 +222,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
         func highlights(in window: Range<Int>, version requested: UInt64) {
             guard !lost, requested == version, !isStale(requested), let handler else { statistics.skipped += 1; return }
+
             if needsParse || tree == nil {
                 let source = text
                 let began = ContinuousClock.now
@@ -216,6 +234,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                 unterminatedComment = tree.flatMap { findUnterminatedComment(in: $0) }
                 statistics.commentSearchMilliseconds += Self.milliseconds(since: searchBegan)
             }
+
             guard let tree else { return }
 
             let lower = min(max(0, window.lowerBound), text.length)
@@ -229,20 +248,24 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
         private static func milliseconds(since start: ContinuousClock.Instant) -> Double {
             let d = start.duration(to: .now)
+
             return Double(d.components.seconds) * 1_000 + Double(d.components.attoseconds) / 1e15
         }
 
         private func findUnterminatedComment(in tree: MutableTree) -> Int? {
             guard let root = tree.rootNode else { return nil }
+
             var found: Int?
             text.forEachPair(0x2F, 0x2A) { position in
                 let bytes = UInt32(position * 2)
                 switch grammar.unterminatedComment {
                 case .swiftOperator:
                     guard let node = root.descendant(in: bytes..<(bytes + 4)) else { return true }
+
                     let type = node.nodeType
                     if type == "custom_operator" || (type == "ERROR" && node.byteRange.lowerBound == bytes) {
                         found = position
+
                         return false
                     }
                 case .outsideOf(let containers):
@@ -254,20 +277,25 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                         node = current.parent
                     }
                     found = position
+
                     return false
                 }
+
                 return true
             }
+
             return found
         }
 
         private func point(at offset: Int) -> Point {
             let line = lines.line(containing: offset)
+
             return Point(row: line, column: (offset - lines.startOffset(ofLine: line)) * 2)
         }
 
         private func spans(in window: Range<Int>, tree: MutableTree) -> [HighlightSpan] {
             guard !window.isEmpty else { return [] }
+
             let cursor = query.execute(in: tree)
             cursor.setRange(NSRange(location: window.lowerBound, length: window.count))
             let source = text
@@ -278,10 +306,12 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             for match in cursor.resolve(with: context) {
                 for capture in match.captures {
                     guard let name = capture.name, let kind = CaptureKinds.kind(for: name) else { continue }
+
                     let range = capture.range
                     let from = max(window.lowerBound, range.location)
                     let to = min(window.upperBound, range.location + range.length)
                     guard from < to else { continue }
+
                     painted.append((capture.patternIndex, painted.count, from..<to, kind))
                 }
             }
@@ -297,15 +327,18 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                     kinds[index] = HighlightKind.comment.rawValue
                 }
             }
+
             var result: [HighlightSpan] = []
             var index = 0
             while index < kinds.count {
                 guard kinds[index] != 0, let kind = HighlightKind(rawValue: kinds[index]) else { index += 1; continue }
+
                 var end = index + 1
                 while end < kinds.count, kinds[end] == kinds[index] { end += 1 }
                 result.append(HighlightSpan(location: window.lowerBound + index, length: end - index, kind: kind))
                 index = end
             }
+
             return result
         }
     }

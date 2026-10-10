@@ -46,9 +46,13 @@ public struct DocumentChangeSet: Sendable {
     public let isReconciled: Bool
 
     public init(
-        documentID: DocumentID, oldVersion: UInt64, newVersion: UInt64,
-        edits: [DocumentEdit], origin: EditOrigin,
-        transactionID: TransactionID = TransactionID(), isReconciled: Bool = false
+        documentID: DocumentID,
+        oldVersion: UInt64,
+        newVersion: UInt64,
+        edits: [DocumentEdit],
+        origin: EditOrigin,
+        transactionID: TransactionID = TransactionID(),
+        isReconciled: Bool = false
     ) {
         self.documentID = documentID
         self.oldVersion = oldVersion

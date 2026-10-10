@@ -17,6 +17,7 @@ public final class StringDocumentBackend: DocumentEditingBackend {
 
     public var text: String {
         textMaterializations += 1
+
         return String(storage)
     }
 
@@ -35,7 +36,8 @@ public final class StringDocumentBackend: DocumentEditingBackend {
         precondition(storage.length == plan.sourceLength)
         for edit in plan.edits {
             storage.replaceCharacters(
-                in: NSRange(location: edit.range.location, length: edit.range.length), with: edit.replacement
+                in: NSRange(location: edit.range.location, length: edit.range.length),
+                with: edit.replacement
             )
         }
         editGeneration += 1
@@ -58,14 +60,17 @@ public final class StringDocumentBackend: DocumentEditingBackend {
         case unknown
         case silent
     }
-    
+
     @discardableResult
     public func simulateNativeEdit(
-        _ range: UTF16TextRange, with replacement: String, origin: EditOrigin = .typing,
+        _ range: UTF16TextRange,
+        with replacement: String,
+        origin: EditOrigin = .typing,
         report: Report = .exact
     ) -> NativeEditCommit {
         storage.replaceCharacters(
-            in: NSRange(location: range.location, length: range.length), with: replacement
+            in: NSRange(location: range.location, length: range.length),
+            with: replacement
         )
         editGeneration += 1
         let effect: NativeTextEffect
@@ -78,6 +83,7 @@ public final class StringDocumentBackend: DocumentEditingBackend {
         let commit = NativeEditCommit(origin: origin, effect: effect, generation: editGeneration)
         if case .silent = report { return commit }
         receiver?.nativeEditDidCommit(commit)
+
         return commit
     }
 

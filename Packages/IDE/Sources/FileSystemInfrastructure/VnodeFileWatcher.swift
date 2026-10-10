@@ -70,8 +70,11 @@ private final class VnodeWatch: FileWatchHandle, @unchecked Sendable {
     private func snapshot() -> Snapshot? {
         var info = stat()
         guard stat(path, &info) == 0 else { return nil }
+
         return Snapshot(
-            device: info.st_dev, inode: UInt64(info.st_ino), size: Int64(info.st_size),
+            device: info.st_dev,
+            inode: UInt64(info.st_ino),
+            size: Int64(info.st_size),
             modification: Int64(info.st_mtimespec.tv_sec) * 1_000_000_000 + Int64(info.st_mtimespec.tv_nsec)
         )
     }
@@ -81,18 +84,25 @@ private final class VnodeWatch: FileWatchHandle, @unchecked Sendable {
         fileSource = nil
         watchedInode = nil
         let fd = open(path, O_EVTONLY | O_CLOEXEC)
-        guard fd >= 0 else { return }   // not there: the directory's events will say when it is
+        guard fd >= 0 else { return }
+
+   // not there: the directory's events will say when it is
         var info = stat()
         guard fstat(fd, &info) == 0 else {
             close(fd)
+
             return
         }
+
         watchedInode = UInt64(info.st_ino)
         let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fd, eventMask: [.write, .extend, .attrib, .delete, .rename, .revoke, .link], queue: queue
+            fileDescriptor: fd,
+            eventMask: [.write, .extend, .attrib, .delete, .rename, .revoke, .link],
+            queue: queue
         )
         source.setEventHandler { [weak self, weak source] in
             guard let self, let source, !isCancelled else { return }
+
             let flags = source.data
             lastSeen = snapshot()
             onEvent()
@@ -107,14 +117,17 @@ private final class VnodeWatch: FileWatchHandle, @unchecked Sendable {
     private func armDirectory() {
         let fd = open(directoryPath, O_EVTONLY | O_CLOEXEC)
         guard fd >= 0 else { return }
+
         let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write], queue: queue)
         source.setEventHandler { [weak self] in
             guard let self, !isCancelled else { return }
+
             let now = snapshot()
             if now != lastSeen {
                 lastSeen = now
                 onEvent()
             }
+
             // A different file is at the name (replaced, or made again): hold that one.
             if let now, now.inode != watchedInode { armFile() }
         }

@@ -41,6 +41,7 @@ private final class Disk {
     func file(_ name: String, _ text: String) throws -> String {
         let path = directory.appendingPathComponent(name).path
         try text.write(toFile: path, atomically: true, encoding: .utf8)
+
         return path
     }
 

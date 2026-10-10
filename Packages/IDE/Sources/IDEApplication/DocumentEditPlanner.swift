@@ -27,7 +27,8 @@ public struct PreparedDocumentEdit: Sendable {
 @MainActor
 public enum DocumentEditPlanner {
     public static func prepare(
-        _ edits: [DocumentEdit], in source: some TextSource
+        _ edits: [DocumentEdit],
+        in source: some TextSource
     ) throws -> PreparedDocumentEdit? {
         let length = source.utf16Length
         let ascending = edits.sorted { $0.range.location < $1.range.location }
@@ -40,6 +41,7 @@ public enum DocumentEditPlanner {
                   range.location <= length, range.length <= length - range.location else {
                 throw EditValidationError.invalidRange
             }
+
             let end = range.location + range.length
             for boundary in [range.location, end] where boundary > 0 && boundary < length {
                 if UTF16.isLeadSurrogate(source.utf16Unit(at: boundary - 1)),
@@ -51,6 +53,7 @@ public enum DocumentEditPlanner {
                previous.location == range.location || previous.location + previous.length > range.location {
                 throw EditValidationError.overlappingEdits
             }
+
             previous = range
             let replaced = source.substring(in: range)
             if !replaced.utf8.elementsEqual(edit.replacement.utf8) {
@@ -60,11 +63,15 @@ public enum DocumentEditPlanner {
 
         let net = withoutCancellingNeighbours(withoutCancellingClusters(effective), in: source)
         guard !net.isEmpty else { return nil }
+
         let descending = Array(net.reversed())
         let delta = descending.reduce(0) { $0 + $1.edit.replacement.utf16.count - $1.edit.range.length }
+
         return PreparedDocumentEdit(
-            edits: descending.map(\.edit), replaced: descending.map(\.replaced),
-            sourceLength: length, resultLength: length + delta
+            edits: descending.map(\.edit),
+            replaced: descending.map(\.replaced),
+            sourceLength: length,
+            resultLength: length + delta
         )
     }
 
@@ -77,7 +84,8 @@ public enum DocumentEditPlanner {
     /// two units by "a" and inserting "a" before the last is a pair of real edits that leave the
     /// text as it was. The stretch they span is compared as a whole.
     private static func withoutCancellingNeighbours(
-        _ edits: [(edit: DocumentEdit, replaced: String)], in source: some TextSource
+        _ edits: [(edit: DocumentEdit, replaced: String)],
+        in source: some TextSource
     ) -> [(edit: DocumentEdit, replaced: String)] {
         var kept: [(edit: DocumentEdit, replaced: String)] = []
         var start = 0
@@ -87,6 +95,7 @@ public enum DocumentEditPlanner {
                 let gap = edits[end + 1].edit.range.location
                     - (edits[end].edit.range.location + edits[end].edit.range.length)
                 guard gap <= cancellationReach else { break }
+
                 end += 1
             }
             var cancels = false
@@ -105,9 +114,11 @@ public enum DocumentEditPlanner {
                 let before = source.substring(in: UTF16TextRange(location: first, length: last - first))
                 cancels = before.utf8.elementsEqual(after.utf8)
             }
+
             if !cancels { kept.append(contentsOf: edits[start...end]) }
             start = end + 1
         }
+
         return kept
     }
 
@@ -132,6 +143,7 @@ public enum DocumentEditPlanner {
             if !isNoOp { kept.append(contentsOf: cluster) }
             start = end + 1
         }
+
         return kept
     }
 }

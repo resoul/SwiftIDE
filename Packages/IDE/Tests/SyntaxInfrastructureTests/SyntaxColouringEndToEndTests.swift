@@ -33,6 +33,7 @@ final class Screen {
         scroll.layoutSubtreeIfNeeded()
         let bitmap = scroll.bitmapImageRepForCachingDisplay(in: scroll.bounds)!
         scroll.cacheDisplay(in: scroll.bounds, to: bitmap)
+
         return bitmap
     }
 
@@ -40,7 +41,9 @@ final class Screen {
     func viewportCharacters() -> Range<Int>? {
         guard let manager = editor.textView.textLayoutManager, let content = manager.textContentManager,
               let viewport = manager.textViewportLayoutController.viewportRange else { return nil }
+
         let start = content.offset(from: content.documentRange.location, to: viewport.location)
+
         return start..<(start + content.offset(from: viewport.location, to: viewport.endLocation))
     }
 
@@ -66,6 +69,7 @@ final class Screen {
 /// `NSColor` for every pixel took most of a second per picture and filled memory with colours.
 func colourful(_ bitmap: NSBitmapImageRep) -> Int {
     guard let data = bitmap.bitmapData, bitmap.bitsPerSample == 8, bitmap.samplesPerPixel >= 3 else { return 0 }
+
     let step = bitmap.bitsPerPixel / 8
     var count = 0
     for y in 0..<bitmap.pixelsHigh {
@@ -78,12 +82,14 @@ func colourful(_ bitmap: NSBitmapImageRep) -> Int {
             if high > 0, (high - low) * 100 > 45 * high, high * 10 < 9 * 255 { count += 1 }
         }
     }
+
     return count
 }
 
 func identical(_ a: NSBitmapImageRep, _ b: NSBitmapImageRep) -> Bool {
     guard a.pixelsWide == b.pixelsWide, a.pixelsHigh == b.pixelsHigh,
           let da = a.representation(using: .png, properties: [:]), let db = b.representation(using: .png, properties: [:]) else { return false }
+
     return da == db
 }
 

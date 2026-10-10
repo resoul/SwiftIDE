@@ -19,8 +19,13 @@ public struct CompletionItem: Equatable, Sendable {
     public let kind: CompletionKind
 
     public init(
-        label: String, detail: String? = nil, insertText: String? = nil, sortText: String? = nil,
-        filterText: String? = nil, replacementRange: UTF16TextRange? = nil, kind: CompletionKind = .other
+        label: String,
+        detail: String? = nil,
+        insertText: String? = nil,
+        sortText: String? = nil,
+        filterText: String? = nil,
+        replacementRange: UTF16TextRange? = nil,
+        kind: CompletionKind = .other
     ) {
         self.label = label
         self.detail = detail

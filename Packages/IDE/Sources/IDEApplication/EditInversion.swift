@@ -25,10 +25,12 @@ extension DocumentEdit {
                 )
             } else {
                 inverse.append(DocumentEdit(
-                    range: UTF16TextRange(location: location, length: length), replacement: replacedText
+                    range: UTF16TextRange(location: location, length: length),
+                    replacement: replacedText
                 ))
             }
         }
+
         return inverse.reversed()
     }
 }

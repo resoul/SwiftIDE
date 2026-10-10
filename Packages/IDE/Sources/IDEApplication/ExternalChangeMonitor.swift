@@ -67,8 +67,11 @@ public final class ExternalChangeMonitor {
     private var isReloading = false
 
     public init(
-        session: DocumentSession, files: any DocumentFileStore, watcher: any FileWatching,
-        reload: ReloadDocumentUseCase, policy: ExternalChangePolicy = .standard,
+        session: DocumentSession,
+        files: any DocumentFileStore,
+        watcher: any FileWatching,
+        reload: ReloadDocumentUseCase,
+        policy: ExternalChangePolicy = .standard,
         clock: any DelayClock = SystemDelayClock()
     ) {
         self.session = session
@@ -80,6 +83,7 @@ public final class ExternalChangeMonitor {
         // A save changes what the document is based on, and Save As changes the file.
         saveSubscription = session.subscribeToSaves { [weak self] in
             guard let self else { return }
+
             refreshWatch()
             if !isReloading { eventArrived() }
         }
@@ -129,6 +133,7 @@ public final class ExternalChangeMonitor {
     /// "OK": the notice goes, and the same situation is not announced again.
     public func dismiss() {
         guard state != .none else { return }
+
         dismissed = state
         state = .none
     }
@@ -137,8 +142,10 @@ public final class ExternalChangeMonitor {
 
     private func refreshWatch() {
         guard !isStopped else { return }
+
         let wanted: String? = session.isUntitled ? nil : session.path
         guard wanted != watchedPath else { return }
+
         handle?.cancel()
         handle = nil
         watchedPath = wanted
@@ -156,17 +163,21 @@ public final class ExternalChangeMonitor {
 
     private func eventArrived() {
         guard !isStopped, watchedPath != nil else { return }
+
         // A look is under way: it may have missed this event, so look again when it is done.
         if evaluation != nil {
             rerun = true
+
             return
         }
+
         debounce?.cancel()
         let clock = clock
         let delay = policy.debounce
         debounce = Task { [weak self] in
             try? await clock.sleep(for: delay)
             guard !Task.isCancelled else { return }
+
             self?.startEvaluation()
         }
     }
@@ -191,6 +202,7 @@ public final class ExternalChangeMonitor {
 
     private func matchesDocument(_ revision: FileRevision?) -> Bool {
         guard let revision, let base = session.diskRevision else { return false }
+
         return revision.hasSameContent(as: base)
     }
 
@@ -206,11 +218,13 @@ public final class ExternalChangeMonitor {
             try? await clock.sleep(for: policy.settle)
             if isStopped || watchedPath != path { return current }
         }
+
         return current
     }
 
     private func evaluate() async {
         guard !isStopped, let path = watchedPath else { return }
+
         let observed: FileRevision?
         do {
             observed = try await settledRevision(of: path)
@@ -222,13 +236,16 @@ public final class ExternalChangeMonitor {
         guard !isStopped, watchedPath == path else { return }
 
         guard let revision = observed else { return raise(.removed) }
+
         if matchesDocument(revision) {
             // What was wrong is over. A notice that only informs ("reloaded") stays until dismissed.
             kept = nil
             dismissed = nil
             if state != .reloaded { state = .none }
+
             return
         }
+
         latest = revision
         if let kept, kept.hasSameContent(as: revision) { return }
         if session.isDirty || session.isComposing { return raise(.changedWhileEdited) }
@@ -267,6 +284,7 @@ public final class ExternalChangeMonitor {
 
     private static func reason(_ error: Error) -> FileStoreError {
         if let error = error as? FileStoreError { return error }
+
         return .io(code: Int32(truncatingIfNeeded: (error as NSError).code))
     }
 }

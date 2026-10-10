@@ -39,12 +39,15 @@ private struct Setup {
         let states = States()
         self.states = states
         controller = SyntaxColouringController(
-            session: session, source: backend,
+            session: session,
+            source: backend,
             policy: SyntaxPolicy(maximumDocumentLength: limit),
             makeHighlighter: {
                 guard highlighters.available else { return nil }
+
                 let highlighter = ScriptedHighlighter()
                 highlighters.all.append(highlighter)
+
                 return highlighter
             },
             present: { _ in shown.token() }
@@ -138,7 +141,8 @@ func aFileThatGrewOnDiskAndWasReloadedStopsBeingColoured() async throws {
     let session = try await open.execute(path: "/w/Main.swift").session
     let shown = Shown()
     let controller = SyntaxColouringController(
-        session: session, source: StringDocumentBackend(loadedText: session.text),
+        session: session,
+        source: StringDocumentBackend(loadedText: session.text),
         policy: SyntaxPolicy(maximumDocumentLength: 1_000),
         makeHighlighter: { ScriptedHighlighter() },
         present: { _ in shown.token() }
@@ -165,14 +169,19 @@ func savingATextFileAsSwiftStartsColouring() async throws {
     let backend = StringDocumentBackend(loadedText: session.text)
     let shown = Shown()
     let controller = SyntaxColouringController(
-        session: session, source: backend, policy: .standard,
+        session: session,
+        source: backend,
+        policy: .standard,
         makeHighlighter: { ScriptedHighlighter() },
         present: { _ in shown.token() }
     )
     #expect(controller.state == .off(.languageNotSupported))
 
     _ = try await SaveDocumentUseCase(store: store).saveAs(
-        document: session, to: "/w/Notes.swift", target: .newFile, registry: registry
+        document: session,
+        to: "/w/Notes.swift",
+        target: .newFile,
+        registry: registry
     )
     controller.refresh()
 
@@ -191,14 +200,19 @@ func savingASwiftFileAsTextStopsColouring() async throws {
     let shown = Shown()
     let highlighter = ScriptedHighlighter()
     let controller = SyntaxColouringController(
-        session: session, source: StringDocumentBackend(loadedText: session.text), policy: .standard,
+        session: session,
+        source: StringDocumentBackend(loadedText: session.text),
+        policy: .standard,
         makeHighlighter: { highlighter },
         present: { _ in shown.token() }
     )
     #expect(controller.state == .on)
 
     _ = try await SaveDocumentUseCase(store: store).saveAs(
-        document: session, to: "/w/Main.txt", target: .newFile, registry: registry
+        document: session,
+        to: "/w/Main.txt",
+        target: .newFile,
+        registry: registry
     )
     controller.refresh()
 
@@ -212,8 +226,11 @@ func aHighlighterThatCannotBeMadeLeavesTheFilePlainAndSaysSo() {
     let backend = StringDocumentBackend(loadedText: "let a = 1")
     let session = DocumentSession(path: "Main.swift", backend: backend)
     let controller = SyntaxColouringController(
-        session: session, source: backend, policy: .standard,
-        makeHighlighter: { nil }, present: { _ in nil }
+        session: session,
+        source: backend,
+        policy: .standard,
+        makeHighlighter: { nil },
+        present: { _ in nil }
     )
     #expect(controller.state == .off(.unavailable))
 }
@@ -250,9 +267,15 @@ private func controller(path: String, supported: Set<DocumentLanguage> = [.swift
     let shown = Shown()
     let box = ScriptedHighlighterBox()
     let colouring = SyntaxColouringController(
-        session: session, source: backend, policy: .standard, languages: selector, supportedLanguages: supported,
-        makeHighlighter: { box.make() }, present: { _ in shown.token() }
+        session: session,
+        source: backend,
+        policy: .standard,
+        languages: selector,
+        supportedLanguages: supported,
+        makeHighlighter: { box.make() },
+        present: { _ in shown.token() }
     )
+
     return (colouring, selector, session, shown, box)
 }
 
@@ -314,7 +337,10 @@ func theHighlighterIsMadeForTheLanguageOfTheDocument() {
     let selector = DocumentLanguageSelector(session: session)
     var asked: [DocumentLanguage] = []
     let colouring = SyntaxColouringController(
-        session: session, source: backend, languages: selector, supportedLanguages: [.c, .cpp, .swift],
+        session: session,
+        source: backend,
+        languages: selector,
+        supportedLanguages: [.c, .cpp, .swift],
         makeHighlighter: { language in asked.append(language); return ScriptedHighlighter() },
         present: { _ in Shown().token() }
     )

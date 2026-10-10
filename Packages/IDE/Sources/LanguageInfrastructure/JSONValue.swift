@@ -45,16 +45,19 @@ public enum JSONValue: Sendable, Equatable, Codable {
 
     public subscript(key: String) -> JSONValue? {
         if case .object(let fields) = self { return fields[key] }
+
         return nil
     }
 
     public subscript(index: Int) -> JSONValue? {
         if case .array(let items) = self, items.indices.contains(index) { return items[index] }
+
         return nil
     }
 
     public var stringValue: String? {
         if case .string(let value) = self { return value }
+
         return nil
     }
 
@@ -68,11 +71,13 @@ public enum JSONValue: Sendable, Equatable, Codable {
 
     public var arrayValue: [JSONValue]? {
         if case .array(let items) = self { return items }
+
         return nil
     }
 
     public var isNull: Bool {
         if case .null = self { return true }
+
         return false
     }
 }

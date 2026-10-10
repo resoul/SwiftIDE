@@ -23,6 +23,7 @@ private final class Sandbox {
     func create(_ name: String, bytes: [UInt8]) throws -> String {
         let path = path(name)
         try Data(bytes).write(to: URL(fileURLWithPath: path))
+
         return path
     }
 
@@ -337,7 +338,9 @@ func accessControlListsSurviveSaving() async throws {
     try #require(chmod.terminationStatus == 0, "could not set an ACL in this environment")
     func hasACL() -> Bool {
         guard let acl = acl_get_file(path, ACL_TYPE_EXTENDED) else { return false }
+
         acl_free(UnsafeMutableRawPointer(acl))
+
         return true
     }
     #expect(hasACL())

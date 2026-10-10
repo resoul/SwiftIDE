@@ -19,11 +19,13 @@ private let mainFile = fixture.appendingPathComponent("Sources/App/main.swift")
 
 private let toolAvailable: Bool = {
     guard FileManager.default.fileExists(atPath: mainFile.path) else { return false }
+
     let finder = Process()
     finder.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
     finder.arguments = ["--find", "sourcekit-lsp"]
     finder.standardOutput = FileHandle.nullDevice
     finder.standardError = FileHandle.nullDevice
+
     return (try? finder.run()) != nil && { finder.waitUntilExit(); return finder.terminationStatus == 0 }()
 }()
 
@@ -51,8 +53,16 @@ private struct Window {
     }
 
     func key(_ code: UInt16, characters: String) -> NSEvent {
-        NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: nsWindow.windowNumber,
-                         context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code)!
+        NSEvent.keyEvent(with: .keyDown,
+                         location: .zero,
+                         modifierFlags: [],
+                         timestamp: 0,
+                         windowNumber: nsWindow.windowNumber,
+                         context: nil,
+                         characters: characters,
+                         charactersIgnoringModifiers: characters,
+                         isARepeat: false,
+                         keyCode: code)!
     }
 }
 
@@ -63,12 +73,14 @@ private func waitUntil(_ timeout: Duration = .seconds(90), _ condition: () -> Bo
         if condition() { return true }
         try? await Task.sleep(for: .milliseconds(50))
     }
+
     return condition()
 }
 
 @MainActor
 private func makeServices() -> (LanguageServices, URL) {
     let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("completion-e2e-\(UUID().uuidString)", isDirectory: true)
+
     return (LanguageServices(scratchRoot: scratch), scratch)
 }
 

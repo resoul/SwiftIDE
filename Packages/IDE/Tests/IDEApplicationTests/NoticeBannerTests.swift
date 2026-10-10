@@ -59,5 +59,6 @@ private func allButtons(in view: NSView) -> [NSButton] {
     var found: [NSButton] = []
     if let button = view as? NSButton { found.append(button) }
     for sub in view.subviews { found += allButtons(in: sub) }
+
     return found
 }

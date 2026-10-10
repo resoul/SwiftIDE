@@ -45,6 +45,7 @@ extension TreeSitterHighlighter {
             try? await Task.sleep(for: .milliseconds(5))
             state = await retainedState()
         }
+
         return state
     }
 }
@@ -67,8 +68,11 @@ func aBurstOfRequestsQueuedBehindBusyWorkIsAnsweredOnceForTheNewest() async thro
     var length = big.count
     for version in 1...50 {
         highlighter.edit(DocumentChangeSet(
-            documentID: DocumentID(), oldVersion: UInt64(version - 1), newVersion: UInt64(version),
-            edits: [DocumentEdit(range: UTF16TextRange(location: 10, length: 0), replacement: "x")], origin: .typing
+            documentID: DocumentID(),
+            oldVersion: UInt64(version - 1),
+            newVersion: UInt64(version),
+            edits: [DocumentEdit(range: UTF16TextRange(location: 10, length: 0), replacement: "x")],
+            origin: .typing
         ))
         length += 1
         highlighter.requestHighlights(in: 0..<2_000, version: UInt64(version))

@@ -13,6 +13,7 @@ private func opened(_ path: String, _ text: String, in store: MemoryDocumentFile
     let open = OpenDocumentUseCase(store: store, registry: registry) { file in
         DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
     }
+
     return try await open.execute(path: path).session
 }
 
@@ -25,7 +26,10 @@ func aScratchDocumentSavedUnderANameBecomesThatFile() async throws {
     try session.replaceText("print(2)", expectedVersion: 0)
 
     let receipt = try await save.saveAs(
-        document: session, to: "/w/New.swift", target: .newFile, registry: registry
+        document: session,
+        to: "/w/New.swift",
+        target: .newFile,
+        registry: registry
     )
 
     #expect(receipt.savedVersion == 1 && receipt.isCurrent)
@@ -144,6 +148,7 @@ private actor GatedStore: DocumentFileStore {
         started?.resume()
         await withCheckedContinuation { gate = $0 }
         written[snapshot.path] = snapshot.text
+
         return .stub(Int64(snapshot.version))
     }
 

@@ -32,6 +32,7 @@ public struct EditRegionAccumulator: Equatable, Sendable {
             start = min(mappedStart, location)
             end = max(mappedEnd, newEnd)
         }
+
         delta += changeInLength
     }
 

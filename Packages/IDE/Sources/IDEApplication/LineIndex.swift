@@ -119,6 +119,7 @@ public struct LineIndex: Sendable {
         for (position, chunk) in chunks.enumerated() where chunk.longest.content > best.content {
             best = (position, chunk.longest.index, chunk.longest.content)
         }
+
         return (chunkLine[best.chunk] + best.index, best.content)
     }
 
@@ -126,19 +127,23 @@ public struct LineIndex: Sendable {
     /// the document to the last line.
     public func line(containing offset: Int) -> Int {
         precondition(offset >= 0 && offset <= utf16Length, "offset outside the document")
+
         return locate(offset).line
     }
 
     /// The offset at which `line` begins.
     public func startOffset(ofLine line: Int) -> Int {
         precondition(line >= 0 && line < lineCount, "no such line")
+
         return locate(line: line).start
     }
 
     /// The line that starts exactly at `offset`, if one does.
     public func lineStarting(at offset: Int) -> Int? {
         guard offset >= 0, offset <= utf16Length else { return nil }
+
         let found = locate(offset)
+
         return found.start == offset ? found.line : nil
     }
 
@@ -147,6 +152,7 @@ public struct LineIndex: Sendable {
         precondition(line >= 0 && line < lineCount, "no such line")
         let found = locate(line: line)
         let record = chunks[found.chunk].lines[found.indexInChunk]
+
         return (record.content, record.terminator)
     }
 
@@ -159,6 +165,7 @@ public struct LineIndex: Sendable {
         guard range.location >= 0, range.length >= 0, range.location + range.length <= utf16Length else {
             return false
         }
+
         let end = range.location + range.length
         var first = locate(range.location)
         let last = locate(end)
@@ -197,6 +204,7 @@ public struct LineIndex: Sendable {
         scanner.finish(endsWithTerminator: last.record.terminator != .none)
 
         splice(from: first, through: last, with: scanner.lines)
+
         return true
     }
 
@@ -212,7 +220,9 @@ public struct LineIndex: Sendable {
 
     private func record(ofLine line: Int) -> Line? {
         guard line >= 0, line < lineCount else { return nil }
+
         let found = locate(line: line)
+
         return found.record
     }
 
@@ -230,6 +240,7 @@ public struct LineIndex: Sendable {
             start += lines[index].length
             index += 1
         }
+
         return Location(chunk: low, indexInChunk: index, start: start, line: chunkLine[low] + index, record: lines[index])
     }
 
@@ -243,6 +254,7 @@ public struct LineIndex: Sendable {
         let index = line - chunkLine[low]
         var start = chunkOffset[low]
         for position in 0..<index { start += lines[position].length }
+
         return Location(chunk: low, indexInChunk: index, start: start, line: line, record: lines[index])
     }
 
@@ -257,6 +269,7 @@ public struct LineIndex: Sendable {
 
     private static func makeChunks(_ lines: [Line]) -> [Chunk] {
         if lines.count <= maximumChunk { return [Chunk(lines: lines)] }
+
         return stride(from: 0, to: lines.count, by: preferredChunk).map {
             Chunk(lines: Array(lines[$0..<min($0 + preferredChunk, lines.count)]))
         }
@@ -270,6 +283,7 @@ public struct LineIndex: Sendable {
             chunkOffset.removeSubrange(chunk...)
             chunkLine.removeSubrange(chunk...)
         }
+
         var offset = chunk == 0 ? 0 : chunkOffset[chunk - 1] + chunks[chunk - 1].unitCount
         var line = chunk == 0 ? 0 : chunkLine[chunk - 1] + chunks[chunk - 1].lines.count
         for index in chunk..<chunks.count {
@@ -293,6 +307,7 @@ struct LineScanner {
 
     mutating func opaque(_ count: Int) {
         guard count > 0 else { return }
+
         if pendingReturn { emit(.cr) }
         content += count
     }

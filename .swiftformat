@@ -1,0 +1,20 @@
+# SwiftFormat 0.63.1 (pinned in Tools/Lint/install.sh), the only automatic formatter (TK-023).
+# An explicit set of rules; none of them changes logic or declarations.
+--swiftversion 6.0
+
+--rules blankLinesAfterGuardStatements,wrapArguments,consecutiveBlankLines,trailingSpace
+
+# Blank line after a guard, and between neighbouring guards.
+--line-between-guards true
+
+# Multi-line signatures: the first parameter on the line after "(", one per line, ")" on its own line.
+# Calls are left as written.
+--wrap-parameters before-first
+--allow-partial-wrapping false
+--closing-paren balanced
+--wrap-arguments preserve
+--wrap-collections preserve
+
+# First slice of the repository: sources of the app and of the package, tests and manifests.
+# Vendored, generated and research code is out for now (docs/14_CODE_STYLE_AND_LINTING.md).
+--exclude .build,.swiftpm,vendor,Fixtures,Tools,**/Generated

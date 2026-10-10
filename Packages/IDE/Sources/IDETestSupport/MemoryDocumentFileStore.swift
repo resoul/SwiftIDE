@@ -21,8 +21,10 @@ public actor MemoryDocumentFileStore: DocumentFileStore {
 
     public func read(path: String, maximumBytes: Int) async throws -> LoadedFile {
         guard let entry = entries[path] else { throw FileStoreError.notFound }
+
         let size = UInt64(entry.text.utf8.count)
         guard size <= maximumBytes else { throw FileStoreError.tooLarge(size: size, limit: maximumBytes) }
+
         return LoadedFile(path: path, text: entry.text, encoding: .utf8, revision: entry.revision)
     }
 
@@ -36,8 +38,10 @@ public actor MemoryDocumentFileStore: DocumentFileStore {
             default: throw FileStoreError.conflict(current: current)
             }
         }
+
         let revision = nextRevision(snapshot.path, snapshot.text)
         entries[snapshot.path] = Entry(text: snapshot.text, revision: revision)
+
         return revision
     }
 
@@ -63,13 +67,15 @@ public actor MemoryDocumentFileStore: DocumentFileStore {
 
     private func nextRevision(_ path: String, _ text: String) -> FileRevision {
         clock += 1
+
         return Self.revision(path, text, clock)
     }
 
     private static func revision(_ path: String, _ text: String, _ clock: Int64) -> FileRevision {
         FileRevision(
             fileID: FileIdentity(device: 0, inode: UInt64(truncatingIfNeeded: path.hashValue)),
-            size: UInt64(text.utf8.count), modificationTime: clock,
+            size: UInt64(text.utf8.count),
+            modificationTime: clock,
             contentDigest: ContentDigest(bytes: Array(text.utf8.prefix(32)))
         )
     }

@@ -21,8 +21,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if CommandLine.arguments.contains("--workspace-preview")
             || Bundle.main.bundleIdentifier == "org.swiftide.workspace-preview" {
             showWorkspacePreview(nil)
+
             return
         }
+
         Task {
             // Unsaved text from a run that did not end cleanly is offered back before anything else.
             await restoreUnsavedWork()
@@ -42,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// with the same procedure the windows use. Quitting waits for the answers.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard windows.contains(where: { $0.session.isDirty }) else { return .terminateNow }
+
         Task {
             // The windows are read again after every answer, not captured once.
             // The user's choice to lose changes must also remove their recovery copies, or they are
@@ -59,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             NSApp.reply(toApplicationShouldTerminate: allowed)
         }
+
         return .terminateLater
     }
 
@@ -84,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         guard panel.runModal() == .OK else { return }
+
         for url in panel.urls {
             Task { await open(path: url.path) }
         }
@@ -116,6 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             scan = try await composition.scanRecovery()
         } catch {
             NSLog("SwiftIDE: could not look for unsaved work: \(error)")
+
             return
         }
         for candidate in scan.candidates {
@@ -123,16 +129,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await composition.discardRecovery(candidate)
                 continue
             }
+
             do {
                 let restored = try await composition.restore(candidate)
                 switch restored.outcome {
                 case .restored, .restoredAsScratch:
                     guard let session = restored.session else { break }
+
                     if restored.isNew {
                         show(composition.makeWindow(for: session))
                     } else {
                         windows.first { $0.session === session }?.showWindow(nil)
                     }
+
                     // The old record goes only once the restored text is confirmed under its own;
                     // if that could not be written, the old one is the only copy there is.
                     try? await composition.retireRecovery(candidate, restoredAs: session) { [unowned self] in
@@ -182,6 +191,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = lines.joined(separator: "\n\n")
         alert.addButton(withTitle: "Restore")
         alert.addButton(withTitle: "Discard")
+
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -192,6 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func show(_ controller: WorkspaceWindowController) {
         controller.onClose = { [weak self] closed in
             guard let self else { return }
+
             composition.close(closed.session)
             windows.removeAll { $0 === closed }
         }

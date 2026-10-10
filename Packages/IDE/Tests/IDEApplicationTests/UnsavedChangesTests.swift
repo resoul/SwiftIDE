@@ -7,6 +7,7 @@ import Testing
 private func dirtySession(_ name: String = "Main.swift") throws -> DocumentSession {
     let session = DocumentSession(path: name, backend: StringDocumentBackend(loadedText: "old"))
     try session.replaceText("edited", expectedVersion: 0)
+
     return session
 }
 
@@ -23,10 +24,12 @@ private final class Script {
         UnsavedChangesCoordinator(
             prompt: { [self] session in
                 prompted.append(session.path)
+
                 return decision
             },
             save: { [self] session in
                 saved.append(session.path)
+
                 return saveResult
             }
         )
@@ -66,6 +69,7 @@ private actor GatedStore: DocumentFileStore {
         hasStarted = true
         started?.resume()
         await withCheckedContinuation { gate = $0 }
+
         return .stub(Int64(snapshot.version))
     }
 
@@ -104,6 +108,7 @@ func textTypedWhileSavingKeepsTheWindowOpen() async throws {
             await store.waitUntilWriting()
             try? session.replaceText("typed during save", expectedVersion: session.version)
             await store.release()
+
             return (try? await write.value) != nil
         }
     )
@@ -128,6 +133,7 @@ func aSecondCloseWhileThePromptIsOpenDoesNotStackAnotherPrompt() async throws {
     let coordinator = UnsavedChangesCoordinator(
         prompt: { _ in
             promptCount += 1
+
             return await withCheckedContinuation { release = $0 }
         },
         save: { _ in true }
@@ -189,6 +195,7 @@ func aCleanDocumentEditedDuringAnotherQuestionIsAskedAboutBeforeQuitting() async
             prompted.append(session.path)
             // While the sheet for B is open, A is changed (another window, a command).
             if session.path == "B.swift", a.version == 0 { try? a.replaceText("late edit", expectedVersion: 0) }
+
             return .discard
         },
         save: { _ in true }
@@ -204,6 +211,7 @@ func refusingTheLateQuestionKeepsTheAppRunning() async throws {
     let coordinator = UnsavedChangesCoordinator(
         prompt: { session in
             if session.path == "B.swift" { try? a.replaceText("late edit", expectedVersion: 0); return .discard }
+
             return .cancel
         },
         save: { _ in true }
@@ -226,8 +234,10 @@ func aSavedDocumentEditedAgainDuringAnotherQuestionIsAskedAgain() async throws {
             if session.path == "B.swift", !editedAgain {
                 editedAgain = true
                 try? a.replaceText("edited after its save", expectedVersion: a.version)
+
                 return .discard
             }
+
             return session.path == "A.swift" && prompted.count == 1 ? .save : .discard
         },
         save: { session in (try? await useCase.execute(document: session)) != nil }
@@ -248,6 +258,7 @@ func aWindowOpenedDuringAQuestionIsIncluded() async throws {
             if session.path == "A.swift", open.count == 1 {
                 open.append((try? dirtySession("New.swift"))!)
             }
+
             return .discard
         },
         save: { _ in true }
@@ -275,6 +286,7 @@ func discardOnlyCoversTheVersionTheUserSawWhenClosingAWindow() async throws {
     let coordinator = UnsavedChangesCoordinator(
         prompt: { session in
             try? session.replaceText("changed under the sheet", expectedVersion: session.version)
+
             return .discard
         },
         save: { _ in true }
@@ -296,6 +308,7 @@ func discardingADocumentDoesNotCoverEditsMadeAfterwards() async throws {
                 editedA = true
                 try? a.replaceText("typed after Don’t Save", expectedVersion: a.version)
             }
+
             return .discard
         },
         save: { _ in true }
@@ -379,6 +392,7 @@ func refusingAfterDocumentsWereReleasedPutsTheirProtectionBack() async throws {
     let coordinator = UnsavedChangesCoordinator(
         prompt: { session in
             prompted.append(session.path)
+
             return answers.removeFirst()
         },
         save: { _ in true }

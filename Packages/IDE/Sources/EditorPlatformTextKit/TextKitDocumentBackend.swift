@@ -29,7 +29,9 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
         // The only observer of storage passes: it counts them, then hands the pass to the bridge.
         // Counting first and in one place keeps the generation exact whoever edited the storage.
         storageObserver = NotificationCenter.default.addObserver(
-            forName: NSTextStorage.didProcessEditingNotification, object: storage, queue: nil
+            forName: NSTextStorage.didProcessEditingNotification,
+            object: storage,
+            queue: nil
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.storageDidProcessEditing() }
         }
@@ -42,6 +44,7 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
     private func storageDidProcessEditing() {
         // Attribute-only passes are not text edits and create no revision.
         guard storage.editedMask.contains(.editedCharacters) else { return }
+
         editGeneration += 1
         bridge?.storageDidProcessEditing()
     }
@@ -66,6 +69,7 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
 
     public var text: String {
         textMaterializations += 1
+
         // Materialize an independent value; mutable attributed storage is never a snapshot.
         return String(decoding: storage.string.utf8, as: UTF8.self)
     }
@@ -83,6 +87,7 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
         // textLayoutManager selects TextKit 2 without ever touching `layoutManager`.
         let container = textLayoutManager.textContainer!
         container.widthTracksTextView = true
+
         return CodeTextView(frame: .zero, textContainer: container)
     }
 
@@ -95,6 +100,7 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
         textView.bridge = bridge
         self.bridge = bridge
         self.undoCoordinator = undo
+
         return undo
     }
 
@@ -139,6 +145,7 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
               range.length <= storage.length - range.location else {
             throw EditValidationError.invalidRange
         }
+
         storage.addAttribute(.foregroundColor, value: color, range: range)
     }
 }

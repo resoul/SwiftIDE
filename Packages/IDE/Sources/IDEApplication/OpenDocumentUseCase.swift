@@ -23,7 +23,8 @@ public final class OpenDocumentUseCase {
     /// `makeSession` is the platform's part: it builds the editor over `file.text` and returns
     /// a session created with `DocumentSession(loaded:backend:)`.
     public init(
-        store: any DocumentFileStore, registry: DocumentRegistry,
+        store: any DocumentFileStore,
+        registry: DocumentRegistry,
         maximumBytes: Int = OpenDocumentUseCase.defaultMaximumBytes,
         makeSession: @escaping @MainActor (LoadedFile) -> DocumentSession
     ) {
@@ -38,9 +39,11 @@ public final class OpenDocumentUseCase {
         if let existing = registry.session(atPath: canonical) {
             return OpenedDocument(session: existing, isNew: false)
         }
+
         guard !registry.isReserved(path: canonical) else {
             throw OpenDocumentError.beingSavedElsewhere(path: canonical)
         }
+
         let file = try await store.read(path: canonical, maximumBytes: maximumBytes)
         // A cancelled open or a closed workspace must not leave a late document behind.
         try Task.checkCancellation()
@@ -48,15 +51,18 @@ public final class OpenDocumentUseCase {
         guard !registry.isReserved(path: canonical) else {
             throw OpenDocumentError.beingSavedElsewhere(path: canonical)
         }
+
         // The same file may have been opened while this read was in flight, or this path may be
         // another name (hard link) of a file that is already open.
         if let existing = registry.session(atPath: canonical)
             ?? registry.session(withFileID: file.revision.fileID) {
             return OpenedDocument(session: existing, isNew: false)
         }
+
         let session = makeSession(file)
         precondition(session.path == file.path, "makeSession must create the session from the loaded file")
         registry.register(session)
+
         return OpenedDocument(session: session, isNew: true)
     }
 }

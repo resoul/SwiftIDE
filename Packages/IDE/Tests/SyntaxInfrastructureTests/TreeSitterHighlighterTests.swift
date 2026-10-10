@@ -8,6 +8,7 @@ private struct SeededGenerator: RandomNumberGenerator {
     var state: UInt64
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
+
         return state
     }
 }
@@ -65,18 +66,22 @@ private final class Rig: @unchecked Sendable {
         while clock.now < deadline {
             let found: HighlightResult? = lock.withLock {
                 guard consumed < received.count else { return nil }
+
                 consumed += 1
+
                 return received[consumed - 1]
             }
             if let found { return found }
             try? await Task.sleep(for: .milliseconds(5))
         }
+
         return nil
     }
 
     func highlights(of units: [UInt16], version: UInt64 = 0) async -> HighlightResult? {
         highlighter.reset(text: [units], version: version)
         highlighter.requestHighlights(in: 0..<units.count, version: version)
+
         return await next()
     }
 }
@@ -144,7 +149,9 @@ func anEditThatDoesNotFitSilencesTheHighlighterUntilItIsReset() async throws {
     let units = Array(sample.utf16)
     rig.highlighter.reset(text: [units], version: 0)
     rig.highlighter.edit(DocumentChangeSet(
-        documentID: DocumentID(), oldVersion: 0, newVersion: 1,
+        documentID: DocumentID(),
+        oldVersion: 0,
+        newVersion: 1,
         edits: [DocumentEdit(range: UTF16TextRange(location: units.count + 50, length: 3), replacement: "x")],
         origin: .typing
     ))
@@ -158,7 +165,8 @@ func anEditThatDoesNotFitSilencesTheHighlighterUntilItIsReset() async throws {
 private func apply(_ changes: DocumentChangeSet, to units: inout [UInt16]) {
     for edit in changes.edits {
         units.replaceSubrange(
-            edit.range.location..<(edit.range.location + edit.range.length), with: Array(edit.replacement.utf16)
+            edit.range.location..<(edit.range.location + edit.range.length),
+            with: Array(edit.replacement.utf16)
         )
     }
 }
@@ -180,7 +188,9 @@ func incrementalColoursEqualThoseOfAFreshParseAfterEveryEdit() async throws {
         let length = Bool.random(using: &generator) ? 0 : Int.random(in: 0...min(6, units.count - location), using: &generator)
         let replacement = Bool.random(using: &generator) && length > 0 ? "" : fragments.randomElement(using: &generator)!
         let changes = DocumentChangeSet(
-            documentID: DocumentID(), oldVersion: version, newVersion: version + 1,
+            documentID: DocumentID(),
+            oldVersion: version,
+            newVersion: version + 1,
             edits: [DocumentEdit(range: UTF16TextRange(location: location, length: length), replacement: replacement)],
             origin: .typing
         )
@@ -204,7 +214,9 @@ func severalEditsInOneChangeSetAreAppliedLikeTheStorageDoes() async throws {
     _ = try #require(await incremental.highlights(of: units))
     // Last position first, in the coordinates of the text before the change.
     let changes = DocumentChangeSet(
-        documentID: DocumentID(), oldVersion: 0, newVersion: 1,
+        documentID: DocumentID(),
+        oldVersion: 0,
+        newVersion: 1,
         edits: [
             DocumentEdit(range: UTF16TextRange(location: 200, length: 5), replacement: "0xFF"),
             DocumentEdit(range: UTF16TextRange(location: 100, length: 0), replacement: "// note\n"),
@@ -242,7 +254,9 @@ func aShrunkenDocumentIsAnsweredForAWindowThatUsedToFit() async throws {
     var current = units
     rig.highlighter.reset(text: [units], version: 0)
     let cut = DocumentChangeSet(
-        documentID: DocumentID(), oldVersion: 0, newVersion: 1,
+        documentID: DocumentID(),
+        oldVersion: 0,
+        newVersion: 1,
         edits: [DocumentEdit(range: UTF16TextRange(location: 20, length: units.count - 20), replacement: "")],
         origin: .command
     )
@@ -281,11 +295,13 @@ func aRequestSentRightAfterConnectingIsNeverLost() async throws {
 private func kinds(_ result: HighlightResult, count: Int) -> [HighlightKind?] {
     var kinds = [HighlightKind?](repeating: nil, count: count)
     for span in result.spans { for index in span.location..<span.end { kinds[index] = span.kind } }
+
     return kinds
 }
 
 private func unitOffset(of marker: String, in text: String) -> Int {
     let range = text.range(of: marker)!
+
     return text.utf16.distance(from: text.utf16.startIndex, to: range.lowerBound.samePosition(in: text.utf16)!)
 }
 
@@ -350,7 +366,9 @@ func closingTheCommentAgainGivesTheCodeBackItsColours() async throws {
     var units = Array("let a = 1\n/* open\nlet b = 2\n".utf16)
     _ = try #require(await rig.highlights(of: units))
     let close = DocumentChangeSet(
-        documentID: DocumentID(), oldVersion: 0, newVersion: 1,
+        documentID: DocumentID(),
+        oldVersion: 0,
+        newVersion: 1,
         edits: [DocumentEdit(range: UTF16TextRange(location: units.count - 11, length: 0), replacement: "*/")],
         origin: .typing
     )
@@ -380,7 +398,9 @@ func incrementalColoursStayEqualToAFreshParseWhenEditsAreAboutComments() async t
         let length = Bool.random(using: &generator) ? 0 : Int.random(in: 0...min(4, units.count - location), using: &generator)
         let replacement = pieces.randomElement(using: &generator)!
         let changes = DocumentChangeSet(
-            documentID: DocumentID(), oldVersion: version, newVersion: version + 1,
+            documentID: DocumentID(),
+            oldVersion: version,
+            newVersion: version + 1,
             edits: [DocumentEdit(range: UTF16TextRange(location: location, length: length), replacement: replacement)],
             origin: .typing
         )

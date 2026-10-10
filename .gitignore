@@ -9,3 +9,5 @@ Fixtures/**/.compile
 Fixtures/**/.bundle
 Fixtures/**/.build/
 Fixtures/Workspace/App/Generated/
+
+Tools/Lint/.tools/

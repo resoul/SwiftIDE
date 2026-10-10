@@ -15,7 +15,9 @@ public final class TextKitCompatibilityMonitor {
         self.textView = textView
         let center = NotificationCenter.default
         tokens.append(center.addObserver(
-            forName: NSTextView.didSwitchToNSLayoutManagerNotification, object: textView, queue: .main
+            forName: NSTextView.didSwitchToNSLayoutManagerNotification,
+            object: textView,
+            queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.recordFallback() }
         })

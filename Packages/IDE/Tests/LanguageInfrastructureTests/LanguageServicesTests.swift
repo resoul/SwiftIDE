@@ -12,6 +12,7 @@ private final class Servers: @unchecked Sendable {
         lock.withLock {
             let server = ScriptedServer()
             made.append(server)
+
             return server
         }
     }
@@ -33,7 +34,9 @@ private final class Rig {
         let servers = servers, clock = clock
         services = LanguageServices(scratchRoot: scratch, languages: languages) { root, virtual in
             SourceKitLanguageService(
-                workspaceRoot: root, sync: OrderedDocumentSync(virtualDirectory: virtual), clock: clock,
+                workspaceRoot: root,
+                sync: OrderedDocumentSync(virtualDirectory: virtual),
+                clock: clock,
                 channelFactory: { servers.next() }
             )
         }
@@ -46,6 +49,7 @@ private final class Rig {
         try FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
         try "// package\n".write(to: root.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
         try "let x = 1\n".write(to: path, atomically: true, encoding: .utf8)
+
         return path.path
     }
 
@@ -60,6 +64,7 @@ private final class Rig {
             if servers.count >= count { return true }
             try? await Task.sleep(for: .milliseconds(5))
         }
+
         return false
     }
 

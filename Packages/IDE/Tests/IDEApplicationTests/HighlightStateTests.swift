@@ -13,6 +13,7 @@ private func kinds(of state: HighlightState, length: Int) -> Kinds {
         previousEnd = span.end
         for index in span.location..<span.end { result[index] = span.kind }
     }
+
     return result
 }
 
@@ -21,11 +22,13 @@ private func spans(of kinds: Kinds, offset: Int = 0) -> [HighlightSpan] {
     var index = 0
     while index < kinds.count {
         guard let kind = kinds[index] else { index += 1; continue }
+
         var end = index + 1
         while end < kinds.count, kinds[end] == kind { end += 1 }
         result.append(HighlightSpan(location: offset + index, length: end - index, kind: kind))
         index = end
     }
+
     return result
 }
 
@@ -33,6 +36,7 @@ private struct SeededGenerator: RandomNumberGenerator {
     var state: UInt64
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
+
         return state
     }
 }
@@ -47,6 +51,7 @@ private func randomKinds(_ count: Int, _ generator: inout SeededGenerator) -> Ki
         for position in index..<min(count, index + run) { result[position] = kind }
         index += run
     }
+
     return result
 }
 

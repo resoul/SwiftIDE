@@ -13,10 +13,12 @@ final class SavePanelConsent: NSObject, NSOpenSavePanelDelegate {
 
     func panel(_ sender: Any, userEnteredFilename filename: String, confirmed okFlag: Bool) -> String? {
         guard okFlag else { return filename }
+
         let directory = (sender as? NSSavePanel)?.directoryURL
         let full = (filename as NSString).isAbsolutePath
             ? filename : (directory?.appendingPathComponent(filename).path ?? filename)
         observed = (DocumentPath.canonical(full), revisionOfFile(full))
+
         return filename
     }
 
@@ -27,6 +29,7 @@ final class SavePanelConsent: NSObject, NSOpenSavePanelDelegate {
         } else {
             revision = revisionOfFile(url.path)
         }
+
         return revision.map(SaveAsTarget.replacing) ?? .newFile
     }
 }

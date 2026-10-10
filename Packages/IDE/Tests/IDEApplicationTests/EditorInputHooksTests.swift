@@ -5,9 +5,16 @@ import Testing
 @MainActor
 private func keyEvent(_ characters: String, modifiers: NSEvent.ModifierFlags = [], keyCode: UInt16 = 0) throws -> NSEvent {
     try #require(NSEvent.keyEvent(
-        with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0, windowNumber: 0,
-        context: nil, characters: characters, charactersIgnoringModifiers: characters,
-        isARepeat: false, keyCode: keyCode
+        with: .keyDown,
+        location: .zero,
+        modifierFlags: modifiers,
+        timestamp: 0,
+        windowNumber: 0,
+        context: nil,
+        characters: characters,
+        charactersIgnoringModifiers: characters,
+        isARepeat: false,
+        keyCode: keyCode
     ))
 }
 

@@ -46,6 +46,7 @@ private final class SaveOperation {
 
     func join() async -> Result<SaveReceipt, Error> {
         let id = UUID()
+
         return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 if Task.isCancelled {
@@ -87,7 +88,8 @@ public final class SaveDocumentUseCase {
     /// `FileStoreError.conflict` and nothing is written. Replacing it anyway needs the explicit
     /// `overwritingExternalChanges`, which the user chooses after seeing the conflict.
     public func execute(
-        document: DocumentSession, trigger: SaveTrigger = .explicit,
+        document: DocumentSession,
+        trigger: SaveTrigger = .explicit,
         overwritingExternalChanges: Bool = false
     ) async throws -> SaveReceipt {
         // A save still waiting for composition has captured nothing yet, so a new request joins
@@ -96,10 +98,12 @@ public final class SaveDocumentUseCase {
             guard running.isWaitingForComposition else {
                 throw SaveError.saveInProgress(document.id)
             }
+
             if trigger == .explicit, running.trigger == .autosave {
                 running.trigger = .explicit
                 document.requestCompositionEnd()
             }
+
             switch await running.join() {
             case .success(let receipt):
                 return receipt
@@ -111,6 +115,7 @@ public final class SaveDocumentUseCase {
         }
 
         guard !document.isUntitled else { throw SaveError.untitled(document.id) }
+
         return try await perform(document, trigger: trigger, destination: .current(overwriting: overwritingExternalChanges))
     }
 
@@ -126,21 +131,29 @@ public final class SaveDocumentUseCase {
     /// name, is refused meanwhile (`OpenDocumentError.beingSavedElsewhere`,
     /// `SaveError.targetBeingSaved`). Refused too while this document is already being saved.
     public func saveAs(
-        document: DocumentSession, to path: String, target: SaveAsTarget, registry: DocumentRegistry
+        document: DocumentSession,
+        to path: String,
+        target: SaveAsTarget,
+        registry: DocumentRegistry
     ) async throws -> SaveReceipt {
         guard operations[document.id] == nil else { throw SaveError.saveInProgress(document.id) }
+
         let name = DocumentPath.canonical(path)
         if !document.isUntitled, name == document.path {
             return try await perform(document, trigger: .explicit, destination: .current(overwriting: false))
         }
+
         switch registry.reserve(path: name, for: document) {
         case .granted: break
         case .openElsewhere: throw SaveError.targetOpenElsewhere(path: name)
         case .reserved: throw SaveError.targetBeingSaved(path: name)
         }
         defer { registry.releaseReservation(path: name, for: document) }
+
         return try await perform(
-            document, trigger: .explicit, destination: .newName(path: name, target: target, registry: registry)
+            document,
+            trigger: .explicit,
+            destination: .newName(path: name, target: target, registry: registry)
         )
     }
 
@@ -150,7 +163,9 @@ public final class SaveDocumentUseCase {
     }
 
     private func perform(
-        _ document: DocumentSession, trigger: SaveTrigger, destination: Destination
+        _ document: DocumentSession,
+        trigger: SaveTrigger,
+        destination: Destination
     ) async throws -> SaveReceipt {
         let operation = SaveOperation(trigger: trigger)
         operations[document.id] = operation
@@ -158,6 +173,7 @@ public final class SaveDocumentUseCase {
             let receipt = try await run(operation, document: document, destination: destination)
             operations.removeValue(forKey: document.id)
             operation.finish(.success(receipt))
+
             return receipt
         } catch {
             operations.removeValue(forKey: document.id)
@@ -167,7 +183,9 @@ public final class SaveDocumentUseCase {
     }
 
     private func run(
-        _ operation: SaveOperation, document: DocumentSession, destination: Destination
+        _ operation: SaveOperation,
+        document: DocumentSession,
+        destination: Destination
     ) async throws -> SaveReceipt {
         // Never persist a pre-composition snapshot while marked text is live. The wait is not
         // followed by a suspension before the capture, so the snapshot is the final text.
@@ -204,6 +222,7 @@ public final class SaveDocumentUseCase {
             document.acknowledgeSaveAs(of: snapshot, revision: revision)
             registry.register(document)
         }
+
         return SaveReceipt(
             savedVersion: snapshot.version,
             isCurrent: document.version == snapshot.version

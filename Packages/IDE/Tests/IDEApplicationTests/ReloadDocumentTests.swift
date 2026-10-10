@@ -18,6 +18,7 @@ private actor SlowReadStore: DocumentFileStore {
         hasStarted = true
         started?.resume()
         await withCheckedContinuation { gate = $0 }
+
         return file
     }
 
@@ -51,7 +52,10 @@ func aSaveAsWhileTheOldFileIsBeingReadDiscardsThatRead() async throws {
     await slow.waitUntilReading()
     // The document moves to another file while the old one is being read.
     _ = try await SaveDocumentUseCase(store: files).saveAs(
-        document: session, to: "/w/New.swift", target: .newFile, registry: registry
+        document: session,
+        to: "/w/New.swift",
+        target: .newFile,
+        registry: registry
     )
     await slow.release()
 

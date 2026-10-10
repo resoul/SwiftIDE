@@ -23,6 +23,7 @@ public struct HighlightState: Sendable {
     /// The spans that overlap `range`, in order.
     public func spans(overlapping range: Range<Int>) -> ArraySlice<HighlightSpan> {
         guard !range.isEmpty, !spans.isEmpty else { return [] }
+
         var low = 0, high = spans.count
         while low < high {   // the first span that ends after the range starts
             let middle = (low + high) / 2
@@ -30,6 +31,7 @@ public struct HighlightState: Sendable {
         }
         var end = low
         while end < spans.count, spans[end].location < range.upperBound { end += 1 }
+
         return spans[low..<end]
     }
 
@@ -44,6 +46,7 @@ public struct HighlightState: Sendable {
         if !window.isEmpty {
             window = Self.moved(window, start: start, oldEnd: oldEnd, delta: delta, replacementLength: replacementLength)
         }
+
         if !dirty.isEmpty {
             dirty = Self.merged(dirty.map {
                 Self.moved($0, start: start, oldEnd: oldEnd, delta: delta, replacementLength: replacementLength)
@@ -51,6 +54,7 @@ public struct HighlightState: Sendable {
         }
 
         guard !spans.isEmpty else { return }
+
         // Spans that end at or before the edit are untouched; those that begin at or after its end
         // only move; the ones in between are cut around the replaced text.
         var first = 0, high = spans.count
@@ -67,15 +71,19 @@ public struct HighlightState: Sendable {
             if span.location < start {
                 kept.append(HighlightSpan(location: span.location, length: start - span.location, kind: span.kind))
             }
+
             if span.end > oldEnd {
                 kept.append(HighlightSpan(
-                    location: start + replacementLength, length: span.end - oldEnd, kind: span.kind
+                    location: start + replacementLength,
+                    length: span.end - oldEnd,
+                    kind: span.kind
                 ))
             }
         }
         if delta != 0 {
             for index in last..<spans.count { spans[index].location += delta }
         }
+
         spans.replaceSubrange(first..<last, with: kept)
     }
 
@@ -87,9 +95,12 @@ public struct HighlightState: Sendable {
         if overlaps {
             let lower = range.lowerBound <= start ? range.lowerBound : start
             let upper = range.upperBound >= oldEnd ? range.upperBound + delta : start + replacementLength
+
             return lower..<max(lower, upper)
         }
+
         if range.lowerBound >= oldEnd { return (range.lowerBound + delta)..<(range.upperBound + delta) }
+
         return range
     }
 
@@ -102,6 +113,7 @@ public struct HighlightState: Sendable {
                 result.append(range)
             }
         }
+
         return result
     }
 
@@ -113,15 +125,18 @@ public struct HighlightState: Sendable {
     /// Takes out, and returns, the part of the stretches awaiting a redraw that lies inside `range`.
     public mutating func takeDirty(in range: Range<Int>) -> [Range<Int>] {
         guard !range.isEmpty, !dirty.isEmpty else { return [] }
+
         var taken: [Range<Int>] = [], remaining: [Range<Int>] = []
         for item in dirty {
             let lower = max(item.lowerBound, range.lowerBound), upper = min(item.upperBound, range.upperBound)
             guard lower < upper else { remaining.append(item); continue }
+
             taken.append(lower..<upper)
             if item.lowerBound < lower { remaining.append(item.lowerBound..<lower) }
             if upper < item.upperBound { remaining.append(upper..<item.upperBound) }
         }
         dirty = Self.merged(remaining)
+
         return Self.merged(taken)
     }
 
@@ -131,7 +146,8 @@ public struct HighlightState: Sendable {
     public mutating func replace(window newWindow: Range<Int>, with fresh: [HighlightSpan]) -> [Range<Int>] {
         let changed = Self.differences(
             old: spans(overlapping: newWindow).map { clipped($0, to: newWindow) },
-            new: fresh, in: newWindow
+            new: fresh,
+            in: newWindow
         )
         // What the old window had outside the new one is kept: it is still right for the text it
         // describes, and scrolling back finds it.
@@ -144,6 +160,7 @@ public struct HighlightState: Sendable {
             if span.location < newWindow.lowerBound {
                 result.append(HighlightSpan(location: span.location, length: newWindow.lowerBound - span.location, kind: span.kind))
             }
+
             if span.end > newWindow.upperBound {
                 result.append(HighlightSpan(location: newWindow.upperBound, length: span.end - newWindow.upperBound, kind: span.kind))
             }
@@ -154,11 +171,13 @@ public struct HighlightState: Sendable {
         // (they are what is still on screen there, and the baseline of the next comparison), but
         // they are not known to be right any more: an edit may have changed them.
         window = newWindow
+
         return changed
     }
 
     private func clipped(_ span: HighlightSpan, to range: Range<Int>) -> HighlightSpan {
         let start = max(span.location, range.lowerBound), end = min(span.end, range.upperBound)
+
         return HighlightSpan(location: start, length: end - start, kind: span.kind)
     }
 
@@ -176,12 +195,14 @@ public struct HighlightState: Sendable {
             let oldKind = oldIndex < old.count && old[oldIndex].location <= lower ? old[oldIndex].kind : nil
             let newKind = newIndex < new.count && new[newIndex].location <= lower ? new[newIndex].kind : nil
             guard oldKind != newKind else { continue }
+
             if let previous = changed.last, previous.upperBound == lower {
                 changed[changed.count - 1] = previous.lowerBound..<upper
             } else {
                 changed.append(lower..<upper)
             }
         }
+
         return changed
     }
 }

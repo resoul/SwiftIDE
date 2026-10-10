@@ -21,7 +21,9 @@ private struct Gutter {
         host = EditorHostView(editor: editor, lineIndex: lineIndex)
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-            styleMask: [.titled], backing: .buffered, defer: false
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
         )
         window.contentView = host
         draw()
@@ -94,6 +96,7 @@ extension Gutter {
         guard let layoutManager = editor.textView.textLayoutManager,
               let fragment = layoutManager.textLayoutFragment(for: NSPoint(x: point.x - origin.x, y: point.y - origin.y)),
               let paragraph = fragment.textElement as? NSTextParagraph else { return nil }
+
         return paragraph.attributedString.string.trimmingCharacters(in: .newlines)
     }
 }

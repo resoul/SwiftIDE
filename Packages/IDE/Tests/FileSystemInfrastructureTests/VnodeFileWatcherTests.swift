@@ -22,6 +22,7 @@ private final class Sandbox {
 
     func create(_ name: String, _ text: String = "start\n") throws -> String {
         try text.write(toFile: path(name), atomically: false, encoding: .utf8)
+
         return path(name)
     }
 
@@ -54,6 +55,7 @@ private final class Counter: @unchecked Sendable {
             if count > since { return true }
             try? await Task.sleep(for: .milliseconds(20))
         }
+
         return false
     }
 }
@@ -61,6 +63,7 @@ private final class Counter: @unchecked Sendable {
 private func watching(_ path: String) -> (any FileWatchHandle, Counter) {
     let counter = Counter()
     let handle = VnodeFileWatcher().watch(path: path) { counter.bump() }
+
     return (handle, counter)
 }
 
@@ -208,7 +211,8 @@ func theStoresOwnSaveIsAnEventLikeAnyOther() async throws {
     let store = AtomicDocumentFileStore()
     let revision = try await store.read(path: path, maximumBytes: .max).revision
     _ = try await store.write(
-        DocumentSnapshot(documentID: DocumentID(), path: path, version: 1, text: "saved\n"), expecting: .revision(revision)
+        DocumentSnapshot(documentID: DocumentID(), path: path, version: 1, text: "saved\n"),
+        expecting: .revision(revision)
     )
     #expect(await events.eventually(after: 0))
 }

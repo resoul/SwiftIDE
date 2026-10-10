@@ -26,6 +26,7 @@ private struct Store: DocumentFileStore {
     func read(path: String, maximumBytes: Int) async throws -> LoadedFile {
         await hooks.whileReading?()
         if let failure = hooks.readFailure { throw failure }
+
         return try await base.read(path: path, maximumBytes: maximumBytes)
     }
 
@@ -38,6 +39,7 @@ private struct Store: DocumentFileStore {
         let revision = try await base.currentRevision(path: path, assumingUnchangedFrom: known)
         let count = hooks.noteObservation()
         await hooks.afterObservation?(count)
+
         return revision
     }
 }
@@ -61,13 +63,18 @@ private struct Setup {
         }
         session = try await open.execute(path: path).session
         monitor = ExternalChangeMonitor(
-            session: session, files: store, watcher: watcher, reload: ReloadDocumentUseCase(store: store), clock: clock
+            session: session,
+            files: store,
+            watcher: watcher,
+            reload: ReloadDocumentUseCase(store: store),
+            clock: clock
         )
     }
 
     func edit(_ text: String) throws {
         try session.apply(
-            [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: text)], expectedVersion: session.version
+            [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: text)],
+            expectedVersion: session.version
         )
     }
 
@@ -234,7 +241,8 @@ func textTypedWhileTheFileIsBeingReloadedTurnsTheReloadIntoANotice() async throw
     s.store.hooks.whileReading = {
         await MainActor.run {
             try? session.apply(
-                [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "typed ")], expectedVersion: session.version
+                [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "typed ")],
+                expectedVersion: session.version
             )
         }
     }
@@ -334,7 +342,10 @@ func saveAsMovesTheWatchToTheNewName() async throws {
     let s = try await Setup(path: "/w/Old.swift")
     #expect(s.watcher.watchedPaths == ["/w/Old.swift"])
     _ = try await SaveDocumentUseCase(store: s.store).saveAs(
-        document: s.session, to: "/w/New.swift", target: .newFile, registry: s.registry
+        document: s.session,
+        to: "/w/New.swift",
+        target: .newFile,
+        registry: s.registry
     )
     await s.run()
     #expect(s.watcher.watchedPaths == ["/w/New.swift"], "the old name is no longer watched")
@@ -347,12 +358,19 @@ func aDocumentWithoutAFileIsWatchedOnceItIsSaved() async throws {
     let watcher = ManualFileWatcher()
     let clock = ManualDelayClock()
     let monitor = ExternalChangeMonitor(
-        session: session, files: store, watcher: watcher, reload: ReloadDocumentUseCase(store: store), clock: clock
+        session: session,
+        files: store,
+        watcher: watcher,
+        reload: ReloadDocumentUseCase(store: store),
+        clock: clock
     )
     #expect(watcher.watchedPaths.isEmpty, "there is no file to watch")
 
     _ = try await SaveDocumentUseCase(store: store).saveAs(
-        document: session, to: "/w/Fresh.swift", target: .newFile, registry: DocumentRegistry()
+        document: session,
+        to: "/w/Fresh.swift",
+        target: .newFile,
+        registry: DocumentRegistry()
     )
     for _ in 0..<20 { await Task.yield() }
     #expect(watcher.watchedPaths == ["/w/Fresh.swift"])
@@ -379,7 +397,11 @@ func aMonitorThatWasReleasedWatchesNothingMore() async throws {
     let session = try await open.execute(path: "/w/A.swift").session
     let watcher = ManualFileWatcher()
     var monitor: ExternalChangeMonitor? = ExternalChangeMonitor(
-        session: session, files: store, watcher: watcher, reload: ReloadDocumentUseCase(store: store), clock: ManualDelayClock()
+        session: session,
+        files: store,
+        watcher: watcher,
+        reload: ReloadDocumentUseCase(store: store),
+        clock: ManualDelayClock()
     )
     #expect(watcher.watchedPaths == ["/w/A.swift"])
     monitor = nil
@@ -394,7 +416,10 @@ func aSaveAsWhileTheChangedFileIsBeingReadDropsThatReloadQuietly() async throws 
     s.store.hooks.whileReading = {
         _ = try? await Task { @MainActor in
             try await SaveDocumentUseCase(store: store).saveAs(
-                document: session, to: "/w/Renamed.swift", target: .newFile, registry: registry
+                document: session,
+                to: "/w/Renamed.swift",
+                target: .newFile,
+                registry: registry
             )
         }.value
     }

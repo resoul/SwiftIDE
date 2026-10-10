@@ -22,8 +22,10 @@ public final class SyntaxPresenter {
     private static let longestViewport = 20_000
 
     public init(
-        textView: NSTextView, coordinator: SyntaxCoordinator,
-        theme: SyntaxTheme = .standard, policy: SyntaxPolicy = .standard
+        textView: NSTextView,
+        coordinator: SyntaxCoordinator,
+        theme: SyntaxTheme = .standard,
+        policy: SyntaxPolicy = .standard
     ) {
         self.textView = textView
         self.coordinator = coordinator
@@ -47,6 +49,7 @@ public final class SyntaxPresenter {
             manager.renderingAttributesValidator = nil
             manager.removeRenderingAttribute(.foregroundColor, for: manager.documentRange)
         }
+
         textView.needsDisplay = true
         if let scrollObserver { NotificationCenter.default.removeObserver(scrollObserver) }
         if let frameObserver { NotificationCenter.default.removeObserver(frameObserver) }
@@ -59,6 +62,7 @@ public final class SyntaxPresenter {
     /// before an edit would keep its old colours.
     private func observeScrolling() {
         guard let clipView = textView.enclosingScrollView?.contentView, clipView !== observedClipView else { return }
+
         if let scrollObserver { NotificationCenter.default.removeObserver(scrollObserver) }
         observedClipView = clipView
         clipView.postsBoundsChangedNotifications = true
@@ -66,12 +70,16 @@ public final class SyntaxPresenter {
         // Edits that add or remove lines change what is in view without scrolling.
         textView.postsFrameChangedNotifications = true
         frameObserver = NotificationCenter.default.addObserver(
-            forName: NSView.frameDidChangeNotification, object: textView, queue: .main
+            forName: NSView.frameDidChangeNotification,
+            object: textView,
+            queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.scheduleViewportUpdate() }
         }
         scrollObserver = NotificationCenter.default.addObserver(
-            forName: NSView.boundsDidChangeNotification, object: clipView, queue: .main
+            forName: NSView.boundsDidChangeNotification,
+            object: clipView,
+            queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.scheduleViewportUpdate() }
         }
@@ -80,6 +88,7 @@ public final class SyntaxPresenter {
     /// Reads the viewport once things have been laid out, however many scroll events came.
     private func scheduleViewportUpdate() {
         guard !viewportUpdateScheduled else { return }
+
         viewportUpdateScheduled = true
         DispatchQueue.main.async { [weak self] in
             MainActor.assumeIsolated { self?.updateViewport() }
@@ -90,15 +99,18 @@ public final class SyntaxPresenter {
         viewportUpdateScheduled = false
         guard let manager = textView.textLayoutManager, let content = manager.textContentManager,
               let viewport = manager.textViewportLayoutController.viewportRange else { return }
+
         let start = content.offset(from: content.documentRange.location, to: viewport.location)
         let length = content.offset(from: viewport.location, to: viewport.endLocation)
         guard length > 0 else { return }
+
         coordinator.setVisible(start..<(start + min(length, Self.longestViewport)))
     }
 
     /// Called by TextKit for each fragment it lays out.
     private func validate(_ fragment: NSTextLayoutFragment, in manager: NSTextLayoutManager) {
         guard let content = manager.textContentManager else { return }
+
         observeScrolling()
         let origin = content.documentRange.location
         let start = content.offset(from: origin, to: fragment.rangeInElement.location)
@@ -112,13 +124,16 @@ public final class SyntaxPresenter {
         coordinator.demand(fragmentRange)
         let spans = coordinator.state.spans(overlapping: fragmentRange)
         guard spans.count <= policy.maximumSpansPerFragment else { return }
+
         for span in spans {
             guard let colour = theme.colour(for: span.kind) else { continue }
+
             let from = max(span.location, fragmentRange.lowerBound), to = min(span.end, fragmentRange.upperBound)
             guard from < to,
                   let lower = content.location(fragment.rangeInElement.location, offsetBy: from - start),
                   let upper = content.location(lower, offsetBy: to - from),
                   let range = NSTextRange(location: lower, end: upper) else { continue }
+
             manager.setRenderingAttributes([.foregroundColor: colour], for: range)
         }
     }
@@ -126,12 +141,14 @@ public final class SyntaxPresenter {
     /// Makes TextKit validate these ranges again. Attribute-only: no revision, nothing to undo.
     private func refresh(_ ranges: [Range<Int>]) {
         guard let storage = textView.textStorage else { return }
+
         let length = storage.length
         storage.beginEditing()
         for range in ranges {
             // Ranges can reach past the end of a text that has become shorter.
             let lower = min(max(0, range.lowerBound), length), upper = min(max(lower, range.upperBound), length)
             guard lower < upper else { continue }
+
             storage.edited(.editedAttributes, range: NSRange(location: lower, length: upper - lower), changeInLength: 0)
         }
         storage.endEditing()

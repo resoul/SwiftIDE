@@ -62,7 +62,9 @@ public final class RecoveryCoordinator {
     private var written: (key: RecoveryKey, version: UInt64)?
 
     public init(
-        session: DocumentSession, store: any RecoveryStore, policy: RecoveryPolicy = .standard,
+        session: DocumentSession,
+        store: any RecoveryStore,
+        policy: RecoveryPolicy = .standard,
         clock: any DelayClock = SystemDelayClock()
     ) {
         self.session = session
@@ -82,6 +84,7 @@ public final class RecoveryCoordinator {
 
     private func stateDidChange() {
         guard !isStopped else { return }
+
         if session.isDirty {
             if !isWithdrawn { scheduleWrite() }
         } else {
@@ -100,6 +103,7 @@ public final class RecoveryCoordinator {
         timer = Task { [weak self] in
             try? await clock.sleep(for: delay)
             guard !Task.isCancelled else { return }
+
             self?.timerFired()
         }
     }
@@ -107,12 +111,15 @@ public final class RecoveryCoordinator {
     private func timerFired() {
         timer = nil
         guard !isStopped, !isWithdrawn, session.isDirty else { return }
+
         // Marked text is not part of the document until the input method commits it.
         if session.isComposing {
             firstPending = nil
             scheduleWrite()
+
             return
         }
+
         firstPending = nil
         queueWrite()
     }
@@ -131,12 +138,15 @@ public final class RecoveryCoordinator {
     @discardableResult
     private func queueWrite() -> Bool {
         guard session.isDirty else { return false }
+
         guard session.utf16Length <= policy.maximumUTF16Length else {
             queuedVersion = nil
             status = .tooLarge
             removeKept()
+
             return false
         }
+
         if status == .tooLarge { status = .protecting }
         guard queuedVersion != session.version else { return false }
 
@@ -155,12 +165,20 @@ public final class RecoveryCoordinator {
                 // Copied slice by slice, so that a large document does not stop the window; the
                 // copy is of the document as it is when the turn comes, which may be newer.
                 guard session.isDirty else { return }
+
                 let capture = try await session.capture()
-                guard session.isDirty else { return }   // saved while it was being copied
+                guard session.isDirty else { return }
+
+   // saved while it was being copied
                 let capturedVersion = capture.snapshot.version
                 let record = RecoveryRecord(
-                    key: key, path: path, title: title, text: capture.snapshot.text,
-                    encoding: capture.snapshot.encoding, baseRevision: capture.diskRevision, savedAt: Date()
+                    key: key,
+                    path: path,
+                    title: title,
+                    text: capture.snapshot.text,
+                    encoding: capture.snapshot.encoding,
+                    baseRevision: capture.diskRevision,
+                    savedAt: Date()
                 )
                 try await store.write(record)
                 for old in stale { try? await store.remove(old) }
@@ -171,6 +189,7 @@ public final class RecoveryCoordinator {
                 self?.writeFailed(version, error)
             }
         }
+
         return true
     }
 
@@ -186,6 +205,7 @@ public final class RecoveryCoordinator {
 
     private func removeKept() {
         guard !kept.isEmpty else { return }
+
         let keys = kept
         kept.removeAll()
         written = nil
@@ -220,6 +240,7 @@ public final class RecoveryCoordinator {
     @discardableResult
     public func flush() async -> Safekeeping? {
         guard !isStopped else { return nil }
+
         if isWithdrawn { return session.isDirty ? nil : .nothingUnsaved }
         timer?.cancel()
         timer = nil
@@ -227,7 +248,9 @@ public final class RecoveryCoordinator {
         queueWrite()
         await waitUntilIdle()
         guard session.isDirty else { return .nothingUnsaved }
+
         guard status == .protecting, let written else { return nil }
+
         return .written(written.key, version: written.version)
     }
 
@@ -247,6 +270,7 @@ public final class RecoveryCoordinator {
     /// The quit did not happen: the unsaved text is protected again.
     public func resume() {
         guard isWithdrawn else { return }
+
         isWithdrawn = false
         stateDidChange()
     }

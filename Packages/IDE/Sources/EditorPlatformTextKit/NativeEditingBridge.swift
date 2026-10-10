@@ -55,28 +55,35 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
     // MARK: Preflight
 
     func textView(
-        _ textView: NSTextView, shouldChangeTextIn affectedCharRange: NSRange, replacementString: String?
+        _ textView: NSTextView,
+        shouldChangeTextIn affectedCharRange: NSRange,
+        replacementString: String?
     ) -> Bool {
         self.textView(
-            textView, shouldChangeTextInRanges: [NSValue(range: affectedCharRange)],
+            textView,
+            shouldChangeTextInRanges: [NSValue(range: affectedCharRange)],
             replacementStrings: replacementString.map { [$0] }
         )
     }
 
     func textView(
-        _ textView: NSTextView, shouldChangeTextInRanges affectedRanges: [NSValue],
+        _ textView: NSTextView,
+        shouldChangeTextInRanges affectedRanges: [NSValue],
         replacementStrings: [String]?
     ) -> Bool {
         // Attribute-only change: nothing to validate, no text event will follow.
         guard let replacementStrings, replacementStrings.count == affectedRanges.count else {
             return replacementStrings == nil
         }
+
         guard textView.isEditable, receiver?.allowsNativeEdit() ?? true else { return false }
+
         var edits: [DocumentEdit] = []
         var replaced: [String] = []
         for (value, replacement) in zip(affectedRanges, replacementStrings) {
             let range = value.rangeValue
             guard isValid(range) else { return false }
+
             edits.append(DocumentEdit(
                 range: UTF16TextRange(location: range.location, length: range.length),
                 replacement: replacement
@@ -85,6 +92,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         }
         pendingOrigin = resolveOrigin()
         pending = makePending(edits: edits, replaced: replaced)
+
         return true
     }
 
@@ -103,6 +111,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
               range.location <= storage.length, range.length <= storage.length - range.location else {
             return false
         }
+
         let string = storage.mutableString
         for boundary in [range.location, range.location + range.length] where boundary > 0 && boundary < storage.length {
             if UTF16.isLeadSurrogate(string.character(at: boundary - 1)),
@@ -110,6 +119,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
                 return false
             }
         }
+
         return true
     }
 
@@ -118,6 +128,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         if undo.undoManager.isUndoing { return .undo }
         if undo.undoManager.isRedoing { return .redo }
         if let forcedOrigin { return forcedOrigin }
+
         return textView?.hasMarkedText() == true ? .composition : .typing
     }
 
@@ -138,12 +149,15 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
                 coalescedOrigin = origin
                 coalescedFirstEffect = effect(edited: edited, delta: delta, known: known)
             }
+
             region.record(
                 editedRange: UTF16TextRange(location: edited.location, length: edited.length),
                 changeInLength: delta
             )
+
             return
         }
+
         send(origin: origin, effect: effect(edited: edited, delta: delta, known: known), passes: 1)
     }
 
@@ -155,9 +169,11 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         // did not change.
         let beforeLength = edited.length - delta
         guard beforeLength >= 0 else { return .unknown }
+
         return .replaced(
             range: UTF16TextRange(location: edited.location, length: beforeLength),
-            replacement: storage.mutableString.substring(with: edited), isExact: false
+            replacement: storage.mutableString.substring(with: edited),
+            isExact: false
         )
     }
 
@@ -169,9 +185,11 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
     /// declared edit settles it, at a cost proportional to the paragraph.
     private func confirmedEdit(edited: NSRange, delta: Int, known: Pending?) -> NativeTextEffect? {
         guard let known, known.edits.count == 1, let context = known.context else { return nil }
+
         let edit = known.edits[0]
         let inserted = edit.replacement.utf16.count
         guard delta == inserted - edit.range.length else { return nil }
+
         let after = NSRange(location: context.range.location, length: context.range.length + delta)
         guard after.length >= 0, NSMaxRange(after) <= storage.length,
               edited.location >= after.location, NSMaxRange(edited) <= NSMaxRange(after) else { return nil }
@@ -184,13 +202,18 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         guard (expected as String).utf8.elementsEqual(storage.mutableString.substring(with: after).utf8) else {
             return nil
         }
+
         if known.replaced[0].utf8.elementsEqual(edit.replacement.utf8) { return .unchanged }
+
         return .replaced(range: edit.range, replacement: edit.replacement, isExact: true)
     }
 
     private func send(origin: EditOrigin, effect: NativeTextEffect, passes: Int) {
         receiver?.nativeEditDidCommit(NativeEditCommit(
-            origin: origin, effect: effect, passes: passes, generation: backend.editGeneration
+            origin: origin,
+            effect: effect,
+            passes: passes,
+            generation: backend.editGeneration
         ))
     }
 
@@ -203,6 +226,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         if outermost, let marked, marked.location != NSNotFound, isValid(marked) {
             markedBefore = (storage.length, storage.mutableString.substring(with: marked))
         }
+
         coalesceDepth += 1
         operation()
         coalesceDepth -= 1
@@ -228,6 +252,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
                 )
                 : .unknown
         }
+
         coalescedPasses = 0
         coalescedOrigin = nil
         coalescedFirstEffect = nil
@@ -250,6 +275,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
                 context = (paragraph, storage.mutableString.substring(with: paragraph))
             }
         }
+
         return Pending(edits: edits, replaced: replaced, context: context)
     }
 
@@ -261,6 +287,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
 
     func selectEnd(of edits: [DocumentEdit]) {
         guard let last = edits.min(by: { $0.range.location < $1.range.location }) else { return }
+
         let end = last.range.location + last.replacement.utf16.count
         textView?.setSelectedRange(NSRange(location: min(end, storage.length), length: 0))
     }
@@ -273,6 +300,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
             isComposingReported = true
             receiver?.compositionDidChange(.began)
         }
+
         return was
     }
 
@@ -280,6 +308,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         if wasComposing, textView?.hasMarkedText() == true {
             receiver?.compositionDidChange(.updated)
         }
+
         syncComposition()
     }
 
@@ -291,6 +320,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         // now would announce an end nobody can look at consistently; the operation reports its
         // final state when it finishes.
         guard coalesceDepth == 0 else { return }
+
         let actual = textView?.hasMarkedText() == true
         if actual, !isComposingReported {
             isComposingReported = true
@@ -303,6 +333,7 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
 
     func endComposition() {
         guard let textView else { return }
+
         textView.inputContext?.discardMarkedText()
         if textView.hasMarkedText() { textView.unmarkText() }
         syncComposition()

@@ -48,21 +48,32 @@ public final class SyntaxColouringController {
     /// `present` shows a coordinator's colours and returns what keeps them shown (the presenter);
     /// letting go of it must clear them.
     public convenience init(
-        session: DocumentSession, source: any TextSource, policy: SyntaxPolicy = .standard,
-        languages: DocumentLanguageSelector? = nil, supportedLanguages: Set<DocumentLanguage> = [.swift],
+        session: DocumentSession,
+        source: any TextSource,
+        policy: SyntaxPolicy = .standard,
+        languages: DocumentLanguageSelector? = nil,
+        supportedLanguages: Set<DocumentLanguage> = [.swift],
         makeHighlighter: @escaping () -> (any SyntaxHighlighter)?,
         present: @escaping @MainActor (SyntaxCoordinator) -> AnyObject?
     ) {
         self.init(
-            session: session, source: source, policy: policy, languages: languages, supportedLanguages: supportedLanguages,
-            makeHighlighter: { _ in makeHighlighter() }, present: present
+            session: session,
+            source: source,
+            policy: policy,
+            languages: languages,
+            supportedLanguages: supportedLanguages,
+            makeHighlighter: { _ in makeHighlighter() },
+            present: present
         )
     }
 
     /// `makeHighlighter` is given the language the colours are for.
     public init(
-        session: DocumentSession, source: any TextSource, policy: SyntaxPolicy = .standard,
-        languages: DocumentLanguageSelector? = nil, supportedLanguages: Set<DocumentLanguage> = [.swift],
+        session: DocumentSession,
+        source: any TextSource,
+        policy: SyntaxPolicy = .standard,
+        languages: DocumentLanguageSelector? = nil,
+        supportedLanguages: Set<DocumentLanguage> = [.swift],
         makeHighlighter: @escaping (DocumentLanguage) -> (any SyntaxHighlighter)?,
         present: @escaping @MainActor (SyntaxCoordinator) -> AnyObject?
     ) {
@@ -94,12 +105,14 @@ public final class SyntaxColouringController {
         // Colours made for another language are not kept, even if there are colours for this one too.
         let restart = wanted == .on && state == .on && language != colouredLanguage
         guard wanted != state || restart else { return }
+
         switch wanted {
         case .on:
             stopColouring()
             guard let highlighter = makeHighlighter(language) else {
                 return transition(to: .off(.unavailable))
             }
+
             let coordinator = SyntaxCoordinator(session: session, source: source, highlighter: highlighter)
             running = (coordinator, present(coordinator))
             colouredLanguage = language
@@ -112,6 +125,7 @@ public final class SyntaxColouringController {
 
     private func decide(for language: DocumentLanguage) -> State {
         guard supportedLanguages.contains(language) else { return .off(.languageNotSupported) }
+
         let length = session.utf16Length
         switch state {
         case .off(.tooLarge):
@@ -126,6 +140,7 @@ public final class SyntaxColouringController {
 
     private func stopColouring() {
         guard var current = running else { return }
+
         running = nil
         // The presenter goes first, clearing its colours while the coordinator still exists; then
         // the coordinator lets the highlighter drop its tree and its copy of the text.

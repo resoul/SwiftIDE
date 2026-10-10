@@ -26,7 +26,8 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered, defer: false
+            backing: .buffered,
+            defer: false
         )
         window.title = "SwiftIDE — Workspace Preview"
         window.subtitle = "Layout prototype"
@@ -38,8 +39,10 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
         render()
         for split in [horizontal.splitView, vertical.splitView] {
             NotificationCenter.default.addObserver(
-                self, selector: #selector(dividersDidResize(_:)),
-                name: NSSplitView.didResizeSubviewsNotification, object: split
+                self,
+                selector: #selector(dividersDidResize(_:)),
+                name: NSSplitView.didResizeSubviewsNotification,
+                object: split
             )
         }
         window.center()
@@ -118,12 +121,14 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
         let focus = NSButton(title: "Focus Editor", target: self, action: #selector(toggleFocusEditor(_:)))
         let reset = NSButton(title: "Reset Layout", target: self, action: #selector(resetWorkspaceLayout(_:)))
         let row = stack([project, branch, NSView(), scheme, destination, focus, reset], vertical: false, spacing: 16)
+
         return padded(row, height: 46)
     }
 
     private func statusBar() -> NSView {
         padded(stack([
-            label("WORKSPACE PREVIEW", secondary: true), NSView(),
+            label("WORKSPACE PREVIEW", secondary: true),
+            NSView(),
             label("Sample data · no terminal or AI connection", secondary: true)
         ], vertical: false), height: 28)
     }
@@ -136,8 +141,10 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
         if leftSide {
             for tool in [WorkspaceTool.terminal, .build, .problems] { views.append(toolButton(tool)) }
         }
+
         let rail = stack(views, vertical: true, spacing: 8, insets: NSEdgeInsets(top: 10, left: 6, bottom: 10, right: 6))
         rail.widthAnchor.constraint(equalToConstant: 44).isActive = true
+
         return rail
     }
 
@@ -150,11 +157,13 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
         button.widthAnchor.constraint(equalToConstant: 32).isActive = true
         button.heightAnchor.constraint(equalToConstant: 32).isActive = true
         buttons[tool] = button
+
         return button
     }
 
     @objc private func selectTool(_ sender: NSButton) {
         guard let tool = WorkspaceTool(rawValue: sender.tag) else { return }
+
         select(tool)
     }
 
@@ -179,6 +188,7 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
 
     @objc private func dividersDidResize(_ notification: Notification) {
         guard !isUpdatingLayout, focusLayout == nil else { return }
+
         rememberSizes()
         persist()
     }
@@ -194,6 +204,7 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
             layout.right = nil
             layout.bottom = nil
         }
+
         render()
         window?.makeFirstResponder(editor)
     }
@@ -217,12 +228,15 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
         if layout.left != nil {
             horizontal.splitView.setPosition(layout.leftWidth, ofDividerAt: 0)
         }
+
         if layout.right != nil {
             horizontal.splitView.setPosition(horizontal.view.bounds.width - layout.rightWidth, ofDividerAt: 1)
         }
+
         if layout.bottom != nil {
             vertical.splitView.setPosition(vertical.view.bounds.height - layout.bottomHeight, ofDividerAt: 0)
         }
+
         if let tool = layout.left { configure(left, for: tool) }
         if let tool = layout.right { configure(right, for: tool) }
         if let tool = layout.bottom { configure(bottom, for: tool) }
@@ -236,6 +250,7 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
 
     private func focus(_ tool: WorkspaceTool) {
         guard layout.contains(tool) else { window?.makeFirstResponder(editor); return }
+
         let panel = tool.zone == .left ? left : tool.zone == .right ? right : bottom
         window?.makeFirstResponder(panel.focusTarget)
     }
@@ -247,6 +262,7 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
 
     @objc private func hidePanel(_ sender: NSButton) {
         guard let tool = WorkspaceTool(rawValue: sender.tag) else { return }
+
         select(tool)
     }
 
@@ -335,12 +351,14 @@ private final class PreviewPanel: NSView {
 
     func show(tool: WorkspaceTool, target: AnyObject, hide action: Selector) {
         guard current?.identifier?.rawValue != tool.title else { return }
+
         current?.removeFromSuperview()
         let body: NSView
         if let cached = content[tool] { body = cached } else {
             body = makeBody(tool)
             content[tool] = body
         }
+
         let close = NSButton(image: NSImage(systemSymbolName: "minus", accessibilityDescription: "Hide \(tool.title)")!, target: target, action: action)
         close.isBordered = false
         close.tag = tool.rawValue
@@ -363,6 +381,7 @@ private final class PreviewPanel: NSView {
             list.drawsBackground = false
             list.textContainerInset = NSSize(width: 14, height: 16)
             focusTargets[tool] = list
+
             return scroll(list)
         case .search, .assistant:
             let field = NSTextField()
@@ -372,6 +391,7 @@ private final class PreviewPanel: NSView {
             let note = label(tool == .search ? "Search is not connected yet." : "Assistant is not connected yet.\nYour draft stays here while the panel is hidden.", secondary: true)
             note.maximumNumberOfLines = 0
             let body = stack([note, field, NSView()], vertical: true, spacing: 14, insets: NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16))
+
             return body
         default:
             let text = NSTextView()
@@ -391,6 +411,7 @@ private final class PreviewPanel: NSView {
             default: break
             }
             focusTargets[tool] = text
+
             return scroll(text)
         }
     }
@@ -403,6 +424,7 @@ private final class PreviewPanel: NSView {
         view.documentView = text
         view.hasVerticalScroller = true
         view.drawsBackground = false
+
         return view
     }
 }
@@ -411,6 +433,7 @@ private final class PreviewPanel: NSView {
 private func controller(_ view: NSView) -> NSViewController {
     let result = NSViewController()
     result.view = view
+
     return result
 }
 
@@ -419,6 +442,7 @@ private func label(_ text: String, weight: NSFont.Weight = .regular, secondary: 
     let field = NSTextField(labelWithString: text)
     field.font = .systemFont(ofSize: 12, weight: weight)
     field.textColor = secondary ? .secondaryLabelColor : .labelColor
+
     return field
 }
 
@@ -438,6 +462,7 @@ private func stack(_ views: [NSView], vertical: Bool, spacing: CGFloat = 0, inse
             $0.heightAnchor.constraint(equalTo: view.heightAnchor, constant: -insets.top - insets.bottom).isActive = true
         }
     }
+
     return view
 }
 
@@ -452,6 +477,7 @@ private func padded(_ content: NSView, height: CGFloat) -> NSView {
         content.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
         content.centerYAnchor.constraint(equalTo: view.centerYAnchor)
     ])
+
     return view
 }
 
@@ -527,5 +553,6 @@ private func surface(_ content: NSView, role: WorkspaceBackgroundView.Role = .pa
         card.topAnchor.constraint(equalTo: outer.topAnchor, constant: 4),
         card.bottomAnchor.constraint(equalTo: outer.bottomAnchor, constant: -4)
     ])
+
     return outer
 }

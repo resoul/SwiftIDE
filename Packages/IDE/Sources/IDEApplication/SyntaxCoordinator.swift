@@ -65,6 +65,7 @@ public final class SyntaxCoordinator {
     /// nothing is sent to the highlighter afterwards and its late answers are ignored.
     public func stop() {
         guard !isStopped else { return }
+
         isStopped = true
         if let subscription { session.unsubscribeFromChanges(subscription) }
         if let compositionSubscription { session.unsubscribeFromComposition(compositionSubscription) }
@@ -91,14 +92,18 @@ public final class SyntaxCoordinator {
 
     private func documentDidChange(_ changes: DocumentChangeSet) {
         guard changes.oldVersion == trackedVersion else { return resynchronise() }
+
         for edit in changes.edits {   // last position first, as the state expects
             let replacementLength = edit.replacement.utf16.count
             state.apply(edit: edit.range, replacementLength: replacementLength)
             // What is in view moves with the text, until the view reports it again.
             if !visible.isEmpty, replacementLength != edit.range.length || edit.range.length > 0 {
                 visible = HighlightState.moved(
-                    visible, start: edit.range.location, oldEnd: edit.range.location + edit.range.length,
-                    delta: replacementLength - edit.range.length, replacementLength: replacementLength
+                    visible,
+                    start: edit.range.location,
+                    oldEnd: edit.range.location + edit.range.length,
+                    delta: replacementLength - edit.range.length,
+                    replacementLength: replacementLength
                 )
             }
         }
@@ -134,6 +139,7 @@ public final class SyntaxCoordinator {
     /// version or already on their way. `force` asks anyway: the version just changed.
     private func request(around basis: Range<Int>, force: Bool) {
         guard !isStopped, let version = trackedVersion, version == session.version else { return }
+
         let length = session.utf16Length
         // Ranges handed in can predate an edit that shortened the text: clamp them to it.
         let lower = min(max(0, basis.lowerBound), length)
@@ -146,13 +152,16 @@ public final class SyntaxCoordinator {
             if let requested, requested.version == version, requested.window.lowerBound <= clamped.lowerBound,
                clamped.upperBound <= requested.window.upperBound { return }
         }
+
         requested = (version, window)
         highlighter.requestHighlights(in: window, version: version)
     }
 
     private func receive(_ result: HighlightResult) {
         guard !isStopped, result.version == session.version, trackedVersion == result.version else { return }
+
         guard result.documentLength == session.utf16Length else { return resynchronise() }
+
         lastResultVersion = result.version
         windowVersion = result.version
         let changed = state.replace(window: result.window, with: result.spans)
@@ -166,6 +175,7 @@ public final class SyntaxCoordinator {
     /// method holds marked text, which is not known to survive it.
     private func redrawWhatIsInView() {
         guard !session.isComposing, !state.dirty.isEmpty else { return }
+
         let length = session.utf16Length
         let lower = min(max(0, visible.lowerBound), length)
         let inView = lower..<min(length, max(lower, visible.upperBound))

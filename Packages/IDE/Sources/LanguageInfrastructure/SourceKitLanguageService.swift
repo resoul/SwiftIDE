@@ -89,8 +89,10 @@ public final class SourceKitLanguageService: CompletionProviding {
     private var shortLivedInARow = 0
 
     public init(
-        workspaceRoot: URL, sync: OrderedDocumentSync = OrderedDocumentSync(),
-        restartPolicy: RestartPolicy = RestartPolicy(), clock: any DelayClock = SystemDelayClock(),
+        workspaceRoot: URL,
+        sync: OrderedDocumentSync = OrderedDocumentSync(),
+        restartPolicy: RestartPolicy = RestartPolicy(),
+        clock: any DelayClock = SystemDelayClock(),
         channelFactory: @escaping ChannelFactory = SourceKitLanguageService.sourceKitLSP
     ) {
         root = workspaceRoot
@@ -113,6 +115,7 @@ public final class SourceKitLanguageService: CompletionProviding {
         let path = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard finder.terminationStatus == 0, !path.isEmpty else { throw LSPError.notRunning }
+
         return try ProcessChannel(executable: URL(fileURLWithPath: path))
     }
 
@@ -139,6 +142,7 @@ public final class SourceKitLanguageService: CompletionProviding {
             try? await Task.sleep(for: .milliseconds(100))
             old.close()
         }
+
         state = .stopped
     }
 
@@ -172,6 +176,7 @@ public final class SourceKitLanguageService: CompletionProviding {
             let initialize = connection.request("initialize", Self.initializeParams(root: root))
             _ = try await initialize.response()
             guard serverNumber == number else { return connection.close() }
+
             connection.notify("initialized", [:])
             state = .running
             runningSince = clock.now
@@ -180,6 +185,7 @@ public final class SourceKitLanguageService: CompletionProviding {
             sync.attach(connection)
         } catch {
             guard serverNumber == number else { return }
+
             connection?.close()
             connection = nil
             scheduleRestart(after: attempt, reason: String(describing: error))
@@ -188,6 +194,7 @@ public final class SourceKitLanguageService: CompletionProviding {
 
     private func serverEnded(_ number: Int) {
         guard number == serverNumber, wantsRunning else { return }
+
         connection = nil
         sync.attach(nil)
         // One that stayed up begins the waits again; one that died soon after starting goes on from
@@ -197,22 +204,27 @@ public final class SourceKitLanguageService: CompletionProviding {
         } else {
             shortLivedInARow += 1
         }
+
         runningSince = nil
         scheduleRestart(after: shortLivedInARow - 1, reason: "the language server ended")
     }
 
     private func scheduleRestart(after attempt: Int, reason: String) {
         guard wantsRunning else { return }
+
         guard attempt < restartPolicy.delays.count else {
             state = .failed(reason)
+
             return
         }
+
         state = .restarting(attempt: attempt + 1)
         let delay = restartPolicy.delays[attempt]
         restartTask?.cancel()
         restartTask = Task { [weak self, clock] in
             try? await clock.sleep(for: delay)
             guard !Task.isCancelled else { return }
+
             await self?.launch(attempt: attempt + 1)
         }
     }
@@ -258,7 +270,9 @@ public final class SourceKitLanguageService: CompletionProviding {
         case .stopped: return .unavailable(.notRunning)
         }
         guard let connection else { return .unavailable(.notRunning) }
+
         guard !session.isComposing else { return .suppressedByComposition }
+
         let offset = caret()
         let version = session.version, generation = sync.generation
         // A document is out of step with the server for a moment when it is being opened or
@@ -299,6 +313,7 @@ public final class SourceKitLanguageService: CompletionProviding {
                     return .stale(.cancelled)
                 case .server(let code, let message) where code == -32001 && message.contains("No language service"):
                     guard attempt < Self.notReadyRetries else { return .unavailable(.failed(String(describing: error))) }
+
                     try? await Task.sleep(for: .milliseconds(150 * (attempt + 1)))
                     // What was asked for may be gone by now; then there is nothing to ask again.
                     if Task.isCancelled { return .stale(.cancelled) }
@@ -319,6 +334,7 @@ public final class SourceKitLanguageService: CompletionProviding {
         if session.version != version { return .stale(.documentChanged) }
         if session.isComposing { return .stale(.compositionStarted) }
         if caret() != offset { return .stale(.caretMoved) }
+
         return Self.parseCompletion(answer, session: session, sync: sync)
     }
 
@@ -333,21 +349,28 @@ public final class SourceKitLanguageService: CompletionProviding {
         } else {
             list = []
         }
+
         let items = list.compactMap { item -> CompletionItem? in
             guard let label = item["label"]?.stringValue else { return nil }
+
             var range: UTF16TextRange?
             if let edit = item["textEdit"], let r = edit["range"] ?? edit["replace"],
                let start = position(r["start"]), let end = position(r["end"]),
                let from = sync.offset(of: start, in: session), let to = sync.offset(of: end, in: session), to >= from {
                 range = UTF16TextRange(location: from, length: to - from)
             }
+
             return CompletionItem(
-                label: label, detail: item["detail"]?.stringValue,
+                label: label,
+                detail: item["detail"]?.stringValue,
                 insertText: item["textEdit"]?["newText"]?.stringValue ?? item["insertText"]?.stringValue,
-                sortText: item["sortText"]?.stringValue, filterText: item["filterText"]?.stringValue,
-                replacementRange: range, kind: kind(item["kind"]?.intValue)
+                sortText: item["sortText"]?.stringValue,
+                filterText: item["filterText"]?.stringValue,
+                replacementRange: range,
+                kind: kind(item["kind"]?.intValue)
             )
         }
+
         return .items(items, isIncomplete: incomplete)
     }
 
@@ -369,6 +392,7 @@ public final class SourceKitLanguageService: CompletionProviding {
 
     private static func position(_ value: JSONValue?) -> LSPPosition? {
         guard let line = value?["line"]?.intValue, let character = value?["character"]?.intValue else { return nil }
+
         return LSPPosition(line: line, character: character)
     }
 
@@ -376,6 +400,7 @@ public final class SourceKitLanguageService: CompletionProviding {
 
     public func diagnostics(for session: DocumentSession) -> DiagnosticsReport? {
         guard let uri = sync.uri(of: session), let stored = diagnostics[uri] else { return nil }
+
         let freshness: DiagnosticsReport.Freshness
         if let version = stored.version {
             freshness = version == Int(session.version) ? .current : .stale
@@ -384,19 +409,25 @@ public final class SourceKitLanguageService: CompletionProviding {
             // that the text did or did not change after the report arrived.
             freshness = stored.arrivedAtVersion == session.version ? .unverified : .stale
         }
+
         return DiagnosticsReport(items: stored.items, reportedVersion: stored.version, freshness: freshness)
     }
 
     func received(_ method: String, _ params: JSONValue, from number: Int) {
         guard number == serverNumber, method == "textDocument/publishDiagnostics",
               let uri = params["uri"]?.stringValue else { return }
+
         let version = params["version"]?.intValue
         let items = (params["diagnostics"]?.arrayValue ?? []).compactMap { raw -> LanguageDiagnostic? in
             guard let message = raw["message"]?.stringValue,
                   let start = Self.position(raw["range"]?["start"]), let end = Self.position(raw["range"]?["end"]) else { return nil }
+
             return LanguageDiagnostic(
                 severity: LanguageDiagnostic.Severity(rawValue: raw["severity"]?.intValue ?? 1) ?? .error,
-                message: message, source: raw["source"]?.stringValue, start: start, end: end
+                message: message,
+                source: raw["source"]?.stringValue,
+                start: start,
+                end: end
             )
         }
         let session = sync.openDocuments.first(where: { sync.uri(of: $0) == uri })

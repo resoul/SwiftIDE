@@ -65,7 +65,9 @@ public final class RecoveryRestorer {
     /// `makeScratch` is the platform's part: an untitled document (with its editor) of no text,
     /// for the given title.
     public init(
-        store: any RecoveryStore, files: any DocumentFileStore, open: OpenDocumentUseCase,
+        store: any RecoveryStore,
+        files: any DocumentFileStore,
+        open: OpenDocumentUseCase,
         maximumBytes: Int = OpenDocumentUseCase.defaultMaximumBytes,
         makeScratch: @escaping @MainActor (String) -> DocumentSession
     ) {
@@ -82,14 +84,17 @@ public final class RecoveryRestorer {
         for record in listing.records {
             candidates.append(RecoveryCandidate(record: record, disk: await diskState(of: record)))
         }
+
         return RecoveryScan(candidates: candidates, unreadable: listing.unreadable)
     }
 
     private func diskState(of record: RecoveryRecord) async -> RecoveredDiskState {
         guard let path = record.path else { return .notApplicable }
+
         do {
             let file = try await files.read(path: path, maximumBytes: maximumBytes)
             if let base = record.baseRevision, file.revision.hasSameContent(as: base) { return .unchanged }
+
             return .changed
         } catch FileStoreError.notFound {
             return .missing
@@ -103,21 +108,25 @@ public final class RecoveryRestorer {
         switch candidate.disk {
         case .unchanged, .changed:
             guard let path = record.path else { return try restoreAsScratch(record) }
+
             let opened = try await open.execute(path: path)
             let session = opened.session
             // Whatever was typed into an already open window since the app started is newer.
             if !opened.isNew, session.isDirty {
                 return RestoredDocument(session: nil, outcome: .alreadyOpenAndModified, isNew: false)
             }
+
             try session.replaceText(record.text, expectedVersion: session.version)
             guard session.isDirty else {
                 return RestoredDocument(session: nil, outcome: .nothingToRestore, isNew: false)
             }
+
             // A save is judged against what the text was based on, not against what is there now,
             // and not against what the scan found: the file may have changed since the scan, while
             // the question was on screen. If it did not, the store sees the same bytes and no
             // conflict.
             session.rebaseOnto(record.baseRevision)
+
             return RestoredDocument(session: session, outcome: .restored, isNew: opened.isNew)
         case .notApplicable, .missing, .unreadable:
             return try restoreAsScratch(record)
@@ -130,6 +139,7 @@ public final class RecoveryRestorer {
         guard session.isDirty else {
             return RestoredDocument(session: nil, outcome: .nothingToRestore, isNew: false)
         }
+
         return RestoredDocument(session: session, outcome: .restoredAsScratch, isNew: true)
     }
 
@@ -141,7 +151,8 @@ public final class RecoveryRestorer {
     /// the old record was removed.
     @discardableResult
     public func retire(
-        _ candidate: RecoveryCandidate, restoredAs session: DocumentSession,
+        _ candidate: RecoveryCandidate,
+        restoredAs session: DocumentSession,
         afterKeeping keep: @MainActor () async -> Safekeeping?
     ) async throws -> Bool {
         let needed = session.version
@@ -153,7 +164,9 @@ public final class RecoveryRestorer {
         }
         // Asked after the wait: the document may have been saved under another name meanwhile.
         guard safe, candidate.record.key != session.recoveryKey else { return false }
+
         try await store.remove(candidate.record.key)
+
         return true
     }
 
@@ -162,6 +175,7 @@ public final class RecoveryRestorer {
     /// document's own, and removing it first would leave a moment in which a crash loses the text.
     public func discard(_ candidate: RecoveryCandidate, unlessKept: RecoveryKey? = nil) async throws {
         guard candidate.record.key != unlessKept else { return }
+
         try await store.remove(candidate.record.key)
     }
 }

@@ -22,6 +22,7 @@ public enum TextKitEditorFactory {
         textView.hooks = input
         let compatibility = TextKitCompatibilityMonitor(textView: textView)
         precondition(compatibility.isTextKit2, "NSTextView must start on TextKit 2")
+
         return TextKitEditor(backend: backend, textView: textView, compatibility: compatibility, undo: undo, input: input)
     }
 

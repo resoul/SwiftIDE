@@ -10,6 +10,7 @@ private func makeSession(_ text: String) -> (DocumentSession, StringDocumentBack
     let session = DocumentSession(path: "Main.swift", backend: backend)
     let recorder = Recorder()
     session.subscribeToChanges { recorder.changes.append($0) }
+
     return (session, backend, recorder)
 }
 
@@ -23,6 +24,7 @@ private actor RecordingStore: DocumentFileStore {
     func read(path: String, maximumBytes: Int) async throws -> LoadedFile { throw FileStoreError.notFound }
     func write(_ snapshot: DocumentSnapshot, expecting: SaveExpectation) async throws -> FileRevision {
         snapshots.append(snapshot)
+
         return .stub(Int64(snapshots.count))
     }
 }
@@ -62,7 +64,9 @@ func anUnchangedEffectCreatesNoRevisionButIsStillAccountedFor() throws {
     let (session, backend, recorder) = makeSession("abc")
     // Characters replaced by themselves: what an attribute pass looks like to the session.
     backend.simulateNativeEdit(
-        UTF16TextRange(location: 0, length: 3), with: "abc", report: .claiming(.unchanged)
+        UTF16TextRange(location: 0, length: 3),
+        with: "abc",
+        report: .claiming(.unchanged)
     )
     #expect(session.version == 0)
     #expect(recorder.changes.isEmpty)
@@ -89,7 +93,8 @@ func aCommitThatContradictsTheBackendBecomesAWholeDocumentReplacement() {
     let (session, backend, recorder) = makeSession("hello world")
     // The view claims it inserted "zzz" at the start; the backend's length says otherwise.
     backend.simulateNativeEdit(
-        UTF16TextRange(location: 6, length: 5), with: "swift",
+        UTF16TextRange(location: 6, length: 5),
+        with: "swift",
         report: .claiming(.replaced(range: UTF16TextRange(location: 0, length: 0), replacement: "zzz", isExact: true))
     )
     #expect(session.version == 1)
@@ -149,6 +154,7 @@ func nativeMutationDuringPublicationIsDeferredNotReordered() throws {
     var injected = false
     session.subscribeToChanges { _ in
         guard !injected else { return }
+
         injected = true
         backend.simulateNativeEdit(UTF16TextRange(location: 3, length: 0), with: "!")
         #expect(!backend.allowsNativeEdit)
@@ -270,9 +276,11 @@ private func applying(_ edits: [DocumentEdit], to text: String) -> String {
     let result = NSMutableString(string: text)
     for edit in edits.sorted(by: { $0.range.location > $1.range.location }) {
         result.replaceCharacters(
-            in: NSRange(location: edit.range.location, length: edit.range.length), with: edit.replacement
+            in: NSRange(location: edit.range.location, length: edit.range.length),
+            with: edit.replacement
         )
     }
+
     return String(result)
 }
 
@@ -296,6 +304,7 @@ func plannerReadsOnlyWhatTheEditsReplace() throws {
         func utf16Unit(at index: Int) -> UInt16 { unitsRead += 1; return inner.utf16Unit(at: index) }
         func substring(in range: UTF16TextRange) -> String {
             charactersCopied += range.length
+
             return inner.substring(in: range)
         }
     }
@@ -380,9 +389,11 @@ func inverseRoundTripsForRandomValidBatches() throws {
             if (try? DocumentEditPlanner.prepare(edits + [candidate], in: StringTextSource(source))) != nil {
                 edits.append(candidate)
             }
+
             cursor = start + len + (Bool.random(using: &generator) ? 0 : 1)
         }
         guard let plan = try DocumentEditPlanner.prepare(edits, in: StringTextSource(source)) else { continue }
+
         let after = applying(plan.edits, to: source)
         let back = try #require(
             try DocumentEditPlanner.prepare(plan.inverseEdits, in: StringTextSource(after)),
@@ -397,6 +408,7 @@ private struct SeededGenerator: RandomNumberGenerator {
     init(seed: UInt64) { state = seed }
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
+
         return state
     }
 }
@@ -464,7 +476,8 @@ func editsThatCancelEachOtherAreNotARevision() throws {
 func aCancellingPairBesideARealEditKeepsOnlyTheRealEdit() throws {
     // "b" is removed and put back (a no-op as a pair); "d" really becomes "D".
     let plan = try #require(try DocumentEditPlanner.prepare(
-        [edit(1, 1, ""), edit(2, 0, "b"), edit(3, 1, "D")], in: StringTextSource("abcd")
+        [edit(1, 1, ""), edit(2, 0, "b"), edit(3, 1, "D")],
+        in: StringTextSource("abcd")
     ))
     #expect(plan.edits == [edit(3, 1, "D")])
     #expect(plan.replaced == ["d"])

@@ -18,6 +18,7 @@ public struct SyntaxTheme {
         NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             let (r, g, b) = isDark ? dark : light
+
             return NSColor(srgbRed: r, green: g, blue: b, alpha: 1)
         }
     }

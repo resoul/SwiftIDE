@@ -24,8 +24,11 @@ public struct NativeEditCommit: Sendable {
     public let generation: UInt64
 
     public init(
-        transactionID: TransactionID = TransactionID(), origin: EditOrigin,
-        effect: NativeTextEffect, passes: Int = 1, generation: UInt64
+        transactionID: TransactionID = TransactionID(),
+        origin: EditOrigin,
+        effect: NativeTextEffect,
+        passes: Int = 1,
+        generation: UInt64
     ) {
         self.transactionID = transactionID
         self.origin = origin

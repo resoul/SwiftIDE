@@ -10,6 +10,7 @@ private func makeDirectory() throws -> URL {
     let url = FileManager.default.temporaryDirectory
         .appendingPathComponent("swiftide-open-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+
     return url
 }
 
@@ -84,7 +85,9 @@ func aScratchDocumentSavedAsARealFileIsThenOpenedAsThatDocument() async throws {
     let workspace = Workspace()
     let save = SaveDocumentUseCase(store: workspace.store)
     let session = DocumentSession(
-        path: "Untitled.swift", backend: StringDocumentBackend(loadedText: "let x = 1\r\n"), isUntitled: true
+        path: "Untitled.swift",
+        backend: StringDocumentBackend(loadedText: "let x = 1\r\n"),
+        isUntitled: true
     )
     try session.replaceText("let x = 2\r\n", expectedVersion: 0)
 

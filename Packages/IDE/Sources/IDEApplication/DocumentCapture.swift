@@ -41,15 +41,19 @@ final class TextCopier {
 
     func append(_ buffer: UnsafeBufferPointer<UInt16>) {
         guard !buffer.isEmpty else { return }
+
         if var last = chunks.popLast() {
             if last.count + buffer.count <= chunkUnits {
                 last.append(contentsOf: buffer)
                 chunks.append(last)
                 copied += buffer.count
+
                 return
             }
+
             chunks.append(last)
         }
+
         chunks.append(Array(buffer))
         copied += buffer.count
     }
@@ -60,8 +64,10 @@ final class TextCopier {
         // described against text the copy may have already read past: start again.
         if changes.isReconciled {
             reset()
+
             return
         }
+
         for edit in changes.edits {
             let lower = edit.range.location
             let upper = lower + edit.range.length
@@ -70,6 +76,7 @@ final class TextCopier {
                 truncate(to: lower)
                 continue
             }
+
             let units = Array(edit.replacement.utf16)
             replace(lower..<upper, with: units)
             copied += units.count - edit.range.length
@@ -94,8 +101,10 @@ final class TextCopier {
                 chunks[keep] = Array(chunks[keep][..<remainder])
                 keep += 1
             }
+
             chunks.removeSubrange(keep...)
         }
+
         copied = length
     }
 
@@ -109,8 +118,10 @@ final class TextCopier {
         guard first < chunks.count else {
             // At the very end of the copy.
             if !units.isEmpty { chunks.append(units) }
+
             return
         }
+
         var last = first
         var lastOffset = firstOffset
         while last < chunks.count - 1, lastOffset + chunks[last].count < range.upperBound {
@@ -146,13 +157,16 @@ final class TextCopier {
                     held = nil
                 }
             }
+
             if index < chunks.count - 1, let last = body.last, UTF16.isLeadSurrogate(last) {
                 held = last
                 body = body.dropLast()
             }
+
             result += String(decoding: body, as: UTF16.self)
         }
         if let lead = held { result += String(decoding: [lead], as: UTF16.self) }
+
         return result
     }
 }
@@ -169,13 +183,17 @@ extension DocumentSession {
     /// `endsComposition` asks the input method to finish marked text if it is live (an explicit
     /// save does; a background write does not interrupt typing).
     public func capture(
-        forPath target: String? = nil, policy: CapturePolicy = .standard, endsComposition: Bool = false
+        forPath target: String? = nil,
+        policy: CapturePolicy = .standard,
+        endsComposition: Bool = false
     ) async throws -> DocumentCapture {
         reconcileUnobservedMutation()
         if utf16Length <= policy.synchronousLimit, !isComposing {
             let snapshot = snapshot(forPath: target ?? path)
+
             return DocumentCapture(snapshot: snapshot, diskRevision: diskRevision)
         }
+
         if endsComposition, isComposing { requestCompositionEnd() }
         let copier = TextCopier(chunkUnits: policy.sliceUnits)
         let subscription = subscribeToChanges { copier.apply($0) }
@@ -190,17 +208,20 @@ extension DocumentSession {
                 await Task.yield()
                 continue
             }
+
             // Everything copied. Edits the backend made that nobody was told about are told now.
             reconcileUnobservedMutation()
             guard copier.copied == backendLength else {
                 copier.reset()   // the copy does not match the text: do not trust it, read it again
                 continue
             }
+
             if isComposing {
                 if endsComposition { requestCompositionEnd() }
                 try await waitForCompositionEnd()
                 continue
             }
+
             break
         }
 
@@ -211,6 +232,7 @@ extension DocumentSession {
         let capturedPath = target ?? path
         let revision = diskRevision
         let text = await Task.detached(priority: .userInitiated) { TextCopier.string(from: chunks) }.value
+
         return DocumentCapture(
             snapshot: DocumentSnapshot(documentID: documentID, path: capturedPath, version: version, text: text, encoding: encoding),
             diskRevision: revision

@@ -20,12 +20,16 @@ struct ChunkedText {
     @discardableResult
     mutating func replace(_ range: Range<Int>, with units: [UInt16]) -> Bool {
         guard range.lowerBound >= 0, range.upperBound <= length else { return false }
+
         guard !(range.isEmpty && units.isEmpty) else { return true }
+
         if chunks.isEmpty {
             chunks = Self.split(units)
             recomputeStarts(from: 0)
+
             return true
         }
+
         let first = chunkIndex(containing: range.lowerBound)
         let last = chunkIndex(containing: range.upperBound)
         var combined = Array(chunks[first][..<(range.lowerBound - starts[first])])
@@ -33,11 +37,13 @@ struct ChunkedText {
         combined.append(contentsOf: chunks[last][(range.upperBound - starts[last])...])
         chunks.replaceSubrange(first...last, with: Self.split(combined))
         recomputeStarts(from: first)
+
         return true
     }
 
     func substring(_ range: Range<Int>) -> String {
         guard range.lowerBound >= 0, range.upperBound <= length, !range.isEmpty else { return "" }
+
         var units: [UInt16] = []
         units.reserveCapacity(range.count)
         var index = chunkIndex(containing: range.lowerBound)
@@ -50,14 +56,17 @@ struct ChunkedText {
             position = starts[index] + to
             index += 1
         }
+
         return String(decoding: units, as: UTF16.self)
     }
 
     func bytes(fromUnit unit: Int) -> Data? {
         guard unit >= 0, unit < length else { return nil }
+
         let index = chunkIndex(containing: unit)
         let chunk = chunks[index]
         let from = unit - starts[index]
+
         return chunk[from...].withUnsafeBufferPointer { Data(buffer: $0) }
     }
 
@@ -72,8 +81,10 @@ struct ChunkedText {
                 while position + 1 < units.count {
                     if units[position] == first, units[position + 1] == second, !body(start + position) {
                         stopped = true
+
                         return
                     }
+
                     position += 1
                 }
             }
@@ -94,12 +105,15 @@ struct ChunkedText {
             let middle = (low + high + 1) / 2
             if starts[middle] <= offset { low = middle } else { high = middle - 1 }
         }
+
         return low
     }
 
     private static func split(_ units: [UInt16]) -> [[UInt16]] {
         guard !units.isEmpty else { return [] }
+
         if units.count <= target * 2 { return [units] }
+
         return stride(from: 0, to: units.count, by: target).map {
             Array(units[$0..<min($0 + target, units.count)])
         }

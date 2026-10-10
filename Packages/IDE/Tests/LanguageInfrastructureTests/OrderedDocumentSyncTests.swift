@@ -9,6 +9,7 @@ private struct SeededGenerator: RandomNumberGenerator {
     var state: UInt64
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
+
         return state
     }
 }
@@ -22,8 +23,10 @@ private final class Rig {
     let backend: StringDocumentBackend
 
     init(
-        text: String = "let a = 1\nlet b = 2\n", path: String = "/w/Main.swift",
-        limits: OrderedDocumentSync.Limits = .init(), capture: CapturePolicy = .standard
+        text: String = "let a = 1\nlet b = 2\n",
+        path: String = "/w/Main.swift",
+        limits: OrderedDocumentSync.Limits = .init(),
+        capture: CapturePolicy = .standard
     ) {
         connection = LanguageServerConnection(channel: server, onNotification: { _, _ in })
         sync = OrderedDocumentSync(limits: limits, capturePolicy: capture)
@@ -43,6 +46,7 @@ private final class Rig {
         let server = server, uri = uri
         let caught = await server.waitUntil { server.model().text(uri) == expected }
         #expect(model().problems.isEmpty, "\(model().problems)", sourceLocation: sourceLocation)
+
         return caught
     }
 
@@ -241,6 +245,7 @@ func savingUnderAnotherNameClosesTheOldAddressAndOpensTheNew() async throws {
     #expect(await server.waitUntil {
         var m = LSPDocumentModel()
         for message in server.received { m.consume(message) }
+
         return m.text("file:///w/New.swift") == "// c\nlet x = 2\n"
     })
 }
@@ -342,6 +347,7 @@ private final class GatedCopy {
         let capture = try await session.capture(policy: policy)
         taken = true
         await withCheckedContinuation { gate = $0 }
+
         return capture
     }
 
@@ -378,8 +384,11 @@ func aChangeThatDoesNotFollowOnFromWhatWasSentIsRepairedByAFullText() async thro
     try await rig.sync.open(rig.session)
     // Version 5 follows version 0 of nothing the server was told about.
     rig.sync.receive(
-        DocumentChangeSet(documentID: rig.session.id, oldVersion: 4, newVersion: 5,
-                          edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "x")], origin: .command),
+        DocumentChangeSet(documentID: rig.session.id,
+                          oldVersion: 4,
+                          newVersion: 5,
+                          edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "x")],
+                          origin: .command),
         for: rig.session
     )
     #expect(rig.sync.resyncCount == 1)
@@ -393,8 +402,11 @@ func aChangeThatDisagreesWithTheDocumentsLengthIsRepairedByAFullText() async thr
     try await rig.sync.open(rig.session)
     // Claims to insert three characters in the session's latest version; the text did not change.
     rig.sync.receive(
-        DocumentChangeSet(documentID: rig.session.id, oldVersion: 0, newVersion: 0,
-                          edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "zzz")], origin: .command),
+        DocumentChangeSet(documentID: rig.session.id,
+                          oldVersion: 0,
+                          newVersion: 0,
+                          edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "zzz")],
+                          origin: .command),
         for: rig.session
     )
     #expect(rig.sync.resyncCount == 1)
