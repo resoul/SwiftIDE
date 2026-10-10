@@ -25,10 +25,19 @@ The app starts with an untitled scratch window containing sample code. File → 
 
 The editor uses a monospaced font, plain text configuration, and a shared TextKit 2 storage graph. A compatibility monitor reports an unexpected fallback to TextKit 1.
 
+To explore the separate workspace layout prototype, choose **Window → Workspace Preview**, or launch it directly:
+
+```sh
+swift run --package-path Apps/SwiftIDE SwiftIDE --workspace-preview
+```
+
+The preview has resizable side and bottom panels, tool switches, Focus Editor, Reset Layout, and light/dark appearance commands in View. It uses sample data and an editor placeholder; the terminal and assistant do not execute commands or send messages. Its layout is saved as one preview layout, independently of document windows. Direct preview startup skips recovery prompts; normal startup keeps the existing document workflow.
+
 ## Test
 
 ```sh
 swift test --package-path Packages/IDE
+swift test --package-path Apps/SwiftIDE
 ```
 
 The tests cover edit validation, UTF-16 boundaries, versioning, immutable snapshots, change subscriptions, save races, disk revisions, the file store on real temporary files (BOM, malformed UTF-8, symlinks, permissions, external changes), and the TextKit editor factory. Native-view tests exercise typing, undo/redo, group ownership, composition, and save coordination. Real CJK input, dead keys, and interactive IME behavior still need manual coverage.
@@ -52,7 +61,7 @@ The tests cover edit validation, UTF-16 boundaries, versioning, immutable snapsh
 
 **TK-005: the native input, undo, and IME transaction bridge** is implemented and covered by automated tests. Manual acceptance testing with real input methods remains before closing the milestone; **TK-006: real file open/save with a disk revision policy** is implemented as well.
 
-SourceKit-LSP, and Xcode/build integration are planned. Multi-cursor editing and split views are deferred. A custom text engine is an option only if measurements justify replacing TextKit.
+Swift completion is connected to the editor window; live acceptance, request timeouts, diagnostic presentation and Xcode/build integration remain planned. The next language stages are a shared document language choice, local C/C++/Objective-C/Objective-C++ highlighting, then language services verified on mixed-project fixtures. Additional languages are not implemented yet; see the [mixed-language plan](docs/12_MIXED_LANGUAGE_SUPPORT.md). Bazel is an accepted direction: shared project context, a SourceKit-LSP/BSP spike, language services for a configured workspace, then setup and Build/Test; see the [Bazel plan](docs/13_BAZEL_SUPPORT.md). Bazel integration is not implemented or verified. Multi-cursor editing and split views are deferred. A custom text engine is an option only if measurements justify replacing TextKit.
 
 See the [development plan](docs/05_DEVELOPMENT_PLAN.md), [TextKit implementation plan](docs/08_TEXTKIT_IMPLEMENTATION_PLAN.md), and [changelog](CHANGELOG.md).
 
@@ -91,5 +100,8 @@ The detailed design documents are currently written in Russian.
 - [TextKit implementation plan](docs/08_TEXTKIT_IMPLEMENTATION_PLAN.md)
 - [Claude chat and agent integration plan](docs/09_CLAUDE_AGENT_INTEGRATION.md) — design only; integration is not implemented.
 - [Manual acceptance checklist](docs/10_MANUAL_ACCEPTANCE.md) — what automated tests cannot check: live window, IME, dark mode, large pastes.
+- [Workspace UI and UX](docs/11_WORKSPACE_UI_UX.md) — agreed target layout, panel behavior, visual principles, and implementation stages; design only.
+- [Mixed-language support](docs/12_MIXED_LANGUAGE_SUPPORT.md) — accepted direction for C, C++, Objective-C and Objective-C++ within Swift projects; language selection, highlighting, build context and staged acceptance; not implemented yet.
+- [Bazel support](docs/13_BAZEL_SUPPORT.md) — accepted direction, shared project context, BSP/toolchain requirements, phased implementation and acceptance; not implemented or verified.
 - [Third-party software notices](THIRD_PARTY_NOTICES.md)
 - [Original custom-engine concept](Swift_IDE_Architecture_and_MVP.md) — historical reference, superseded by the current TextKit MVP plan.

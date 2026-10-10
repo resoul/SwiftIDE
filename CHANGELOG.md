@@ -6,6 +6,12 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- Documented Bazel support in ADR-023 and TK-018–TK-022: shared project context, SourceKit-LSP/BSP spike, language services for configured workspaces, then setup and Build/Test. Added toolchain requirements, provisional estimates, risks, compatibility and manual acceptance plans; integration is not implemented or verified.
+
+- Documented mixed Swift/C/C++/Objective-C/Objective-C++ support in ADR-021 and TK-014–TK-017: Swift completion UI, shared document language selection, local highlighting, then language services with verified build settings. Added fixture, risk and manual acceptance plans; additional languages are not implemented yet.
+
+- Documented the target workspace UI/UX: central editor, tool rails, resizable side and bottom panels, focus handling, layout persistence, and staged implementation.
+- A separate Workspace Preview window (Window menu or `--workspace-preview`) with native split panes, sample tools, an editor placeholder, layout persistence, Focus Editor, Reset Layout, and appearance preview commands. Real document windows retain their existing workflow. Three app tests cover panel switching, layout serialization, and restoring resized panes after Focus Editor.
 - A macOS SwiftPM application with a native editor window, sample Swift document, and basic application, file, and edit menus.
 - A TextKit 2 editor factory and host sharing the document backend's storage graph, with plain text configuration and fallback monitoring.
 - Domain and Application modules for document IDs, immutable snapshots, UTF-16 edit batches, revision tracking, and change subscriptions.
@@ -38,6 +44,7 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Changed
 
+- Workspace Preview now separates the editor and side/bottom panels with theme-aware backgrounds, 10-point rounded corners, subtle borders, and small gutters. Text and scroll views use transparent backgrounds so each panel reads as one surface.
 - Editing now costs time proportional to the edit, not to the file (ADR-012, TK-011). `DocumentSession` keeps no copy of the text; edits are validated and described against the backend's storage (`TextSource`), native edits are described from the storage's edited range, and the whole text is copied only for a snapshot (save, reload). Typing in a 100 MB file went from 1.3-1.9 s to about 5 ms per keystroke, programmatic edits from 3.5 s to 0.3 ms, undo from 2.7 s to 4 ms, peak memory from 1.5 GB to 0.8 GB. Saving large files is slower because the copy moved there (170 ms to 424 ms at 100 MB). See [docs/benchmarks/TK-011-results.md](docs/benchmarks/TK-011-results.md).
 - `DocumentEditingBackend` now provides `TextSource` access and an `editGeneration` counter; `PreparedDocumentEdit` describes what it replaces instead of carrying whole texts; `NativeEditCommit` carries a `NativeTextEffect` instead of a list of edits.
 - `DocumentFileStore` now reads files and writes against an expected disk revision, returning the new revision. The in-memory store applies the same revision rules.
@@ -54,6 +61,16 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 - Line numbers in the editor margin (`LineNumberRulerView`, an `NSRulerView`). Numbers come from `LineIndex`, which is kept up to date from published change sets, so they are right for lines that were never laid out; only the rows in view are visited (about 0.07 ms), a wrapped line is numbered once, and the empty last line after a final newline is numbered. Lines end with `\n`, `\r\n` or `\r`. See ADR-014 and [docs/benchmarks/TK-007a-results.md](docs/benchmarks/TK-007a-results.md).
 - `LineIndex`: chunked line lengths with the terminator kept per line, edit cost O(edit + chunks), joins and splits of `\r\n` followed without reading text; `DocumentLineIndex` follows a session and rebuilds from the backend when it cannot. Property tests against a rescan, including edits across chunk boundaries.
 
+### Added (ordered sync with SourceKit-LSP)
+
+- New module `LanguageInfrastructure`: a JSON-RPC connection with one ordered outbox (a request made after an edit reaches the server after it), document sync that sends edits as ranges, falls back to one full-text `didChange` when it falls behind, and starts a fresh server with every open document after a crash; completion that drops answers for text, caret or server that are no longer current (and never runs over marked text); diagnostics that are called current only when the server names the version. SourceKit-LSP of Xcode 27.0 sends no version, so its reports are "unverified" until the next edit and "stale" after it. ADR-020.
+- Swift completion in the editor window (TK-014, ADR-022): a popup under the caret that never takes focus, opened by typing `.` after a member base or by Control-Space (also Edit ▸ Complete, Esc, F5). Typing narrows the list locally (prefix, then start of a later word of the name); Return or Tab accepts only while the list is showing, as one undoable edit, with the caret inside the parentheses of a call. It closes on a character that does not belong to a word, on any other edit or caret move, and never opens over marked text. One SourceKit-LSP per package root (nearest `Package.swift`) and one for loose files and Untitled; servers stop when their last document closes and on quit. Not yet checked in a live window or with a real input method; no snippet placeholders, documentation popup or request timeout.
+- An edit that starts or ends between the CR and the LF of one line terminator is sent widened to the whole terminator (the protocol has no position there).
+
+### Added (Xcode / BSP compatibility)
+
+- `Fixtures/` (SwiftPM package, macOS app, iOS-simulator app, workspace of two projects with a local package and a script-generated source) and `Tools/CompatibilityMatrix/` (a Python LSP client, scenario and cost probes, a pbxproj generator). Findings in `docs/11_COMPATIBILITY_MATRIX.md`; ADR-019 (accepted): SwiftPM is the supported scenario, Xcode projects are experimental (Xcode 27.0, after a successful build of the chosen scheme, configuration and destination); the first integration is `xcode-build-server` parsing the IDE's own build logs, shipped inside SwiftIDE with its own Python runtime; `sourcekit-xcode-bsp` stays a research candidate; semantics are marked stale when settings change; user project files are not touched. No application code changed. Third-party build servers are cloned into `Tools/CompatibilityMatrix/vendor/` (git-ignored), not bundled.
+
 ### Fixed (review of recovery, watching and capture)
 
 - A large document containing an emoji (or any character outside the BMP) that straddled the boundary between two copied pieces was saved, and kept for recovery, with two replacement characters in its place. The pieces are now joined across a split pair.
@@ -66,12 +83,12 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 - Saving and the recovery checkpoint copy a large document (over 1 000 000 UTF-16 units) in slices of 262 144 units, giving the main thread back between them, and build the final `String` off the main thread; edits made while it is being copied are applied to the copy, and the version, path and disk revision are taken at one instant when the copy is complete and no marked text is live. On a 100 MB file the main thread was held for 306 ms by a save; the longest gap is now 0.1–0.3 ms (the first copy in a fresh process up to 27 ms). `DocumentSession.capture`, `CapturePolicy`, `DocumentCapture`. See ADR-018 and docs/benchmarks/ADR-018-capture.json. Not checked in a live window.
 
-### Added (TK-006, watching the file)
+### Added (watching the file)
 
 - When another program changes the file of an open document (ADR-017): a document without unsaved changes is reloaded by itself, as an ordinary edit that can be undone, with a strip above the text ("changed on disk and reloaded", Undo); a document with unsaved changes is left alone and the strip offers Reload or Keep Mine; a file that was deleted or moved gets a strip with Save As. Saving still reports a conflict whatever was chosen. The document's own saves, `touch` and a rewrite with the same bytes are not changes.
 - New: `FileWatching` port, `ExternalChangeMonitor`, `VnodeFileWatcher` (kernel events on the file and its directory; re-opens a file that another program replaced by renaming over it), `DocumentFileStore.currentRevision(path:assumingUnchangedFrom:)` (with a default implementation), the general `DelayClock`. One strip above the text now serves external changes, read-only mode and the long-line warning, in that order. Not checked in a live window yet.
 
-### Added (TK-006, recovery of unsaved text)
+### Added (recovery of unsaved text)
 
 - After an unclean end, the next start offers the unsaved text back, one question per document ("Restore" / "Discard"; ADR-016). Unsaved text is written to `~/Library/Application Support/SwiftIDE/Recovery/` two seconds after the last edit (at most ten seconds after the first, however steadily one types), at once when the app goes to the background, and removed when the document is saved, saved under another name, closed without saving or quit with "Don't Save". Documents over 16 MB are not kept, and the window says so.
 - Restoring writes nothing to disk: the text becomes an ordinary unsaved edit (undoable). If the file changed on disk since, saving is a conflict as for any outside change. A file that is gone or unreadable, and a document that never had a file, open as Untitled. A copy that is cut short or altered is never offered; it is listed as unreadable.
