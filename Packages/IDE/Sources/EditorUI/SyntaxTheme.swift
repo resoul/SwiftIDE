@@ -1,8 +1,6 @@
 import AppKit
 import IDEDomain
 
-/// Colours for each kind of text, light and dark. Colours are dynamic, so a change of appearance
-/// needs no work from the editor.
 @MainActor
 public struct SyntaxTheme {
     private let colours: [HighlightKind: NSColor]
@@ -31,10 +29,10 @@ public struct SyntaxTheme {
         .number: dynamic(light: (0.11, 0.00, 0.81), dark: (0.82, 0.75, 0.40)),
         .comment: dynamic(light: (0.36, 0.42, 0.47), dark: (0.50, 0.55, 0.60)),
         .documentation: dynamic(light: (0.20, 0.45, 0.30), dark: (0.45, 0.70, 0.55)),
-        .type: dynamic(light: (0.04, 0.38, 0.45), dark: (0.36, 0.78, 0.86)),
-        .function: dynamic(light: (0.22, 0.32, 0.55), dark: (0.40, 0.72, 0.95)),
-        .property: dynamic(light: (0.26, 0.40, 0.52), dark: (0.45, 0.80, 0.90)),
-        .constant: dynamic(light: (0.04, 0.38, 0.45), dark: (0.36, 0.78, 0.86)),
+        .type: dynamic(light: (0.04, 0.38, 0.45), dark: (0.36, 0.80, 0.88)),
+        .function: dynamic(light: (0.12, 0.25, 0.72), dark: (0.42, 0.58, 1.00)),
+        .property: dynamic(light: (0.33, 0.42, 0.06), dark: (0.64, 0.85, 0.42)),
+        .constant: dynamic(light: (0.45, 0.20, 0.68), dark: (0.74, 0.60, 1.00)),
         .attribute: dynamic(light: (0.50, 0.30, 0.10), dark: (0.90, 0.65, 0.40)),
         .label: dynamic(light: (0.40, 0.40, 0.10), dark: (0.80, 0.80, 0.45))
         // Operators, parameters and everything else stay in the text colour.
