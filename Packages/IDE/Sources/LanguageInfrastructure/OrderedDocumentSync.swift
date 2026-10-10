@@ -109,6 +109,7 @@ public final class OrderedDocumentSync {
 
             // A server tells the language of a file by its name, so the stand-in has the right one.
             let name = "Untitled-\(session.id.rawValue.uuidString.prefix(8))." + Self.fileExtension(forLanguageID: languageID(session))
+
             return virtualDirectory.appendingPathComponent(name).absoluteString
         }
 

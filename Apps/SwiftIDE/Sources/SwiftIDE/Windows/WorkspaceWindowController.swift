@@ -26,9 +26,14 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     private let languages: DocumentLanguages
     private let languageSelector: DocumentLanguageSelector
     private var completion: CompletionCoordinator?
+    private var features: LanguageFeaturesCoordinator?
+    private let host: EditorHostView
+    private var isSystemFile = false
     private var isReadOnlyForLongLines = false
 
     var onClose: ((WorkspaceWindowController) -> Void)?
+    /// A definition is in another file: the application opens it.
+    var onOpenLocation: ((DefinitionLocation) -> Void)?
     var unsavedChanges: UnsavedChangesCoordinator?
 
     init(
@@ -72,7 +77,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
             backing: .buffered,
             defer: false
         )
-        container = EditorContainerView(host: EditorHostView(editor: editor, lineIndex: lineIndex))
+        host = EditorHostView(editor: editor, lineIndex: lineIndex)
+        container = EditorContainerView(host: host)
         longLines = LongLineMonitor(lineIndex: lineIndex)
         window.contentView = container
         window.center()
@@ -87,6 +93,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         languageSelector.subscribe { [weak self] _ in
             // Whatever was asked of the old language's server is not an answer for this one.
             self?.completion?.controller.dismiss()
+            self?.features?.hover.dismiss()
             self?.refreshSubtitle()
         }
         recovery.onStatusChange = { [weak self] _ in self?.refreshSubtitle() }
@@ -99,6 +106,16 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         // Completion from the language server of the document's place; the server may still be
         // starting, in which case there is simply nothing to offer yet.
         completion = CompletionCoordinator(session: document, editor: editor, provider: languageServices)
+        // Descriptions, definitions and problems from the same server.
+        features = LanguageFeaturesCoordinator(
+            session: document,
+            editor: editor,
+            host: host,
+            lineIndex: lineIndex,
+            provider: languageServices
+        )
+        features?.onDiagnosticsChange = { [weak self] in self?.refreshSubtitle() }
+        features?.openLocation = { [weak self] location in self?.onOpenLocation?(location) }
         Task { [languageServices] in await languageServices.attach(document) }
     }
 
@@ -230,8 +247,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         guard let window else { return }
 
         let engine = editor.compatibility.isTextKit2 ? "TextKit 2" : "⚠︎ TextKit 1"
-        let readOnly = isReadOnlyForLongLines ? "read-only" : nil
-        window.subtitle = [languageNote, engine, colourNote, recoveryNote, readOnly].compactMap { $0 }.joined(separator: " · ")
+        let readOnly = isReadOnlyForLongLines ? "read-only" : (isSystemFile ? "read-only (system file)" : nil)
+        window.subtitle = [languageNote, features?.diagnostics.summary.text, engine, colourNote, recoveryNote, readOnly].compactMap { $0 }.joined(separator: " · ")
     }
 
     private func refreshTitle() {
@@ -251,6 +268,38 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         }
 
         return true
+    }
+
+    /// Edit ▸ Jump to Definition (⌃⌘J).
+    @objc func jumpToDefinition(_ sender: Any?) {
+        features?.jumpToDefinition()
+    }
+
+    /// Edit ▸ Quick Help (⌃⇧Space).
+    @objc func showQuickHelp(_ sender: Any?) {
+        features?.showQuickHelp()
+    }
+
+    /// A file of the toolchain or the system that a jump to a definition came to: to read, not to change.
+    func openForReading() {
+        isSystemFile = true
+        editor.textView.isEditable = false
+        refreshSubtitle()
+    }
+
+    /// Puts the caret at a place the language server named (zero-based line, UTF-16 offset in the line)
+    /// and shows it.
+    func reveal(line: Int, character: Int) {
+        let index = lineIndex.current
+        guard line >= 0, line < index.lineCount else { return }
+
+        let start = index.startOffset(ofLine: line)
+        let extent = index.lineExtent(line)
+        let offset = start + min(max(0, character), extent.content)
+        window?.makeKeyAndOrderFront(nil)
+        editor.textView.setSelectedRange(NSRange(location: offset, length: 0))
+        editor.textView.scrollRangeToVisible(NSRange(location: offset, length: 0))
+        window?.makeFirstResponder(editor.textView)
     }
 
     /// Edit ▸ Language: the document's language, or back to deciding by name.
@@ -442,6 +491,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         onClose?(self)
         externalChanges.stop()
         completion?.controller.dismiss()
+        features?.hover.dismiss()
         languageServices.detach(session)
         languages.forget(session)
         // The window closes only for a clean document or one the user chose to discard: either way

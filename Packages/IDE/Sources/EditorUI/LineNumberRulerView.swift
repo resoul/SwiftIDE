@@ -1,5 +1,6 @@
 import AppKit
 import IDEApplication
+import IDEDomain
 
 /// Line numbers in the margin of the editor's scroll view.
 ///
@@ -12,6 +13,11 @@ public final class LineNumberRulerView: NSRulerView {
     public struct Label: Equatable {
         public let number: Int
         public let baseline: CGFloat
+    }
+
+    /// The worst problem on each line (zero-based), drawn as a dot beside the number.
+    public var problemLines: [Int: DocumentDiagnostic.Severity] = [:] {
+        didSet { if problemLines != oldValue { needsDisplay = true } }
     }
 
     private let textView: NSTextView
@@ -129,6 +135,16 @@ public final class LineNumberRulerView: NSRulerView {
         return labels
     }
 
+    static let markerSize: CGFloat = 6
+
+    static func colour(for severity: DocumentDiagnostic.Severity) -> NSColor {
+        switch severity {
+        case .error: .systemRed
+        case .warning: .systemYellow
+        case .information, .hint: .systemGray
+        }
+    }
+
     public override func drawHashMarksAndLabels(in rect: NSRect) {
         NSColor.textBackgroundColor.setFill()
         bounds.fill()
@@ -145,6 +161,10 @@ public final class LineNumberRulerView: NSRulerView {
             // Draw so that the text's baseline lands on the baseline of the line's first row.
             let top = isFlipped ? label.baseline - font.ascender : label.baseline - font.ascender
             text.draw(at: NSPoint(x: bounds.maxX - 8 - size.width, y: top))
+            if let severity = problemLines[label.number - 1] {
+                Self.colour(for: severity).setFill()
+                NSBezierPath(ovalIn: NSRect(x: 4, y: top + (size.height - Self.markerSize) / 2, width: Self.markerSize, height: Self.markerSize)).fill()
+            }
         }
     }
 }

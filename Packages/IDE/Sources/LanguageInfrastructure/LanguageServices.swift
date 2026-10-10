@@ -10,7 +10,7 @@ import IDEDomain
 /// the one for loose files stays up. A document that is saved under another name moves to the
 /// server of its new place.
 @MainActor
-public final class LanguageServices: CompletionProviding {
+public final class LanguageServices: CompletionProviding, HoverProviding, DefinitionProviding, DiagnosticsProviding {
     public typealias MakeService = @MainActor (_ root: URL, _ virtualDirectory: URL) -> SourceKitLanguageService
 
     private struct Managed {
@@ -33,6 +33,8 @@ public final class LanguageServices: CompletionProviding {
     private var services: [URL: SourceKitLanguageService] = [:]
     private var homes: [DocumentID: Home] = [:]
     private var managed: [DocumentID: Managed] = [:]
+    private var latestDiagnostics: [DocumentID: DocumentDiagnostics] = [:]
+    private var diagnosticsObservers: [UUID: (document: DocumentID, observer: @MainActor () -> Void)] = [:]
 
     public init(
         scratchRoot: URL,
@@ -105,6 +107,11 @@ public final class LanguageServices: CompletionProviding {
 
     private func serviceStarted(for root: URL) -> SourceKitLanguageService {
         let service = makeService(root, scratchRoot)
+        service.onDiagnostics = { [weak self, weak service] session in
+            guard let self, let service, self.homes[session.id]?.service === service else { return }
+
+            self.diagnosticsArrived(for: session, from: service)
+        }
         let (languages, served) = (languages, servedLanguages)
         service.sync.languageID = { session in
             let language = languages.selector(for: session).resolved.language
@@ -125,6 +132,8 @@ public final class LanguageServices: CompletionProviding {
 
     private func release(_ session: DocumentSession) {
         guard let home = homes.removeValue(forKey: session.id) else { return }
+
+        if latestDiagnostics.removeValue(forKey: session.id) != nil { notifyDiagnosticsObservers(of: session.id) }
 
         session.unsubscribeFromSaves(home.saveSubscription)
         home.service.close(session)
@@ -162,5 +171,48 @@ public final class LanguageServices: CompletionProviding {
         guard let service = homes[session.id]?.service else { return .unavailable(.notRunning) }
 
         return await service.completion(for: session, caret: caret)
+    }
+
+    // MARK: HoverProviding, DefinitionProviding
+
+    public func hover(for session: DocumentSession, offset: @MainActor () -> Int) async -> HoverOutcome {
+        guard let service = homes[session.id]?.service else { return .failed(.unavailable(.notRunning)) }
+
+        return await service.hover(for: session, offset: offset)
+    }
+
+    public func definition(for session: DocumentSession, offset: @MainActor () -> Int) async -> DefinitionOutcome {
+        guard let service = homes[session.id]?.service else { return .failed(.unavailable(.notRunning)) }
+
+        return await service.definition(for: session, offset: offset)
+    }
+
+    // MARK: DiagnosticsProviding
+
+    public func diagnostics(for session: DocumentSession) -> DocumentDiagnostics? { latestDiagnostics[session.id] }
+
+    @discardableResult
+    public func subscribeToDiagnostics(for session: DocumentSession, _ observer: @escaping @MainActor () -> Void) -> UUID {
+        let id = UUID()
+        diagnosticsObservers[id] = (session.id, observer)
+
+        return id
+    }
+
+    public func unsubscribeFromDiagnostics(_ id: UUID) {
+        diagnosticsObservers.removeValue(forKey: id)
+    }
+
+    private func diagnosticsArrived(for session: DocumentSession, from service: SourceKitLanguageService) {
+        // A report that cannot be read against the text as it is (the document is ahead of the
+        // server, or the report names an older version) is not shown; the next one will come.
+        guard let report = service.documentDiagnostics(for: session) else { return }
+
+        latestDiagnostics[session.id] = report
+        notifyDiagnosticsObservers(of: session.id)
+    }
+
+    private func notifyDiagnosticsObservers(of document: DocumentID) {
+        for entry in Array(diagnosticsObservers.values) where entry.document == document { entry.observer() }
     }
 }

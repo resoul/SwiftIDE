@@ -12,10 +12,62 @@ final class CodeTextView: NSTextView {
                 return request()
             }
 
+            if modifiers == [.control, .shift], event.charactersIgnoringModifiers == " ", let request = hooks.requestHover {
+                return request()
+            }
+
+            hooks.interactionBegan?()
+
             if hooks.interceptKey?(event) == true { return }
         }
 
         super.keyDown(with: event)
+    }
+
+    // MARK: The pointer
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self && area.userInfo?["code"] != nil { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: ["code": true]
+        ))
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        hooks?.pointerMoved?(characterOffset(atViewPoint: convert(event.locationInWindow, from: nil)))
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        hooks?.pointerMoved?(nil)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if handleCommandClick(event) { return }
+
+        super.mouseDown(with: event)
+    }
+
+    /// A click takes a description away; a Command-click on a character is the editor's if the
+    /// application uses it. True if the click is used up. (The rest is the text view's own, which
+    /// follows the pointer until the button is released.)
+    func handleCommandClick(_ event: NSEvent) -> Bool {
+        hooks?.interactionBegan?()
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard modifiers == .command, !hasMarkedText(),
+              let offset = characterOffset(atViewPoint: convert(event.locationInWindow, from: nil)) else { return false }
+
+        return hooks?.commandClick?(offset) == true
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        hooks?.interactionBegan?()
+        super.scrollWheel(with: event)
     }
 
     /// The system command behind Escape and F5. The default one offers words from a dictionary;

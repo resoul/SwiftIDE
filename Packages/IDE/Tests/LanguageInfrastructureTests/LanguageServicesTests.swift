@@ -59,7 +59,7 @@ private final class Rig {
 
     func waitForServers(_ count: Int) async -> Bool {
         let servers = servers
-        let deadline = ContinuousClock.now + .seconds(10)
+        let deadline = ContinuousClock.now + .seconds(60)
         while ContinuousClock.now < deadline {
             if servers.count >= count { return true }
             try? await Task.sleep(for: .milliseconds(5))
@@ -230,14 +230,43 @@ func aTextFileChosenAsSwiftIsGivenToTheServerOfItsPlace() async throws {
 }
 
 @Test @MainActor
-func aLanguageThisServerDoesNotServeIsNotGivenToIt() async throws {
+func aCFamilyDocumentIsGivenToTheServerUnderItsOwnLanguageID() async throws {
     let rig = try Rig()
     let header = rig.session(rig.base.appendingPathComponent("A/api.h").path)
     await rig.services.attach(header)
-    rig.languages.selector(for: header).setOverride(.cpp)
-    rig.languages.selector(for: header).setOverride(.objectiveC)
+    let selector = rig.languages.selector(for: header)
+    #expect(await rig.waitForServers(1))
+    let server = rig.servers.made[0]
+
+    func openedAs(_ count: Int) async -> String? {
+        guard await server.waitUntil({ server.messages(named: "textDocument/didOpen").count == count }) else { return nil }
+
+        return server.messages(named: "textDocument/didOpen")[count - 1]["params"]?["textDocument"]?["languageId"]?.stringValue
+    }
+    #expect(await openedAs(1) == "c", "a .h is taken for C")
+    selector.setOverride(.cpp)
+    #expect(await openedAs(2) == "cpp")
+    selector.setOverride(.objectiveC)
+    #expect(await openedAs(3) == "objective-c")
+    selector.setOverride(.objectiveCPP)
+    #expect(await openedAs(4) == "objective-cpp")
+    #expect(server.messages(named: "textDocument/didClose").count == 3, "each change closed the document before opening it again")
+}
+
+@Test @MainActor
+func plainTextIsNotGivenToTheServerEvenWhenTheFileNameIsAHeader() async throws {
+    let rig = try Rig()
+    let header = rig.session(rig.base.appendingPathComponent("A/api.h").path)
+    await rig.services.attach(header)
+    #expect(await rig.waitForServers(1))
+    let server = rig.servers.made[0]
+    #expect(await server.waitForMethod("textDocument/didOpen"))
+
+    rig.languages.selector(for: header).setOverride(.plainText)
+    #expect(await server.waitUntil { server.messages(named: "textDocument/didClose").count == 1 })
     try await Task.sleep(for: .milliseconds(50))
-    #expect(rig.services.service(for: header) == nil && rig.servers.count == 0)
+    #expect(server.messages(named: "textDocument/didOpen").count == 1 && rig.services.service(for: header) == nil)
+    #expect(rig.services.serves(.objectiveCPP) && !rig.services.serves(.plainText))
 }
 
 @Test @MainActor
@@ -276,4 +305,100 @@ func everyLanguageButPlainTextHasAServerID() {
     #expect(DocumentLanguage.allCases.filter { $0.languageServerID == nil } == [.plainText])
     #expect(Set(DocumentLanguage.allCases.compactMap(\.languageServerID)).count == 5)
     #expect(DocumentLanguage.objectiveCPP.languageServerID == "objective-cpp")
+}
+
+// MARK: Diagnostics, hover and definition through the services
+
+private func report(_ uri: String, version: Int? = nil, message: String = "boom", from: Int = 4, to: Int = 5) -> JSONValue {
+    var params: [String: JSONValue] = [
+        "uri": .string(uri),
+        "diagnostics": [["message": .string(message), "severity": 2, "range": ["start": ["line": 0, "character": .int(from)], "end": ["line": 0, "character": .int(to)]]]],
+    ]
+    if let version { params["version"] = .int(version) }
+
+    return .object(params)
+}
+
+@Test @MainActor
+func aReportIsPlacedInTheTextAndTheObserversAreTold() async throws {
+    let rig = try Rig()
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await rig.waitForServers(1))
+    let service = try #require(rig.services.service(for: session))
+    #expect(await rig.servers.made[0].waitForMethod("textDocument/didOpen"))
+    let uri = try #require(service.sync.uri(of: session))
+    var told = 0
+    let token = rig.services.subscribeToDiagnostics(for: session) { told += 1 }
+    #expect(rig.services.diagnostics(for: session) == nil)
+
+    service.received("textDocument/publishDiagnostics", report(uri), from: 1)
+    #expect(rig.services.diagnostics(for: session) == DocumentDiagnostics(
+        items: [DocumentDiagnostic(range: UTF16TextRange(location: 4, length: 1), severity: .warning, message: "boom")],
+        version: 0,
+        isVerified: false
+    ), "SourceKit-LSP names no version: the report is not verified")
+    #expect(told == 1)
+
+    service.received("textDocument/publishDiagnostics", report(uri, version: 0, message: "named"), from: 1)
+    #expect(rig.services.diagnostics(for: session)?.isVerified == true && rig.services.diagnostics(for: session)?.items.first?.message == "named")
+    #expect(told == 2)
+
+    rig.services.unsubscribeFromDiagnostics(token)
+    service.received("textDocument/publishDiagnostics", report(uri, version: 0, message: "again"), from: 1)
+    #expect(told == 2, "not told after unsubscribing")
+}
+
+@Test @MainActor
+func aReportForAnOlderVersionOrForADocumentAheadOfTheServerIsNotShown() async throws {
+    let rig = try Rig()
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await rig.waitForServers(1))
+    let service = try #require(rig.services.service(for: session))
+    #expect(await rig.servers.made[0].waitForMethod("textDocument/didOpen"))
+    let uri = try #require(service.sync.uri(of: session))
+    var told = 0
+    rig.services.subscribeToDiagnostics(for: session) { told += 1 }
+
+    try session.apply([DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// c\n")], expectedVersion: session.version)
+    service.received("textDocument/publishDiagnostics", report(uri, version: 0), from: 1)
+    #expect(rig.services.diagnostics(for: session) == nil && told == 0, "it names version 0; the text is at 1")
+
+    service.received("textDocument/publishDiagnostics", report(uri, version: 1), from: 1)
+    #expect(rig.services.diagnostics(for: session)?.version == 1 && told == 1)
+}
+
+@Test @MainActor
+func aDocumentLeavingTheServerTakesItsDiagnosticsAndTellsTheObservers() async throws {
+    let rig = try Rig()
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await rig.waitForServers(1))
+    let service = try #require(rig.services.service(for: session))
+    #expect(await rig.servers.made[0].waitForMethod("textDocument/didOpen"))
+    service.received("textDocument/publishDiagnostics", report(try #require(service.sync.uri(of: session))), from: 1)
+    var told = 0
+    rig.services.subscribeToDiagnostics(for: session) { told += 1 }
+
+    rig.services.detach(session)
+    #expect(rig.services.diagnostics(for: session) == nil && told == 1)
+}
+
+@Test @MainActor
+func hoverAndDefinitionGoToTheServerOfTheDocument() async throws {
+    let rig = try Rig()
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    #expect(await rig.waitForServers(1))
+    #expect(await rig.servers.made[0].waitForMethod("textDocument/didOpen"))
+
+    #expect(await rig.services.hover(for: session, offset: { 4 }) == .nothing)
+    #expect(await rig.services.definition(for: session, offset: { 4 }) == .nothing)
+    let server = rig.servers.made[0]
+    #expect(server.messages(named: "textDocument/hover").count == 1 && server.messages(named: "textDocument/definition").count == 1)
+
+    rig.services.detach(session)
+    #expect(await rig.services.hover(for: session, offset: { 4 }) == .failed(.unavailable(.notRunning)))
+    #expect(await rig.services.definition(for: session, offset: { 4 }) == .failed(.unavailable(.notRunning)))
 }

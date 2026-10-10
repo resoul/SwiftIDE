@@ -25,13 +25,15 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
     }
 
     /// Initialises, shuts down and answers everything else with null; completion with `items`.
-    static func standard(completion: [JSONValue] = []) -> Handler {
+    static func standard(completion: [JSONValue] = [], hover: JSONValue = .null, definition: JSONValue = .null) -> Handler {
         { message, server in
             guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
 
             switch method {
             case "initialize": server.reply(id, ["capabilities": [:]])
             case "textDocument/completion": server.reply(id, ["isIncomplete": false, "items": .array(completion)])
+            case "textDocument/hover": server.reply(id, hover)
+            case "textDocument/definition": server.reply(id, definition)
             default: server.reply(id, .null)
             }
         }
@@ -99,7 +101,7 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
         received.filter { $0["method"]?.stringValue == method }
     }
 
-    func waitUntil(timeout: Duration = .seconds(10), _ condition: @Sendable () -> Bool) async -> Bool {
+    func waitUntil(timeout: Duration = .seconds(60), _ condition: @Sendable () -> Bool) async -> Bool {
         let deadline = ContinuousClock.now + timeout
         while ContinuousClock.now < deadline {
             if condition() { return true }

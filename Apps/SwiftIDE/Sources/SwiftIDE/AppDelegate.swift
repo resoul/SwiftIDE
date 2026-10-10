@@ -1,5 +1,6 @@
 import AppKit
 import IDEApplication
+import IDEDomain
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -94,13 +95,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func open(path: String) async {
+    private func open(path: String, revealing location: DefinitionLocation? = nil) async {
         do {
             let opened = try await composition.open(path: path)
             if opened.isNew {
-                show(composition.makeWindow(for: opened.session))
+                let controller = composition.makeWindow(for: opened.session)
+                if location != nil, Self.isSystemFile(path) { controller.openForReading() }
+                show(controller)
             } else {
                 windows.first { $0.session === opened.session }?.showWindow(nil)
+            }
+
+            if let location {
+                windows.first { $0.session === opened.session }?.reveal(line: location.line, character: location.character)
             }
         } catch is CancellationError {
             return
@@ -199,7 +206,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windows.first { $0.session === session }
     }
 
+    /// Files of the toolchain, the SDK and the system, which a jump to a definition can come to.
+    static func isSystemFile(_ path: String) -> Bool {
+        // The server writes the interface of a framework it was asked about into the temporary folder.
+        path.contains("/sourcekit-lsp/GeneratedInterfaces/")
+            || ["/Applications/", "/Library/", "/System/", "/usr/", "/opt/"].contains { path.hasPrefix($0) }
+    }
+
     private func show(_ controller: WorkspaceWindowController) {
+        controller.onOpenLocation = { [weak self] location in
+            guard let self else { return }
+
+            Task { await self.open(path: location.path, revealing: location) }
+        }
         controller.onClose = { [weak self] closed in
             guard let self else { return }
 

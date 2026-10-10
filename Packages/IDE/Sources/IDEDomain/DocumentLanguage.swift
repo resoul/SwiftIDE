@@ -39,7 +39,7 @@ public enum DocumentLanguage: String, CaseIterable, Codable, Sendable {
         // `.C` is C++ by convention; the other names do not depend on case.
         let ext = raw == "C" ? raw : raw.lowercased()
         switch ext {
-        case "swift": return Guess(language: .swift, isProvisional: false)
+        case "swift", "swiftinterface": return Guess(language: .swift, isProvisional: false)
         case "c": return Guess(language: .c, isProvisional: false)
         case "cpp", "cc", "cxx", "hpp", "hh", "hxx", "C": return Guess(language: .cpp, isProvisional: false)
         case "m": return Guess(language: .objectiveC, isProvisional: false)

@@ -27,6 +27,8 @@ enum MainMenu {
             NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"),
             .separator(),
             completeItem(),
+            quickHelpItem(),
+            jumpToDefinitionItem(),
             languageItem()
         ]))
 
@@ -54,6 +56,22 @@ enum MainMenu {
     private static func completeItem() -> NSMenuItem {
         let item = NSMenuItem(title: "Complete", action: #selector(NSTextView.complete(_:)), keyEquivalent: " ")
         item.keyEquivalentModifierMask = .control
+
+        return item
+    }
+
+    /// Edit ▸ Quick Help, Control-Shift-Space: the description of the symbol at the caret.
+    private static func quickHelpItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Quick Help", action: #selector(WorkspaceWindowController.showQuickHelp(_:)), keyEquivalent: " ")
+        item.keyEquivalentModifierMask = [.control, .shift]
+
+        return item
+    }
+
+    /// Edit ▸ Jump to Definition, Control-Command-J; a Command-click does the same.
+    private static func jumpToDefinitionItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Jump to Definition", action: #selector(WorkspaceWindowController.jumpToDefinition(_:)), keyEquivalent: "j")
+        item.keyEquivalentModifierMask = [.control, .command]
 
         return item
     }

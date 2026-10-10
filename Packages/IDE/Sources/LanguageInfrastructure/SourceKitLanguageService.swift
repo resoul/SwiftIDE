@@ -262,18 +262,35 @@ public final class SourceKitLanguageService: CompletionProviding {
     /// Completions at the caret. `caret` is asked again when the answer arrives: the answer is
     /// used only if the document, the caret and the server are still the ones it was asked for.
     public func completion(for session: DocumentSession, caret: @MainActor () -> Int) async -> CompletionOutcome {
+        switch await positionRequest("textDocument/completion", extra: ["context": ["triggerKind": 1]], session: session, offset: caret) {
+        case .failure(let failure): return CompletionOutcome(failure)
+        case .success(let answer): return Self.parseCompletion(answer, session: session, sync: sync)
+        }
+    }
+
+    /// A request about a place in a document, with everything that keeps its answer honest: it
+    /// waits for the document to be in step with the server, goes into the outbox behind every
+    /// change already made, is asked again while the server has no language service for the file
+    /// yet, and is dropped if the text, the place, the server or the input method changed meanwhile.
+    /// `offset` is asked again when the answer arrives.
+    private func positionRequest(
+        _ method: String,
+        extra: [String: JSONValue],
+        session: DocumentSession,
+        offset place: @MainActor () -> Int
+    ) async -> Result<JSONValue, LanguageRequestFailure> {
         switch state {
         case .running: break
-        case .starting: return .unavailable(.starting)
-        case .restarting: return .unavailable(.restarting)
-        case .failed(let reason): return .unavailable(.failed(reason))
-        case .stopped: return .unavailable(.notRunning)
+        case .starting: return .failure(.unavailable(.starting))
+        case .restarting: return .failure(.unavailable(.restarting))
+        case .failed(let reason): return .failure(.unavailable(.failed(reason)))
+        case .stopped: return .failure(.unavailable(.notRunning))
         }
-        guard let connection else { return .unavailable(.notRunning) }
+        guard let connection else { return .failure(.unavailable(.notRunning)) }
 
-        guard !session.isComposing else { return .suppressedByComposition }
+        guard !session.isComposing else { return .failure(.suppressedByComposition) }
 
-        let offset = caret()
+        let offset = place()
         let version = session.version, generation = sync.generation
         // A document is out of step with the server for a moment when it is being opened or
         // opened again (a new server has just arrived): wait for that rather than refuse.
@@ -281,61 +298,156 @@ public final class SourceKitLanguageService: CompletionProviding {
         while !sync.isSynced(session), waits < Self.syncWaits {
             waits += 1
             try? await Task.sleep(for: .milliseconds(50))
-            if Task.isCancelled { return .stale(.cancelled) }
-            if session.version != version { return .stale(.documentChanged) }
-            if caret() != offset { return .stale(.caretMoved) }
-            if sync.generation != generation { return .stale(.serverRestarted) }
+            if Task.isCancelled { return .failure(.stale(.cancelled)) }
+
+            if session.version != version { return .failure(.stale(.documentChanged)) }
+
+            if place() != offset { return .failure(.stale(.caretMoved)) }
+
+            if sync.generation != generation { return .failure(.stale(.serverRestarted)) }
         }
         guard let uri = sync.uri(of: session), let position = sync.position(of: offset, in: session) else {
-            return .unavailable(.documentNotSynced)
+            return .failure(.unavailable(.documentNotSynced))
         }
 
         // Put in the outbox right here, behind every change already made. A server that has only
         // just been given the document may not have a language service for it yet: that answer
         // means "not yet", and the question is asked again a little later.
+        var parameters: [String: JSONValue] = ["textDocument": ["uri": .string(uri)], "position": position.json]
+        for (key, value) in extra { parameters[key] = value }
         var answer: JSONValue = .null
         for attempt in 0...Self.notReadyRetries {
-            let request = connection.request("textDocument/completion", [
-                "textDocument": ["uri": .string(uri)],
-                "position": position.json,
-                "context": ["triggerKind": 1],
-            ])
+            let request = connection.request(method, .object(parameters))
             do {
                 answer = try await request.response()
                 break
             } catch is CancellationError {
-                return .stale(.cancelled)
+                return .failure(.stale(.cancelled))
             } catch let error as LSPError {
                 switch error {
                 case .connectionClosed, .restarted:
-                    return .stale(.serverRestarted)
+                    return .failure(.stale(.serverRestarted))
                 case .server(let code, _) where code == -32800 || code == -32801:
-                    return .stale(.cancelled)
+                    return .failure(.stale(.cancelled))
                 case .server(let code, let message) where code == -32001 && message.contains("No language service"):
-                    guard attempt < Self.notReadyRetries else { return .unavailable(.failed(String(describing: error))) }
+                    guard attempt < Self.notReadyRetries else { return .failure(.unavailable(.failed(String(describing: error)))) }
 
                     try? await Task.sleep(for: .milliseconds(150 * (attempt + 1)))
                     // What was asked for may be gone by now; then there is nothing to ask again.
-                    if Task.isCancelled { return .stale(.cancelled) }
-                    if sync.generation != generation { return .stale(.serverRestarted) }
-                    if session.version != version { return .stale(.documentChanged) }
-                    if caret() != offset { return .stale(.caretMoved) }
+                    if Task.isCancelled { return .failure(.stale(.cancelled)) }
+
+                    if sync.generation != generation { return .failure(.stale(.serverRestarted)) }
+
+                    if session.version != version { return .failure(.stale(.documentChanged)) }
+
+                    if place() != offset { return .failure(.stale(.caretMoved)) }
+
                     continue
                 default:
-                    return .unavailable(.failed(String(describing: error)))
+                    return .failure(.unavailable(.failed(String(describing: error))))
                 }
             } catch {
-                return .unavailable(.failed(String(describing: error)))
+                return .failure(.unavailable(.failed(String(describing: error))))
             }
         }
 
-        if Task.isCancelled { return .stale(.cancelled) }
-        if sync.generation != generation { return .stale(.serverRestarted) }
-        if session.version != version { return .stale(.documentChanged) }
-        if session.isComposing { return .stale(.compositionStarted) }
-        if caret() != offset { return .stale(.caretMoved) }
+        if Task.isCancelled { return .failure(.stale(.cancelled)) }
 
-        return Self.parseCompletion(answer, session: session, sync: sync)
+        if sync.generation != generation { return .failure(.stale(.serverRestarted)) }
+
+        if session.version != version { return .failure(.stale(.documentChanged)) }
+
+        if session.isComposing { return .failure(.stale(.compositionStarted)) }
+
+        if place() != offset { return .failure(.stale(.caretMoved)) }
+
+        return .success(answer)
+    }
+
+    // MARK: Hover and definition
+
+    public func hover(for session: DocumentSession, offset: @MainActor () -> Int) async -> HoverOutcome {
+        switch await positionRequest("textDocument/hover", extra: [:], session: session, offset: offset) {
+        case .failure(let failure): return .failed(failure)
+        case .success(let answer): return Self.parseHover(answer, session: session, sync: sync)
+        }
+    }
+
+    public func definition(for session: DocumentSession, offset: @MainActor () -> Int) async -> DefinitionOutcome {
+        switch await positionRequest("textDocument/definition", extra: [:], session: session, offset: offset) {
+        case .failure(let failure): return .failed(failure)
+        case .success(let answer): return Self.parseDefinition(answer, session: session, sync: sync)
+        }
+    }
+
+    static func parseHover(_ answer: JSONValue, session: DocumentSession, sync: OrderedDocumentSync) -> HoverOutcome {
+        guard answer != .null, let contents = answer["contents"] else { return .nothing }
+
+        let text = Self.plainText(ofHoverContents: contents)
+        guard !text.isEmpty else { return .nothing }
+
+        var range: UTF16TextRange?
+        if let start = position(answer["range"]?["start"]), let end = position(answer["range"]?["end"]),
+           let from = sync.offset(of: start, in: session), let to = sync.offset(of: end, in: session), to >= from {
+            range = UTF16TextRange(location: from, length: to - from)
+        }
+
+        return .content(HoverContent(text: text, range: range))
+    }
+
+    /// `contents` is a `MarkupContent`, a `MarkedString` (a string, or a code block) or a list of them.
+    static func plainText(ofHoverContents contents: JSONValue) -> String {
+        if let string = contents.stringValue { return markdownToPlainText(string) }
+
+        if let value = contents["value"]?.stringValue { return markdownToPlainText(value) }
+
+        if let list = contents.arrayValue {
+            return list.map(plainText(ofHoverContents:)).filter { !$0.isEmpty }.joined(separator: "\n\n")
+        }
+
+        return ""
+    }
+
+    /// Fences and emphasis off, the words kept: enough for a tooltip.
+    static func markdownToPlainText(_ markdown: String) -> String {
+        var lines: [String] = []
+        for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") { continue }
+
+            lines.append(String(line))
+        }
+        var text = lines.joined(separator: "\n")
+        for mark in ["**", "__", "`"] { text = text.replacingOccurrences(of: mark, with: "") }
+        // A blank line at the start or end, and more than one in a row, say nothing.
+        while text.contains("\n\n\n") { text = text.replacingOccurrences(of: "\n\n\n", with: "\n\n") }
+
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func parseDefinition(_ answer: JSONValue, session: DocumentSession, sync: OrderedDocumentSync) -> DefinitionOutcome {
+        let raw: [JSONValue]
+        if let list = answer.arrayValue {
+            raw = list
+        } else if answer != .null {
+            raw = [answer]
+        } else {
+            raw = []
+        }
+
+        let own = sync.uri(of: session)
+        let locations = raw.compactMap { item -> DefinitionLocation? in
+            // A `Location` has `uri` and `range`; a `LocationLink` has `targetUri` and `targetSelectionRange`.
+            let uri = item["uri"]?.stringValue ?? item["targetUri"]?.stringValue
+            let range = item["range"] ?? item["targetSelectionRange"] ?? item["targetRange"]
+            guard let uri, let url = URL(string: uri), url.isFileURL, let start = position(range?["start"]) else { return nil }
+
+            let offset = uri == own ? sync.offset(of: start, in: session) : nil
+
+            return DefinitionLocation(path: url.path, line: start.line, character: start.character, offset: offset)
+        }
+
+        return locations.isEmpty ? .nothing : .locations(locations)
     }
 
     private static func parseCompletion(_ answer: JSONValue, session: DocumentSession, sync: OrderedDocumentSync) -> CompletionOutcome {
@@ -416,6 +528,25 @@ public final class SourceKitLanguageService: CompletionProviding {
         }
 
         return DiagnosticsReport(items: stored.items, reportedVersion: stored.version, freshness: freshness)
+    }
+
+    /// The report in the text as it is now, if the server's positions can be read against it: the
+    /// document is in step with the server, and a report that names its version names this one.
+    public func documentDiagnostics(for session: DocumentSession) -> DocumentDiagnostics? {
+        guard let report = diagnostics(for: session), report.freshness != .stale, sync.isSynced(session) else { return nil }
+
+        let items = report.items.compactMap { item -> DocumentDiagnostic? in
+            guard let from = sync.offset(of: item.start, in: session), let to = sync.offset(of: item.end, in: session), to >= from else { return nil }
+
+            return DocumentDiagnostic(
+                range: UTF16TextRange(location: from, length: to - from),
+                severity: DocumentDiagnostic.Severity(rawValue: item.severity.rawValue) ?? .error,
+                message: item.message,
+                source: item.source
+            )
+        }
+
+        return DocumentDiagnostics(items: items, version: session.version, isVerified: report.freshness == .current)
     }
 
     func received(_ method: String, _ params: JSONValue, from number: Int) {

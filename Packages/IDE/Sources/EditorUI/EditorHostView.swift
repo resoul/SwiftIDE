@@ -23,6 +23,9 @@ public final class EditorHostView: NSScrollView {
         }
     }
 
+    /// The line-number margin, if the view has one.
+    public var lineNumberRuler: LineNumberRulerView? { verticalRulerView as? LineNumberRulerView }
+
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 }

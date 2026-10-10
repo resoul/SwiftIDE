@@ -282,6 +282,22 @@ func aDocumentClosedBeforeItWasOpenedOnTheServerSaysNothingToIt() async throws {
     #expect(rig.server.messages(named: "textDocument/didClose").isEmpty, "there was no document there to close")
 }
 
+@Test @MainActor
+func aDocumentWithNoFileGetsAStandInNameInItsOwnLanguage() async throws {
+    let cases: [(String?, String)] = [("swift", "swift"), ("c", "c"), ("cpp", "cpp"), ("objective-c", "m"), ("objective-cpp", "mm"), (nil, "swift")]
+    for (languageID, suffix) in cases {
+        let server = ScriptedServer()
+        let sync = OrderedDocumentSync(virtualDirectory: URL(fileURLWithPath: "/w/scratch", isDirectory: true))
+        sync.attach(LanguageServerConnection(channel: server, onNotification: { _, _ in }))
+        sync.languageID = { _ in languageID ?? "swift" }
+        let session = DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: "x"), isUntitled: true)
+        try await sync.open(session)
+
+        let uri = try #require(sync.uri(of: session))
+        #expect(uri.hasPrefix("file:///w/scratch/Untitled-") && uri.hasSuffix("." + suffix), "\(languageID ?? "nil") → \(uri)")
+    }
+}
+
 // MARK: Order against requests
 
 @Test @MainActor

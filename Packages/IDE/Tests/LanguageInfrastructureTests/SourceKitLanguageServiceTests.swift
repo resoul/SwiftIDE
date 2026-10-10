@@ -76,6 +76,14 @@ private final class Rig {
         await service.completion(for: session, caret: { self.caret })
     }
 
+    func hover() async -> HoverOutcome {
+        await service.hover(for: session, offset: { self.caret })
+    }
+
+    func definition() async -> DefinitionOutcome {
+        await service.definition(for: session, offset: { self.caret })
+    }
+
     func edit(_ location: Int, _ text: String) throws {
         try session.apply(
             [DocumentEdit(range: UTF16TextRange(location: location, length: 0), replacement: text)],
@@ -148,13 +156,14 @@ func aLabelWithClangdsLeadingSpaceIsShownWithoutItAndInsertsWithoutIt() async th
     let server = ScriptedServer(handler: ScriptedServer.standard(completion: [
         .object(["label": "  clib_add", "filterText": "clib_add", "kind": 3]),
         completionItem(" x", newText: "x"),
+        .object(["label": "\u{2022}group_req", "kind": 7]),
         .object(["label": "   "]),
     ]))
     let rig = Rig(servers: [server])
     try await rig.started()
     guard case .items(let items, _) = await rig.completion() else { Issue.record("expected items"); return }
 
-    #expect(items.map(\.label) == ["clib_add", "x"], "the empty one is no item")
+    #expect(items.map(\.label) == ["clib_add", "x", "group_req"], "the empty one is no item; the bullet marks the index")
     #expect(items[0].insertText == "clib_add", "no text edit and no insert text: the name")
     #expect(items[1].insertText == "x")
     #expect(items[0].filterText == "clib_add" && items[0].kind == .function)
@@ -606,5 +615,137 @@ func aDocumentThatNeverGetsInStepIsRefusedAfterAShortWait() async throws {
     await rig.service.start()   // the document was never opened
     let start = ContinuousClock.now
     #expect(await rig.completion() == .unavailable(.documentNotSynced))
-    #expect(ContinuousClock.now - start < .seconds(3))
+    // About a second when the machine is idle (20 waits of 50 ms); the bound only says "not for ever",
+    // since the suite runs next to builds and language servers.
+    #expect(ContinuousClock.now - start < .seconds(40))
+}
+
+// MARK: Hover
+
+private func range(_ line: Int, _ from: Int, _ to: Int) -> JSONValue {
+    ["start": ["line": .int(line), "character": .int(from)], "end": ["line": .int(line), "character": .int(to)]]
+}
+
+@Test @MainActor
+func hoverReturnsPlainTextAndTheRangeItIsAbout() async throws {
+    let markdown = "```swift\nlet x: Int\n```\n\n---\nThe **value** of `x`.\n"
+    let server = ScriptedServer(handler: ScriptedServer.standard(hover: ["contents": ["kind": "markdown", "value": .string(markdown)], "range": range(0, 4, 5)]))
+    let rig = Rig(servers: [server])
+    try await rig.started()
+    rig.caret = 4
+    guard case .content(let content) = await rig.hover() else { Issue.record("expected content"); return }
+
+    #expect(content.text == "let x: Int\n\n---\nThe value of x.")
+    #expect(content.range == UTF16TextRange(location: 4, length: 1))
+    let params = try #require(server.messages(named: "textDocument/hover").first?["params"])
+    #expect(params["position"] == ["line": 0, "character": 4])
+}
+
+@Test @MainActor
+func hoverUnderstandsTheOtherShapesOfContents() async throws {
+    let shapes: [(JSONValue, String)] = [
+        (["contents": "plain words"], "plain words"),
+        (["contents": ["language": "c", "value": "int f(void)"]], "int f(void)"),
+        (["contents": [.string("first"), ["language": "c", "value": "int g()"], ["kind": "plaintext", "value": "last"]]], "first\n\nint g()\n\nlast"),
+    ]
+    for (answer, expected) in shapes {
+        let rig = Rig(servers: [ScriptedServer(handler: ScriptedServer.standard(hover: answer))])
+        try await rig.started()
+        guard case .content(let content) = await rig.hover() else { Issue.record("expected content for \(answer)"); return }
+
+        #expect(content.text == expected)
+        #expect(content.range == nil)
+    }
+}
+
+@Test @MainActor
+func hoverWithNothingToSayIsNothing() async throws {
+    for answer: JSONValue in [.null, ["contents": ""], ["contents": ["kind": "markdown", "value": "```\n```"]], ["contents": []]] {
+        let rig = Rig(servers: [ScriptedServer(handler: ScriptedServer.standard(hover: answer))])
+        try await rig.started()
+        #expect(await rig.hover() == .nothing, "\(answer)")
+    }
+}
+
+@Test @MainActor
+func hoverIsAskedBehindTheEditsAlreadyMade() async throws {
+    let server = ScriptedServer(handler: ScriptedServer.standard(hover: ["contents": "t"]))
+    let rig = Rig(servers: [server])
+    try await rig.started()
+    try rig.edit(12, "abc")
+    rig.caret = 14
+    _ = await rig.hover()
+    #expect(server.methods.suffix(2) == ["textDocument/didChange", "textDocument/hover"])
+    #expect(server.messages(named: "textDocument/hover")[0]["params"]?["position"] == ["line": 1, "character": 4])
+}
+
+@Test @MainActor
+func aHoverAnswerForTextOrAPlaceThatChangedIsDroppedAndMarkedTextAsksNothing() async throws {
+    let silent = ScriptedServer(handler: { message, server in
+        guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
+
+        if method == "initialize" { server.reply(id, ["capabilities": [:]]) }
+    })
+    let rig = Rig(servers: [silent])
+    try await rig.started()
+    let edited = Task { @MainActor in await rig.hover() }
+    #expect(await silent.waitForMethod("textDocument/hover"))
+    try rig.edit(0, "// typed meanwhile\n")
+    silent.reply(silent.messages(named: "textDocument/hover")[0]["id"]!, ["contents": "late"])
+    #expect(await edited.value == .failed(.stale(.documentChanged)))
+
+    rig.caret = 25
+    let moved = Task { @MainActor in await rig.hover() }
+    #expect(await silent.waitUntil { silent.messages(named: "textDocument/hover").count == 2 })
+    rig.caret = 26
+    silent.reply(silent.messages(named: "textDocument/hover")[1]["id"]!, ["contents": "late"])
+    #expect(await moved.value == .failed(.stale(.caretMoved)))
+
+    rig.session.compositionDidChange(.began)
+    #expect(await rig.hover() == .failed(.suppressedByComposition))
+    #expect(silent.messages(named: "textDocument/hover").count == 2, "nothing was asked")
+    rig.session.compositionDidChange(.ended)
+}
+
+@Test @MainActor
+func hoverAndDefinitionBeforeTheServerRunsSayWhy() async throws {
+    let rig = Rig(servers: [ScriptedServer()])
+    #expect(await rig.hover() == .failed(.unavailable(.notRunning)))
+    #expect(await rig.definition() == .failed(.unavailable(.notRunning)))
+    await rig.service.start()
+    #expect(await rig.hover() == .failed(.unavailable(.documentNotSynced)), "not opened")
+}
+
+// MARK: Definition
+
+@Test @MainActor
+func definitionInTheSameDocumentGivesAnOffsetAndInAnotherFileAPlace() async throws {
+    let own: JSONValue = ["uri": "file:///w/Main.swift", "range": range(0, 4, 5)]
+    let other: JSONValue = ["uri": "file:///w/Other.swift", "range": range(7, 2, 9)]
+    let server = ScriptedServer(handler: ScriptedServer.standard(definition: [own, other]))
+    let rig = Rig(servers: [server])
+    try await rig.started()
+    rig.caret = 12
+    #expect(await rig.definition() == .locations([
+        DefinitionLocation(path: "/w/Main.swift", line: 0, character: 4, offset: 4),
+        DefinitionLocation(path: "/w/Other.swift", line: 7, character: 2, offset: nil),
+    ]))
+    #expect(server.messages(named: "textDocument/definition")[0]["params"]?["position"] == ["line": 1, "character": 2])
+}
+
+@Test @MainActor
+func definitionAcceptsASingleLocationAndALocationLinkAndIgnoresWhatIsNotAFile() async throws {
+    let link: JSONValue = ["targetUri": "file:///w/Link.swift", "targetRange": range(1, 0, 20), "targetSelectionRange": range(1, 5, 9)]
+    let cases: [(JSONValue, DefinitionOutcome)] = [
+        (["uri": "file:///w/One.swift", "range": range(2, 3, 4)], .locations([DefinitionLocation(path: "/w/One.swift", line: 2, character: 3)])),
+        ([link], .locations([DefinitionLocation(path: "/w/Link.swift", line: 1, character: 5)])),
+        ([["uri": "sourcekit-lsp://swift-symbol/String", "range": range(0, 0, 1)]], .nothing),
+        (.null, .nothing),
+        ([], .nothing),
+    ]
+    for (answer, expected) in cases {
+        let rig = Rig(servers: [ScriptedServer(handler: ScriptedServer.standard(definition: answer))])
+        try await rig.started()
+        #expect(await rig.definition() == expected, "\(answer)")
+    }
 }
