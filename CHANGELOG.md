@@ -58,6 +58,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Fixed
 
+- Language-server transport: a child closing stdin could kill the client with SIGPIPE. The channel now disables that signal for its write descriptor, keeps the application's signal handler unchanged, serializes descriptor closure with writes and makes repeated close safe. Three tests include an isolated regression probe for closed stdin, child exit and close during a blocked write. The late-diagnostics test now waits for its rejection log instead of assuming it arrives in 100 ms (ADR-020, ADR-034).
+
 - Undo of adjacent deletions by normalizing touching inverse edits into an applicable batch.
 - Typing and programmatic edits merging into one undo step within the same event; caller-owned groups remain intact, and the bridge does not open groups during preflight.
 - Pending autosave blocking explicit Save during composition. Explicit requests now join and promote the waiting operation, and retry if its originating task is cancelled.

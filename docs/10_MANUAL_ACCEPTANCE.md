@@ -23,7 +23,13 @@ python3 -c "print('struct A { var b = 1 }\n// comment\nlet s = \"x\"', end='')" 
 
 The user ran these items in a live window and reported them as working (2026-10-10, one run each, on one machine). ✅ marks them in the tables below.
 
-| Section | Items passed | Not yet run |
+On 2026-10-11 the user also reported Q1–Q5 and Q20 as working after the guided live-window run: cold package preparation, diagnostics appearing after preparation without another edit, the configuration permission dialog with refusal by default, stored refusal with completion still available, and the App target subtitle.
+
+In the next guided run on the same date the user tentatively reported the expected behaviour ("seems as described") for Q34: changing only `swiftPM.extraArguments` in a permitted project configuration restarted the server both on application save and after an external edit followed by activation; unchanged activation did not restart it. Q36 was partially exercised: external edits while refused caused no restart or permission dialog, and explicitly allowing the configuration restarted the server. Saving an edited configuration inside the application while refused was not exercised in that run. These observations remain preliminary, without a ✅ mark; the remaining TK-018 checks are pending.
+
+The user subsequently confirmed Q7 and Q12 on 2026-10-11: a permitted project reopened after a full application quit without another permission dialog; Ask About Project Configuration Again prompted anew with refusal by default, and the new refusal persisted on closing and reopening the file.
+
+| Section | Items passed | Pending |
 |---|---|---|
 | A. Highlighting | A1–A5 | |
 | D. Editing | D1, D5 | D2 (IME), D3, D4, D6, D7 |
@@ -32,7 +38,7 @@ The user ran these items in a live window and reported them as working (2026-10-
 | G. File watching | G1–G7 | G8–G15 |
 | K. Swift completion | K1 | K2–K20 |
 | P. Description, jump, diagnostics | P21 | P1–P20, P22 |
-| Q. Readiness, progress, trust, opened folders, targets, configuration (TK-018) | | Q1–Q37 |
+| Q. Readiness, progress, trust, opened folders, targets, configuration (TK-018) | Q1–Q5, Q7, Q12, Q20 | Q6, Q8–Q11, Q13–Q19, Q21–Q33, Q35, Q37 not run; Q34 preliminary; Q36 partial and preliminary |
 | Q. Reusable workspace UI (TK-024, planned) | | Q13–Q14; repeat Q8 after extraction |
 | R. Workspace and Git (TK-025–TK-029, planned) | | R1–R16; run each slice when implemented |
 
@@ -306,18 +312,18 @@ Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example unde
 
 | № | Do | Expected |
 |---|---|---|
-| Q1 | Open `Sources/App/main.swift` of the cold copy (no `.sourcekit-lsp` folder) | No dialog. While the package is prepared the subtitle shows "Preparing package · n / m" (or "Reloading package") and then nothing |
-| Q2 | Add `let bad: Int = "text"` to `main.swift` right after opening, while the subtitle still says "Preparing package" | No underline and no counter while it prepares; when it has finished the error appears (a fresh report is asked for), without typing anything |
-| Q3 | Add the `.sourcekit-lsp/config.json` above, reopen the file | A dialog "Allow the project configuration?" with the buttons "Don't allow" (default, Return) and "Allow configuration" |
-| Q4 | Press "Don't allow" | The subtitle says "Project configuration disabled"; the package is still prepared and completion across modules still works (the configuration is ignored, the preparation is not stopped) |
-| Q5 | Close the window, open the file again | No dialog (the decision is kept); the subtitle still says "Project configuration disabled" |
+| Q1 ✅ | Open `Sources/App/main.swift` of the cold copy (no `.sourcekit-lsp` folder) | No dialog. While the package is prepared the subtitle shows "Preparing package · n / m" (or "Reloading package") and then nothing |
+| Q2 ✅ | Add `let bad: Int = "text"` to `main.swift` right after opening, while the subtitle still says "Preparing package" | No underline and no counter while it prepares; when it has finished the error appears (a fresh report is asked for), without typing anything |
+| Q3 ✅ | Add the `.sourcekit-lsp/config.json` above, reopen the file | A dialog "Allow the project configuration?" with the buttons "Don't allow" (default, Return) and "Allow configuration" |
+| Q4 ✅ | Press "Don't allow" | The subtitle says "Project configuration disabled"; the package is still prepared and completion across modules still works (the configuration is ignored, the preparation is not stopped) |
+| Q5 ✅ | Close the window, open the file again | No dialog (the decision is kept); the subtitle still says "Project configuration disabled" |
 | Q6 | Project ▸ Allow Project Configuration | The server restarts (the subtitle shows "Language server restarting"/"starting"); no dialog; completion of a member of another module no longer works within a few seconds (indexing is off, as the configuration says); the menu item is checked |
-| Q7 | Project ▸ Ask About Project Configuration Again, then reopen the file | The dialog is asked again; the menu item is unchecked while undecided |
+| Q7 ✅ | Project ▸ Ask About Project Configuration Again, then reopen the file | The dialog is asked again; the menu item is unchecked while undecided |
 | Q8 | Leave the dialog open and look at the window; switch to another open document window | The subtitle says "Waiting for your decision on the project configuration". The sheet blocks editing in its parent window; the other window and language-server message processing continue |
 | Q9 | A file outside any package (⌘O on `/tmp/small.swift`, or a new window) and a C file that includes a header from another folder | The subtitle says "Using fallback settings"; the errors of the missing header look paler and their description ends with "(using fallback settings)" |
 | Q10 | Project menu with a window of a loose file | The trust items are disabled (no project, nothing to decide) |
 | Q11 | While "Preparing package" shows, `pkill sourcekit-lsp` | The subtitle changes to "Language server restarting", then the new server prepares afresh; no stale "Preparing package · n / m" from the old one |
-| Q12 | Quit and start the application again, open the trusted copy | No dialog, the stored decision applies |
+| Q12 ✅ | Quit and start the application again, open the trusted copy | No dialog, the stored decision applies |
 | Q13 | File ▸ Open Folder… and choose a folder that holds a package one level down (no `Package.swift` in the folder itself); then choose a file of that package | A file panel opens inside the folder; the file opens; completion of a member of another module of that package works; the subtitle does not say "Using fallback settings" |
 | Q14 | With a file of a package already open, File ▸ Open Folder… on the package's parent folder | The open document keeps working after a moment (it moved to the folder's server: the subtitle may show "Language server starting"); completion still works |
 | Q15 | File ▸ Close Opened Folders (enabled only while a folder is open) | The document goes back to the package's own server and keeps working; the item is disabled afterwards |
@@ -325,7 +331,7 @@ Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example unde
 | Q17 | Open a folder that holds a package nested inside another structure (for example a `MODULE.bazel` at the top and a package below) | The file is served from the opened folder, not from the nested package (the server's root is the folder) |
 | Q18 | A C file in a package that lies under `~/Library/Caches` or in your home folder, then the same under `/tmp` | The subtitle shows "temporary folder: C-family flags may be missing" only for the one under `/tmp` (and not for a Swift file there) |
 | Q19 | Open the same folder twice | Nothing changes, no restart |
-| Q20 | Open `Sources/App/main.swift` of a package | Within a few seconds the subtitle adds "Target: App" (the package lists the file, so no qualifier); nothing is shown before |
+| Q20 ✅ | Open `Sources/App/main.swift` of a package | Within a few seconds the subtitle adds "Target: App" (the package lists the file, so no qualifier); nothing is shown before |
 | Q21 | Open a file of the test target (`Tests/LibTests/GreeterTests.swift`) and a header of a C target (`Sources/CLib/include/clib.h`, in `Fixtures/SwiftPMMixed`) | "Target: LibTests"; "Target: CLib (inferred)" (a header is not in the package's list of sources) |
 | Q22 | Open a loose file outside any package; a new Untitled window; then Save As the Untitled one into `Sources/App/` | No target for the first two; after Save As, "Target: App (inferred)" (by the folder, the file is not yet in the manifest's list) |
 | Q23 | Rename a target in `Package.swift` (and the folder), save it | After a moment the subtitle of the open files shows the new target name |

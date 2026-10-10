@@ -532,10 +532,9 @@ func aPushThatCameAfterThePullWasSentIsNotOverwrittenByItsLateAnswer() async thr
     publishDiagnostic(server, message: "a newer push")
     #expect(await rig.waitFor { rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a newer push" })
     server.reply(id, pulledReport)
-    try await Task.sleep(for: .milliseconds(100))
+    #expect(await rig.waitFor { rig.service.diagnosticsPullLog.contains { $0.contains("newer report") } }, "\(rig.service.diagnosticsPullLog)")
 
     #expect(rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a newer push", "the old answer does not replace it")
-    #expect(rig.service.diagnosticsPullLog.contains { $0.contains("newer report") }, "\(rig.service.diagnosticsPullLog)")
 }
 
 @Test @MainActor

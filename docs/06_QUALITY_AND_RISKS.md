@@ -19,6 +19,8 @@ For an alpha release additionally: recovery after a forced termination, no silen
 
 The target's tests live next to the package (`Tests/<Target>Tests`), and cross-package fixtures separately. The checks do not duplicate the implementation; they prove observable behaviour.
 
+For language-server transport (ADR-020), a broken pipe is checked in an isolated executable compiled from the production channel, with SIGPIPE restored to its default disposition. The client must report the write error and survive a closed stdin, child exit and close during a blocked write; its global signal handler must remain unchanged. A failed regression terminates only the probe. Asynchronous assertions such as the late diagnostic rejection wait for their observable completion, not a fixed 100 ms pause. Serial runs alone do not establish parallel-suite reliability.
+
 ## TK-005: native input/undo/IME
 
 - On a real NSTextView: typing/paste/programmatic replace, undo/redo and a new branch after undo; one document-scoped manager, no double registration and a correct origin.

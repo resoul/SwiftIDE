@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Bytes to and from a language server. The connection above it knows nothing about processes,
@@ -19,6 +20,8 @@ public final class ProcessChannel: LSPChannel, @unchecked Sendable {
     private let continuation: AsyncStream<Data>.Continuation
     private let writeQueue = DispatchQueue(label: "dev.swiftide.lsp.write")
     private let tail = ErrorTail()
+    private let lifecycleLock = NSLock()
+    private var isClosed = false
 
     /// The last lines the server wrote to its standard error: where it explains why it died.
     public var standardErrorTail: [String] { tail.lines }
@@ -34,6 +37,12 @@ public final class ProcessChannel: LSPChannel, @unchecked Sendable {
         process.standardInput = input
         process.standardOutput = output
         process.standardError = errors
+
+        // A server may close stdin between checking its state and writing. Return EPIPE for this
+        // descriptor without changing SIGPIPE handling for the application or its other pipes.
+        guard fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1) != -1 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
 
         let tail = tail
         output.fileHandleForReading.readabilityHandler = { handle in
@@ -64,8 +73,10 @@ public final class ProcessChannel: LSPChannel, @unchecked Sendable {
     public func write(_ data: Data) async throws {
         let handle = input.fileHandleForWriting
         try await withCheckedThrowingContinuation { (done: CheckedContinuation<Void, Error>) in
-            writeQueue.async {
+            writeQueue.async { [self] in
                 do {
+                    guard !lifecycleLock.withLock({ isClosed }) else { throw POSIXError(.EBADF) }
+
                     try handle.write(contentsOf: data)
                     done.resume()
                 } catch {
@@ -76,9 +87,21 @@ public final class ProcessChannel: LSPChannel, @unchecked Sendable {
     }
 
     public func close() {
-        try? input.fileHandleForWriting.close()
+        let firstClose = lifecycleLock.withLock {
+            guard !isClosed else { return false }
+
+            isClosed = true
+
+            return true
+        }
+        guard firstClose else { return }
+
+        // End the reader first so a blocked write can finish. Closing its descriptor on the same
+        // queue as writes prevents a concurrent close/reuse of the fd while a write still uses it.
         if process.isRunning { process.terminate() }
         continuation.finish()
+        let handle = input.fileHandleForWriting
+        writeQueue.async { try? handle.close() }
     }
 }
 
