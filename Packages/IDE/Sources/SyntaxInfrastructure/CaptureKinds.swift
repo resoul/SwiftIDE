@@ -1,7 +1,5 @@
 import IDEDomain
 
-/// How the grammar's capture names (the usual `@keyword.function`, `@string.escape`, ...) map to
-/// the kinds the editor colours. Names with no entry here are left plain.
 enum CaptureKinds {
     static func kind(for name: String) -> HighlightKind? {
         switch name {
@@ -28,7 +26,7 @@ enum CaptureKinds {
         case "type": return .type
         case "function": return .function
         case "constant": return .constant
-        default: return nil   // variable, punctuation.*, spell, ...
+        default: return nil
         }
     }
 }

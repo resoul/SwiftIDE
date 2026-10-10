@@ -4,15 +4,11 @@ import IDEDomain
 import SwiftTreeSitter
 import TreeSitterSwift
 
-/// What the highlighter's thread has done so far: for measuring, not for the editor.
 public struct HighlighterStatistics: Sendable, Equatable {
-    /// Requests that were answered with colours.
     public var answered = 0
-    /// Requests dropped because the text had moved on, or a newer request was queued.
     public var skipped = 0
     public var parses = 0
     public var parseMilliseconds = 0.0
-    /// Looking for a block comment that is never closed: reads the whole text after every parse.
     public var commentSearchMilliseconds = 0.0
     public var spanMilliseconds = 0.0
 }
@@ -21,11 +17,6 @@ public enum SyntaxInfrastructureError: Error {
     case missingQuery
 }
 
-/// Swift syntax colours from tree-sitter, computed off the main thread.
-///
-/// It keeps its own copy of the text (chunked, so an edit costs the edit) and its own line index,
-/// feeds each edit to the previous syntax tree, and parses again only when colours are asked for.
-/// Nothing here is shared with the editor: edits and requests arrive in order through one queue.
 public final class TreeSitterHighlighter: SyntaxHighlighter {
     private enum Message: Sendable {
         case connect(@Sendable (HighlightResult) -> Void)
@@ -35,8 +26,6 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
         case stop
     }
 
-    /// The newest version colours were asked for. A request for an older one that is still in the
-    /// queue is not worth a parse: the editor discards its answer, the document moved on.
     private final class NewestRequest: @unchecked Sendable {
         private let lock = NSLock()
         private var version: UInt64 = 0
@@ -74,8 +63,6 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
     deinit { messages.finish() }
 
-    /// Goes through the same queue as everything else: a request sent right after `connect` must
-    /// find the handler in place, not race a separate task for it.
     public func connect(onResult: @escaping @Sendable (HighlightResult) -> Void) {
         messages.yield(.connect(onResult))
     }
@@ -86,7 +73,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
         newest.note(version)
         messages.yield(.request(window, version))
     }
-    /// Drops the tree and the copy of the text at once, whoever still holds this object.
+
     public func stop() {
         messages.yield(.stop)
         messages.finish()
@@ -94,7 +81,6 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
     public func statistics() async -> HighlighterStatistics { await engine.statistics }
 
-    /// What the engine holds, for tests.
     func retainedState() async -> (units: Int, hasTree: Bool) { await engine.retained() }
 
     // MARK: The work
@@ -102,18 +88,16 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
     private actor Engine {
         private let query: Query
         private let parser = Parser()
+
         private var tree: MutableTree?
         private var text = ChunkedText()
         private var lines = LineIndex()
         private var version: UInt64 = 0
-        /// Edits were applied to the tree since it was last parsed.
         private var needsParse = true
-        /// Where a block comment that is never closed begins, if there is one. The grammar only
-        /// knows a closed comment; Swift reads an unclosed one to the end of the text.
         private var unterminatedComment: Int?
-        /// An edit that did not fit the copy of the text: nothing is trusted until a reset.
         private var lost = false
         private var handler: (@Sendable (HighlightResult) -> Void)?
+
         private(set) var statistics = HighlighterStatistics()
 
         private let isStale: @Sendable (UInt64) -> Bool
@@ -124,7 +108,6 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             try? parser.setLanguage(Language(tree_sitter_swift()))
         }
 
-        /// Everything that grows with the document: the stop of a highlighter gives it back.
         func release() {
             tree = nil
             text = ChunkedText()
@@ -151,7 +134,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
         func apply(_ changes: DocumentChangeSet) {
             guard !lost else { return }
-            for edit in changes.edits {   // last position first: each range is valid when its turn comes
+            for edit in changes.edits {
                 let start = edit.range.location
                 let oldEnd = start + edit.range.length
                 let units = Array(edit.replacement.utf16)
@@ -183,7 +166,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                 statistics.commentSearchMilliseconds += Self.milliseconds(since: searchBegan)
             }
             guard let tree else { return }
-            // A window asked for before an edit can reach past the end of the text now.
+
             let lower = min(max(0, window.lowerBound), text.length)
             let clamped = lower..<min(text.length, max(lower, window.upperBound))
             let spansBegan = ContinuousClock.now
@@ -198,9 +181,6 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             return Double(d.components.seconds) * 1_000 + Double(d.components.attoseconds) / 1e15
         }
 
-        /// The first `/*` that the syntax tree does not take for the start of a comment or part of a
-        /// string or a line comment: it was read as an operator, which only happens when no `*/`
-        /// closes it. Everything after it is comment, whatever the tree makes of it.
         private func findUnterminatedComment(in tree: MutableTree) -> Int? {
             guard let root = tree.rootNode else { return nil }
             var found: Int?
@@ -222,8 +202,6 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             return Point(row: line, column: (offset - lines.startOffset(ofLine: line)) * 2)
         }
 
-        /// The coloured runs of `window`: every capture of the highlights query painted in pattern
-        /// order, so that a later pattern wins where captures overlap.
         private func spans(in window: Range<Int>, tree: MutableTree) -> [HighlightSpan] {
             guard !window.isEmpty else { return [] }
             let cursor = query.execute(in: tree)

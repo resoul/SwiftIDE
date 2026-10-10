@@ -1,4 +1,4 @@
-/// Independent immutable text value crossing the async persistence boundary.
+
 public struct DocumentSnapshot: Equatable, Sendable {
     public let documentID: DocumentID
     public let path: String

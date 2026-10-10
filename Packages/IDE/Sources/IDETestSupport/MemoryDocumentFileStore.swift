@@ -1,8 +1,6 @@
 import IDEApplication
 import IDEDomain
 
-/// Demo/test adapter: process-local, with the same revision rules as the real store but no
-/// filesystem. It is not evidence of atomic saving.
 public actor MemoryDocumentFileStore: DocumentFileStore {
     private struct Entry {
         var text: String
@@ -51,12 +49,10 @@ public actor MemoryDocumentFileStore: DocumentFileStore {
         entries[path]?.text
     }
 
-    /// Simulates another program writing the file.
     public func externallyWrite(_ text: String, at path: String) {
         entries[path] = Entry(text: text, revision: nextRevision(path, text))
     }
 
-    /// Simulates the file being deleted by another program.
     public func remove(_ path: String) {
         entries.removeValue(forKey: path)
     }

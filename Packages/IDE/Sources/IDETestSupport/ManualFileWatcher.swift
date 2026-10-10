@@ -1,7 +1,6 @@
 import Foundation
 import IDEApplication
 
-/// A watcher that says nothing until a test says a file was touched.
 public final class ManualFileWatcher: FileWatching, @unchecked Sendable {
     private final class Watch: FileWatchHandle, @unchecked Sendable {
         let path: String
@@ -29,12 +28,10 @@ public final class ManualFileWatcher: FileWatching, @unchecked Sendable {
         return watch
     }
 
-    /// Paths being watched now, one entry per live watch.
     public var watchedPaths: [String] {
         lock.withLock { watches.filter { !$0.cancelled }.map(\.path) }
     }
 
-    /// Delivers an event to every live watch of `path`.
     public func fire(_ path: String) {
         let live = lock.withLock { watches.filter { !$0.cancelled && $0.path == path } }
         for watch in live { watch.onEvent() }

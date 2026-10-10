@@ -7,6 +7,8 @@ public struct TextKitEditor {
     public let compatibility: TextKitCompatibilityMonitor
     /// The document's single undo history, shared by native typing and programmatic edits.
     public let undo: NativeUndoCoordinator
+    /// Where the application listens to keys and to the request for completion.
+    public let input: EditorInputHooks
 }
 
 @MainActor
@@ -16,9 +18,11 @@ public enum TextKitEditorFactory {
         let textView = backend.makeTextView()
         configureForCode(textView)
         let undo = backend.installNativeEditing(on: textView)
+        let input = EditorInputHooks()
+        textView.hooks = input
         let compatibility = TextKitCompatibilityMonitor(textView: textView)
         precondition(compatibility.isTextKit2, "NSTextView must start on TextKit 2")
-        return TextKitEditor(backend: backend, textView: textView, compatibility: compatibility, undo: undo)
+        return TextKitEditor(backend: backend, textView: textView, compatibility: compatibility, undo: undo, input: input)
     }
 
     /// Plain text only; substitutions that rewrite source code are disabled explicitly.
@@ -39,8 +43,6 @@ public enum TextKitEditorFactory {
         textView.textContainerInset = NSSize(width: 6, height: 6)
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
-        // Without this the view never grows past the height it was created with, and a long file
-        // cannot be scrolled: the default limit is the initial frame.
         textView.minSize = NSSize(width: 0, height: 0)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.autoresizingMask = [.width]

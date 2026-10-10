@@ -1,13 +1,11 @@
 import Foundation
 
-/// UTF-16 text in chunks of a few thousand units, so an edit moves one or two chunks instead of the
-/// document and the parser can read straight from the pieces.
 struct ChunkedText {
     private static let target = 16_384
 
     private var chunks: [[UInt16]] = []
-    /// Offset of the first unit of each chunk.
     private var starts: [Int] = []
+
     private(set) var length = 0
 
     init() {}
@@ -19,7 +17,6 @@ struct ChunkedText {
         recomputeStarts(from: 0)
     }
 
-    /// Replaces `range` with `units`. Returns false, changing nothing, if the range does not fit.
     @discardableResult
     mutating func replace(_ range: Range<Int>, with units: [UInt16]) -> Bool {
         guard range.lowerBound >= 0, range.upperBound <= length else { return false }
@@ -56,8 +53,6 @@ struct ChunkedText {
         return String(decoding: units, as: UTF16.self)
     }
 
-    /// The text from unit `unit` to the end of its chunk, as UTF-16 little-endian bytes: what the
-    /// parser reads. Nil at the end of the text.
     func bytes(fromUnit unit: Int) -> Data? {
         guard unit >= 0, unit < length else { return nil }
         let index = chunkIndex(containing: unit)
@@ -66,10 +61,8 @@ struct ChunkedText {
         return chunk[from...].withUnsafeBufferPointer { Data(buffer: $0) }
     }
 
-    /// Calls `body` with the offset of each place where `first` is directly followed by `second`,
-    /// in order, until it returns false. For finding `/*` without building a string.
     func forEachPair(_ first: UInt16, _ second: UInt16, _ body: (Int) -> Bool) {
-        var carried = false   // the last unit of the previous chunk was `first`
+        var carried = false
         for (index, chunk) in chunks.enumerated() {
             let start = starts[index]
             if carried, chunk.first == second, !body(start - 1) { return }
@@ -89,14 +82,12 @@ struct ChunkedText {
         }
     }
 
-    /// All the text. For tests and small inputs.
     var units: [UInt16] { chunks.flatMap { $0 } }
 
     var chunkCount: Int { chunks.count }
 
     // MARK: Structure
 
-    /// The chunk holding `offset`; the end of the text belongs to the last chunk.
     private func chunkIndex(containing offset: Int) -> Int {
         var low = 0, high = chunks.count - 1
         while low < high {

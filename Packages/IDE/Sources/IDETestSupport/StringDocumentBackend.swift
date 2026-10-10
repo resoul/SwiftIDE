@@ -2,15 +2,13 @@ import Foundation
 import IDEApplication
 import IDEDomain
 
-/// Headless/reference adapter used by tests. Production uses TextKitDocumentBackend.
-/// It can also play the role of a view that mutates its storage on its own.
 @MainActor
 public final class StringDocumentBackend: DocumentEditingBackend {
     private let storage: NSMutableString
+
     private weak var receiver: (any NativeEditReceiver)?
     public private(set) var editGeneration: UInt64 = 0
     public private(set) var endCompositionRequests = 0
-    /// How many times the whole text was copied out. Editing must keep this at zero.
     public private(set) var textMaterializations = 0
 
     public init(loadedText: String) {
@@ -35,7 +33,7 @@ public final class StringDocumentBackend: DocumentEditingBackend {
 
     public func commit(_ plan: PreparedDocumentEdit) {
         precondition(storage.length == plan.sourceLength)
-        for edit in plan.edits {   // descending, so earlier positions stay valid
+        for edit in plan.edits {
             storage.replaceCharacters(
                 in: NSRange(location: edit.range.location, length: edit.range.length), with: edit.replacement
             )
@@ -53,20 +51,14 @@ public final class StringDocumentBackend: DocumentEditingBackend {
 
     // MARK: Simulated native view
 
-    /// What the simulated view tells the session about a change.
     public enum Report {
-        /// The true effect, as an editor that knew the edit in advance would give it.
         case exact
-        /// The true effect, but only as "this region changed".
         case derived
-        /// An effect that does not match what happened.
         case claiming(NativeTextEffect)
         case unknown
-        /// Nothing is reported at all.
         case silent
     }
-
-    /// Replaces text behind the session's back and reports it as `report` says.
+    
     @discardableResult
     public func simulateNativeEdit(
         _ range: UTF16TextRange, with replacement: String, origin: EditOrigin = .typing,

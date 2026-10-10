@@ -301,7 +301,7 @@ public final class CompletionController {
                 // the user with nothing until they type; but not for ever.
                 var incomplete = cutShort
                 if items.isEmpty && cutShort {
-                    if false {
+                    if (self.context?.emptyAnswers ?? 0) < self.maximumEmptyAnswers {
                         self.context?.emptyAnswers += 1
                         self.askAgainSoon(mine)
                         return

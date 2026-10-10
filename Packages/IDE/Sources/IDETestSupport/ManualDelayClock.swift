@@ -1,8 +1,6 @@
 import Foundation
 import IDEApplication
 
-/// A clock that only moves when a test says so. `sleep` returns once `advance` has carried the
-/// time past its deadline, or throws if the task is cancelled first.
 public final class ManualDelayClock: DelayClock, @unchecked Sendable {
     private struct Sleeper {
         let id: UInt64
@@ -39,8 +37,7 @@ public final class ManualDelayClock: DelayClock, @unchecked Sendable {
             sleeper?.continuation.resume(throwing: CancellationError())
         }
     }
-
-    /// Moves time forward and wakes every sleeper whose deadline has passed.
+    
     public func advance(by duration: Duration) {
         let due = lock.withLock { () -> [Sleeper] in
             current += duration

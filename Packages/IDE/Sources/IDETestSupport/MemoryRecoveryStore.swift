@@ -1,7 +1,6 @@
 import Foundation
 import IDEApplication
 
-/// Process-local recovery store for tests, with ways to make writes fail or wait.
 public actor MemoryRecoveryStore: RecoveryStore {
     public enum Operation: Equatable, Sendable {
         case write(RecoveryKey, text: String)
@@ -23,7 +22,6 @@ public actor MemoryRecoveryStore: RecoveryStore {
     public func setFailingWrites(_ failing: Bool) { failingWrites = failing }
     public func setUnreadable(_ descriptions: [String]) { unreadable = descriptions }
 
-    /// Writes wait until `release()`: for testing order between a slow write and what follows.
     public func hold() { held = true }
 
     public func release() {

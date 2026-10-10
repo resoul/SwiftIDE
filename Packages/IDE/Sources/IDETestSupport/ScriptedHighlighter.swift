@@ -2,8 +2,6 @@ import IDEApplication
 import IDEDomain
 import Foundation
 
-/// A highlighter that does nothing by itself: it records what it is told and lets a test decide
-/// what to answer and when. Stands in for the real one where order and timing are the point.
 public final class ScriptedHighlighter: SyntaxHighlighter, @unchecked Sendable {
     public enum Call: Equatable, Sendable {
         case reset(units: Int, version: UInt64)
@@ -21,7 +19,6 @@ public final class ScriptedHighlighter: SyntaxHighlighter, @unchecked Sendable {
     public var calls: [Call] { lock.withLock { recorded } }
     public func clearCalls() { lock.withLock { recorded.removeAll() } }
 
-    /// Answers as the real highlighter would.
     public func answer(_ result: HighlightResult) {
         let handler = lock.withLock { self.handler }
         handler?(result)
