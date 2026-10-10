@@ -3,7 +3,8 @@ import IDEApplication
 import IDEDomain
 
 /// Draws a document's problems under the text: a wavy line, red for an error, yellow for a warning,
-/// grey for the rest, paler while the text has changed since the server reported.
+/// grey for the rest. A report that names no version is drawn paler than one that does, and every
+/// mark is paler still once the text has changed since the report arrived.
 ///
 /// TextKit 2's rendering attributes do not draw underlines (checked on this system), so the lines
 /// are drawn by a transparent view laid over the text view. It takes no clicks, keeps no text and
@@ -44,7 +45,11 @@ public final class DiagnosticsPresenter: DiagnosticsPresenting {
         case .information, .hint: .systemGray
         }
 
-        return mark.isStale ? base.withAlphaComponent(0.4) : base
+        switch mark.freshness {
+        case .verified: return base
+        case .unverified: return base.withAlphaComponent(0.7)
+        case .stale: return base.withAlphaComponent(0.4)
+        }
     }
 }
 

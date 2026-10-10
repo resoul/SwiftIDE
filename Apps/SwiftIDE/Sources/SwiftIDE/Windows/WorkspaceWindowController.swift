@@ -34,6 +34,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     var onClose: ((WorkspaceWindowController) -> Void)?
     /// A definition is in another file: the application opens it.
     var onOpenLocation: ((DefinitionLocation) -> Void)?
+    /// A jump leaves this place: the application remembers it for Go Back.
+    var onJumpFrom: ((NavigationPlace) -> Void)?
     var unsavedChanges: UnsavedChangesCoordinator?
 
     init(
@@ -116,6 +118,11 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         )
         features?.onDiagnosticsChange = { [weak self] in self?.refreshSubtitle() }
         features?.openLocation = { [weak self] location in self?.onOpenLocation?(location) }
+        features?.willJump = { [weak self] offset in
+            guard let self, let place = self.place(at: offset) else { return }
+
+            self.onJumpFrom?(place)
+        }
         Task { [languageServices] in await languageServices.attach(document) }
     }
 
@@ -285,6 +292,16 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         isSystemFile = true
         editor.textView.isEditable = false
         refreshSubtitle()
+    }
+
+    /// A place in this document, for coming back to. Nil for a document with no file.
+    private func place(at offset: Int) -> NavigationPlace? {
+        guard !session.isUntitled else { return nil }
+
+        let index = lineIndex.current
+        let line = index.line(containing: offset)
+
+        return NavigationPlace(path: session.path, line: line, character: offset - index.startOffset(ofLine: line))
     }
 
     /// Puts the caret at a place the language server named (zero-based line, UTF-16 offset in the line)

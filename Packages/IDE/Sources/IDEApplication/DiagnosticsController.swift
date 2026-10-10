@@ -1,19 +1,31 @@
 import Foundation
 import IDEDomain
 
-/// A problem as it is drawn: where, how bad, what it says, and whether the text has changed since
-/// the server reported it (then the place is the old one moved along with the edits).
+/// A problem as it is drawn: where, how bad, what it says, and how far its place can be trusted.
 public struct DiagnosticMark: Equatable, Sendable {
+    public enum Freshness: Equatable, Sendable {
+        /// The server named the version it analysed and the text has not changed since.
+        case verified
+        /// The server named no version (SourceKit-LSP of Xcode 27 does not): the report may have been
+        /// made for text older than the one on screen, so its place is shown without a promise.
+        case unverified
+        /// The text has changed since the report arrived: the place is the old one moved along with
+        /// the edits, an approximation.
+        case stale
+    }
+
     public let range: UTF16TextRange
     public let severity: DocumentDiagnostic.Severity
     public let message: String
-    public let isStale: Bool
+    public let freshness: Freshness
 
-    public init(range: UTF16TextRange, severity: DocumentDiagnostic.Severity, message: String, isStale: Bool) {
+    public var isStale: Bool { freshness == .stale }
+
+    public init(range: UTF16TextRange, severity: DocumentDiagnostic.Severity, message: String, freshness: Freshness) {
         self.range = range
         self.severity = severity
         self.message = message
-        self.isStale = isStale
+        self.freshness = freshness
     }
 }
 
@@ -65,6 +77,7 @@ public final class DiagnosticsController {
     private weak var presenter: (any DiagnosticsPresenting)?
     private var items: [DocumentDiagnostic] = []
     private var reportVersion: UInt64 = 0
+    private var reportIsVerified = false
     /// The document version `items` are placed for; nil when they are not placed for any.
     private var trackedVersion: UInt64?
     private var changeSubscription: UUID?
@@ -116,6 +129,7 @@ public final class DiagnosticsController {
 
         items = report.items
         reportVersion = report.version
+        reportIsVerified = report.isVerified
         trackedVersion = report.version
         // A report for the version the document has now is placed as it is; one for an older version
         // would have been refused by the provider.
@@ -147,8 +161,9 @@ public final class DiagnosticsController {
     }
 
     private func publish() {
-        let stale = trackedVersion != reportVersion
-        marks = items.map { DiagnosticMark(range: $0.range, severity: $0.severity, message: $0.message, isStale: stale) }
+        // Edited since: stale, whatever the report was. Not edited: as sure as the report was.
+        let freshness: DiagnosticMark.Freshness = trackedVersion != reportVersion ? .stale : (reportIsVerified ? .verified : .unverified)
+        marks = items.map { DiagnosticMark(range: $0.range, severity: $0.severity, message: $0.message, freshness: freshness) }
         summary = Summary(
             errors: items.filter { $0.severity == .error }.count,
             warnings: items.filter { $0.severity == .warning }.count

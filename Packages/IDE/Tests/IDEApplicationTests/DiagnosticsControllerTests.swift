@@ -50,8 +50,8 @@ private struct Rig {
         controller = DiagnosticsController(session: session, provider: provider, presenter: presenter)
     }
 
-    func report(_ items: [DocumentDiagnostic]) {
-        provider.publish(DocumentDiagnostics(items: items, version: session.version, isVerified: false))
+    func report(_ items: [DocumentDiagnostic], verified: Bool = false) {
+        provider.publish(DocumentDiagnostics(items: items, version: session.version, isVerified: verified))
     }
 
     func edit(_ location: Int, _ length: Int, _ text: String) throws {
@@ -220,4 +220,38 @@ func aLineWithAWarningAndLaterAnErrorShowsTheErrorWhateverTheOrder() {
     let rig = Rig()
     rig.report([diagnostic(6, 1, .error), diagnostic(4, 1, .warning)])
     #expect(rig.controller.severitiesByLine { $0 / 10 } == [0: .error])
+}
+
+// MARK: How far a place can be trusted
+
+@Test @MainActor
+func aReportThatNamesItsVersionIsVerifiedOneThatDoesNotIsNot() {
+    let rig = Rig()
+    rig.report([diagnostic(4, 1)], verified: true)
+    #expect(rig.controller.marks.map(\.freshness) == [.verified])
+    rig.report([diagnostic(4, 1)], verified: false)
+    #expect(rig.controller.marks.map(\.freshness) == [.unverified], "the lack of a version is not lost on the way to the screen")
+}
+
+@Test @MainActor
+func aLateReportWithoutAVersionAfterAnEditIsShownAsUnverifiedNotAsCertain() throws {
+    let rig = Rig()
+    try rig.edit(0, 0, "// typed while the server was still working\n")
+    // It arrives now, after the edit; the server may have analysed the text from before it.
+    rig.report([diagnostic(50, 1)], verified: false)
+    #expect(rig.controller.marks.map(\.freshness) == [.unverified])
+    #expect(rig.controller.marks.first?.isStale == false, "no edit since it arrived")
+
+    try rig.edit(0, 0, "x")
+    #expect(rig.controller.marks.map(\.freshness) == [.stale], "any edit after it makes the place an approximation")
+}
+
+@Test @MainActor
+func aVerifiedReportBecomesStaleAfterAnEditToo() throws {
+    let rig = Rig()
+    rig.report([diagnostic(4, 1)], verified: true)
+    try rig.edit(0, 0, "x")
+    #expect(rig.controller.marks.map(\.freshness) == [.stale])
+    rig.report([diagnostic(5, 1)], verified: true)
+    #expect(rig.controller.marks.map(\.freshness) == [.verified], "and a new report makes it sure again")
 }

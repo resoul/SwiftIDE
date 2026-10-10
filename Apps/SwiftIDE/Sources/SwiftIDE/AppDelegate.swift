@@ -7,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let composition = AppCompositionRoot()
     private var windows: [WorkspaceWindowController] = []
     private var workspacePreview: WorkspacePreviewWindowController?
+    /// Where the user jumped from, for Go Back.
+    private var history = NavigationHistory()
     private lazy var unsavedChanges = UnsavedChangesCoordinator(
         prompt: { [unowned self] session in
             await controller(for: session)?.promptForUnsavedChanges() ?? .cancel
@@ -206,14 +208,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windows.first { $0.session === session }
     }
 
-    /// Files of the toolchain, the SDK and the system, which a jump to a definition can come to.
+    /// Files that belong to the toolchain, an SDK or the system, which a jump to a definition can
+    /// come to, and the interfaces the server generates: to read, not to change. A project that
+    /// merely lives in /Applications or /opt is not one of them.
     static func isSystemFile(_ path: String) -> Bool {
         // The server writes the interface of a framework it was asked about into the temporary folder.
-        path.contains("/sourcekit-lsp/GeneratedInterfaces/")
-            || ["/Applications/", "/Library/", "/System/", "/usr/", "/opt/"].contains { path.hasPrefix($0) }
+        if path.contains("/sourcekit-lsp/GeneratedInterfaces/") { return true }
+
+        let markers = [
+            ".sdk/",
+            ".xctoolchain/",
+            ".platform/Developer/",
+            "/Contents/Developer/Platforms/",
+            "/Library/Developer/CommandLineTools/",
+            "/Library/Developer/Toolchains/",
+        ]
+        if markers.contains(where: path.contains) { return true }
+
+        return ["/System/Library/", "/usr/include/", "/usr/lib/"].contains { path.hasPrefix($0) }
+    }
+
+    @objc func goBack(_ sender: Any?) {
+        guard let place = history.pop() else { return }
+
+        Task { await open(path: place.path, revealing: DefinitionLocation(path: place.path, line: place.line, character: place.character)) }
     }
 
     private func show(_ controller: WorkspaceWindowController) {
+        controller.onJumpFrom = { [weak self] place in self?.history.push(place) }
         controller.onOpenLocation = { [weak self] location in
             guard let self else { return }
 
@@ -228,5 +250,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.unsavedChanges = unsavedChanges
         windows.append(controller)
         controller.showWindow(nil)
+    }
+
+}
+
+extension AppDelegate: NSMenuItemValidation {
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(goBack(_:)) { return history.canGoBack }
+
+        return true
     }
 }

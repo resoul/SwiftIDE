@@ -242,6 +242,13 @@ private final class FakeNavigator: DefinitionNavigating {
     func moveCaret(to offset: Int) { events.append("caret \(offset)") }
     func open(_ location: DefinitionLocation) { events.append("open \(location.path):\(location.line):\(location.character)") }
     func tell(_ message: String, at offset: Int) { events.append("tell \(message) @\(offset)") }
+
+    /// What the user would choose: the index in `choice`, or nobody.
+    var choice: Int?
+    func choose(among places: [DefinitionLocation], near offset: Int, pick: @escaping @MainActor (DefinitionLocation) -> Void) {
+        events.append("choose \(places.count) @\(offset)")
+        if let choice { pick(places[choice]) }
+    }
 }
 
 @MainActor
@@ -262,9 +269,38 @@ func aDefinitionInThisDocumentMovesTheCaretAndInAnotherFileOpensIt() async {
 }
 
 @Test @MainActor
-func severalDefinitionsOpenTheFirstAndSaySo() async {
-    let events = await jump(.locations([DefinitionLocation(path: "/w/B.swift", line: 1, character: 0), DefinitionLocation(path: "/w/C.swift", line: 2, character: 0)]))
-    #expect(events == ["open /w/B.swift:1:0", "tell 1 of 2 definitions @7"])
+func severalDefinitionsAreOfferedAndTheChosenOneIsGoneTo() async {
+    let session = DocumentSession(path: "/w/A.swift", backend: StringDocumentBackend(loadedText: "x"))
+    let provider = FakeDefinitions()
+    provider.answer = .locations([
+        DefinitionLocation(path: "/w/B.swift", line: 1, character: 0),
+        DefinitionLocation(path: "/w/C.swift", line: 2, character: 0),
+        DefinitionLocation(path: "/w/A.swift", line: 0, character: 3, offset: 3),
+    ])
+    let navigator = FakeNavigator()
+    navigator.choice = 1
+    await DefinitionController(session: session, provider: provider, navigator: navigator).jump(from: 7)
+    #expect(navigator.events == ["choose 3 @7", "open /w/C.swift:2:0"])
+
+    navigator.choice = 2
+    await DefinitionController(session: session, provider: provider, navigator: navigator).jump(from: 7)
+    #expect(navigator.events.suffix(2) == ["choose 3 @7", "caret 3"], "a place in this document moves the caret")
+}
+
+@Test @MainActor
+func theSamePlaceNamedTwiceIsNotAChoice() async {
+    let place = DefinitionLocation(path: "/w/B.swift", line: 1, character: 0)
+    #expect(await jump(.locations([place, place])) == ["open /w/B.swift:1:0"], "one place, no menu")
+}
+
+@Test @MainActor
+func leavingTheChoiceWithoutPickingGoesNowhere() async {
+    let session = DocumentSession(path: "/w/A.swift", backend: StringDocumentBackend(loadedText: "x"))
+    let provider = FakeDefinitions()
+    provider.answer = .locations([DefinitionLocation(path: "/w/B.swift", line: 1, character: 0), DefinitionLocation(path: "/w/C.swift", line: 2, character: 0)])
+    let navigator = FakeNavigator()
+    await DefinitionController(session: session, provider: provider, navigator: navigator).jump(from: 7)
+    #expect(navigator.events == ["choose 2 @7"])
 }
 
 @Test @MainActor

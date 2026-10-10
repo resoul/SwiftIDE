@@ -18,6 +18,10 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
     public var onDiagnosticsChange: (@MainActor () -> Void)?
     /// A definition is in another file: open it at that place.
     public var openLocation: (@MainActor (DefinitionLocation) -> Void)?
+    /// A jump is about to leave the caret's place (its offset): the window remembers it for "Go Back".
+    public var willJump: (@MainActor (Int) -> Void)?
+    /// Lets the user choose among several definitions. By default a pop-up menu under the place.
+    public var chooser: (@MainActor ([DefinitionLocation], Int, @escaping @MainActor (DefinitionLocation) -> Void) -> Void)?
 
     private let textView: NSTextView
     private let input: EditorInputHooks
@@ -106,13 +110,42 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
     // MARK: DefinitionNavigating
 
     public func moveCaret(to offset: Int) {
+        willJump?(textView.selectedRange().location)
         textView.setSelectedRange(NSRange(location: offset, length: 0))
         textView.scrollRangeToVisible(NSRange(location: offset, length: 0))
         textView.window?.makeFirstResponder(textView)
     }
 
     public func open(_ location: DefinitionLocation) {
+        willJump?(textView.selectedRange().location)
         openLocation?(location)
+    }
+
+    public func choose(among places: [DefinitionLocation], near offset: Int, pick: @escaping @MainActor (DefinitionLocation) -> Void) {
+        if let chooser { return chooser(places, offset, pick) }
+
+        let menu = NSMenu(title: "Definitions")
+        let picker = MenuPicker(pick: pick)
+        for entry in Self.menuEntries(for: places) {
+            let item = NSMenuItem(title: entry.title, action: #selector(MenuPicker.chosen(_:)), keyEquivalent: "")
+            item.target = picker
+            item.representedObject = entry.place
+            menu.addItem(item)
+        }
+        let screen = textView.firstRect(forCharacterRange: NSRange(location: offset, length: 0), actualRange: nil)
+        let point = textView.window.map { textView.convert($0.convertFromScreen(screen).origin, from: nil) } ?? .zero
+        menu.popUp(positioning: nil, at: NSPoint(x: point.x, y: point.y + (textView.font?.pointSize ?? 12) * 1.6), in: textView)
+        withExtendedLifetime(picker) {}
+    }
+
+    /// The lines of the menu: file and line, and where the file is.
+    static func menuEntries(for places: [DefinitionLocation]) -> [(title: String, place: DefinitionLocation)] {
+        places.map { place in
+            let name = (place.path as NSString).lastPathComponent
+            let folder = ((place.path as NSString).deletingLastPathComponent as NSString).abbreviatingWithTildeInPath
+
+            return ("\(name):\(place.line + 1)  —  \(folder)", place)
+        }
     }
 
     /// A word of status under the place, for a moment.
@@ -133,5 +166,15 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
         case .information: "note"
         case .hint: "hint"
         }
+    }
+}
+
+@MainActor
+private final class MenuPicker: NSObject {
+    let pick: @MainActor (DefinitionLocation) -> Void
+    init(pick: @escaping @MainActor (DefinitionLocation) -> Void) { self.pick = pick }
+
+    @objc func chosen(_ sender: NSMenuItem) {
+        if let place = sender.representedObject as? DefinitionLocation { pick(place) }
     }
 }

@@ -10,12 +10,15 @@ public protocol DefinitionNavigating: AnyObject {
     func open(_ location: DefinitionLocation)
     /// Nothing to jump to, or why not.
     func tell(_ message: String, at offset: Int)
+    /// Several places: let the user choose one, near `offset`; `pick` goes there.
+    func choose(among places: [DefinitionLocation], near offset: Int, pick: @escaping @MainActor (DefinitionLocation) -> Void)
 }
 
 /// Asks where the symbol at an offset is defined and goes there.
 ///
-/// The first place wins when there are several, and the message says so. A newer jump replaces an
-/// older one still waiting; an answer for text that changed meanwhile is dropped without a word.
+/// One place is gone to at once; several (without repeats) are offered to the user to choose from.
+/// A newer jump replaces an older one still waiting; an answer for text that changed meanwhile is
+/// dropped without a word.
 @MainActor
 public final class DefinitionController {
     private let session: DocumentSession
@@ -38,21 +41,32 @@ public final class DefinitionController {
 
         switch outcome {
         case .locations(let places):
-            guard let first = places.first else { return navigator.tell("No definition found", at: offset) }
+            var distinct: [DefinitionLocation] = []
+            for place in places where !distinct.contains(place) { distinct.append(place) }
+            switch distinct.count {
+            case 0: navigator.tell("No definition found", at: offset)
+            case 1: go(to: distinct[0], navigator: navigator)
+            default:
+                navigator.choose(among: distinct, near: offset) { [weak self, weak navigator] place in
+                    guard let self, let navigator else { return }
 
-            if let target = first.offset {   // an offset is given only for a place in this document
-                navigator.moveCaret(to: target)
-            } else {
-                navigator.open(first)
+                    self.go(to: place, navigator: navigator)
+                }
             }
-
-            if places.count > 1 { navigator.tell("1 of \(places.count) definitions", at: offset) }
         case .nothing:
             navigator.tell("No definition found", at: offset)
         case .failed(.unavailable(let reason)):
             navigator.tell(HoverController.words(for: reason), at: offset)
         case .failed(.stale), .failed(.suppressedByComposition):
             break
+        }
+    }
+
+    private func go(to place: DefinitionLocation, navigator: any DefinitionNavigating) {
+        if let target = place.offset {   // an offset is given only for a place in this document
+            navigator.moveCaret(to: target)
+        } else {
+            navigator.open(place)
         }
     }
 }

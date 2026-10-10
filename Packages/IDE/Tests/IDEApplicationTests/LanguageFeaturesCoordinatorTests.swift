@@ -342,10 +342,12 @@ func aProblemIsReallyDrawnUnderTheWordAndTheOverlayTakesNoClicks() async throws 
 }
 
 @Test @MainActor
-func aStaleProblemIsPalerThanAFreshOne() {
-    let fresh = DiagnosticMark(range: UTF16TextRange(location: 0, length: 1), severity: .error, message: "", isStale: false)
-    let stale = DiagnosticMark(range: UTF16TextRange(location: 0, length: 1), severity: .error, message: "", isStale: true)
-    #expect(DiagnosticsPresenter.colour(for: fresh).alphaComponent == 1 && DiagnosticsPresenter.colour(for: stale).alphaComponent < 1)
+func theLessASureAPlaceIsThePalerItsLine() {
+    func alpha(_ freshness: DiagnosticMark.Freshness) -> CGFloat {
+        DiagnosticsPresenter.colour(for: DiagnosticMark(range: UTF16TextRange(location: 0, length: 1), severity: .error, message: "", freshness: freshness)).alphaComponent
+    }
+    #expect(alpha(.verified) == 1)
+    #expect(alpha(.unverified) < alpha(.verified) && alpha(.stale) < alpha(.unverified))
 }
 
 @Test @MainActor
@@ -409,4 +411,72 @@ func aJumpWithinALongDocumentScrollsToTheDefinition() async {
     let caret = f.textView.firstRect(forCharacterRange: NSRange(location: target, length: 0), actualRange: nil)
     let box = f.textView.convert(f.window.convertFromScreen(caret), from: nil)
     #expect(f.textView.visibleRect.intersects(box), "the definition is in view")
+}
+
+// MARK: Choosing and coming back
+
+@Test @MainActor
+func severalDefinitionsGoToTheChooserAndTheChosenOneIsOpened() async {
+    let f = Fixture()
+    f.provider.definitionAnswer = .locations([
+        DefinitionLocation(path: "/w/B.swift", line: 1, character: 0),
+        DefinitionLocation(path: "/w/C.swift", line: 2, character: 4),
+    ])
+    var offered: [DefinitionLocation] = []
+    f.coordinator.chooser = { places, _, pick in
+        offered = places
+        pick(places[1])
+    }
+    f.textView.setSelectedRange(NSRange(location: 14, length: 0))
+    f.coordinator.jumpToDefinition()
+    await f.settle()
+    #expect(offered.count == 2 && f.opened.places == [DefinitionLocation(path: "/w/C.swift", line: 2, character: 4)])
+}
+
+@Test @MainActor
+func theMenuNamesEachPlaceByFileAndLine() {
+    let entries = LanguageFeaturesCoordinator.menuEntries(for: [
+        DefinitionLocation(path: "/w/Sources/Lib/Greeter.swift", line: 9, character: 2),
+        DefinitionLocation(path: "/w/Sources/App/main.swift", line: 0, character: 0),
+    ])
+    #expect(entries.map(\.title) == ["Greeter.swift:10  —  /w/Sources/Lib", "main.swift:1  —  /w/Sources/App"])
+}
+
+@Test @MainActor
+func aJumpTellsTheWindowWhereItLeftSoThatItCanComeBack() async {
+    let f = Fixture()
+    var left: [Int] = []
+    f.coordinator.willJump = { left.append($0) }
+    f.textView.setSelectedRange(NSRange(location: 14, length: 0))
+    f.provider.definitionAnswer = .locations([DefinitionLocation(path: "/w/Other.swift", line: 9, character: 2)])
+    f.coordinator.jumpToDefinition()
+    await f.settle()
+    f.provider.definitionAnswer = .locations([DefinitionLocation(path: "/w/Main.swift", line: 0, character: 4, offset: 4)])
+    f.coordinator.jumpToDefinition()
+    await f.settle()
+    #expect(left == [14, 14], "once for the other file, once for the move within this one")
+    f.provider.definitionAnswer = .nothing
+    f.coordinator.jumpToDefinition()
+    await f.settle()
+    #expect(left.count == 2, "nowhere to go: nothing left")
+}
+
+@Test
+func theHistoryRemembersPlacesNewestLastAndForgetsWhatIsReturnedTo() {
+    var history = NavigationHistory()
+    #expect(!history.canGoBack && history.pop() == nil)
+    let a = NavigationPlace(path: "/w/A.swift", line: 1, character: 2), b = NavigationPlace(path: "/w/B.swift", line: 3, character: 0)
+    history.push(a)
+    history.push(a)
+    history.push(b)
+    #expect(history.places == [a, b], "the same place twice in a row counts once")
+    #expect(history.pop() == b && history.pop() == a && history.pop() == nil)
+}
+
+@Test
+func theHistoryKeepsOnlyTheLatestHundred() {
+    var history = NavigationHistory()
+    for line in 0..<250 { history.push(NavigationPlace(path: "/w/A.swift", line: line, character: 0)) }
+    #expect(history.places.count == NavigationHistory.limit)
+    #expect(history.pop()?.line == 249 && history.places.first?.line == 150)
 }

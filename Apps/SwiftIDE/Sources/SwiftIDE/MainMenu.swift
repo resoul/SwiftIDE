@@ -29,6 +29,7 @@ enum MainMenu {
             completeItem(),
             quickHelpItem(),
             jumpToDefinitionItem(),
+            goBackItem(),
             languageItem()
         ]))
 
@@ -71,6 +72,14 @@ enum MainMenu {
     /// Edit ▸ Jump to Definition, Control-Command-J; a Command-click does the same.
     private static func jumpToDefinitionItem() -> NSMenuItem {
         let item = NSMenuItem(title: "Jump to Definition", action: #selector(WorkspaceWindowController.jumpToDefinition(_:)), keyEquivalent: "j")
+        item.keyEquivalentModifierMask = [.control, .command]
+
+        return item
+    }
+
+    /// Edit ▸ Go Back, Control-Command-Left: to where the last jump to a definition started.
+    private static func goBackItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Go Back", action: #selector(AppDelegate.goBack(_:)), keyEquivalent: String(UnicodeScalar(NSLeftArrowFunctionKey)!))
         item.keyEquivalentModifierMask = [.control, .command]
 
         return item
