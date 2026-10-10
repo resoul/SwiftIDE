@@ -19,9 +19,11 @@ let package = Package(
                 .product(name: "FileSystemInfrastructure", package: "IDE"),
                 .product(name: "EditorPlatformTextKit", package: "IDE"),
                 .product(name: "EditorUI", package: "IDE"),
-                .product(name: "SyntaxInfrastructure", package: "IDE")
+                .product(name: "SyntaxInfrastructure", package: "IDE"),
+                .product(name: "LanguageInfrastructure", package: "IDE")
             ]
-        )
+        ),
+        .testTarget(name: "SwiftIDEAppTests", dependencies: ["SwiftIDE"])
     ],
     swiftLanguageModes: [.v6]
 )

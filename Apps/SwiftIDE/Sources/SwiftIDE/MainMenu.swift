@@ -23,10 +23,36 @@ enum MainMenu {
             NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"),
             NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"),
             NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"),
-            NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+            NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"),
+            .separator(),
+            completeItem()
         ]))
         
+        main.addItem(submenuItem(title: "View", items: [
+            NSMenuItem(title: "Files", action: #selector(WorkspacePreviewWindowController.showPreviewFiles(_:)), keyEquivalent: "1"),
+            NSMenuItem(title: "Search", action: #selector(WorkspacePreviewWindowController.showPreviewSearch(_:)), keyEquivalent: "2"),
+            NSMenuItem(title: "Source Control", action: #selector(WorkspacePreviewWindowController.showPreviewSourceControl(_:)), keyEquivalent: "3"),
+            NSMenuItem(title: "Terminal", action: #selector(WorkspacePreviewWindowController.showPreviewTerminal(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Assistant", action: #selector(WorkspacePreviewWindowController.showPreviewAssistant(_:)), keyEquivalent: ""),
+            .separator(),
+            NSMenuItem(title: "Focus Editor", action: #selector(WorkspacePreviewWindowController.toggleFocusEditor(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Reset Layout", action: #selector(WorkspacePreviewWindowController.resetWorkspaceLayout(_:)), keyEquivalent: ""),
+            .separator(),
+            NSMenuItem(title: "Preview: Light", action: #selector(WorkspacePreviewWindowController.previewLightAppearance(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Preview: Dark", action: #selector(WorkspacePreviewWindowController.previewDarkAppearance(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Preview: System Appearance", action: #selector(WorkspacePreviewWindowController.previewSystemAppearance(_:)), keyEquivalent: "")
+        ]))
+        main.addItem(submenuItem(title: "Window", items: [
+            NSMenuItem(title: "Workspace Preview", action: #selector(AppDelegate.showWorkspacePreview(_:)), keyEquivalent: "")
+        ]))
         NSApp.mainMenu = main
+    }
+
+    /// Edit ▸ Complete, Control-Space; Escape and F5 do the same in the text view.
+    private static func completeItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Complete", action: #selector(NSTextView.complete(_:)), keyEquivalent: " ")
+        item.keyEquivalentModifierMask = .control
+        return item
     }
 
     private static func submenuItem(title: String, items: [NSMenuItem]) -> NSMenuItem {

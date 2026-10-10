@@ -5,6 +5,7 @@ import IDEApplication
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let composition = AppCompositionRoot()
     private var windows: [WorkspaceWindowController] = []
+    private var workspacePreview: WorkspacePreviewWindowController?
     private lazy var unsavedChanges = UnsavedChangesCoordinator(
         prompt: { [unowned self] session in
             await controller(for: session)?.promptForUnsavedChanges() ?? .cancel
@@ -17,6 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         MainMenu.install()
         NSApp.activate()
+        if CommandLine.arguments.contains("--workspace-preview")
+            || Bundle.main.bundleIdentifier == "org.swiftide.workspace-preview" {
+            showWorkspacePreview(nil)
+            return
+        }
         Task {
             // Unsaved text from a run that did not end cleanly is offered back before anything else.
             await restoreUnsavedWork()
@@ -56,10 +62,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return .terminateLater
     }
 
+    /// Servers end when their pipes close, but not waiting for that keeps them from outliving us.
+    func applicationWillTerminate(_ notification: Notification) {
+        composition.languageServices.terminateAll()
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     @objc func newDocument(_ sender: Any?) {
         show(composition.makeUntitledWindow())
+    }
+
+    @objc func showWorkspacePreview(_ sender: Any?) {
+        if workspacePreview == nil { workspacePreview = WorkspacePreviewWindowController() }
+        workspacePreview?.showWindow(nil)
+        workspacePreview?.window?.makeKeyAndOrderFront(nil)
     }
 
     @objc func openDocument(_ sender: Any?) {
