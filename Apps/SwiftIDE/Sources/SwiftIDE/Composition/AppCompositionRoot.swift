@@ -31,9 +31,12 @@ final class AppCompositionRoot {
 
     let languages = DocumentLanguages(store: UserDefaultsLanguageOverrideStore())
     private let projectTrust = UserDefaultsProjectTrustStore()
+    private lazy var trustCoordinator = ProjectTrustCoordinator { [unowned self] in languageServices.root(for: $0) }
     lazy var languageServices: LanguageServices = {
         let services = LanguageServices(scratchRoot: AppCompositionRoot.languageScratchDirectory, languages: languages, trustStore: projectTrust)
-        services.trustPrompt = { name, _ in await ProjectTrustDialog.ask(projectName: name) }
+        services.trustPrompt = { [weak self] name, root in
+            await self?.trustCoordinator.ask(projectName: name, root: root)
+        }
         services.describer = SwiftPackageDescriber(scratchDirectory: AppCompositionRoot.packageLayoutDirectory)
         services.toolchainResolver = XcodeToolchainResolver()
 
@@ -104,7 +107,7 @@ final class AppCompositionRoot {
         let editor = TextKitEditorFactory.makeEditor(loadedText: Self.sampleText)
         let session = DocumentSession(path: "Untitled.swift", backend: editor.backend, isUntitled: true)
 
-        return WorkspaceWindowController(
+        let controller = WorkspaceWindowController(
             document: session,
             editor: editor,
             registry: registry,
@@ -117,6 +120,9 @@ final class AppCompositionRoot {
             languages: languages,
             languageServices: languageServices
         )
+        if let window = controller.window { trustCoordinator.register(session, window: window) }
+
+        return controller
     }
 
     private func makeExternalChangeMonitor(for session: DocumentSession) -> ExternalChangeMonitor {
@@ -132,7 +138,7 @@ final class AppCompositionRoot {
             preconditionFailure("A new document must come with its editor")
         }
 
-        return WorkspaceWindowController(
+        let controller = WorkspaceWindowController(
             document: session,
             editor: editor,
             registry: registry,
@@ -145,6 +151,9 @@ final class AppCompositionRoot {
             languages: languages,
             languageServices: languageServices
         )
+        if let window = controller.window { trustCoordinator.register(session, window: window) }
+
+        return controller
     }
 
     private static let makeHighlighter: (DocumentLanguage) -> (any SyntaxHighlighter)? = { language in
@@ -156,6 +165,7 @@ final class AppCompositionRoot {
     }
 
     func close(_ session: DocumentSession) {
+        trustCoordinator.unregister(session)
         registry.remove(session)
     }
 }

@@ -129,19 +129,6 @@ func theLayoutOfAPackageWithNoTargetsIsEmptyNotAnError() throws {
 }
 
 @Test
-func theSubtitleNamesTheTargetAndSaysWhenItIsAmbiguous() {
-    #expect(TargetNote.text(names: []) == nil, "nothing is said while it is unknown")
-    #expect(TargetNote.text(names: ["App"], basis: .listed) == "Target: App")
-    #expect(TargetNote.text(names: ["A", "B"], basis: .inferred) == "Target: ambiguous (A, B)")
-}
-
-@Test
-func aTargetGuessedFromTheFilesPlaceIsSaidToBeInferred() {
-    #expect(TargetNote.text(names: ["App"], basis: .inferred) == "Target: App (inferred)")
-    #expect(TargetNote.text(names: ["App"], basis: .listed) == "Target: App", "a listed file is a fact and carries no qualifier")
-}
-
-@Test
 func aFileThePackageListsIsListedAndOneItDoesNotIsInferred() throws {
     let l = try layout()
     #expect(l.membership(of: "/w/pkg/Sources/Lib/Greeter.swift").basis == .listed)

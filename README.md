@@ -54,6 +54,7 @@ The tests cover edit validation, UTF-16 boundaries, versioning, immutable snapsh
 ## Implemented
 
 - A SwiftPM app shell with a native window, editor host, and basic menus.
+- A reusable WorkspaceUI library for the project configuration sheet and status presentation. App supplies the owning project window; closing it or cancelling a request stores no permission decision. Post-extraction manual acceptance remains pending.
 - A TextKit 2 backend and an `NSTextView` sharing the same storage graph.
 - A document session with versioned native and programmatic edits, UTF-16 validation, change events, and immutable snapshots.
 - A shared document undo history and an IME composition bridge.

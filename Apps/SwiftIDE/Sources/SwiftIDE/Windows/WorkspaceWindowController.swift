@@ -6,6 +6,7 @@ import IDEDomain
 import LanguageInfrastructure
 import SyntaxInfrastructure
 import UniformTypeIdentifiers
+import WorkspaceUI
 
 @MainActor
 final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {

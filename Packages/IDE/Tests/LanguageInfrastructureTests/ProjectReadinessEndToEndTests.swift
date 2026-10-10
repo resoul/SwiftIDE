@@ -3,6 +3,7 @@ import IDEApplication
 import IDEDomain
 import IDETestSupport
 import Testing
+import WorkspaceUI
 @testable import LanguageInfrastructure
 
 // TK-018 against the real SourceKit-LSP of the selected Xcode: its progress and its question about

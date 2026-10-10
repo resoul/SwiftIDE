@@ -214,11 +214,4 @@ public enum TemporaryFolder {
     public static func contains(_ path: String) -> Bool {
         prefixes.contains { path.hasPrefix($0) }
     }
-
-    /// The words for the window subtitle, or nil when there is nothing to say.
-    public static func note(path: String, isCFamily: Bool) -> String? {
-        guard isCFamily, contains(path) else { return nil }
-
-        return "temporary folder: C-family flags may be missing"
-    }
 }

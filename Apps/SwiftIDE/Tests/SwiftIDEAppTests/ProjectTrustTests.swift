@@ -29,21 +29,6 @@ struct ProjectTrustTests {
         #expect(UserDefaultsProjectTrustStore(defaults: defaults).decision(forRoot: "/w/a") == nil)
     }
 
-    @Test func theQuestionSaysWhatDecliningDoesAndDoesNotDoAndRefusalIsTheDefault() {
-        let content = ProjectTrustDialog.content(projectName: "App")
-        #expect(content.title == "Allow the project configuration?")
-        #expect(content.detail.contains("App"))
-        #expect(content.detail.contains("may launch external processes and change the parameters of their execution"))
-        #expect(content.detail.contains("does not stop the processing of the manifest and the SwiftPM preparation"))
-        #expect(content.buttons == ["Don't allow", "Allow configuration"], "the first button is the default one")
-    }
-
-    @Test func theAnswerOfTheDialogIsRefusalUnlessTheSecondButtonWasPressed() {
-        #expect(ProjectTrustDialog.decision(forButton: .alertFirstButtonReturn) == .refused)
-        #expect(ProjectTrustDialog.decision(forButton: .alertSecondButtonReturn) == .granted)
-        #expect(ProjectTrustDialog.decision(forButton: .stop) == .refused, "anything else is a refusal")
-    }
-
     @Test @MainActor func theProjectMenuOffersToAllowRefuseAndAskAgain() throws {
         _ = NSApplication.shared
         MainMenu.install()

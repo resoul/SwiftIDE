@@ -3,6 +3,7 @@ import IDEApplication
 import IDEDomain
 import IDETestSupport
 import Testing
+import WorkspaceUI
 @testable import LanguageInfrastructure
 
 private final class Servers: @unchecked Sendable {
@@ -28,16 +29,32 @@ private final class Servers: @unchecked Sendable {
 @MainActor
 private final class Asked {
     private(set) var count = 0
+    private(set) var completed = 0
+    private(set) var cancellations = 0
     private(set) var roots: [URL] = []
     var answer: TrustDecision = .refused
     /// When set, the question waits until `release()`.
     var holds = false
+    var releasesOnCancellation = false
     private var continuation: CheckedContinuation<Void, Never>?
 
     func prompt(_ name: String, _ root: URL) async -> TrustDecision {
         count += 1
         roots.append(root)
-        if holds { await withCheckedContinuation { continuation = $0 } }
+        if holds {
+            await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation = $0 }
+            } onCancel: {
+                Task { @MainActor [weak self] in
+                    guard let self, self.releasesOnCancellation else { return }
+
+                    self.cancellations += 1
+                    self.release()
+                }
+            }
+        }
+
+        completed += 1
 
         return answer
     }
@@ -330,6 +347,62 @@ func withNoOneToAskTheConfigurationIsRefusedAndNothingIsKept() async throws {
     #expect(await server.waitUntil { answer(server, to: 55) != nil })
     #expect(answer(server, to: 55) == ["title": "Don't Trust"])
     #expect(rig.store.decision(forRoot: DocumentPath.canonical("/w")) == nil, "no one decided, so nothing is recorded")
+}
+
+@Test @MainActor
+func aCancelledPresentationRefusesThisRequestWithoutKeepingADecisionAndCanAskAgain() async throws {
+    let server = ScriptedServer()
+    let rig = Rig(servers: [server])
+    var prompts = 0
+    rig.service.trustPrompt = { _, _ in
+        prompts += 1
+
+        return prompts == 1 ? nil : .granted
+    }
+    try await rig.started()
+    trustQuestion(server, id: 56)
+    #expect(await server.waitUntil { answer(server, to: 56) != nil })
+    #expect(answer(server, to: 56) == ["title": "Don't Trust"])
+    #expect(rig.store.decision(forRoot: DocumentPath.canonical("/w")) == nil)
+    #expect(!rig.service.readiness.isAskingForTrust)
+
+    trustQuestion(server, id: 57)
+    #expect(await server.waitUntil { answer(server, to: 57) != nil })
+    #expect(prompts == 2 && answer(server, to: 57) == ["title": "Trust Workspace"])
+    #expect(rig.store.decision(forRoot: DocumentPath.canonical("/w")) == .granted)
+    await rig.service.stop()
+}
+
+@Test @MainActor
+func anAnswerToAStoppedServersQuestionCannotStoreTrust() async throws {
+    let server = ScriptedServer()
+    let rig = Rig(servers: [server])
+    rig.asked.holds = true
+    rig.asked.answer = .granted
+    try await rig.started()
+    trustQuestion(server, id: 58)
+    #expect(await rig.waitFor { rig.asked.count == 1 })
+    await rig.service.stop()
+    rig.asked.release()
+    #expect(await rig.waitFor { rig.asked.completed == 1 }, "the late answer was actually processed")
+    #expect(rig.store.decision(forRoot: DocumentPath.canonical("/w")) == nil)
+    #expect(!rig.service.readiness.isAskingForTrust && rig.service.readiness.server == .stopped)
+}
+
+@Test @MainActor
+func aServerExitCancelsItsQuestionBeforeTheRestartDelayEnds() async throws {
+    let server = ScriptedServer()
+    let rig = Rig(servers: [server])
+    rig.asked.holds = true
+    rig.asked.releasesOnCancellation = true
+    try await rig.started()
+    trustQuestion(server, id: 59)
+    #expect(await rig.waitFor { rig.asked.count == 1 })
+    server.die()
+    #expect(await rig.waitFor { rig.asked.cancellations == 1 && rig.asked.completed == 1 })
+    #expect(rig.service.readiness.server == .restarting && !rig.service.readiness.isAskingForTrust)
+    #expect(rig.store.decision(forRoot: DocumentPath.canonical("/w")) == nil)
+    await rig.service.stop()
 }
 
 @Test @MainActor

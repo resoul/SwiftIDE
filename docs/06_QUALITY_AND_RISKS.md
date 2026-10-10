@@ -59,6 +59,12 @@ The integration is not yet implemented. For the spike and acceptance per the [Ba
 
 Setup and Build/Test are accepted as separate scenarios: viewing/saving settings, regenerating the config, save-before-build, streaming results and cancellation. The language features of other languages are checked separately under TK-017; existing SwiftPM/Xcode runs do not count for Bazel.
 
+## Reusable workspace UI (TK-024)
+
+WorkspaceUITests check status wording and priority, the actual refusal button's Return binding, asynchronous sheet ownership, response mapping, owner close, task cancellation and an already occupied parent. App tests include an isolated application probe, linked to the built WorkspaceUI and compiled with the production coordinator source, that runs the same synchronous AppKit entry point as SwiftIDE and requires project B to be the actual key window before project A asks. Other App tests cover project-root ownership, no-owner behaviour, a root changed during a pending question, and registration/removal through AppCompositionRoot. Language tests verify that a cancelled or missing prompt refuses only the current request without storing a choice, and that stopping or losing a server cannot persist a late answer.
+
+Native sheets require WindowServer access; sandboxed test runners may construct NSAlert but fail to attach its sheet. These tests must run with native access rather than being marked passed on that basis. Automated tests do not establish keyboard/mouse behaviour or appearance in the live app: post-extraction manual acceptance Q3–Q8, Q12 and Q38–Q39 is pending.
+
 ## Workspace and Git (TK-025–TK-029): planned checks
 
 The accepted contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md); it is not implemented. Test real temporary repositories for independent staged/unstaged status, untracked/ignored entries, rename/delete/conflict, initial/detached HEAD, linked worktrees, unusual path names and external repository changes. Verify invalidation and cancellation so a response from the old project cannot replace the current tree, branch or diff.

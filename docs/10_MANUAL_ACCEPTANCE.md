@@ -39,7 +39,7 @@ The user subsequently confirmed Q7 and Q12 on 2026-10-11: a permitted project re
 | K. Swift completion | K1 | K2–K20 |
 | P. Description, jump, diagnostics | P21 | P1–P20, P22 |
 | Q. Readiness, progress, trust, opened folders, targets, configuration (TK-018) | Q1–Q5, Q7, Q12, Q20 | Q6, Q8–Q11, Q13–Q19, Q21–Q33, Q35, Q37 not run; Q34 preliminary; Q36 partial and preliminary |
-| Q. Reusable workspace UI (TK-024, planned) | | Q13–Q14; repeat Q8 after extraction |
+| Q. Reusable workspace UI (TK-024) | | Q38–Q39; repeat Q3–Q8 and Q12 after extraction |
 | R. Workspace and Git (TK-025–TK-029, planned) | | R1–R16; run each slice when implemented |
 
 Everything else in the sections B, C, H, I, K, M, N, O and P is still unchecked by hand; the earlier statements "not checked in a live window" stay true for those items.
@@ -352,12 +352,12 @@ Use a copy of `Fixtures/SwiftPMPackage` outside the repository (for example unde
 
 ### Additional acceptance after the UI extraction (TK-024, ADR-030)
 
-These are planned checks, not results for the currently implemented TK-018 slice. Repeat Q3–Q8 and Q12 after the extraction to confirm that the refusal default, wording, status and stored decisions are preserved.
+TK-024 was implemented on 2026-10-11. These checks are pending for the extracted UI. The ✅ results above were reported before the extraction; repeat Q3–Q8 and Q12 to confirm that the refusal default, wording, status and stored decisions are preserved.
 
 | № | Do | Expected |
 |---|---|---|
-| Q13 | Open two different project windows A and B, with no saved configuration decision for A. Keep B active while A raises the configuration question | The sheet belongs to A, names A and cannot apply a choice to B; B remains usable |
-| Q14 | Close the owning project window through its lifecycle while its configuration question is pending; reopen the project with no other window for it | The pending presentation is cancelled, no decision is stored and no automatic permission is granted; the question is asked on reopening |
+| Q38 | Open two different project windows A and B, with no saved configuration decision for A. Keep B active while A raises the configuration question | The sheet belongs to A, names A and cannot apply a choice to B; B remains usable |
+| Q39 | Close the owning project window through its lifecycle while its configuration question is pending; reopen the project with no other window for it | The pending presentation is cancelled, no decision is stored and no automatic permission is granted; the question is asked on reopening |
 
 ## R. Workspace components and Git: future acceptance (TK-025–TK-029, ADR-031)
 

@@ -186,13 +186,6 @@ func aPathInTheSystemTemporaryFolderIsRecognisedAndOthersAreNot() {
     #expect(!TemporaryFolder.contains("/Users/me/Library/Caches/proj/main.c"))
 }
 
-@Test
-func theNoteIsForTheCFamilyOnlyBecauseThatIsWhatLosesItsFlags() {
-    #expect(TemporaryFolder.note(path: "/tmp/p/a.c", isCFamily: true) == "temporary folder: C-family flags may be missing")
-    #expect(TemporaryFolder.note(path: "/tmp/p/a.swift", isCFamily: false) == nil)
-    #expect(TemporaryFolder.note(path: "/Users/me/p/a.c", isCFamily: true) == nil)
-}
-
 // MARK: A project below a folder
 
 @Test

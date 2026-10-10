@@ -3,6 +3,7 @@ import IDEApplication
 import IDEDomain
 import IDETestSupport
 import Testing
+import WorkspaceUI
 @testable import LanguageInfrastructure
 
 private final class Servers: @unchecked Sendable {
@@ -980,6 +981,27 @@ func untilTheUserAnswersWhatTheServerWillObeyIsUnknownAndThenItIsSelected() asyn
 
     #expect(await waitUntil { environment(rig)?.configuration == .selected("release") })
     #expect(rig.servers.count == 1, "the server was answered; it needs no restart")
+}
+
+@Test(arguments: [false, true]) @MainActor
+func aMissingOrCancelledApplicationPromptDoesNotStoreARefusal(cancelled: Bool) async throws {
+    let store = MemoryProjectTrustStore()
+    let rig = try Rig(store: store)
+    if cancelled { rig.services.trustPrompt = { _, _ in nil } }
+    let session = rig.session(try rig.package("A"))
+    await rig.services.attach(session)
+    try #require(await rig.waitForServers(1))
+    let server = rig.servers.made[0]
+    server.send([
+        "jsonrpc": "2.0",
+        "id": .int(78),
+        "method": "window/showMessageRequest",
+        "params": ["actions": [["title": "Trust Workspace"], ["title": "Don't Trust"]]],
+    ])
+    #expect(await server.waitUntil { server.received.contains { $0["id"] == .int(78) && $0["result"] == ["title": "Don't Trust"] } })
+    #expect(store.decision(forRoot: DocumentPath.canonical(rig.base.appendingPathComponent("A").path)) == nil)
+    rig.services.detach(session)
+    rig.services.terminateAll()
 }
 
 @Test @MainActor

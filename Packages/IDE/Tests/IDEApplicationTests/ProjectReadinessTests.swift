@@ -111,79 +111,24 @@ private func readiness(
 }
 
 @Test
-func withNoSignalReadinessIsUnknownAndNothingIsSaidAboutIt() {
+func anUnknownReadinessDoesNotConfirmDiagnosticSettings() {
     let r = readiness()
-    #expect(r.settings == .unknown && r.reason == nil && r.diagnosticsBasis == .unconfirmed)
+    #expect(r.settings == .unknown && r.diagnosticsBasis == .unconfirmed)
 }
 
 @Test
-func thePackageBeingReloadedMeansTheSettingsAreLoading() {
-    var tracker = ProgressTracker()
-    begin(&tracker, "package-reloading.A", "SourceKit-LSP: Reloading Package")
-    let r = readiness(tracker: tracker)
-    #expect(r.settings == .loading && r.reason == "Reloading package")
-}
-
-@Test
-func indexingAloneDoesNotMeanTheSettingsAreMissing() {
-    var tracker = ProgressTracker()
-    begin(&tracker, "indexing.A", "Indexing", message: "2 / 5")
-    let r = readiness(tracker: tracker)
-    #expect(r.settings == .unknown, "the server can work while the package is indexed")
-    #expect(r.reason == "Preparing package · 2 / 5")
-}
-
-@Test
-func withoutCountsThePreparationHasNoNumbersAndNoPercentage() {
-    var tracker = ProgressTracker()
-    begin(&tracker, "indexing.A", "Indexing", message: "Determining files")
-    #expect(readiness(tracker: tracker).reason == "Preparing package")
-}
-
-@Test
-func ofSeveralOperationsTheOneWithCountsIsShown() {
-    var tracker = ProgressTracker()
-    begin(&tracker, "package-reloading.A", "Reloading")
-    begin(&tracker, "indexing.B", "Indexing", message: "1 / 4")
-    #expect(readiness(tracker: tracker).reason == "Preparing package · 1 / 4")
-}
-
-@Test
-func anUnknownKindOfOperationIsShownByItsOwnTitle() {
-    var tracker = ProgressTracker()
-    begin(&tracker, "build.A", "Compiling", message: "3 / 8")
-    #expect(readiness(tracker: tracker).reason == "Compiling · 3 / 8")
-}
-
-@Test
-func aServerThatIsNotRunningIsTheMostUsefulThingToSay() {
+func reloadSetsLoadingButIndexingAloneDoesNot() {
     var tracker = ProgressTracker()
     begin(&tracker, "indexing.A", "Indexing")
-    #expect(readiness(server: .failed, tracker: tracker).reason == "Language server failed")
-    #expect(readiness(server: .restarting, tracker: tracker).reason == "Language server restarting")
-    #expect(readiness(server: .starting, tracker: tracker).reason == "Language server starting")
-    #expect(readiness(server: .stopped).reason == nil)
+    #expect(readiness(tracker: tracker).settings == .unknown)
+    begin(&tracker, "package-reloading.B", "Reloading")
+    #expect(readiness(tracker: tracker).settings == .loading)
 }
 
 @Test
-func fallbackSettingsAreSaidWhenTheRootIsKnownToHaveNoProject() {
+func aFallbackRootUsesFallbackDiagnosticSettings() {
     let r = readiness(fallback: true)
-    #expect(r.settings == .fallback && r.reason == "Using fallback settings" && r.diagnosticsBasis == .fallback)
-}
-
-@Test
-func aRefusedConfigurationIsSaidAfterTheWorkInProgressAndBeforeFallback() {
-    #expect(readiness(trust: .refused).reason == "Project configuration disabled")
-    #expect(readiness(fallback: true, trust: .refused).reason == "Project configuration disabled")
-    var tracker = ProgressTracker()
-    begin(&tracker, "indexing.A", "Indexing")
-    #expect(readiness(tracker: tracker, trust: .refused).reason == "Preparing package")
-}
-
-@Test
-func whileTheUserIsAskedTheDecisionIsAwaitedNotAssumed() {
-    let r = readiness(tracker: ProgressTracker(), trust: .undecided, pendingQuestion: true)
-    #expect(r.reason == "Waiting for your decision on the project configuration")
+    #expect(r.settings == .fallback && r.diagnosticsBasis == .fallback)
 }
 
 @Test

@@ -176,7 +176,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         if root != scratchRoot {
             service.trustStore = trustStore
             // Read when the question comes, so a prompt set after the service started is used.
-            service.trustPrompt = { [weak self] name, root in await self?.trustPrompt?(name, root) ?? .refused }
+            service.trustPrompt = { [weak self] name, root in await self?.trustPrompt?(name, root) }
             service.onTrustChange = { [weak self, weak service] in
                 guard let self, let service, self.services[root] === service else { return }
 

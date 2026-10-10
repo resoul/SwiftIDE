@@ -10,6 +10,7 @@ let package = Package(
         .library(name: "FileSystemInfrastructure", targets: ["FileSystemInfrastructure"]),
         .library(name: "EditorPlatformTextKit", targets: ["EditorPlatformTextKit"]),
         .library(name: "EditorUI", targets: ["EditorUI"]),
+        .library(name: "WorkspaceUI", targets: ["WorkspaceUI"]),
         .library(name: "SyntaxInfrastructure", targets: ["SyntaxInfrastructure"]),
         .library(name: "LanguageInfrastructure", targets: ["LanguageInfrastructure"]),
         .library(name: "IDETestSupport", targets: ["IDETestSupport"])
@@ -27,6 +28,7 @@ let package = Package(
         .target(name: "FileSystemInfrastructure", dependencies: ["IDEDomain", "IDEApplication"]),
         .target(name: "EditorPlatformTextKit", dependencies: ["IDEDomain", "IDEApplication"]),
         .target(name: "EditorUI", dependencies: ["IDEApplication", "EditorPlatformTextKit"]),
+        .target(name: "WorkspaceUI", dependencies: ["IDEApplication"]),
         .target(
             name: "SyntaxInfrastructure",
             dependencies: [
@@ -52,8 +54,9 @@ let package = Package(
         ),
         .testTarget(
             name: "LanguageInfrastructureTests",
-            dependencies: ["IDEDomain", "IDEApplication", "LanguageInfrastructure", "IDETestSupport", "EditorPlatformTextKit", "EditorUI"]
+            dependencies: ["IDEDomain", "IDEApplication", "LanguageInfrastructure", "IDETestSupport", "EditorPlatformTextKit", "EditorUI", "WorkspaceUI"]
         ),
+        .testTarget(name: "WorkspaceUITests", dependencies: ["WorkspaceUI", "IDEApplication"]),
         .testTarget(
             name: "FileSystemInfrastructureTests",
             dependencies: ["IDEDomain", "IDEApplication", "FileSystemInfrastructure", "IDETestSupport"]

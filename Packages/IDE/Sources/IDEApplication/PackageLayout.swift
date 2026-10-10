@@ -131,14 +131,3 @@ public protocol PackageDescribing: Sendable {
 public extension PackageDescribing {
     func describe(root: String) async throws -> PackageLayout { try await describe(root: root, toolchain: nil) }
 }
-
-/// The words about a file's target for the window subtitle.
-public enum TargetNote {
-    public static func text(names: [String], basis: MembershipBasis? = .listed) -> String? {
-        switch names.count {
-        case 0: nil
-        case 1: basis == .inferred ? "Target: \(names[0]) (inferred)" : "Target: \(names[0])"
-        default: "Target: ambiguous (\(names.joined(separator: ", ")))"
-        }
-    }
-}

@@ -244,7 +244,7 @@ public final class SourceKitLanguageService: CompletionProviding {
                 onRequest: { [weak self] method, params in
                     guard let self else { return .null }
 
-                    return await self.answerServerRequest(method, params)
+                    return await self.answerServerRequest(method, params, from: number)
                 },
                 onClose: { [weak self] in
                     Task { @MainActor in self?.serverEnded(number) }
@@ -273,6 +273,8 @@ public final class SourceKitLanguageService: CompletionProviding {
     private func serverEnded(_ number: Int) {
         guard number == serverNumber, wantsRunning else { return }
 
+        // Cancel client-side questions as soon as the server disappears, before the restart delay.
+        connection?.close()
         connection = nil
         sync.attach(nil)
         forgetWork()
@@ -832,21 +834,23 @@ public final class SourceKitLanguageService: CompletionProviding {
 
     /// The server's requests of the client. Progress registration and everything unknown get an
     /// empty answer; the question whether to trust the project's configuration is the user's.
-    private func answerServerRequest(_ method: String, _ params: JSONValue) async -> JSONValue {
+    private func answerServerRequest(_ method: String, _ params: JSONValue, from number: Int) async -> JSONValue {
+        guard number == serverNumber, !Task.isCancelled else { return .null }
+
         guard method == "window/showMessageRequest" else { return .null }
 
         let titles = (params["actions"]?.arrayValue ?? []).compactMap { $0["title"]?.stringValue }
         guard let grant = titles.first(where: { $0 == "Trust Workspace" }) else { return .null }
 
         let refuse = titles.first(where: { $0 == "Don't Trust" })
-        let decision = await decideTrust()
+        let decision = await decideTrust(from: number)
         switch decision {
         case .granted: return ["title": .string(grant)]
         case .refused: return refuse.map { ["title": .string($0)] } ?? .null
         }
     }
 
-    private func decideTrust() async -> TrustDecision {
+    private func decideTrust(from number: Int) async -> TrustDecision {
         let key = DocumentPath.canonical(root.path)
         if let kept = trustStore?.decision(forRoot: key) {
             setTrust(kept)
@@ -865,7 +869,15 @@ public final class SourceKitLanguageService: CompletionProviding {
         // Until the user answers, the server has not been answered either.
         setTrust(nil)
         let decision = await trustPrompt(root.lastPathComponent, root)
+        guard number == serverNumber, wantsRunning, !Task.isCancelled else { return .refused }
+
         isAskingForTrust = false
+        guard let decision else {
+            setTrust(.refused)
+
+            return .refused
+        }
+
         trustStore?.record(decision, forRoot: key)
         setTrust(decision)
 
