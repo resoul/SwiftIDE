@@ -1,0 +1,40 @@
+{
+ "case": "macapp",
+ "phase": "sourcekit-lsp alone, no build server",
+ "server": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/sourcekit-lsp",
+ "root": "/Users/resoul/projects/SwiftIDE/Fixtures/MacApp",
+ "questions": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": false,
+   "seconds": 25.092,
+   "answer": "[\"Cannot find 'Greeter' in scope\", \"Cannot find 'Build' in scope\", \"Cannot find 'Greeter' in scope\"]"
+  },
+  "diagnostic: configuration probe": {
+   "ok": false,
+   "seconds": 25.092,
+   "answer": "[\"Cannot find 'Greeter' in scope\", \"Cannot find 'Build' in scope\", \"Cannot find 'Greeter' in scope\"]"
+  },
+  "hover: NSApplicationDelegate type from the macOS SDK": {
+   "ok": true,
+   "seconds": 0.036,
+   "answer": "{\"range\": {\"end\": {\"character\": 56, \"line\": 3}, \"start\": {\"character\": 35, \"line\": 3}}, \"contents\": {\"value\": \"```swift\\nprotocol NSApplicationDelegate : NSObjectProtocol\\n```\\n\", \"kind\": \"markdown\"}}"
+  },
+  "hover: member declared in another file": {
+   "ok": false,
+   "seconds": 0.22,
+   "answer": "null"
+  },
+  "definition: type in another file": {
+   "ok": false,
+   "seconds": 0.051,
+   "answer": "null"
+  },
+  "completion": {
+   "ok": false,
+   "seconds": 0.056,
+   "answer": "{\"count\": 0, \"first\": []}"
+  }
+ },
+ "initialize_seconds": 0.032,
+ "stderr_tail": []
+}

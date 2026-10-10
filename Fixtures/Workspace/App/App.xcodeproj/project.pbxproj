@@ -1,0 +1,212 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		34CA318CE49036281F20EB4D /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44D4D075820527F51DA89BEC /* main.swift */; };
+		AC9E2384D05226B67297FA62 /* Generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68385D0E324F13ACFFA65AB5 /* Generated.swift */; };
+		3FBC74009E5A469EC77FD3C2 /* Core.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5D63160E14876D73D8DF7B0 /* Core.framework */; };
+		5F13B928EBC5BE4AF2A70536 /* LocalKit in Frameworks */ = {isa = PBXBuildFile; productRef = EE530BDFE88397D8644FAFD6 /* LocalKit */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		44D4D075820527F51DA89BEC /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		68385D0E324F13ACFFA65AB5 /* Generated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Generated.swift; sourceTree = "<group>"; };
+		3033B52FCBE40C092CE16CE0 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5D63160E14876D73D8DF7B0 /* Core.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Core.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0E4C835CB574AE0CDEBB8CD7 /* Sources */ = {isa = PBXGroup; children = (44D4D075820527F51DA89BEC);  path = Sources; sourceTree = "<group>"; };
+		0F8721FD61674D74611BF8D9 /* Generated */ = {isa = PBXGroup; children = (68385D0E324F13ACFFA65AB5);  path = Generated; sourceTree = "<group>"; };
+		5A34D1CD027FB8864E1AD6DC /* Products */ = {isa = PBXGroup; children = (3033B52FCBE40C092CE16CE0, A5D63160E14876D73D8DF7B0); name = Products; sourceTree = "<group>"; };
+		471FFE37B9F6F8C2F0CE5CC7 = {isa = PBXGroup; children = (0E4C835CB574AE0CDEBB8CD7, 0F8721FD61674D74611BF8D9, 5A34D1CD027FB8864E1AD6DC); sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		90FF5BA7F84F82F54DF563A6 /* App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3909BC7C29ADEA71FCA8E8ED;
+			buildPhases = (
+				5428E9EE0462BEEF7795B475 /* Generate */,
+				92FECF358E7FF425C891D033 /* Sources */,
+				6DEA63B57600472BFCA6F36A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = App;
+			packageProductDependencies = (
+				EE530BDFE88397D8644FAFD6 /* LocalKit */,
+			);
+			productName = App;
+			productReference = 3033B52FCBE40C092CE16CE0 /* App.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A78F27954AC767D8026AFEA1 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = 76082131EE34426D866355F3;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 471FFE37B9F6F8C2F0CE5CC7;
+			packageReferences = (
+				AE475CBEF3FC7DC4162F3F09,
+			);
+			productRefGroup = 5A34D1CD027FB8864E1AD6DC /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				90FF5BA7F84F82F54DF563A6,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		92FECF358E7FF425C891D033 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				34CA318CE49036281F20EB4D /* main.swift in Sources */,
+				AC9E2384D05226B67297FA62 /* Generated.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6DEA63B57600472BFCA6F36A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FBC74009E5A469EC77FD3C2 /* Core.framework in Frameworks */,
+				5F13B928EBC5BE4AF2A70536 /* LocalKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		5428E9EE0462BEEF7795B475 /* Generate */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = Generate;
+			outputPaths = (
+				"$(SRCROOT)/Generated/Generated.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"$SRCROOT/Generated\"\nprintf 'enum Generated {\\n    static let stamp = \"generated\"\\n}\\n' > \"$SRCROOT/Generated/Generated.swift\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		E2CCDD233502F18F6FE3447F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.swiftide.fixture.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		C55883DB1D7EDA24AAE4FFFF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(BUILT_PRODUCTS_DIR)";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.swiftide.fixture.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		20C24270E525981DFE50F7DE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		29F719C9CB0A809F3A5985B5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3909BC7C29ADEA71FCA8E8ED /* Build configuration list for PBXNativeTarget "App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E2CCDD233502F18F6FE3447F /* Debug */,
+				C55883DB1D7EDA24AAE4FFFF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		76082131EE34426D866355F3 /* Build configuration list for PBXProject "App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				20C24270E525981DFE50F7DE /* Debug */,
+				29F719C9CB0A809F3A5985B5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AE475CBEF3FC7DC4162F3F09 /* XCLocalSwiftPackageReference "../LocalKit" */ = {isa = XCLocalSwiftPackageReference; relativePath = ../LocalKit; };
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		EE530BDFE88397D8644FAFD6 /* LocalKit */ = {isa = XCSwiftPackageProductDependency; productName = LocalKit; };
+/* End XCSwiftPackageProductDependency section */
+
+	};
+	rootObject = A78F27954AC767D8026AFEA1 /* Project object */;
+}

@@ -2,3 +2,10 @@
 .build/
 .swiftpm/
 .idea/
+
+Tools/CompatibilityMatrix/vendor/
+Fixtures/**/buildServer.json
+Fixtures/**/.compile
+Fixtures/**/.bundle
+Fixtures/**/.build/
+Fixtures/Workspace/App/Generated/

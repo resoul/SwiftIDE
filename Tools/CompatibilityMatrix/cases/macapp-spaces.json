@@ -1,0 +1,51 @@
+{
+  "name": "macapp-spaces",
+  "root": "/Users/resoul/tk009 spaces/Mac App",
+  "document": "Sources/AppDelegate.swift",
+  "edit": {
+    "append": "\nlet number: Int = Greeter(name: \"x\").greeting()\n#if FLAVOUR_DEBUG\nlet debugOnly = configurationProbeDebugOnly()\n#endif\n#if FLAVOUR_RELEASE\nlet releaseOnly = configurationProbeReleaseOnly()\n#endif\n"
+  },
+  "diagnostics": [
+    {
+      "expect": "cannot convert value of type 'String' to specified type 'Int'"
+    },
+    {
+      "expect": "configurationProbeDebugOnly",
+      "present": true
+    },
+    {
+      "expect": "configurationProbeReleaseOnly",
+      "present": false
+    }
+  ],
+  "grace_seconds": 4,
+  "questions": [
+    {
+      "kind": "hover",
+      "id": "hover: NSApplicationDelegate type from the macOS SDK",
+      "needle": "NSApplicationDelegate",
+      "offset": 2,
+      "expect": "NSApplicationDelegate"
+    },
+    {
+      "kind": "hover",
+      "id": "hover: member declared in another file",
+      "needle": "greeter.greeting",
+      "offset": 8,
+      "expect": "greeting"
+    },
+    {
+      "kind": "definition",
+      "id": "definition: type in another file",
+      "needle": "Greeter(name: \"mac\")",
+      "offset": 2,
+      "expect_file": "Greeter.swift"
+    },
+    {
+      "kind": "completion",
+      "needle": "",
+      "after": "greeter.",
+      "expect": "greeting"
+    }
+  ]
+}

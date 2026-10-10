@@ -1,0 +1,52 @@
+{
+ "case": "swiftpm",
+ "phase": "swiftpm, no build yet",
+ "server": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/sourcekit-lsp",
+ "root": "/Users/resoul/projects/SwiftIDE/Fixtures/SwiftPMPackage",
+ "questions": {
+  "diagnostic": {
+   "ok": true,
+   "seconds": 1.835,
+   "answer": "{\"message\": \"Cannot convert value of type 'String' to specified type 'Int'\", \"range\": {\"end\": {\"character\": 26, \"line\": 5}, \"start\": {\"character\": 26, \"line\": 5}}, \"source\": \"SourceKit\", \"tags\": [], \"severity\": 1}"
+  },
+  "hover": {
+   "ok": true,
+   "seconds": 0.013,
+   "answer": "{\"range\": {\"end\": {\"line\": 3, \"character\": 22}, \"start\": {\"character\": 14, \"line\": 3}}, \"contents\": {\"value\": \"```swift\\nfunc greeting() -> String\\n```\\n\", \"kind\": \"markdown\"}}"
+  },
+  "definition": {
+   "ok": true,
+   "seconds": 0.002,
+   "answer": "[{\"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/SwiftPMPackage/Sources/Lib/Greeter.swift\", \"range\": {\"start\": {\"character\": 16, \"line\": 7}, \"end\": {\"character\": 16, \"line\": 7}}}]"
+  },
+  "completion": {
+   "ok": true,
+   "seconds": 0.019,
+   "answer": "{\"count\": 3, \"first\": [\"self\", \"name\", \"greeting()\"]}"
+  }
+ },
+ "initialize_seconds": 0.502,
+ "stderr_tail": [],
+ "after_restart": {
+  "diagnostic": {
+   "ok": true,
+   "seconds": 1.23,
+   "answer": "{\"range\": {\"start\": {\"character\": 26, \"line\": 5}, \"end\": {\"character\": 26, \"line\": 5}}, \"source\": \"SourceKit\", \"tags\": [], \"message\": \"Cannot convert value of type 'String' to specified type 'Int'\", \"severity\": 1}"
+  },
+  "hover": {
+   "ok": true,
+   "seconds": 0.002,
+   "answer": "{\"contents\": {\"value\": \"```swift\\nfunc greeting() -> String\\n```\\n\", \"kind\": \"markdown\"}, \"range\": {\"start\": {\"line\": 3, \"character\": 14}, \"end\": {\"character\": 22, \"line\": 3}}}"
+  },
+  "definition": {
+   "ok": true,
+   "seconds": 0.001,
+   "answer": "[{\"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/SwiftPMPackage/Sources/Lib/Greeter.swift\", \"range\": {\"start\": {\"line\": 7, \"character\": 16}, \"end\": {\"character\": 16, \"line\": 7}}}]"
+  },
+  "completion": {
+   "ok": true,
+   "seconds": 0.013,
+   "answer": "{\"count\": 3, \"first\": [\"self\", \"name\", \"greeting()\"]}"
+  }
+ }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "workspace",
+  "root": "../../../Fixtures/Workspace",
+  "document": "App/Sources/main.swift",
+  "edit": {"append": "\nlet number: Int = Core().message()\n"},
+  "diagnostics": [{"expect": "cannot convert value of type 'String' to specified type 'Int'"}],
+  "questions": [
+    {"kind": "hover", "id": "hover: type of another project", "needle": "Counter()", "offset": 2, "expect": "Counter"},
+    {"kind": "definition", "id": "definition: into another project", "needle": "Core().message", "offset": 2, "expect_file": "Core.swift"},
+    {"kind": "definition", "id": "definition: into a local package", "needle": "shout(\"app\")", "offset": 1, "expect_file": "Shout.swift"},
+    {"kind": "hover", "id": "hover: generated source", "needle": "Generated.stamp", "offset": 12, "expect": "stamp"},
+    {"kind": "completion", "after": "counter.", "expect": "increment"}
+  ]
+}

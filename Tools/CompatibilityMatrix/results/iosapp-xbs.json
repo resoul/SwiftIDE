@@ -1,0 +1,52 @@
+{
+ "case": "iosapp",
+ "phase": "xcode-build-server (parse of a build log)",
+ "server": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/sourcekit-lsp",
+ "root": "/Users/resoul/projects/SwiftIDE/Fixtures/IOSApp",
+ "questions": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": true,
+   "seconds": 4.689,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\"]"
+  },
+  "hover: UIKit type (needs the iOS SDK)": {
+   "ok": true,
+   "seconds": 0.129,
+   "answer": "{\"contents\": {\"value\": \"## Multiple results\\n\\n```swift\\n@MainActor @_nonSendable(_assumed) class UILabel : UIView, NSCoding, UIContentSizeCategoryAdjusting, UILetterformAwareAdjusting\\n```\\n\\n\\n---\\n\\n```swift\\n\\n@MainActor convenience init()\\n```\\n\", \"kind\": \"markdown\"}, \"range\": {\"end\": {\"line\": …"
+  },
+  "definition: type in another file": {
+   "ok": true,
+   "seconds": 0.007,
+   "answer": "[{\"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/IOSApp/Sources/Greeter.swift\", \"range\": {\"end\": {\"character\": 7, \"line\": 0}, \"start\": {\"character\": 7, \"line\": 0}}}]"
+  },
+  "completion": {
+   "ok": true,
+   "seconds": 0.463,
+   "answer": "{\"count\": 200, \"first\": [\"traitCollection\", \"trailingAnchor\", \"topAnchor\", \"tintColor\", \"tintAdjustmentMode\", \"textInputMode\", \"textInputContextIdentifier\", \"tag\"]}"
+  }
+ },
+ "initialize_seconds": 0.102,
+ "stderr_tail": [],
+ "after_restart": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": true,
+   "seconds": 1.63,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\"]"
+  },
+  "hover: UIKit type (needs the iOS SDK)": {
+   "ok": true,
+   "seconds": 0.036,
+   "answer": "{\"contents\": {\"kind\": \"markdown\", \"value\": \"## Multiple results\\n\\n```swift\\n@MainActor @_nonSendable(_assumed) class UILabel : UIView, NSCoding, UIContentSizeCategoryAdjusting, UILetterformAwareAdjusting\\n```\\n\\n\\n---\\n\\n```swift\\n\\n@MainActor convenience init()\\n```\\n\"}, \"range\": {\"end\": {\"line\": …"
+  },
+  "definition: type in another file": {
+   "ok": true,
+   "seconds": 0.002,
+   "answer": "[{\"range\": {\"end\": {\"line\": 0, \"character\": 7}, \"start\": {\"character\": 7, \"line\": 0}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/IOSApp/Sources/Greeter.swift\"}]"
+  },
+  "completion": {
+   "ok": true,
+   "seconds": 0.149,
+   "answer": "{\"count\": 200, \"first\": [\"traitCollection\", \"trailingAnchor\", \"topAnchor\", \"tintColor\", \"tintAdjustmentMode\", \"textInputMode\", \"textInputContextIdentifier\", \"tag\"]}"
+  }
+ }
+}

@@ -1,0 +1,9 @@
+{
+ "scenario": "config-switch",
+ "release_probe_before": 4.56,
+ "debug_probe_before_switch": null,
+ "seconds_until_debug_probe_after_switch": 7.86,
+ "messages_after": [
+  "Cannot find 'configurationProbeDebugOnly' in scope"
+ ]
+}

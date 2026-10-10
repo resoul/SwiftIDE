@@ -1,0 +1,72 @@
+{
+ "case": "macapp",
+ "phase": "sourcekit-xcode-bsp, Debug",
+ "server": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/sourcekit-lsp",
+ "root": "/Users/resoul/projects/SwiftIDE/Fixtures/MacApp",
+ "questions": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": true,
+   "seconds": 4.677,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\"]"
+  },
+  "diagnostic: configurationProbeDebugOnly": {
+   "ok": false,
+   "seconds": 62.108,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\"]"
+  },
+  "hover: NSApplicationDelegate type from the macOS SDK": {
+   "ok": true,
+   "seconds": 0.234,
+   "answer": "{\"contents\": {\"value\": \"```swift\\nprotocol NSApplicationDelegate : NSObjectProtocol\\n```\\n\", \"kind\": \"markdown\"}, \"range\": {\"start\": {\"line\": 3, \"character\": 35}, \"end\": {\"line\": 3, \"character\": 56}}}"
+  },
+  "hover: member declared in another file": {
+   "ok": true,
+   "seconds": 0.027,
+   "answer": "{\"contents\": {\"kind\": \"markdown\", \"value\": \"```swift\\nfunc greeting() -> String\\n```\\n\"}, \"range\": {\"end\": {\"line\": 7, \"character\": 30}, \"start\": {\"character\": 22, \"line\": 7}}}"
+  },
+  "definition: type in another file": {
+   "ok": true,
+   "seconds": 0.008,
+   "answer": "[{\"range\": {\"start\": {\"line\": 0, \"character\": 7}, \"end\": {\"line\": 0, \"character\": 7}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/MacApp/Sources/Greeter.swift\"}]"
+  },
+  "completion": {
+   "ok": true,
+   "seconds": 0.515,
+   "answer": "{\"count\": 3, \"first\": [\"self\", \"name\", \"greeting()\"]}"
+  }
+ },
+ "initialize_seconds": 0.066,
+ "stderr_tail": [],
+ "after_restart": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": true,
+   "seconds": 4.297,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\"]"
+  },
+  "diagnostic: configurationProbeDebugOnly": {
+   "ok": false,
+   "seconds": 62.062,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\"]"
+  },
+  "hover: NSApplicationDelegate type from the macOS SDK": {
+   "ok": true,
+   "seconds": 0.247,
+   "answer": "{\"range\": {\"end\": {\"line\": 3, \"character\": 56}, \"start\": {\"line\": 3, \"character\": 35}}, \"contents\": {\"value\": \"```swift\\nprotocol NSApplicationDelegate : NSObjectProtocol\\n```\\n\", \"kind\": \"markdown\"}}"
+  },
+  "hover: member declared in another file": {
+   "ok": true,
+   "seconds": 0.044,
+   "answer": "{\"range\": {\"end\": {\"line\": 7, \"character\": 30}, \"start\": {\"line\": 7, \"character\": 22}}, \"contents\": {\"value\": \"```swift\\nfunc greeting() -> String\\n```\\n\", \"kind\": \"markdown\"}}"
+  },
+  "definition: type in another file": {
+   "ok": true,
+   "seconds": 0.007,
+   "answer": "[{\"range\": {\"end\": {\"line\": 0, \"character\": 7}, \"start\": {\"line\": 0, \"character\": 7}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/MacApp/Sources/Greeter.swift\"}]"
+  },
+  "completion": {
+   "ok": true,
+   "seconds": 0.665,
+   "answer": "{\"count\": 3, \"first\": [\"self\", \"name\", \"greeting()\"]}"
+  }
+ }
+}

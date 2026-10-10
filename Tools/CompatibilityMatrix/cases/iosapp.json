@@ -1,0 +1,12 @@
+{
+  "name": "iosapp",
+  "root": "../../../Fixtures/IOSApp",
+  "document": "Sources/RootViewController.swift",
+  "edit": {"append": "\nlet number: Int = Greeter(name: \"x\").greeting()\n"},
+  "diagnostics": [{"expect": "cannot convert value of type 'String' to specified type 'Int'"}],
+  "questions": [
+    {"kind": "hover", "id": "hover: UIKit type (needs the iOS SDK)", "needle": "UILabel()", "offset": 2, "expect": "UILabel"},
+    {"kind": "definition", "id": "definition: type in another file", "needle": "Greeter(name: \"ios\")", "offset": 2, "expect_file": "Greeter.swift"},
+    {"kind": "completion", "after": "label.", "expect": "text"}
+  ]
+}

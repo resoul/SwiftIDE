@@ -1,0 +1,72 @@
+{
+ "case": "workspace",
+ "phase": "sourcekit-xcode-bsp, first start",
+ "server": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/sourcekit-lsp",
+ "root": "/Users/resoul/projects/SwiftIDE/Fixtures/Workspace",
+ "questions": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": false,
+   "seconds": 63.061,
+   "answer": "[\"Could not build Objective-C module 'Core'\"]"
+  },
+  "hover: type of another project": {
+   "ok": false,
+   "seconds": 0.195,
+   "answer": "null"
+  },
+  "definition: into another project": {
+   "ok": false,
+   "seconds": 0.033,
+   "answer": "null"
+  },
+  "definition: into a local package": {
+   "ok": true,
+   "seconds": 0.019,
+   "answer": "[{\"range\": {\"start\": {\"character\": 12, \"line\": 0}, \"end\": {\"character\": 12, \"line\": 0}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/Workspace/LocalKit/Sources/LocalKit/Shout.swift\"}]"
+  },
+  "hover: generated source": {
+   "ok": false,
+   "seconds": 0.008,
+   "answer": "null"
+  },
+  "completion": {
+   "ok": false,
+   "seconds": 0.032,
+   "answer": "{\"count\": 0, \"first\": []}"
+  }
+ },
+ "initialize_seconds": 0.085,
+ "stderr_tail": [],
+ "after_restart": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": false,
+   "seconds": 63.04,
+   "answer": "[\"Could not build Objective-C module 'Core'\"]"
+  },
+  "hover: type of another project": {
+   "ok": false,
+   "seconds": 0.206,
+   "answer": "null"
+  },
+  "definition: into another project": {
+   "ok": false,
+   "seconds": 0.032,
+   "answer": "null"
+  },
+  "definition: into a local package": {
+   "ok": true,
+   "seconds": 0.026,
+   "answer": "[{\"range\": {\"start\": {\"character\": 12, \"line\": 0}, \"end\": {\"character\": 12, \"line\": 0}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/Workspace/LocalKit/Sources/LocalKit/Shout.swift\"}]"
+  },
+  "hover: generated source": {
+   "ok": false,
+   "seconds": 0.011,
+   "answer": "null"
+  },
+  "completion": {
+   "ok": false,
+   "seconds": 0.049,
+   "answer": "{\"count\": 0, \"first\": []}"
+  }
+ }
+}

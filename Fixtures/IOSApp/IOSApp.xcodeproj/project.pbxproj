@@ -1,0 +1,180 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		061FA4DF3CBABC5B5CE45380 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C922E9265D0965CE60FD0518 /* AppDelegate.swift */; };
+		3DE850F0F181588E8E24CACC /* RootViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D4F2511914BCC4CCA453D0E /* RootViewController.swift */; };
+		2186FA918DF60E4027C05179 /* Greeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8FABE91F23C4BC5F8DCEBA2 /* Greeter.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		C922E9265D0965CE60FD0518 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		8D4F2511914BCC4CCA453D0E /* RootViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewController.swift; sourceTree = "<group>"; };
+		D8FABE91F23C4BC5F8DCEBA2 /* Greeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Greeter.swift; sourceTree = "<group>"; };
+		0AB4CDE6C662D93F6DDFA8AC /* IOSApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IOSApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		D8435C20FE266CD74CEFD51F /* Sources */ = {isa = PBXGroup; children = (C922E9265D0965CE60FD0518, 8D4F2511914BCC4CCA453D0E, D8FABE91F23C4BC5F8DCEBA2);  path = Sources; sourceTree = "<group>"; };
+		BAC4319C118B142466CF5F40 /* Products */ = {isa = PBXGroup; children = (0AB4CDE6C662D93F6DDFA8AC); name = Products; sourceTree = "<group>"; };
+		A565A08D5048DA254CF0C4C7 = {isa = PBXGroup; children = (D8435C20FE266CD74CEFD51F, BAC4319C118B142466CF5F40); sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		746F84F025F8CC75E6FA28DF /* IOSApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9DCBE74BB0981597B2DEB42D;
+			buildPhases = (
+				3C83AF7E2B767DF2590F4333 /* Sources */,
+				F3E8BF69FBB04240639C350A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOSApp;
+			packageProductDependencies = (
+			);
+			productName = IOSApp;
+			productReference = 0AB4CDE6C662D93F6DDFA8AC /* IOSApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7BAFF1DA97C658B37079B06F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = 882AF23345700099B6BE7169;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A565A08D5048DA254CF0C4C7;
+			packageReferences = (
+			);
+			productRefGroup = BAC4319C118B142466CF5F40 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				746F84F025F8CC75E6FA28DF,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		3C83AF7E2B767DF2590F4333 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				061FA4DF3CBABC5B5CE45380 /* AppDelegate.swift in Sources */,
+				3DE850F0F181588E8E24CACC /* RootViewController.swift in Sources */,
+				2186FA918DF60E4027C05179 /* Greeter.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F3E8BF69FBB04240639C350A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		11D6B0F40DA0A6A226014664 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.swiftide.fixture.iosapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AE949380E7CF36CD06E85BEB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.swiftide.fixture.iosapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		51B392277A67C1C5ADEE25BB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		61C365F73716475CC5889CEB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9DCBE74BB0981597B2DEB42D /* Build configuration list for PBXNativeTarget "IOSApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11D6B0F40DA0A6A226014664 /* Debug */,
+				AE949380E7CF36CD06E85BEB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		882AF23345700099B6BE7169 /* Build configuration list for PBXProject "IOSApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				51B392277A67C1C5ADEE25BB /* Debug */,
+				61C365F73716475CC5889CEB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 7BAFF1DA97C658B37079B06F /* Project object */;
+}

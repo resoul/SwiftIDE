@@ -1,0 +1,72 @@
+{
+ "case": "workspace",
+ "phase": "xcode-build-server (parse of a build log)",
+ "server": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/sourcekit-lsp",
+ "root": "/Users/resoul/projects/SwiftIDE/Fixtures/Workspace",
+ "questions": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": true,
+   "seconds": 1.427,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\"]"
+  },
+  "hover: type of another project": {
+   "ok": true,
+   "seconds": 0.01,
+   "answer": "{\"range\": {\"start\": {\"line\": 3, \"character\": 14}, \"end\": {\"character\": 21, \"line\": 3}}, \"contents\": {\"kind\": \"markdown\", \"value\": \"## Multiple results\\n\\n```swift\\nstruct Counter : Sendable\\n```\\n\\n\\n---\\n\\n```swift\\n\\ninit()\\n```\\n\"}}"
+  },
+  "definition: into another project": {
+   "ok": true,
+   "seconds": 0.003,
+   "answer": "[{\"range\": {\"start\": {\"character\": 14, \"line\": 2}, \"end\": {\"line\": 2, \"character\": 14}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/Workspace/Core/Sources/Core.swift\"}, {\"range\": {\"end\": {\"line\": 3, \"character\": 11}, \"start\": {\"line\": 3, \"character\": 11}}, \"uri\": \"file:///Users/resoul/p…"
+  },
+  "definition: into a local package": {
+   "ok": true,
+   "seconds": 0.003,
+   "answer": "[{\"range\": {\"start\": {\"character\": 12, \"line\": 0}, \"end\": {\"character\": 12, \"line\": 0}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/Workspace/LocalKit/Sources/LocalKit/Shout.swift\"}]"
+  },
+  "hover: generated source": {
+   "ok": true,
+   "seconds": 0.002,
+   "answer": "{\"range\": {\"start\": {\"line\": 5, \"character\": 63}, \"end\": {\"line\": 5, \"character\": 68}}, \"contents\": {\"kind\": \"markdown\", \"value\": \"```swift\\nstatic let stamp: String\\n```\\n\"}}"
+  },
+  "completion": {
+   "ok": true,
+   "seconds": 0.017,
+   "answer": "{\"count\": 3, \"first\": [\"self\", \"value\", \"increment()\"]}"
+  }
+ },
+ "initialize_seconds": 0.047,
+ "stderr_tail": [],
+ "after_restart": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": true,
+   "seconds": 1.222,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\"]"
+  },
+  "hover: type of another project": {
+   "ok": true,
+   "seconds": 0.016,
+   "answer": "{\"contents\": {\"kind\": \"markdown\", \"value\": \"## Multiple results\\n\\n```swift\\nstruct Counter : Sendable\\n```\\n\\n\\n---\\n\\n```swift\\n\\ninit()\\n```\\n\"}, \"range\": {\"start\": {\"character\": 14, \"line\": 3}, \"end\": {\"line\": 3, \"character\": 21}}}"
+  },
+  "definition: into another project": {
+   "ok": true,
+   "seconds": 0.005,
+   "answer": "[{\"range\": {\"end\": {\"line\": 2, \"character\": 14}, \"start\": {\"character\": 14, \"line\": 2}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/Workspace/Core/Sources/Core.swift\"}, {\"range\": {\"end\": {\"character\": 11, \"line\": 3}, \"start\": {\"character\": 11, \"line\": 3}}, \"uri\": \"file:///Users/resoul/p…"
+  },
+  "definition: into a local package": {
+   "ok": true,
+   "seconds": 0.003,
+   "answer": "[{\"range\": {\"end\": {\"character\": 12, \"line\": 0}, \"start\": {\"character\": 12, \"line\": 0}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/Workspace/LocalKit/Sources/LocalKit/Shout.swift\"}]"
+  },
+  "hover: generated source": {
+   "ok": true,
+   "seconds": 0.002,
+   "answer": "{\"contents\": {\"value\": \"```swift\\nstatic let stamp: String\\n```\\n\", \"kind\": \"markdown\"}, \"range\": {\"start\": {\"line\": 5, \"character\": 63}, \"end\": {\"line\": 5, \"character\": 68}}}"
+  },
+  "completion": {
+   "ok": true,
+   "seconds": 0.023,
+   "answer": "{\"count\": 3, \"first\": [\"self\", \"value\", \"increment()\"]}"
+  }
+ }
+}

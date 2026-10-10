@@ -1,0 +1,6 @@
+{
+ "scenario": "new-file",
+ "baseline_appdelegate_diagnostics_seen": null,
+ "seconds_until_cross_file_diagnostic_in_new_file": 6.07,
+ "stderr_tail": []
+}

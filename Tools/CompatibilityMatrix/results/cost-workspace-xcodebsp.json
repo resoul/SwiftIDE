@@ -1,0 +1,11 @@
+{
+ "case": "workspace",
+ "seconds_to_first_diagnostics": 4.15,
+ "peak_total_mb": 216,
+ "peak_by_process_mb": {
+  "sourcekit-xcode-bsp": 26,
+  "SWBBuildServiceBundle": 28,
+  "xcodebuild": 144
+ },
+ "final_total_mb": 27
+}

@@ -1,0 +1,45 @@
+{
+ "case": "macapp",
+ "phase": "sourcekit-xcode-bsp, which configuration",
+ "server": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/sourcekit-lsp",
+ "root": "/Users/resoul/projects/SwiftIDE/Fixtures/MacApp",
+ "questions": {
+  "diagnostic: cannot convert value of type 'String' to specified type 'Int'": {
+   "ok": true,
+   "seconds": 5.099,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\", \"Cannot find 'configurationProbeReleaseOnly' in scope\"]"
+  },
+  "diagnostic: configurationProbeReleaseOnly": {
+   "ok": true,
+   "seconds": 5.099,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\", \"Cannot find 'configurationProbeReleaseOnly' in scope\"]"
+  },
+  "no diagnostic: configurationProbeDebugOnly": {
+   "ok": true,
+   "seconds": 9.105,
+   "answer": "[\"Cannot convert value of type 'String' to specified type 'Int'\", \"Cannot find 'configurationProbeReleaseOnly' in scope\"]"
+  },
+  "hover: NSApplicationDelegate type from the macOS SDK": {
+   "ok": true,
+   "seconds": 0.061,
+   "answer": "{\"contents\": {\"value\": \"```swift\\nprotocol NSApplicationDelegate : NSObjectProtocol\\n```\\n\", \"kind\": \"markdown\"}, \"range\": {\"start\": {\"line\": 3, \"character\": 35}, \"end\": {\"character\": 56, \"line\": 3}}}"
+  },
+  "hover: member declared in another file": {
+   "ok": true,
+   "seconds": 0.003,
+   "answer": "{\"contents\": {\"value\": \"```swift\\nfunc greeting() -> String\\n```\\n\", \"kind\": \"markdown\"}, \"range\": {\"end\": {\"line\": 7, \"character\": 30}, \"start\": {\"line\": 7, \"character\": 22}}}"
+  },
+  "definition: type in another file": {
+   "ok": true,
+   "seconds": 0.004,
+   "answer": "[{\"range\": {\"start\": {\"line\": 0, \"character\": 7}, \"end\": {\"line\": 0, \"character\": 7}}, \"uri\": \"file:///Users/resoul/projects/SwiftIDE/Fixtures/MacApp/Sources/Greeter.swift\"}]"
+  },
+  "completion": {
+   "ok": true,
+   "seconds": 0.077,
+   "answer": "{\"count\": 3, \"first\": [\"self\", \"name\", \"greeting()\"]}"
+  }
+ },
+ "initialize_seconds": 0.127,
+ "stderr_tail": []
+}

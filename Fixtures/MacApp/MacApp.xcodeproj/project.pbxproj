@@ -1,0 +1,183 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		9078FA963673046208A7D4A5 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4BD4CB9C40E756DC93E4651 /* main.swift */; };
+		AA3E602843CD9AB7A2CB0C62 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 019F358CFFE829D9557E4137 /* AppDelegate.swift */; };
+		38EC4EAF174DAE33E3BDD056 /* Greeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 061251FDB2DEBB5F363C5580 /* Greeter.swift */; };
+		5DE2D2CC53B0222522F8039C /* Build.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D7F2FDAB712ADEED3C56C6 /* Build.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F4BD4CB9C40E756DC93E4651 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		019F358CFFE829D9557E4137 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		061251FDB2DEBB5F363C5580 /* Greeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Greeter.swift; sourceTree = "<group>"; };
+		F4D7F2FDAB712ADEED3C56C6 /* Build.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Build.swift; sourceTree = "<group>"; };
+		0F6E8276462E7419B3A0CB77 /* MacApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		38984E0E64E2CC8E40A133BC /* Sources */ = {isa = PBXGroup; children = (F4BD4CB9C40E756DC93E4651, 019F358CFFE829D9557E4137, 061251FDB2DEBB5F363C5580, F4D7F2FDAB712ADEED3C56C6);  path = Sources; sourceTree = "<group>"; };
+		5A4186BC1B1DBAF00FA9BAA4 /* Products */ = {isa = PBXGroup; children = (0F6E8276462E7419B3A0CB77); name = Products; sourceTree = "<group>"; };
+		1944C98401266507FCE1B0A0 = {isa = PBXGroup; children = (38984E0E64E2CC8E40A133BC, 5A4186BC1B1DBAF00FA9BAA4); sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0956675688B443F34C1264FD /* MacApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C8A7D24FCC3A1EA717A391E;
+			buildPhases = (
+				36FC996FB4772BEDC34081E4 /* Sources */,
+				B2B422E933F3E58A9253DBD2 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MacApp;
+			packageProductDependencies = (
+			);
+			productName = MacApp;
+			productReference = 0F6E8276462E7419B3A0CB77 /* MacApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4F2061481B41D2AC153D42FF /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = 1C18E379AD714FB8DC3ACB54;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 1944C98401266507FCE1B0A0;
+			packageReferences = (
+			);
+			productRefGroup = 5A4186BC1B1DBAF00FA9BAA4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0956675688B443F34C1264FD,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		36FC996FB4772BEDC34081E4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9078FA963673046208A7D4A5 /* main.swift in Sources */,
+				AA3E602843CD9AB7A2CB0C62 /* AppDelegate.swift in Sources */,
+				38EC4EAF174DAE33E3BDD056 /* Greeter.swift in Sources */,
+				5DE2D2CC53B0222522F8039C /* Build.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B2B422E933F3E58A9253DBD2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CF9BAAEF38404DE8EA1CAF69 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.swiftide.fixture.macapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = FLAVOUR_DEBUG;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		546B550137BA7E10FADEA8F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.swiftide.fixture.macapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = FLAVOUR_RELEASE;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		EAB263CC9D1C09320DC16823 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		CB467DAE7AB5B895CCDCBF7B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4C8A7D24FCC3A1EA717A391E /* Build configuration list for PBXNativeTarget "MacApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CF9BAAEF38404DE8EA1CAF69 /* Debug */,
+				546B550137BA7E10FADEA8F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C18E379AD714FB8DC3ACB54 /* Build configuration list for PBXProject "MacApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EAB263CC9D1C09320DC16823 /* Debug */,
+				CB467DAE7AB5B895CCDCBF7B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 4F2061481B41D2AC153D42FF /* Project object */;
+}

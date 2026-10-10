@@ -1,0 +1,9 @@
+{
+ "case": "workspace",
+ "seconds_to_first_diagnostics": 2.17,
+ "peak_total_mb": 35,
+ "peak_by_process_mb": {
+  "sourcekit-lsp": 21
+ },
+ "final_total_mb": 15
+}

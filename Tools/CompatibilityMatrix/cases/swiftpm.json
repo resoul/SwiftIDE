@@ -1,0 +1,12 @@
+{
+  "name": "swiftpm",
+  "root": "../../../Fixtures/SwiftPMPackage",
+  "document": "Sources/App/main.swift",
+  "edit": {"append": "\nlet number: Int = greeter.greeting()\n"},
+  "diagnostics": [{"expect": "cannot convert"}],
+  "questions": [
+    {"kind": "hover", "needle": "greeter.greeting", "offset": 8, "expect": "greeting"},
+    {"kind": "definition", "needle": "greeter.greeting", "offset": 8, "expect_file": "Greeter.swift"},
+    {"kind": "completion", "after": "greeter.", "expect": "greeting"}
+  ]
+}
