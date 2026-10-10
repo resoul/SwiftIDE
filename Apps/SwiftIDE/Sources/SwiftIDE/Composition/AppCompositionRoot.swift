@@ -3,6 +3,7 @@ import FileSystemInfrastructure
 import Foundation
 import IDEApplication
 import IDEDomain
+import LanguageInfrastructure
 import SyntaxInfrastructure
 
 @MainActor
@@ -28,6 +29,8 @@ final class AppCompositionRoot {
     private let fileWatcher: any FileWatching = VnodeFileWatcher()
     private var pendingEditors: [DocumentID: TextKitEditor] = [:]
 
+    let languageServices = LanguageServices(scratchRoot: AppCompositionRoot.languageScratchDirectory)
+
     private(set) lazy var saveDocument = SaveDocumentUseCase(store: store)
     private(set) lazy var reloadDocument = ReloadDocumentUseCase(store: store)
     private lazy var openDocument = OpenDocumentUseCase(store: store, registry: registry) { [unowned self] file in
@@ -35,6 +38,12 @@ final class AppCompositionRoot {
         let session = DocumentSession(loaded: file, backend: editor.backend)
         pendingEditors[session.id] = editor
         return session
+    }
+
+    private static var languageScratchDirectory: URL {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent("LanguageScratch", isDirectory: true)
     }
 
     private static var recoveryDirectory: URL {
@@ -77,7 +86,8 @@ final class AppCompositionRoot {
             saveDocument: saveDocument, reloadDocument: reloadDocument,
             recovery: RecoveryCoordinator(session: session, store: recoveryStore),
             externalChanges: makeExternalChangeMonitor(for: session),
-            revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter
+            revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter,
+            languageServices: languageServices
         )
     }
 
@@ -98,7 +108,8 @@ final class AppCompositionRoot {
             saveDocument: saveDocument, reloadDocument: reloadDocument,
             recovery: RecoveryCoordinator(session: session, store: recoveryStore),
             externalChanges: makeExternalChangeMonitor(for: session),
-            revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter
+            revisionOfFile: Self.revisionOfFile, makeHighlighter: Self.makeHighlighter,
+            languageServices: languageServices
         )
     }
 

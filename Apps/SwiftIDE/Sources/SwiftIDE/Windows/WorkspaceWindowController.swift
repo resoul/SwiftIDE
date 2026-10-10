@@ -3,6 +3,7 @@ import EditorPlatformTextKit
 import EditorUI
 import IDEApplication
 import IDEDomain
+import LanguageInfrastructure
 import UniformTypeIdentifiers
 
 @MainActor
@@ -20,6 +21,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     private let externalChanges: ExternalChangeMonitor
     private let container: EditorContainerView
     private let longLines: LongLineMonitor
+    private let languageServices: LanguageServices
+    private var completion: CompletionCoordinator?
     private var isReadOnlyForLongLines = false
 
     var onClose: ((WorkspaceWindowController) -> Void)?
@@ -31,8 +34,10 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         recovery: RecoveryCoordinator,
         externalChanges: ExternalChangeMonitor,
         revisionOfFile: @escaping (String) -> FileRevision?,
-        makeHighlighter: @escaping () -> (any SyntaxHighlighter)?
+        makeHighlighter: @escaping () -> (any SyntaxHighlighter)?,
+        languageServices: LanguageServices
     ) {
+        self.languageServices = languageServices
         self.revisionOfFile = revisionOfFile
         self.session = document
         self.editor = editor
@@ -71,6 +76,10 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
         updateNotice()
         session.subscribeToChanges { [weak self] _ in self?.refreshTitle() }
         refreshTitle()
+        // Completion from the language server of the document's place; the server may still be
+        // starting, in which case there is simply nothing to offer yet.
+        completion = CompletionCoordinator(session: document, editor: editor, provider: languageServices)
+        Task { [languageServices] in await languageServices.attach(document) }
     }
 
     @available(*, unavailable)
@@ -362,6 +371,8 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     func windowWillClose(_ notification: Notification) {
         onClose?(self)
         externalChanges.stop()
+        completion?.controller.dismiss()
+        languageServices.detach(session)
         // The window closes only for a clean document or one the user chose to discard: either way
         // nothing of it is to be recovered.
         Task { [recovery] in await recovery.discard() }
