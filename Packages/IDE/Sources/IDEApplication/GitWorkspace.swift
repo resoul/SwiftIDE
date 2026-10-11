@@ -38,7 +38,10 @@ public final class GitWorkspace {
     public private(set) var operationOutput = ""
     public var prepareCheckout: ((GitRepository) async -> Bool)?
     public var checkoutFinished: ((GitRepository) -> Void)?
+    public var pullPlanner: (any GitPullPlanning)? { service as? any GitPullPlanning }
+    public var pushPlanner: (any GitPushPlanning)? { service as? any GitPushPlanning }
     public var supportsLocalActions: Bool { mutations != nil }
+    public private(set) var lastFetch: (remote: String, date: Date)?
     public var canMutate: Bool { supportsLocalActions && state == .ready && !operationState.isBusy && !stopped }
     private let mutations: (any GitMutating)?
     private var operationTask: Task<Void, Never>?
@@ -257,6 +260,7 @@ public final class GitWorkspace {
                 guard !stopped, operationID == token else { return }
 
                 operationState = Task.isCancelled ? .cancelled : .succeeded
+                if !Task.isCancelled, case .fetch(let remote) = action { lastFetch = (remote, .now) }
             } catch {
                 guard let self, !stopped, operationID == token else { return }
 

@@ -18,13 +18,17 @@ public struct Violation: Equatable, Sendable {
 public enum Rule: String, CaseIterable, Sendable {
     case blankLineBeforeReturn = "blank_line_before_return"
     case blankLineAfterMultilineIf = "blank_line_after_multiline_if"
+    case blankLineAroundInitializer = "blank_line_around_initializer"
 }
 
-/// The two blank-line rules of TK-023, found in the syntax tree, never in the text.
+/// The blank-line rules of TK-023, found in the syntax tree, never in the text.
 ///
 /// - A `return` that follows other statements of the same block has a blank line before it.
 /// - A multi-line `if` (with its `else if` / `else`) that is followed by more statements of the
 ///   same block has a blank line after it.
+///
+/// - An initializer is separated from neighboring declarations, including its attributes/comments.
+///   A first/last member needs no extra blank line against the containing braces.
 ///
 /// A comment directly above the statement belongs to it: the blank line goes above the comment.
 /// The first statement of a block, a statement on the same line as the one before, and
@@ -107,7 +111,9 @@ public enum SpacingChecker {
             let items = Array(node)
             for index in items.indices where index > 0 {
                 let item = items[index]
-                if item.isReturn {
+                if item.item.as(InitializerDeclSyntax.self) != nil || items[index - 1].item.as(InitializerDeclSyntax.self) != nil {
+                    report(.blankLineAroundInitializer, item, "put a blank line between an initializer and neighboring declarations")
+                } else if item.isReturn {
                     report(.blankLineBeforeReturn, item, "put a blank line before `return` when other statements come before it in the block")
                 } else if isMultilineIf(items[index - 1]) {
                     report(.blankLineAfterMultilineIf, item, "put a blank line after a multi-line `if` when the block goes on")
@@ -116,7 +122,17 @@ public enum SpacingChecker {
             return .visitChildren
         }
 
-        private func report(_ rule: Rule, _ item: CodeBlockItemSyntax, _ message: String) {
+        override func visit(_ node: MemberBlockItemListSyntax) -> SyntaxVisitorContinueKind {
+            let items = Array(node)
+            for index in items.indices where index > 0 {
+                if items[index].decl.is(InitializerDeclSyntax.self) || items[index - 1].decl.is(InitializerDeclSyntax.self) {
+                    report(.blankLineAroundInitializer, items[index], "put a blank line between an initializer and neighboring declarations")
+                }
+            }
+            return .visitChildren
+        }
+
+        private func report(_ rule: Rule, _ item: some SyntaxProtocol, _ message: String) {
             let leading = item.firstToken(viewMode: .sourceAccurate)?.leadingTrivia ?? []
             guard BlankLines.insertionPoint(in: Array(leading)) != nil else { return }
 
@@ -144,6 +160,17 @@ public enum SpacingChecker {
         init(ids: Set<SyntaxIdentifier>) {
             self.ids = ids
             super.init(viewMode: .sourceAccurate)
+        }
+
+        override func visit(_ node: MemberBlockItemSyntax) -> MemberBlockItemSyntax {
+            var result = super.visit(node)
+            guard ids.contains(node.id), let token = result.firstToken(viewMode: .sourceAccurate),
+                  let index = BlankLines.insertionPoint(in: Array(token.leadingTrivia)) else { return result }
+
+            var pieces = Array(token.leadingTrivia)
+            pieces[index] = pieces[index].oneNewlineMore
+            result.leadingTrivia = Trivia(pieces: pieces)
+            return result
         }
 
         override func visit(_ node: CodeBlockItemSyntax) -> CodeBlockItemSyntax {

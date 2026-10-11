@@ -225,6 +225,7 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
 @MainActor
 private final class MenuPicker: NSObject {
     let pick: @MainActor (DefinitionLocation) -> Void
+
     init(pick: @escaping @MainActor (DefinitionLocation) -> Void) { self.pick = pick }
 
     @objc func chosen(_ sender: NSMenuItem) {

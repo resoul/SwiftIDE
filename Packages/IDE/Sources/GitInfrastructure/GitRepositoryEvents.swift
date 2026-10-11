@@ -9,6 +9,7 @@ public final class GitRepositoryEvents: @unchecked Sendable {
     public var isActive: Bool { lock.withLock { stream != nil } }
     private final class Callback: Sendable {
         let invoke: @Sendable () -> Void
+
         init(_ invoke: @escaping @Sendable () -> Void) { self.invoke = invoke }
     }
 
@@ -38,6 +39,7 @@ public final class GitRepositoryEvents: @unchecked Sendable {
             if !FSEventStreamStart(stream) { FSEventStreamInvalidate(stream); FSEventStreamRelease(stream); self.stream = nil }
         }
     }
+
     /// Called by the owner on the delivery queue before releasing this object.
     public func stop() {
         let current = lock.withLock { let current = stream; stream = nil; return current }

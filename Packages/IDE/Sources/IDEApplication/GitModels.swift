@@ -4,11 +4,13 @@ public struct GitRepository: Equatable, Sendable {
     public let root: String
     public let gitDirectory: String
     public let commonDirectory: String
+
     public init(root: String, gitDirectory: String, commonDirectory: String) {
         self.root = root
         self.gitDirectory = gitDirectory
         self.commonDirectory = commonDirectory
     }
+
     public func absolutePath(_ relative: String) -> String { root + "/" + relative }
 }
 
@@ -17,6 +19,7 @@ public struct GitChange: Equatable, Sendable {
     public let previousPath: String?
     public let decoration: FileDecoration
     public let submodule: String
+
     public init(path: String, previousPath: String? = nil, decoration: FileDecoration, submodule: String = "N...") {
         self.path = path
         self.previousPath = previousPath
@@ -31,6 +34,7 @@ public struct GitBranch: Equatable, Sendable {
     public let upstream: String
     public var isRemote: Bool { reference.hasPrefix("refs/remotes/") }
     public var name: String { String(reference.dropFirst(isRemote ? 13 : 11)) }
+
     public init(reference: String, oid: String, upstream: String = "") {
         self.reference = reference
         self.oid = oid
@@ -47,6 +51,7 @@ public struct GitSnapshot: Equatable, Sendable {
     public let behind: Int?
     public let changes: [GitChange]
     public let branches: [GitBranch]
+    public let remotes: [String]
     public let mutationToken: String?
     public let capturedAt: Date
     public var headDescription: String {
@@ -54,6 +59,7 @@ public struct GitSnapshot: Equatable, Sendable {
 
         return "Detached · " + (head.map { String($0.prefix(8)) } ?? "unknown")
     }
+
     public init(
         repository: GitRepository,
         branch: String?,
@@ -64,6 +70,7 @@ public struct GitSnapshot: Equatable, Sendable {
         changes: [GitChange],
         branches: [GitBranch] = [],
         mutationToken: String? = nil,
+        remotes: [String] = [],
         capturedAt: Date = .now
     ) {
         self.repository = repository
@@ -75,6 +82,7 @@ public struct GitSnapshot: Equatable, Sendable {
         self.changes = changes
         self.branches = branches
         self.mutationToken = mutationToken
+        self.remotes = remotes
         self.capturedAt = capturedAt
     }
 
@@ -133,6 +141,7 @@ public struct GitCommit: Equatable, Sendable {
     public let author: String
     public let date: Date
     public let subject: String
+
     public init(oid: String, parents: [String], author: String, date: Date, subject: String) {
         self.oid = oid
         self.parents = parents
@@ -145,6 +154,7 @@ public struct GitCommit: Equatable, Sendable {
 public struct GitHistoryPage: Sendable {
     public let commits: [GitCommit]
     public let hasMore: Bool
+
     public init(commits: [GitCommit], hasMore: Bool) { self.commits = commits; self.hasMore = hasMore }
 }
 
@@ -152,6 +162,7 @@ public struct GitCommitFile: Equatable, Sendable {
     public let path: String
     public let previousPath: String?
     public let status: String
+
     public init(path: String, previousPath: String? = nil, status: String) {
         self.path = path; self.previousPath = previousPath; self.status = status
     }

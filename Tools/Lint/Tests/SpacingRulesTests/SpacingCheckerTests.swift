@@ -391,3 +391,45 @@ func aFixThatChangedCodeCommentsOrSyntaxIsRefused() throws {
         try SpacingChecker.verify(original: "let a = [1, 2]\n", fixed: "let a = [1, 2]\nlet\n", path: "A.swift")
     }
 }
+
+
+@Test
+func initializersKeepAttributesAndDocumentationTogetherAndSeparateNeighbors() throws {
+    let source = """
+    final class View {
+        private var subscription: Int?
+        /// Model initializer.
+        public init(model: Int) { subscription = model }
+        @available(*, unavailable)
+        public required init?(coder: Int) { fatalError("unsupported") }
+        func render() {}
+    }
+    """
+    #expect(rules(source) == [.blankLineAroundInitializer, .blankLineAroundInitializer, .blankLineAroundInitializer])
+    let fixed = try #require(try SpacingChecker.fix(source))
+    #expect(fixed.contains("Int?\n\n    /// Model initializer."))
+    #expect(fixed.contains("model }\n\n    @available"))
+    #expect(fixed.contains("@available(*, unavailable)\n    public required init?"))
+    #expect(fixed.contains("unsupported\") }\n\n    func render"))
+    #expect(SpacingChecker.check(fixed).isEmpty)
+    #expect(try SpacingChecker.fix(fixed) == nil)
+}
+
+@Test
+func firstAndLastInitializersAndSameLineMembersNeedNoExtraSpace() throws {
+    #expect(rules("struct A {\n    init() {}\n}\n").isEmpty)
+    #expect(rules("struct A { let x = 1; init() {}; func f() {} }").isEmpty)
+    let source = "extension A {\r\n    var x: Int { 1 }\r\n    init() {}\r\n    // next member\r\n    var y: Int { 2 }\r\n}"
+    let fixed = try #require(try SpacingChecker.fix(source))
+    #expect(fixed.contains("1 }\r\n\r\n    init"))
+    #expect(fixed.contains("init() {}\r\n\r\n    // next member"))
+    #expect(SpacingChecker.check(fixed).isEmpty)
+}
+
+@Test
+func conditionalInitializersAreSeparatedWithinTheirClause() throws {
+    let source = "struct A {\n#if DEBUG\n    let x: Int\n    init() { x = 1 }\n    func f() {}\n#endif\n}"
+    #expect(rules(source) == [.blankLineAroundInitializer, .blankLineAroundInitializer])
+    let fixed = try #require(try SpacingChecker.fix(source))
+    #expect(SpacingChecker.check(fixed).isEmpty)
+}

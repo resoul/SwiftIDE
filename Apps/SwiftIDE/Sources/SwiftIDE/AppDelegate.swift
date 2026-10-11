@@ -14,13 +14,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var openingFolders: Set<String> = []
     private var isTerminating = false
     private let recoveryPrompt: ((RecoveryCandidate) -> Bool)?
+    private(set) var cloneWindow: GitCloneWindowController?
     private(set) var welcome: WelcomeWindowController?
+
     init(composition: AppCompositionRoot = AppCompositionRoot(), recoveryPrompt: ((RecoveryCandidate) -> Bool)? = nil, gitCheckoutPrompt: ((DocumentSession) async -> GitCheckoutDocuments.Decision)? = nil) {
         self.composition = composition
         self.recoveryPrompt = recoveryPrompt
         self.gitCheckoutPrompt = gitCheckoutPrompt
         super.init()
     }
+
     private var workspacePreview: WorkspacePreviewWindowController?
     /// Where the user jumped from, for Go Back.
     private var history = NavigationHistory()
@@ -56,13 +59,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showWelcome(_ sender: Any?) {
         if welcome == nil {
             let controller = WelcomeWindowController(model: composition.recentProjects)
+            controller.content.cloneRepository = { [weak self] in self?.cloneRepository(nil) }
             controller.content.openFolder = { [weak self] in self?.openFolder(nil) }
             controller.content.openProject = { [weak self] path in Task { await self?.openProjectFolder(path: path) } }
             controller.content.locateProject = { [weak self] path in self?.locateProject(path: path) }
+            controller.onClose = { [weak self] in self?.cloneWindow?.dismiss() }
             welcome = controller
         }
 
         welcome?.showWindow(nil)
+    }
+
+    @objc func cloneRepository(_ sender: Any?) {
+        showWelcome(nil)
+        guard cloneWindow == nil, let parent = welcome?.window, parent.attachedSheet == nil else { return }
+
+        let model = composition.makeGitClone()
+        let controller = GitCloneWindowController(model: model)
+        cloneWindow = controller
+        controller.onClosed = { [weak self] in self?.cloneWindow = nil }
+        model.onSuccess = { [weak self, weak controller] path in
+            controller?.dismiss()
+            Task { await self?.openProjectFolder(path: path) }
+        }
+        controller.present(on: parent)
     }
 
     private func returnToWelcomeIfNeeded() {
@@ -120,6 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Servers end when their pipes close, but not waiting for that keeps them from outliving us.
     func applicationWillTerminate(_ notification: Notification) {
+        cloneWindow?.dismiss()
         composition.languageServices.terminateAll()
         composition.recentProjects.stopChecking()
         welcome?.content.disconnect()

@@ -152,12 +152,14 @@ struct GitCLITests {
 
 final class RepositoryFixture: @unchecked Sendable {
     let root = DocumentPath.canonical("/private/tmp/swiftide-git-\(UUID())")
+
     init() throws {
         try FileManager.default.createDirectory(atPath: root, withIntermediateDirectories: true)
         try git(["init", "-b", "main"])
         try git(["config", "user.name", "Test Author"]); try git(["config", "user.email", "author@example.test"])
         try git(["config", "commit.gpgsign", "false"])
     }
+
     func remove() { try? FileManager.default.removeItem(atPath: root) }
     func write(_ path: String, _ value: String) throws {
         let url = URL(fileURLWithPath: root + "/" + path)

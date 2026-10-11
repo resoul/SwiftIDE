@@ -7,9 +7,11 @@ final class GitCheckoutCoordinator {
     private let documents: () -> [DocumentEditorController]
     private let prompt: ((DocumentSession) async -> GitCheckoutDocuments.Decision)?
     private var lockedRoots: Set<String> = []
+
     init(documents: @escaping () -> [DocumentEditorController], prompt: ((DocumentSession) async -> GitCheckoutDocuments.Decision)? = nil) {
         self.documents = documents; self.prompt = prompt
     }
+
     func prepare(_ repository: GitRepository) async -> Bool {
         guard !lockedRoots.contains(repository.root) else { return false }
 
@@ -46,8 +48,8 @@ final class GitCheckoutCoordinator {
         guard let window = document.window, window.attachedSheet == nil else { return .cancel }
 
         let alert = NSAlert()
-        alert.messageText = "Save “\(document.displayName)” before switching branches?"
-        alert.informativeText = "Checkout changes files on disk. Save this document or cancel the switch; its unsaved text will not be discarded."
+        alert.messageText = "Save “\(document.displayName)” before updating files?"
+        alert.informativeText = "This Git action changes files on disk. Save this document or cancel the action; its unsaved text will not be discarded."
         alert.addButton(withTitle: "Cancel")
         alert.addButton(withTitle: "Save")
         let response = await withTaskCancellationHandler {

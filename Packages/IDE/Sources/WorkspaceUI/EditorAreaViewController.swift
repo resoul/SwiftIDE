@@ -26,6 +26,7 @@ public final class EditorAreaViewController: NSViewController {
     private let empty = NSTextField(wrappingLabelWithString: "Open a file from Files to begin editing.\nDouble-click a file, or select it and press Return.")
 
     public init() { super.init(nibName: nil, bundle: nil) }
+
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
@@ -96,6 +97,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
     private var displayedItems: [DocumentTabPresentation] = []
 
     public init() { super.init(nibName: nil, bundle: nil) }
+
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 

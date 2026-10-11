@@ -7,7 +7,9 @@ import Testing
 final class Locked<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Value
+
     init(_ value: Value) { self.value = value }
+
     func withLock<R>(_ body: (inout Value) -> R) -> R { lock.withLock { body(&value) } }
 }
 

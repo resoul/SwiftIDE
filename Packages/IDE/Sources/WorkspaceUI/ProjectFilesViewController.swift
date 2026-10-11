@@ -313,6 +313,7 @@ final class FileStatusCell: NSTableCellView {
 private final class FileRow: NSObject {
     let file: ProjectFile
     let message: String?
+
     init(file: ProjectFile, message: String? = nil) {
         self.file = file
         self.message = message

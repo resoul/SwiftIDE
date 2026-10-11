@@ -8,9 +8,12 @@ public final class GitDiffViewController: NSViewController {
     private let heading = NSTextField(wrappingLabelWithString: "")
     private var subscription: UUID?
     private var presentedText: String?
+
     public init(model: GitWorkspace) { self.model = model; super.init(nibName: nil, bundle: nil) }
+
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
     public override func loadView() {
         view = NSView()
         text.isEditable = false; text.isRichText = false

@@ -4,7 +4,9 @@ import WorkspaceUI
 
 @MainActor
 final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
+    var onClose: (() -> Void)?
     let content: WelcomeProjectsViewController
+
     init(model: RecentProjects) {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Development build"
         content = WelcomeProjectsViewController(model: model, version: version)
@@ -18,8 +20,10 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         window.center()
     }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
     override func showWindow(_ sender: Any?) {
         super.showWindow(sender)
         window?.makeKeyAndOrderFront(nil)
@@ -27,5 +31,5 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         content.model.refreshAvailability()
     }
     func hide() { window?.orderOut(nil); content.model.stopChecking() }
-    func windowWillClose(_ notification: Notification) { content.model.stopChecking() }
+    func windowWillClose(_ notification: Notification) { onClose?(); content.model.stopChecking() }
 }

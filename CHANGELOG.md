@@ -14,6 +14,13 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-029 fast-forward Pull: reviewed single fetch source, current local destination, repository-wide save/cancel and temporary editor locks, exact-head fetch plus ff-only/no-autostash checkout; refusal/partial cancellation and undoable disk reconciliation recorded in ADR-044.
+- TK-023 initializer spacing: syntax-aware blank lines around init declarations and their attributes/comments, verified auto-fix and checker/pipeline tests.
+
+- TK-029 Push slice: project-owned review sheet with source OID, expanded single push address and destination; explicit ordinary Push, bounded output/cancel and stale plan checks. Dirty editors/Undo preserved; mirror/custom mapping, force, tags and implicit upstream disabled. Bare-remote/model/native UI/App verification and pending live acceptance in ADR-043; fast-forward Pull is recorded in ADR-044.
+
+- TK-029 first slice: Welcome Clone with explicit exclusive destination, streamed output/cancel and open/Recent only after success; branch-picker remote Fetch preserves local HEAD/index/files and unsaved editors. Configured Git credentials, OpenSSH batch mode, shared mutation gate and bounded process lifetime; partial clones are retained; this slice excludes Push/Pull, and live SSH/HTTPS acceptance remains pending (ADR-042).
+
 - TK-028: whole-file Git stage/unstage (including unborn HEAD), commit all staged contents with a retained multiline draft, create at HEAD and explicit local-branch switching; bounded live output/cancel, shared-metadata write gate and stale-state checks. Checkout saves or cancels every open worktree document, temporarily locks editing/Undo and refreshes retained sessions without implicit discard. Automated verification and pending manual acceptance are recorded in ADR-041.
 
 - TK-027: real Git inspection in project windows. Added GitInfrastructure CLI adapter, project-scoped status/branch/history state and reusable Changes/Log/branch/diff views. Tree and tabs receive actual Git colours and ignore rules, linked worktrees use Git-reported metadata, read-only diff opens in central content while dirty editors retain Undo. Background disk/ref events, bounded processes and stale-result rejection are covered by temporary-repository and native-window tests. Local mutations and network workflows remain TK-028/TK-029 (ADR-040).

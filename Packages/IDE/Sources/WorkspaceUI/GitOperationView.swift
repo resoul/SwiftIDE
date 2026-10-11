@@ -9,6 +9,7 @@ final class GitOperationView: NSView {
     private let output = NSTextView()
     private let scroll = NSScrollView()
     private let model: GitWorkspace
+
     init(model: GitWorkspace) {
         self.model = model
         super.init(frame: .zero)
@@ -20,8 +21,10 @@ final class GitOperationView: NSView {
         label.font = .systemFont(ofSize: 11); label.maximumNumberOfLines = 3
         gitPin(gitStack([gitStack([label, cancel], vertical: false), scroll]), to: self)
     }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
     @objc private func stop(_ sender: Any?) { model.cancelOperation() }
     func render() {
         isHidden = model.operationTitle.isEmpty

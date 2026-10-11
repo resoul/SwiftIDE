@@ -1,11 +1,17 @@
 import Foundation
 
-public enum GitLocalAction: Equatable, Sendable {
+public enum GitAction: Equatable, Sendable {
+    case fetch(String)
+    case push(GitPushPlan)
+    case pull(GitPullPlan)
     case stage(GitChange), unstage(GitChange)
     case commit(String), createBranch(String), switchBranch(GitBranch)
 
     public var title: String {
         switch self {
+        case .pull(let plan): plan.title
+        case .push(let plan): plan.title
+        case .fetch(let remote): "Fetch " + remote
         case .stage: "Stage whole file"
         case .unstage: "Unstage whole file"
         case .commit: "Commit staged changes"
@@ -13,8 +19,13 @@ public enum GitLocalAction: Equatable, Sendable {
         case .switchBranch(let branch): "Switch to " + branch.name
         }
     }
-    public var changesCheckout: Bool { if case .switchBranch = self { return true }; return false }
+    public var changesCheckout: Bool {
+        switch self { case .switchBranch, .pull: true; default: false }
+    }
 }
+
+/// Compatibility name for the original local action API.
+public typealias GitLocalAction = GitAction
 
 public enum GitOperationState: Equatable, Sendable {
     case idle, preparing, running, cancelling, succeeded, cancelled
@@ -44,9 +55,11 @@ public final class GitCheckoutDocuments {
     private let documents: () -> [DocumentSession]
     private let prompt: (DocumentSession) async -> Decision
     private let save: (DocumentSession) async -> Bool
+
     public init(documents: @escaping () -> [DocumentSession], prompt: @escaping (DocumentSession) async -> Decision, save: @escaping (DocumentSession) async -> Bool) {
         self.documents = documents; self.prompt = prompt; self.save = save
     }
+
     public static func contains(_ document: DocumentSession, root: String) -> Bool {
         !document.isUntitled && (document.path == root || document.path.hasPrefix(root + "/"))
     }

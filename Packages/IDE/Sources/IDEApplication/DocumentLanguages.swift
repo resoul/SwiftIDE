@@ -43,7 +43,9 @@ public protocol LanguageOverrideStore: AnyObject {
 @MainActor
 public final class MemoryLanguageOverrideStore: LanguageOverrideStore {
     private var overrides: [String: DocumentLanguage] = [:]
+
     public init() {}
+
     public func override(forPath path: String) -> DocumentLanguage? { overrides[path] }
     public func setOverride(_ language: DocumentLanguage?, forPath path: String) { overrides[path] = language }
 }

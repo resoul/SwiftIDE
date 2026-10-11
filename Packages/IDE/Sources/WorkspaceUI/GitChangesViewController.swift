@@ -18,7 +18,9 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
     private var lastOperationState = GitOperationState.idle
     private var subscription: UUID?
     private var comparisons: [String: GitComparison] = [:]
+
     public init(model: GitWorkspace) { self.model = model; super.init(nibName: nil, bundle: nil) }
+
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 

@@ -28,6 +28,7 @@ final class GitListView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         let scroll = NSScrollView(); scroll.hasVerticalScroller = true; scroll.documentView = table
         gitPin(scroll, to: self)
     }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
@@ -90,13 +91,16 @@ private final class GitStatusCell: NSTableCellView {
     private let name: NSTextField
     private let detail: NSTextField
     private let colour: NSColor
+
     init(name: NSTextField, detail: NSTextField, colour: NSColor) {
         self.name = name; self.detail = detail; self.colour = colour
         super.init(frame: .zero)
         textField = name
     }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
     override var backgroundStyle: NSView.BackgroundStyle {
         didSet {
             name.textColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : colour

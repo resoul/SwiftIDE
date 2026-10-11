@@ -14,6 +14,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     let git: GitWorkspace?
     private let gitChanges: GitChangesViewController?
     private let gitLog: GitLogViewController?
+    private(set) var pullWindow: GitPullWindowController?
+    private(set) var pushWindow: GitPushWindowController?
     private let gitBranches: GitBranchPickerViewController?
     private let gitDiff: GitDiffViewController?
     private let diffTabID = DocumentID()
@@ -75,6 +77,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             if let gitChanges { browser.addChild(gitChanges); gitChanges.openFile = { [weak self] in self?.openFile?($0) } }
             if let gitLog { browser.addChild(gitLog) }
             if let gitBranches { browser.addChild(gitBranches); shell.installProjectAccessory(gitBranches.view) }
+            gitBranches?.onPullRequested = { [weak self] remote, source in self?.showPull(remote: remote, source: source) }
+            gitBranches?.onPushRequested = { [weak self] branch, remote in self?.showPush(branch: branch, remote: remote) }
             gitBranches?.onActionStarted = { [weak self] in self?.shell.select(.sourceControl) }
             gitBranches?.onViewHistory = { [weak self] in self?.shell.select(.gitLog) }
             git.onInspect = { [weak self] in
@@ -225,6 +229,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         if let tabSubscription { tabs.unsubscribe(tabSubscription) }
         if let gitSubscription { git?.unsubscribe(gitSubscription) }
         gitEvents?.stop(); gitEvents = nil
+        pushWindow?.dismiss(); pullWindow?.dismiss()
         git?.stop(); gitChanges?.disconnect(); gitLog?.disconnect(); gitBranches?.disconnect(); gitDiff?.disconnect()
         files.onRefresh = nil
         files.stop()
@@ -251,11 +256,37 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func showPreviewSourceControl(_ sender: Any?) { if git != nil { shell.select(.sourceControl) } }
     @objc func showGitLog(_ sender: Any?) { if git != nil { shell.select(.gitLog) } }
     @objc func refreshGit(_ sender: Any?) { git?.refresh() }
+    func showPull(remote: String? = nil, source: String? = nil) {
+        guard pullWindow == nil, let git, git.canMutate, git.pullPlanner != nil,
+              let window, window.attachedSheet == nil else { return }
+
+        let controller = GitPullWindowController(workspace: git)
+        pullWindow = controller
+        controller.onClosed = { [weak self] in self?.pullWindow = nil }
+        shell.select(.sourceControl)
+        controller.present(on: window, remote: remote, source: source)
+    }
+    @objc func pullGit(_ sender: Any?) { showPull() }
+    func showPush(branch: GitBranch? = nil, remote: String? = nil) {
+        guard pushWindow == nil, let git, git.canMutate, git.pushPlanner != nil,
+              let window, window.attachedSheet == nil else { return }
+
+        let controller = GitPushWindowController(workspace: git)
+        pushWindow = controller
+        controller.onClosed = { [weak self] in self?.pushWindow = nil }
+        shell.select(.sourceControl)
+        controller.present(on: window, branch: branch?.reference, remote: remote)
+    }
+    @objc func pushGit(_ sender: Any?) { showPush() }
+    @objc func fetchGit(_ sender: Any?) { gitBranches?.showRemoteSelection() }
     @objc func commitGit(_ sender: Any?) { shell.select(.sourceControl); gitChanges?.focusCommitMessage() }
     @objc func cancelGit(_ sender: Any?) { git?.cancelOperation() }
     @objc func showPreviewTerminal(_ sender: Any?) {}
     @objc func showPreviewAssistant(_ sender: Any?) {}
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(pullGit(_:)) { return git?.canMutate == true && git?.pullPlanner != nil && git?.snapshot?.remotes.isEmpty == false && git?.snapshot?.branch != nil && git?.snapshot?.head != nil }
+        if item.action == #selector(pushGit(_:)) { return git?.canMutate == true && git?.pushPlanner != nil && git?.snapshot?.remotes.isEmpty == false && git?.snapshot?.branches.contains(where: { !$0.isRemote }) == true }
+        if item.action == #selector(fetchGit(_:)) { return git?.canMutate == true && git?.snapshot?.remotes.isEmpty == false }
         if item.action == #selector(commitGit(_:)) { return git?.canMutate == true }
         if item.action == #selector(cancelGit(_:)) { return git?.operationState.isBusy == true }
         if item.action == #selector(refreshGit(_:)) { return git != nil && git?.operationState.isBusy == false }

@@ -361,7 +361,7 @@ TK-024 was implemented on 2026-10-11. These checks are pending for the extracted
 
 ## R. Workspace components and Git (TK-025–TK-030, ADR-031/035/036/037)
 
-TK-025/026/027/028/030/031/032 are implemented and tested; their live checks are pending, not passed results. Git inspection works in real project windows; Preview remains sample content. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R2 and R25–R29 for Welcome; R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored enables after a successful Git snapshot. Run Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
+TK-025/026/027/028/030/031/032 and TK-029 Clone/Fetch/Push/fast-forward Pull are implemented and tested; their live checks are pending, not passed results. Git inspection works in real project windows; Preview remains sample content. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R2 and R25–R29 for Welcome; R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored enables after a successful Git snapshot. Run Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
 
 | № | Do | Expected |
 |---|---|---|
@@ -483,3 +483,48 @@ Use disposable repositories and perform R14–R15 plus the following. These are 
 | R51 | Run a slow hook/filter, Cancel; repeat by closing the owning project during action/preparation, with another project in the same repository open | Child process stops; other editors unlock; late results do not reopen the window; refresh reflects any changes already made, with no rollback claim; a remaining Git lock is reported rather than deleted automatically |
 | R52 | Double-click action buttons repeatedly; start an action from another opened root of the same repository; alter HEAD/index externally after review | One action per model and shared metadata; concurrent action reports busy; stale preflight refuses and refreshes, preserving buffers; external Git is not claimed atomically locked |
 | R53 | Keyboard/VoiceOver, IME, light/dark, narrow window and bottom panel; commit form and streamed output | Actions and errors are accessible/readable; composition prevents checkout; the collapsed form keeps space for Changes; busy controls disable and message survives failures; panel layout remains flexible |
+
+
+### Clone and Fetch (TK-029 first slice / ADR-042)
+
+Use disposable destinations and remotes. These checks are pending. R16 is partially implemented: Clone/Fetch/Push/fast-forward Pull exist; merge/rebase policy and conflict recovery await later slices.
+
+| № | Do | Expected |
+|---|---|---|
+| R54 | Welcome ▸ Clone Repository: enter a local bare remote, choose parent and new folder name; repeat through Git menu | Explicit destination, streamed Git output; verified success opens the common workspace and adds Recent once; failure never adds/opens a project |
+| R55 | Try an existing empty/nonempty folder, file, symlink, invalid child name or source URL with credentials/query/unsupported transport | Existing data untouched; clear failure; no recursive deletion or implicit reuse; invalid request makes no new destination |
+| R56 | Cancel a slow clone, close its sheet or Welcome; retry with another new name | Cancelling stays busy until Git exits; partial folder may remain with its path shown; child stops; late success cannot reopen a project; owner close rejects callbacks |
+| R57 | Select each configured remote in the branch picker and Fetch while an editor is dirty and an index entry differs from disk; change the remote's custom fetch mapping | Only selected remote branch refs update; HEAD/index/disk/text/Undo preserved without save prompt or editing lock; progress/error is in Source Control; final snapshot refreshes |
+| R58 | Fetch a deleted remote branch/tag, cancel a slow fetch, disconnect network, double-click Fetch and attempt another action from a linked worktree | No pruning/tag update or implicit checkout; selected operation serializes with local writes; error/cancel refresh actual refs and never promises rollback; leftover lock is reported, not removed |
+| R59 | HTTPS with configured Keychain/helper, missing credentials and denied access; SSH with agent/key, unknown host and unavailable key | Helpers and known SSH setup work; credential/host/access failures are readable and cancellable; no terminal/askpass wait, password persistence or unsupported custom-SSH promise; no auto-fetch |
+| R60 | Light/dark, minimum Welcome size, actual directory panel, keyboard/Return/Esc, IME and VoiceOver; reopen Welcome and inspect last fetch tooltip | Controls and errors readable, input retained after failure/cancel, busy controls disabled, accessible actions; fetch timestamp describes one successful local operation without claiming current server state |
+
+
+### Push (TK-029 second slice / ADR-043)
+
+Use a disposable bare/hosted remote. R61–R66 are pending, with no manual pass recorded.
+
+| № | Do | Expected |
+|---|---|---|
+| R61 | Git ▸ Push… and branch-picker Push…; choose source/remote/destination, Review; change each field and press Return while editing | Sheet belongs to invoking project; actual push address/OID/full destination shown; review performs no network/write; changed inputs disable Push; Return does not publish |
+| R62 | Push to a new branch using a distinct pushurl, custom mirror/matching mappings, follow-tags and dirty/staged/editor text | Only reviewed committed history reaches the single branch/address; other refs/tags are untouched; index/disk/unsaved text/Undo preserved and upstream unchanged |
+| R63 | Cause non-fast-forward, pre-push/server-hook/signing/auth failure; retry | Refusal/output visible; form and last attempt retained; another explicit review required; no force/Pull/Fetch/merge retry; no false remote freshness |
+| R64 | Review, then move source or change push URL externally; configure multiple push URLs, invalid destination, or unborn HEAD | Changed identity/address refused before sending; multiple-address fan-out refused; invalid input explained; no arbitrary refs/deletion/force or inferred unborn commit |
+| R65 | Cancel slow hook/transport, close owning project; disconnect after server accepts | Child stops, gate releases, late UI callbacks rejected; local refresh reports actual local state; cancellation/failure does not promise remote rollback or definitive remote failure; reconcile by explicit Fetch/inspection |
+| R66 | SSH/HTTPS configured credentials, signing and custom pre-push wrapper; keyboard/VoiceOver/IME, themes and long destination address | Existing credential policy and bounded output apply; URL/OID-based hook arguments documented; review accessible/readable, complete details in tooltip, busy controls disable; live behavior and auth do not depend on hidden terminal prompts |
+
+
+### Fast-forward Pull (TK-029 third slice / ADR-044)
+
+Use disposable local/hosted repositories. R67–R74 are pending; no manual pass is recorded.
+
+| № | Do | Expected |
+|---|---|---|
+| R67 | Git ▸ Pull… / branch picker; choose remote/source, Review, edit inputs and press Return | Current local branch/OID, actual fetch URL and full source shown; review is read-only; changed fields disable Pull; Return does not update checkout |
+| R68 | Pull a remote-ahead branch with pull.rebase/autostash, custom fetch mappings, prune/tags and separate pushurl | Only selected remote head is fetched through fetch URL; current branch fast-forwards, no merge/rebase/stash; tags/other heads/FETCH_HEAD/upstream unchanged |
+| R69 | Dirty documents in this project, another project window in same worktree and standalone window; cancel, then save; composition/in-flight save | Correct owning save dialog works with temporarily detached Pull form; cancellation prevents network/checkout; no buffer discarded; saved tracked changes cause commit-first refusal; locks release on every exit |
+| R70 | Clean editors; fast-forward alters/renames/deletes files; Undo after reload | Prepared editing/Undo temporarily locked, then released; ordinary disk monitoring reloads undoably or retains deleted/unreadable/conflicting text |
+| R71 | Diverged history, local-ahead/up-to-date branch, staged/tracked edits, ordinary/ignored untracked overlap and active merge/rebase/bisect | Divergence/dirty/active operation refused without retry/reset/stash/merge; untracked data preserved; local-ahead/up-to-date can finish without change |
+| R72 | Change HEAD/branch/fetch address after review and during Fetch; detach HEAD or use multiple fetch URLs | Stale state/address refused, detached/unborn/multiple address explained; no checkout of another branch or use of pushurl |
+| R73 | Cancel slow Fetch or post-merge hook; linked-worktree concurrent action; close project | Child/gate cleanup, editor unlock/disk checks and stale callback rejection; fetched refs or completed fast-forward may remain, no rollback promise |
+| R74 | SSH/HTTPS failures, configured filters/hooks, actual save dialogs; light/dark/keyboard/IME/VoiceOver and slow network | Usable cancellable progress/error, retained inputs and explicit re-review; temporary editor locks are explained; no hidden terminal wait or manual auth success claim |

@@ -2,7 +2,7 @@ import Foundation
 import IDEApplication
 
 /// Reentrant actor admits different repositories, but never two writes to shared Git metadata.
-private actor GitMutationGate {
+actor GitMutationGate {
     static let shared = GitMutationGate()
     private var active: Set<String> = []
     func run(key: String, operation: @Sendable () async throws -> Void) async throws {
@@ -27,6 +27,18 @@ extension GitCLI: GitMutating {
             var arguments: [String]
             var input: Data?
             switch action {
+            case .pull(let plan):
+                try await pull(plan, expected: current, output: output)
+
+                return
+            case .push(let plan):
+                try await push(plan, expected: current, output: output)
+
+                return
+            case .fetch(let remote):
+                try await fetch(remote: remote, expected: current, output: output)
+
+                return
             case .stage(let change), .unstage(let change):
                 guard expected.changes.contains(change), change.decoration.ignoredReason == nil else {
                     throw GitInspectionError.failed("Select a current changed file")

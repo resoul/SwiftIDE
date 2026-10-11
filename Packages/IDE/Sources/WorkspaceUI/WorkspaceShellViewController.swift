@@ -5,6 +5,7 @@ import AppKit
 public struct WorkspacePanel {
     public let view: NSView
     public let focusTarget: NSView?
+
     public init(view: NSView, focusTarget: NSView? = nil) {
         self.view = view
         self.focusTarget = focusTarget

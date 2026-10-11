@@ -184,3 +184,30 @@ A shared in-process write gate and HEAD/index/status preflight reduce accidental
 
 
 TK-028 automatic validation passed the full 918-test IDE package and 31-test App suite. The foreground-window probe passed this time; its previously observed intermittent activation behavior remains an environment risk, not a reason to weaken its assertion. Final local-action checks passed 12 tests plus the real two-project App case; build/lint passed with four existing warnings. The integrated commit form was visually inspected in both appearances at 900 × 560; this does not complete live/manual acceptance.
+
+
+## TK-029 Clone/Fetch first slice (ADR-042)
+
+Clone reserves a new directory exclusively and never removes partial data automatically. Parent/source checks do not protect against an external replacement race. Fetch clears configured ref mapping and writes only remote heads; tests preserve local HEAD/index/disk and an unsaved App editor with Undo. Both use bounded streamed output/cancel and stopped-owner rejection. This first slice supplies no periodic fetch, tags/prune, submodule recursion, Push/Pull or conflict editor; Push is covered by ADR-043 below. Git credential helpers/SSH configuration and checkout hooks/filters can execute programs; disabling askpass is not a workspace trust policy. Custom SSH commands are overridden by OpenSSH BatchMode, and third-party helpers may have their own UI or arbitrary stderr; universal redaction is not claimed. Inputs/output and fetch timestamps are memory-only; only successful project roots enter ordinary Recent metadata. Actual SSH/HTTPS/Keychain, offline/auth/host failure, long network operations and live R54–R60 remain unverified.
+
+
+**Recorded validation (2026-10-11).** Full IDE package: 925 tests passed (42 WorkspaceUI, 46 SyntaxInfrastructure, 214 LanguageInfrastructure, 3 IconUI, 533 IDEApplication, 18 GitInfrastructure, 69 FileSystemInfrastructure). After adding the credential-helper test and the final bare-remote/tag/prune/FETCH_HEAD assertions, all four network adapter tests passed; the package contained 926 tests at the end of that slice, with no claim of a second full run for Clone/Fetch. The focused App run passed all six Welcome/network tests. The full App run passed 31 of 32 tests; the existing independent foreground-window probe failed because macOS kept its process inactive (`active=false`, project B never became key), and failed identically unchanged in isolation. Its production probe links the existing project-trust coordinator, not the clone host. Its assertion was not weakened or skipped; the final full App suite is not claimed green. Build and pinned lint passed (249 files, zero violations, four existing warnings). Clone form renders were inspected in Aqua/Dark Aqua. Live R54–R60, real SSH/HTTPS/Keychain and network latency remain pending. No mutation campaign, user-remote network action, stage or commit was performed for this slice.
+
+
+## TK-029 Push slice (ADR-043)
+
+Review freezes source OID and one expanded push URL; execution rechecks selected source/address and bypasses mirror/default/custom mappings. A hook can alter local state but cannot substitute a later branch tip for the sent OID. Multiple URLs, force, tags, upstream setup and submodule pushing are outside the slice. Local/remote hooks and configured signing still run; URL/OID-based pre-push arguments can affect custom wrappers. Refusal/cancel refreshes local state without automatic retry. Actual remote acceptance may be uncertain after interruption, and local refs/ahead-behind need not update from URL-based Push. No authoritative freshness or rollback is claimed. Live R61–R66, SSH/HTTPS/signing and network-loss behavior remain pending.
+
+
+**Recorded validation (2026-10-11).** Final IDE package: 933 tests passed; focused Push checks: seven package tests plus the real App sheet case passed. The first full package run exposed an unchanged LanguageServices timing issue that passed unchanged in isolation and in the final full run. Full App: 32/33 passed, with the existing inactive foreground-window probe still failing; no full App green claim. Build and pinned lint passed (256 files, zero violations, four existing warnings); light/dark Push renders inspected. Automatic checks do not replace live R61–R66 or actual SSH/HTTPS/signing and post-acceptance interruption checks.
+
+
+## TK-029 fast-forward Pull (ADR-044)
+
+Pull changes checkout, unlike Fetch/Push, so all worktree editors participate in save/cancel, temporary editing/Undo locks and final disk reconciliation. The review sheet must release its parent while save dialogs are shown. Saved tracked edits still cause a Git clean-index/worktree refusal before network work; no implicit stash/discard. Single-head fetch and frozen-OID ff-only merge ignore custom pull/mapping/autostash settings; divergence or existing repository operations stop. Fetch refs and a completed fast-forward can survive a later hook cancellation/failure; ordinary refresh/reload is required, with no rollback claim. Configured helpers/filters/hooks and external writers remain risks; actual SSH/HTTPS and live R67–R74 remain pending.
+
+
+Git normally permits overwriting ignored untracked paths during fast-forward. Pull explicitly disables that behavior with `--no-overwrite-ignore`; a before/after regression test reproduces the original overwrite and verifies refusal with preserved HEAD/bytes after the fix.
+
+
+**Recorded validation (2026-10-11).** First full package 941/941; final full package 940/941, with an existing nested-package SourceKit completion timeout that passed unchanged in isolation afterward. Eight final Pull package tests passed. Full App 34/34, then all three network App cases passed after the final sheet-resumption test. Build/lint passed (263 files, zero violations, four existing warnings); checker 28 tests and pipeline self-test passed; light/dark renders inspected. The final full package is not claimed green, and these automatic checks do not complete live R67–R74.

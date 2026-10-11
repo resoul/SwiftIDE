@@ -16,7 +16,9 @@ public final class GitLogViewController: NSViewController {
     private let details = NSTextField(wrappingLabelWithString: "Select a commit to see files. Merge commits compare against their first parent.")
     private let more = NSButton(title: "Load more", target: nil, action: nil)
     private var subscription: UUID?
+
     public init(model: GitWorkspace) { self.model = model; super.init(nibName: nil, bundle: nil) }
+
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 

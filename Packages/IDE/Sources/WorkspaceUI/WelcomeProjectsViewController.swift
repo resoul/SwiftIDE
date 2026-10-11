@@ -5,6 +5,8 @@ import IDEApplication
 @MainActor
 public final class WelcomeProjectsViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSMenuDelegate {
     public let model: RecentProjects
+    public var cloneRepository: (() -> Void)?
+    let clone = NSButton(title: "Clone Repository…", target: nil, action: nil)
     public var openFolder: (() -> Void)?
     public var openProject: ((String) -> Void)?
     public var locateProject: ((String) -> Void)?
@@ -88,7 +90,8 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
         search.action = #selector(openSelected(_:))
         search.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let open = NSButton(title: "Open Folder…", target: self, action: #selector(chooseFolder(_:)))
-        let header = welcomeStack([search, open], vertical: false, spacing: 14)
+        clone.target = self; clone.action = #selector(cloneRequested(_:))
+        let header = welcomeStack([search, open, clone], vertical: false, spacing: 14)
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("Project"))
         table.addTableColumn(column)
         table.headerView = nil
@@ -184,6 +187,7 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
         }
     }
 
+    @objc private func cloneRequested(_ sender: Any?) { cloneRepository?() }
     @objc private func chooseFolder(_ sender: Any?) { openFolder?() }
     @objc private func focusProjects(_ sender: Any?) { (sender as? NSButton)?.state = .on; focusSearch() }
     @objc func openSelected(_ sender: Any?) {
@@ -298,9 +302,12 @@ private final class WelcomeProjectRow: NSTableRowView {
 @MainActor
 private final class WelcomeBackground: NSView {
     private let sidebar: Bool
+
     init(sidebar: Bool) { self.sidebar = sidebar; super.init(frame: .zero); wantsLayer = true }
+
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
     override var wantsUpdateLayer: Bool { true }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
     override func updateLayer() {

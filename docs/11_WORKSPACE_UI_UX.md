@@ -176,3 +176,18 @@ Changes, Git Log, branch references and read-only Git diff are reusable Workspac
 ### TK-028 local actions
 
 Reusable Changes exposes whole-file Stage/Unstage and an on-demand multiline Commit form; commit includes all staged contents and retains its draft after error/cancel. A shared operation view supplies bounded live output, error/result and Cancel. The branch accessory distinguishes Create at HEAD, explicit Switch local branch and remote history inspection. App owns repository-wide save-or-cancel and temporary editor locks; panels own no document/process lifecycle. The form starts collapsed so Changes remains usable alongside a bottom tool. Git → Commit Staged (Command-K) opens/focuses the form in the same project; no extra document window is created.
+
+
+### TK-029 Clone/Fetch presentation
+
+WorkspaceUI owns the reusable clone form (source, explicit parent/new name, native streamed output, failure/destination, Cancel/Close) and the branch picker's remote selector/Fetch. App hosts Clone as a Welcome sheet, selects folders, cancels owner lifetime and routes verified success through ordinary project opening. Fetch uses the existing Source Control operation presentation; arbitrary tool panels and the central document editor remain independent. Errors retain input, no UI opens a partial clone as a project, and no percent or remote freshness is fabricated. Actual SSH/HTTPS/login and live keyboard/IME/VoiceOver acceptance remain pending; Push/Pull UI is deferred until its workflow is implemented.
+
+
+### TK-029 Push presentation
+
+GitPushViewController is reusable package UI with local source/remote/destination selectors, explicit read-only review, visible OID/push address/full ref, bounded operation output and cancel/error retention. App hosts it as the invoking project's sheet and owns lifecycle; the branch picker and Git menu share this host. Native text/IME remains in editable fields; Return cannot publish. Changing inputs invalidates review, and failures require another review rather than silently reusing a destination. The editor and arbitrary tool panels remain independent. Manual keyboard/VoiceOver/IME and auth acceptance are pending.
+
+
+### Pull form ownership (TK-029 / ADR-044)
+
+WorkspaceUI renders source/remote/current local branch, review, bounded output and explicit Pull/Cancel. App owns the sheet and all document preparation. During preparation it detaches only this sheet to allow save dialogs, then reattaches during running/result (or waits for another owner's sheet to finish); closing its project cancels and disconnects it. Source Control also shows operation state/output. The form cannot launch Git or alter editor/window lifetime itself. Panel providers remain interchangeable.

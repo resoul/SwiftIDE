@@ -24,18 +24,22 @@ public struct WorkspaceTool: RawRepresentable, Codable, Hashable, Sendable, Case
         precondition(id >= 100, "Custom tool IDs must not collide with built-ins")
         self.init(builtin: id, title: title, symbol: symbol, zone: zone)
     }
+
     private init(builtin: Int, title: String, symbol: String, zone: Zone) {
         rawValue = builtin
         self.title = title
         self.symbol = symbol
         self.zone = zone
     }
+
     public init?(rawValue: Int) {
         guard let tool = Self.allCases.first(where: { $0.rawValue == rawValue }) else { return nil }
 
         self = tool
     }
+
     private enum CodingKeys: String, CodingKey { case id, title, symbol, zone }
+
     public init(from decoder: any Decoder) throws {
         if let raw = try? decoder.singleValueContainer().decode(Int.self), let tool = Self(rawValue: raw) {
             self = tool
@@ -49,6 +53,7 @@ public struct WorkspaceTool: RawRepresentable, Codable, Hashable, Sendable, Case
 
         self.init(builtin: id, title: try c.decode(String.self, forKey: .title), symbol: try c.decode(String.self, forKey: .symbol), zone: try c.decode(Zone.self, forKey: .zone))
     }
+
     public func encode(to encoder: any Encoder) throws {
         if rawValue < 100 {
             var c = encoder.singleValueContainer()

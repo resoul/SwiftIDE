@@ -4,9 +4,10 @@ import IDEApplication
 
 public struct GitCLI: GitInspecting {
     public let executable: URL
+
     public init(executable: URL = URL(fileURLWithPath: "/usr/bin/git")) { self.executable = executable }
 
-    func run(_ arguments: [String], at root: String, input: Data? = nil, limit: Int = 8_000_000, accepted: Set<Int32> = [0], timeout: TimeInterval = 15, output: (@Sendable (String) -> Void)? = nil) async throws -> Data {
+    func run(_ arguments: [String], at root: String, input: Data? = nil, limit: Int = 8_000_000, accepted: Set<Int32> = [0], timeout: TimeInterval = 15, output: (@Sendable (String) -> Void)? = nil, network: Bool = false) async throws -> Data {
         let literal = arguments.first == "check-ignore" ? [] : ["--literal-pathspecs"]
         let invocation = ["--no-optional-locks"] + literal + [
             "-c",
@@ -20,7 +21,7 @@ public struct GitCLI: GitInspecting {
             "-C",
             root
         ] + arguments
-        let result = try await GitCommand.run(executable: executable, root: root, arguments: invocation, input: input, limit: limit, timeout: timeout, onOutput: output)
+        let result = try await GitCommand.run(executable: executable, root: root, arguments: invocation, input: input, limit: limit, timeout: timeout, onOutput: output, network: network)
         guard accepted.contains(result.status) else {
             if result.error.contains("not a git repository") { throw GitInspectionError.unavailable("This folder is not in a Git repository") }
 
@@ -65,8 +66,9 @@ public struct GitCLI: GitInspecting {
             }
 
             let refs = try await branches(in: repository)
+            let remotes = try await remoteNames(at: repository.root)
             let verification = try await run(["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all", "--ignored=matching"], at: repository.root)
-            if verification == data { return try GitPorcelain.status(data, repository: repository, branches: refs, ignored: reasons, mutationToken: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()) }
+            if verification == data { return try GitPorcelain.status(data, repository: repository, branches: refs, ignored: reasons, mutationToken: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(), remotes: remotes) }
         }
 
         throw GitInspectionError.failed("Repository changed during refresh; refresh Git again")

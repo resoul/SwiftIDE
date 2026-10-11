@@ -5,6 +5,7 @@ import WorkspaceUI
 @MainActor
 final class WorkspaceLayoutSettings {
     private let defaults: UserDefaults
+
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
     func makeState(root: String, available: Set<WorkspaceTool> = [.files]) -> WorkspaceLayoutState {

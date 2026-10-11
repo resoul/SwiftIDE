@@ -12,14 +12,15 @@ enum GitCommand {
         input: Data? = nil,
         limit: Int = 8_000_000,
         timeout: TimeInterval = 15,
-        onOutput: (@Sendable (String) -> Void)? = nil
+        onOutput: (@Sendable (String) -> Void)? = nil,
+        network: Bool = false
     ) async throws -> GitCommandResult {
         let execution = Execution(limit: limit)
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 DispatchQueue.global(qos: .userInitiated).async {
-                    execution.start(executable: executable, root: root, arguments: arguments, input: input, timeout: timeout, onOutput: onOutput, continuation: continuation)
+                    execution.start(executable: executable, root: root, arguments: arguments, input: input, timeout: timeout, onOutput: onOutput, network: network, continuation: continuation)
                 }
             }
         } onCancel: { execution.cancel() }
@@ -33,6 +34,7 @@ enum GitCommand {
         private var cancelled = false, expired = false, overflow = false, finished = false
         private var processGroup: Int32?
         private var streamedBytes = 0
+
         init(limit: Int) { self.limit = limit }
 
         func start(
@@ -42,6 +44,7 @@ enum GitCommand {
             input: Data?,
             timeout: TimeInterval,
             onOutput: (@Sendable (String) -> Void)?,
+            network: Bool,
             continuation: CheckedContinuation<GitCommandResult, any Error>
         ) {
             let stdout = Pipe(), stderr = Pipe()
@@ -59,6 +62,12 @@ enum GitCommand {
             environment["GIT_TERMINAL_PROMPT"] = "0"
             environment["GIT_PAGER"] = "cat"
             environment["LC_ALL"] = "C"
+            if network {
+                environment["GIT_ASKPASS"] = "/usr/bin/false"
+                environment["SSH_ASKPASS"] = "/usr/bin/false"
+                environment["SSH_ASKPASS_REQUIRE"] = "never"
+            }
+
             process.environment = environment
             process.standardOutput = stdout; process.standardError = stderr
             do {

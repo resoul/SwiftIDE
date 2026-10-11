@@ -49,6 +49,8 @@ final class AppCompositionRoot {
 
     func makeWorkspaceLayout(root: String) -> WorkspaceLayoutState { layoutSettings.makeState(root: root, available: [.files, .sourceControl, .gitLog]) }
 
+    func makeGitClone() -> GitClone { GitClone(service: GitCLI()) }
+
     func makeGitWorkspace(root: String) -> GitWorkspace { GitWorkspace(root: root, service: GitCLI()) }
 
     func makeProjectFiles(root: String) -> ProjectFiles {

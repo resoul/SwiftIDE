@@ -44,6 +44,10 @@ enum MainMenu {
         ]))
 
         main.addItem(submenuItem(title: "Git", items: [
+            NSMenuItem(title: "Pull…", action: #selector(ProjectWorkspaceController.pullGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Push…", action: #selector(ProjectWorkspaceController.pushGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Fetch…", action: #selector(ProjectWorkspaceController.fetchGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Clone Repository…", action: #selector(AppDelegate.cloneRepository(_:)), keyEquivalent: ""),
             NSMenuItem(title: "Commit Staged…", action: #selector(ProjectWorkspaceController.commitGit(_:)), keyEquivalent: "k"),
             NSMenuItem(title: "Cancel Git Action", action: #selector(ProjectWorkspaceController.cancelGit(_:)), keyEquivalent: "")
         ]))

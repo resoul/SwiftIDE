@@ -52,6 +52,21 @@ struct GitLocalViewsTests {
         try await wait { model.operationState == .succeeded && model.state == .ready }
         #expect(changes.message.string.isEmpty)
     }
+    @Test func fetchRequiresRemoteAndSharesTheBusyOperationAndRefresh() async throws {
+        let service = ActionViewsGit(), model = GitWorkspace(root: "/repo", service: service)
+        let picker = GitBranchPickerViewController(model: model)
+        _ = picker.view
+        defer { picker.disconnect(); model.stop() }
+        #expect(!picker.fetch.isEnabled)
+        var asked = false; model.prepareCheckout = { _ in asked = true; return true }
+        model.refresh(); try await wait { model.canMutate }
+        picker.remote.selectItem(withTitle: "backup")
+        picker.fetchSelected(nil)
+        #expect(!picker.fetch.isEnabled && !picker.remote.isEnabled)
+        try await wait { model.operationState == .succeeded && model.canMutate }
+        #expect(await service.last == .fetch("backup"))
+        #expect(model.lastFetch?.remote == "backup" && !asked && picker.fetch.isEnabled)
+    }
     @Test func branchActionsDistinguishCreateLocalSwitchAndRemoteInspection() async throws {
         let service = ActionViewsGit(), model = GitWorkspace(root: "/repo", service: service)
         let picker = GitBranchPickerViewController(model: model)
@@ -85,7 +100,7 @@ private actor ActionViewsGit: GitInspecting, GitMutating {
         .init(repository: .init(root: "/repo", gitDirectory: "/repo/.git", commonDirectory: "/repo/.git"), branch: "main", head: String(repeating: "a", count: 40), changes: [Self.change], branches: [
             .init(reference: "refs/heads/other", oid: String(repeating: "b", count: 40)),
             .init(reference: "refs/remotes/origin/main", oid: String(repeating: "a", count: 40))
-        ])
+        ], remotes: ["origin", "backup"])
     }
     func history(in repository: GitRepository, revision: String, offset: Int, count: Int) async throws -> GitHistoryPage { .init(commits: [], hasMore: false) }
     func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] { [] }
