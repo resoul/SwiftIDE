@@ -40,7 +40,7 @@ The user subsequently confirmed Q7 and Q12 on 2026-10-11: a permitted project re
 | P. Description, jump, diagnostics | P21 | P1–P20, P22 |
 | Q. Readiness, progress, trust, opened folders, targets, configuration (TK-018) | Q1–Q5, Q7, Q12, Q20 | Q6, Q8–Q11, Q13–Q19, Q21–Q33, Q35, Q37 not run; Q34 preliminary; Q36 partial and preliminary |
 | Q. Reusable workspace UI (TK-024) | | Q38–Q39; repeat Q3–Q8 and Q12 after extraction |
-| R. Workspace and Git (TK-026/030 implemented, live checks pending) | | R3/R4 (excluding Git ignore), Files part of R13 and R17–R24; remaining checks with later slices |
+| R. Workspace and Git (TK-025/026/030 implemented, live checks pending) | | R1–R4 (excluding Git ignore), Files/Welcome part of R13 and R17–R29; remaining checks with later slices |
 
 Everything else in the sections B, C, H, I, K, M, N, O and P is still unchecked by hand; the earlier statements "not checked in a live window" stay true for those items.
 
@@ -106,7 +106,7 @@ The record directory: `~/Library/Application Support/SwiftIDE/Recovery/` (`ls -l
 |---|---|---|
 | F1 ✅ | Open `/tmp/small.swift`, type a line, wait 3 s, `pkill -9 -x SwiftIDE`, start again | The dialog "Restore unsaved changes to “small.swift”?". "Restore": a window with your text, the title shows "edited"; the file on disk has not changed |
 | F2 ✅ | In F1, after restoring, press ⌘Z | The edit is undone back to the file's text (restoring is an ordinary edit) |
-| F3 | In F1 press "Discard" | The record is deleted (`ls` of the directory is empty), an Untitled window |
+| F3 | In F1 press "Discard" | The record is deleted (`ls` of the directory is empty), Welcome remains when no document/project is open |
 | F4 | Type a line and at once (within 2 s) switch to another application, then `pkill -9` | The edit still comes back (a record is written on going to the background) |
 | F5 | Type without a pause for 15 seconds, then `pkill -9` | Text no older than ≈ 10 s comes back |
 | F6 | Edit a file, F1 up to the "kill", **change the same file in another program** (`echo x >> /tmp/small.swift`), start | The dialog says the file has changed. After "Restore" ⌘S shows the conflict dialog (Overwrite / Reload / Cancel), the file is not overwritten |
@@ -359,9 +359,9 @@ TK-024 was implemented on 2026-10-11. These checks are pending for the extracted
 | Q38 | Open two different project windows A and B, with no saved configuration decision for A. Keep B active while A raises the configuration question | The sheet belongs to A, names A and cannot apply a choice to B; B remains usable |
 | Q39 | Close the owning project window through its lifecycle while its configuration question is pending; reopen the project with no other window for it | The pending presentation is cancelled, no decision is stored and no automatic permission is granted; the question is asked on reopening |
 
-## R. Workspace components and Git (TK-025–TK-030, ADR-031/035/036)
+## R. Workspace components and Git (TK-025–TK-030, ADR-031/035/036/037)
 
-TK-026/030 are implemented and tested; their live checks are pending, not passed results. Welcome and Git checks are future work, not capabilities of Workspace Preview. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored remains disabled until TK-027 supplies real information. Run R1–R2 with TK-025, Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
+TK-025/026/030 are implemented and tested; their live checks are pending, not passed results. Git checks are future work, not capabilities of Workspace Preview. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R2 and R25–R29 for Welcome; R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored remains disabled until TK-027 supplies real information. Run Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
 
 | № | Do | Expected |
 |---|---|---|
@@ -410,3 +410,15 @@ TK-026/030 are implemented and tested; their live checks are pending, not passed
 | R22 | Drag Files divider, switch tabs, toggle Focus Editor twice, Reset Layout; shrink to 900 × 560 and expand again | Project tabs share visibility/preferred sizes; focus restores the layout; text/Undo/caret/scroll remain; no clipped controls; small-screen compression does not overwrite preferred dimensions; actual user dragging saves its dimension |
 | R23 | Hide Files or resize it, close/reopen project and relaunch; open a different root; close while Focus Editor is active | Normal layout restores by canonical root; another root/Preview is independent; temporary Focus Editor does not persist all panels hidden; last closed tab returns to the same shell/browser |
 | R24 | Type with IME while server prepares/restarts or diagnostics change; inspect full status tooltip; use keyboard to toggle Files/focus/reset | Background presentation does not steal input/focus or alter text; existing marked-text behaviour remains; target/readiness/status are real; no fabricated branch/scheme/destination; keyboard and VoiceOver labels are usable |
+
+### Welcome and recent projects (TK-025, ADR-037)
+
+Pending live checks; generated component images and automated AppKit tests do not mark these passed. Use disposable directories and retain the existing recovery tests in section F.
+
+| # | Action | Expected |
+|---|---|---|
+| R25 | Start normally with no recovery records; Open Folder from Welcome; close the last project; close Welcome; reopen from Dock and Window ▸ Welcome | Welcome appears without an automatic Untitled; a valid folder opens the real shell; final project closure returns to Welcome; closing Welcome does not quit; one Welcome window is reused |
+| R26 | Open three folders, pin one, quit/relaunch; search by a partial name and path; use Tab/arrows/Return, double-click and context actions | Pins and recency survive; name/path filter and first match are useful; focus/input remain stable during checks; light/dark selected names, missing reasons and VoiceOver descriptions are readable |
+| R27 | Open the same folder by its real path and a symlink; open two files and edit one; select this project in the top-bar switcher | One canonical recent entry and one owning project/tab group; current editor, unsaved text, caret/scroll and Undo survive; switcher separates open/recent projects; no fabricated branch data |
+| R28 | Close a project, move/delete its folder, re-activate Welcome; attempt Open and cancel; Locate an existing folder; Remove from Recent | Missing entry stays visible; Cancel preserves it; Locate opens only after destination validation, carries its pin and merges a duplicate history entry; settings/trust are not copied from the old root; Remove deletes only metadata, not files, open windows or project settings |
+| R29 | Create unsaved work, force-quit as in F1, restart; Restore, then repeat with Discard; also open a standalone file and use explicit New | Recovery prompts still work and preserve disk-conflict rules; Restore hides Welcome and opens dirty text; Discard leaves Welcome when nothing is open; standalone opening does not add a project; New remains explicit; closing the last document returns to Welcome |

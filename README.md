@@ -21,7 +21,9 @@ From the repository root:
 swift run --package-path Apps/SwiftIDE SwiftIDE
 ```
 
-The app starts with an untitled scratch window containing sample code. File → Save (⌘S) on it, or File → Save As… (⇧⌘S) on any document, asks for a name and moves the document to that file; the original file is left as it was. Use File → Open… (⌘O) to edit an existing file and File → Save (⌘S) to write it. Only UTF-8 and UTF-8 with BOM are supported: binary files, invalid UTF-8, UTF-16 and files over 100 MB are refused rather than altered. If the file changed on disk since it was opened, saving stops and asks whether to overwrite, reload, or cancel. Closing a window or quitting with unsaved changes asks first.
+The app starts in Welcome with searchable recent projects and Open Folder. Successful folder openings are saved in app settings; the context menu can pin, locate or remove an entry without deleting its folder. The project menu in the workspace top bar lists open/recent projects and focuses an existing window. Closing the last project/document returns to Welcome; Window → Welcome or reopening from the Dock brings it back after it was closed. Crash recovery still offers unsaved work at startup.
+
+File → New explicitly creates an untitled scratch window with sample code. File → Save (⌘S) on it, or File → Save As… (⇧⌘S) on any document, asks for a name and moves the document to that file; the original file is left as it was. Use File → Open… (⌘O) to edit a standalone existing file and File → Save (⌘S) to write it. Only UTF-8 and UTF-8 with BOM are supported: binary files, invalid UTF-8, UTF-16 and files over 100 MB are refused rather than altered. If the file changed on disk since it was opened, saving stops and asks whether to overwrite, reload, or cancel. Closing a window or quitting with unsaved changes asks first.
 
 File → Open Folder… opens the shared workspace shell with tool rails, a top bar, status bar and real Files tree. Double-click or Return opens a text file as a native project tab; switching preserves its editor state and Undo. Closing the last tab returns to Files, and File → Close Project checks all unsaved documents. The Files context menu offers Reveal in Finder, persistent Exclude/Include and Show Excluded. SwiftPM `.build` folders are excluded and orange by default when their package parent is expanded. Focus Editor and Reset Layout work in project windows. Panel visibility and preferred dimensions are shared across project tabs and saved by canonical project root. The top/status bars reflect the current document and language-service state. Unconnected tools are disabled; real Git status/ignore integration comes in TK-027. Live acceptance is still pending.
 
@@ -112,10 +114,10 @@ Current planning and snapshot operations copy text and have O(n) costs. Large-fi
 - [TextKit implementation plan](docs/08_TEXTKIT_IMPLEMENTATION_PLAN.md)
 - [Claude chat and agent integration plan](docs/09_CLAUDE_AGENT_INTEGRATION.md) — design only; integration is not implemented.
 - [Manual acceptance checklist](docs/10_MANUAL_ACCEPTANCE.md) — what automated tests cannot check: live window, IME, dark mode, large pastes.
-- [Workspace UI and UX](docs/11_WORKSPACE_UI_UX.md) — agreed target layout, panel behavior, visual principles, and implementation stages; design only.
+- [Workspace UI and UX](docs/11_WORKSPACE_UI_UX.md) — target layout, implemented Welcome/Files/common shell, panel behavior and acceptance.
 - [Mixed-language support](docs/12_MIXED_LANGUAGE_SUPPORT.md) — accepted direction for C, C++, Objective-C and Objective-C++ within Swift projects; language selection, highlighting, build context and staged acceptance; not implemented yet.
 - [Bazel support](docs/13_BAZEL_SUPPORT.md) — accepted direction, shared project context, BSP/toolchain requirements, phased implementation and acceptance; not implemented or verified.
 - [Code style and linting](docs/14_CODE_STYLE_AND_LINTING.md) — TK-023: pinned SwiftFormat and SwiftLint, a SwiftSyntax blank-line checker, local commands and a CI workflow; the workflow has passed on the `xcode-27` runner image.
-- [Workspace components and Git](docs/15_WORKSPACE_AND_GIT.md) — planned Welcome/Files/tabs, Git inspection then local/network actions, file/folder colours and exclusions; TK-025–TK-029, not implemented.
+- [Workspace components and Git](docs/15_WORKSPACE_AND_GIT.md) — implemented Welcome/Files/tabs/common shell; planned Git inspection then local/network actions, file/folder colours and exclusions.
 - [Third-party software notices](THIRD_PARTY_NOTICES.md)
 - [Original custom-engine concept](Swift_IDE_Architecture_and_MVP.md) — historical reference, superseded by the current TextKit MVP plan.

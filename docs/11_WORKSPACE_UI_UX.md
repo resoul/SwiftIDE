@@ -1,6 +1,6 @@
 # Workspace: UI and UX
 
-**Status:** the agreed design direction of 2026-10-10. This describes the target interface, not a list of capabilities that are already implemented. Sizes, palette and details are refined on a prototype. TK-026 now connects a real Files panel and native document tabs through Open Folder (ADR-035); TK-030 now connects the common shell to real project windows (ADR-036); Preview supplies sample tool content to that same component.
+**Status:** the agreed design direction of 2026-10-10. This describes the target interface, with implemented slices identified below. TK-026 connects a real Files panel and native document tabs through Open Folder (ADR-035); TK-030 connects the common shell to real project windows (ADR-036); TK-025 connects Welcome and the project switcher (ADR-037). Preview supplies sample tool content to the same shell. Live acceptance remains pending.
 
 The reference is the provided PhpStorm screenshots: a single window, compact tool strips at the edges, a central editor and flexible auxiliary panels. For SwiftIDE we use this organization of space with the familiar behaviour of a native macOS application.
 
@@ -92,11 +92,17 @@ Welcome and the project switcher list recent/open projects. The top branch picke
 
 1. **The workspace shell.** The top bar, two tool strips, a central editor and three panel zones. Simple content allows checking resizing, switching, focus, hiding and layout persistence before all the tools are connected.
 2. **Package boundary, Files and tabs (TK-024/026).** Extract reusable project UI, connect the tree and the existing document sessions, opening, saving, switching documents and the empty state. Replace the editor placeholder, preserve document warnings and add project exclusions/status presentation.
-3. **Common shell (TK-030), then Git inspection (TK-027).** Reuse the prototype geometry for real Files/editor providers, with shared project layout and disabled unavailable tools. Connect Changes and read-only diff, then the branch picker and paginated Log. Welcome/project switching (TK-025) can proceed alongside this against the shared opening contract. Local Git mutations (TK-028) and network workflows (TK-029) follow separately.
+3. **Common shell (TK-030), Welcome (TK-025), then Git inspection (TK-027).** Reuse the prototype geometry for real Files/editor providers, with shared project layout and disabled unavailable tools; start in Welcome and open/focus projects through the common contract. Connect Changes and read-only diff, then the branch picker and paginated Log. Local Git mutations (TK-028) and network workflows (TK-029) follow separately.
 4. **Other tools.** Connect search, Problems, build, terminal and the Xcode context as the corresponding services become ready. The scheme and destination reflect the real configuration.
 5. **Later capabilities.** Split editor, structure, inspector and chat. Having room for a right panel does not change the priority of the agent integration from the [separate plan](09_CLAUDE_AGENT_INTEGRATION.md).
 
-A welcome window with recent projects and Open Folder is planned as TK-025. Clone is connected under TK-029 with its own working scenario; creating projects from templates remains separate work. None of these tasks is implemented by the layout preview.
+A welcome window with recent projects and Open Folder is implemented as TK-025 (ADR-037), independently of the layout preview. Clone is connected under TK-029 with its own working scenario; creating projects from templates remains separate work.
+
+### Welcome composition (TK-025)
+
+`WelcomeProjectsViewController` lives in WorkspaceUI. The sidebar header shows app branding/version, its content selects Projects, and its footer reserves Settings with a disabled, explained control. The main content header contains search/Open Folder; its body is the recent list or an empty/no-matches message. Rows show name, abbreviated path, pin/open status and missing/unavailable reasons. A context menu supplies Open, Pin/Unpin, Locate Folder and Remove from Recent. Search matches name/path, selects the first match when the current selection disappears and Return opens the selected project. Table arrows, Return and double-click use native controls. Background checks keep search input, selection and scroll position.
+
+App supplies opening/locating callbacks and owns WelcomeWindowController. Successful project/file opening hides Welcome; closing the final working project/document returns to it. Window ▸ Welcome and Dock reopening are available after closing the Welcome window. The top-bar project menu is rebuilt from current open roots and recent metadata and focuses existing native tab groups. Welcome performs no project preparation. The storage split and limits are in ADR-037; actual keyboard/IME/VoiceOver, selected-row contrast, native folder panels and relaunch remain manual acceptance.
 
 ## Acceptance of the shell
 

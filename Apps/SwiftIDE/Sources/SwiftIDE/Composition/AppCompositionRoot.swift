@@ -31,10 +31,19 @@ final class AppCompositionRoot {
     private var pendingEditors: [DocumentID: TextKitEditor] = [:]
     private let filesSettings = ProjectFilesSettings()
     private let layoutSettings: WorkspaceLayoutSettings
+    let recentProjects: RecentProjects
+    let folderChecker: any ProjectFolderChecking
 
-    init(recoveryStore: (any RecoveryStore)? = nil, layoutDefaults: UserDefaults = .standard) {
+    init(
+        recoveryStore: (any RecoveryStore)? = nil,
+        layoutDefaults: UserDefaults = .standard,
+        recentStore: (any RecentProjectsStore)? = nil,
+        folderChecker: any ProjectFolderChecking = ProjectFolderChecker()
+    ) {
         self.recoveryStore = recoveryStore ?? RecoveryJournal(directory: Self.recoveryDirectory)
         layoutSettings = WorkspaceLayoutSettings(defaults: layoutDefaults)
+        self.folderChecker = folderChecker
+        recentProjects = RecentProjects(store: recentStore ?? UserDefaultsRecentProjectsStore(), checker: folderChecker)
     }
 
     func makeWorkspaceLayout(root: String) -> WorkspaceLayoutState { layoutSettings.makeState(root: root) }

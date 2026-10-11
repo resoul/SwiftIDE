@@ -14,6 +14,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-025: normal startup now shows a reusable Welcome with searchable/pinned recent projects and Open Folder; explicit New and crash recovery retained. Versioned UserDefaults history is separate from project settings and preserves unreadable/newer data. Added missing/Locate/Remove, bounded background root checks, a common validated project-opening path, top-bar open/recent switcher, return to Welcome after the last project/document and Dock/Window reopening. Clone/branch data remain later slices. Automated validation and pending live checks are recorded in ADR-037.
+
 - TK-030: real project windows and Workspace Preview now use one reusable WorkspaceUI shell with top/status bars, tool rails and split-panel zones. Original Files/editor/native tabs and document lifecycle retained; project layout is shared and persisted by canonical root, Focus Editor restores the prior layout, small-window compression preserves preferred sizes and unavailable tools are disabled. Real document/target/readiness wording connects to the bars. Live acceptance R21–R24 remains pending (ADR-036).
 
 - TK-026: Open Folder now opens a real lazy Files tree and native document tabs. WorkspaceUI owns the reusable outline, resizable container, status presentation and tab adapter; App reuses document controllers/registry, Undo, save/conflict/recovery and unsaved-close reconciliation. Added persistent project exclusions, SwiftPM `.build` defaults, Reveal in Finder, refresh and accessible independent dirty/status labels. Real Git status remains unavailable until TK-027; manual checks are pending (ADR-035).

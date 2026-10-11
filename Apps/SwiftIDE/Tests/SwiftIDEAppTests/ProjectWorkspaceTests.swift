@@ -30,10 +30,10 @@ extension NativeAppTests {
             try original.write(to: root.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
             try "second".write(to: root.appendingPathComponent("b.txt"), atomically: true, encoding: .utf8)
             try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("alias.txt"), withDestinationURL: root.appendingPathComponent("a.txt"))
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore()))
+            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil // disposable roots must not persist layout preferences
-            defer { project.closeProject() }
+            defer { project.closeProject(); app.welcome?.close() }
             #expect(app.openProject(path: root.path + "/.") === project)
             project.files.onExclusionsChange = nil // this test uses disposable paths, not the user's settings
             project.files.exclude(root.appendingPathComponent("a.txt").path)
@@ -103,10 +103,10 @@ extension NativeAppTests {
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
             try "original".write(to: root.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore()))
+            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil // disposable roots must not persist layout preferences
-            defer { project.closeProject() }
+            defer { project.closeProject(); app.welcome?.close() }
             await app.open(path: root.appendingPathComponent("a.txt").path)
             let document = try #require(project.documents.first)
             try document.session.replaceText("dirty", expectedVersion: 0)
@@ -158,10 +158,10 @@ extension NativeAppTests {
             defer { try? FileManager.default.removeItem(at: root) }
             let file = root.appendingPathComponent("existing.txt")
             try "original".write(to: file, atomically: true, encoding: .utf8)
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore()))
+            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
             await app.open(path: file.path)
             let window = try #require(NSApp.windows.first { $0.representedURL?.path == DocumentPath.canonical(file.path) })
-            defer { window.close() }
+            defer { window.close(); app.welcome?.close() }
             let initialContent = try #require(window.contentView)
             let editor = try #require(textView(in: initialContent))
             editor.insertText("edit ", replacementRange: NSRange(location: 0, length: 0))
