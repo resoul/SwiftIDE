@@ -8,7 +8,9 @@ import Testing
 private final class Shown: @unchecked Sendable {
     final class Token {
         let shown: Shown
+
         init(_ shown: Shown) { self.shown = shown; shown.made += 1 }
+
         deinit { shown.released += 1 }
     }
     var made = 0

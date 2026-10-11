@@ -5,7 +5,9 @@ import Testing
 private actor DirectoryScript: ProjectDirectoryReading {
     var calls: [String] = []
     var entries: [String: [ProjectFile]]
+
     init(_ entries: [String: [ProjectFile]]) { self.entries = entries }
+
     func children(of path: String) async throws -> [ProjectFile] {
         calls.append(path)
 

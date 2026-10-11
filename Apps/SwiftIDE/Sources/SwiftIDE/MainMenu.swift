@@ -15,9 +15,9 @@ enum MainMenu {
             NSMenuItem(title: "Open Folder…", action: #selector(AppDelegate.openFolder(_:)), keyEquivalent: "O"),
             NSMenuItem(title: "Close Opened Folders", action: #selector(AppDelegate.closeOpenedFolders(_:)), keyEquivalent: ""),
             NSMenuItem(title: "Close Project", action: #selector(AppDelegate.closeProject(_:)), keyEquivalent: ""),
-            NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"),
-            NSMenuItem(title: "Save", action: #selector(WorkspaceWindowController.saveDocument(_:)), keyEquivalent: "s"),
-            NSMenuItem(title: "Save As…", action: #selector(WorkspaceWindowController.saveDocumentAs(_:)), keyEquivalent: "S")
+            NSMenuItem(title: "Close", action: #selector(AppDelegate.closeDocument(_:)), keyEquivalent: "w"),
+            NSMenuItem(title: "Save", action: #selector(DocumentEditorController.saveDocument(_:)), keyEquivalent: "s"),
+            NSMenuItem(title: "Save As…", action: #selector(DocumentEditorController.saveDocumentAs(_:)), keyEquivalent: "S")
         ]))
 
         main.addItem(submenuItem(title: "Edit", items: [
@@ -37,20 +37,32 @@ enum MainMenu {
         ]))
 
         main.addItem(submenuItem(title: "Project", items: [
-            NSMenuItem(title: "Allow Project Configuration", action: #selector(WorkspaceWindowController.allowProjectConfiguration(_:)), keyEquivalent: ""),
-            NSMenuItem(title: "Don't Allow Project Configuration", action: #selector(WorkspaceWindowController.disallowProjectConfiguration(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Allow Project Configuration", action: #selector(DocumentEditorController.allowProjectConfiguration(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Don't Allow Project Configuration", action: #selector(DocumentEditorController.disallowProjectConfiguration(_:)), keyEquivalent: ""),
             .separator(),
-            NSMenuItem(title: "Ask About Project Configuration Again", action: #selector(WorkspaceWindowController.askAboutProjectConfigurationAgain(_:)), keyEquivalent: "")
+            NSMenuItem(title: "Ask About Project Configuration Again", action: #selector(DocumentEditorController.askAboutProjectConfigurationAgain(_:)), keyEquivalent: "")
+        ]))
+
+        main.addItem(submenuItem(title: "Git", items: [
+            NSMenuItem(title: "Pull…", action: #selector(ProjectWorkspaceController.pullGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Push…", action: #selector(ProjectWorkspaceController.pushGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Fetch…", action: #selector(ProjectWorkspaceController.fetchGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Clone Repository…", action: #selector(AppDelegate.cloneRepository(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Commit Staged…", action: #selector(ProjectWorkspaceController.commitGit(_:)), keyEquivalent: "k"),
+            NSMenuItem(title: "Cancel Git Action", action: #selector(ProjectWorkspaceController.cancelGit(_:)), keyEquivalent: "")
         ]))
 
         main.addItem(submenuItem(title: "View", items: [
             NSMenuItem(title: "Files", action: #selector(WorkspacePreviewWindowController.showPreviewFiles(_:)), keyEquivalent: "1"),
             NSMenuItem(title: "Search", action: #selector(WorkspacePreviewWindowController.showPreviewSearch(_:)), keyEquivalent: "2"),
             NSMenuItem(title: "Source Control", action: #selector(WorkspacePreviewWindowController.showPreviewSourceControl(_:)), keyEquivalent: "3"),
+            NSMenuItem(title: "Git Log", action: #selector(ProjectWorkspaceController.showGitLog(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Refresh Git", action: #selector(ProjectWorkspaceController.refreshGit(_:)), keyEquivalent: ""),
             NSMenuItem(title: "Terminal", action: #selector(WorkspacePreviewWindowController.showPreviewTerminal(_:)), keyEquivalent: ""),
             NSMenuItem(title: "Assistant", action: #selector(WorkspacePreviewWindowController.showPreviewAssistant(_:)), keyEquivalent: ""),
             .separator(),
             NSMenuItem(title: "Focus Editor", action: #selector(WorkspacePreviewWindowController.toggleFocusEditor(_:)), keyEquivalent: ""),
+            fullScreenItem(),
             NSMenuItem(title: "Reset Layout", action: #selector(WorkspacePreviewWindowController.resetWorkspaceLayout(_:)), keyEquivalent: ""),
             .separator(),
             NSMenuItem(title: "Preview: Light", action: #selector(WorkspacePreviewWindowController.previewLightAppearance(_:)), keyEquivalent: ""),
@@ -64,6 +76,13 @@ enum MainMenu {
         NSApp.mainMenu = main
     }
 
+    private static func fullScreenItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Toggle Full Screen", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
+        item.keyEquivalentModifierMask = [.control, .command]
+
+        return item
+    }
+
     /// Edit ▸ Complete, Control-Space; Escape and F5 do the same in the text view.
     private static func completeItem() -> NSMenuItem {
         let item = NSMenuItem(title: "Complete", action: #selector(NSTextView.complete(_:)), keyEquivalent: " ")
@@ -74,7 +93,7 @@ enum MainMenu {
 
     /// Edit ▸ Quick Help, Control-Shift-Space: the description of the symbol at the caret.
     private static func quickHelpItem() -> NSMenuItem {
-        let item = NSMenuItem(title: "Quick Help", action: #selector(WorkspaceWindowController.showQuickHelp(_:)), keyEquivalent: " ")
+        let item = NSMenuItem(title: "Quick Help", action: #selector(DocumentEditorController.showQuickHelp(_:)), keyEquivalent: " ")
         item.keyEquivalentModifierMask = [.control, .shift]
 
         return item
@@ -82,7 +101,7 @@ enum MainMenu {
 
     /// Edit ▸ Jump to Definition, Control-Command-J; a Command-click does the same.
     private static func jumpToDefinitionItem() -> NSMenuItem {
-        let item = NSMenuItem(title: "Jump to Definition", action: #selector(WorkspaceWindowController.jumpToDefinition(_:)), keyEquivalent: "j")
+        let item = NSMenuItem(title: "Jump to Definition", action: #selector(DocumentEditorController.jumpToDefinition(_:)), keyEquivalent: "j")
         item.keyEquivalentModifierMask = [.control, .command]
 
         return item
@@ -98,10 +117,10 @@ enum MainMenu {
 
     /// Edit ▸ Language: Automatic (by the file's name) or one language for this document.
     private static func languageItem() -> NSMenuItem {
-        var items = [NSMenuItem(title: "Automatic", action: #selector(WorkspaceWindowController.selectLanguage(_:)), keyEquivalent: "")]
+        var items = [NSMenuItem(title: "Automatic", action: #selector(DocumentEditorController.selectLanguage(_:)), keyEquivalent: "")]
         items.append(.separator())
         for language in DocumentLanguage.allCases {
-            let item = NSMenuItem(title: language.displayName, action: #selector(WorkspaceWindowController.selectLanguage(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: language.displayName, action: #selector(DocumentEditorController.selectLanguage(_:)), keyEquivalent: "")
             item.representedObject = language.rawValue
             items.append(item)
         }

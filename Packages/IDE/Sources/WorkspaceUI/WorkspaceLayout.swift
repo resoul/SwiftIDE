@@ -1,40 +1,72 @@
 import Foundation
 
-public enum WorkspaceTool: Int, Codable, CaseIterable, Sendable {
-    case files, search, sourceControl, terminal, build, problems, assistant, structure, inspector
-    public enum Zone: Sendable { case left, right, bottom }
-    public var zone: Zone {
-        switch self {
-        case .files, .search, .sourceControl: .left
-        case .assistant, .structure, .inspector: .right
-        case .terminal, .build, .problems: .bottom
-        }
+/// A stable registered tool. Built-ins keep their original integer persistence IDs.
+public struct WorkspaceTool: RawRepresentable, Codable, Hashable, Sendable, CaseIterable {
+    public enum Zone: String, Codable, Hashable, Sendable { case left, right, bottom }
+    public let rawValue: Int
+    public let title: String
+    public let symbol: String
+    public let zone: Zone
+
+    public static let files = Self(builtin: 0, title: "Files", symbol: "folder", zone: .left)
+    public static let search = Self(builtin: 1, title: "Search", symbol: "magnifyingglass", zone: .left)
+    public static let sourceControl = Self(builtin: 2, title: "Source Control", symbol: "arrow.triangle.branch", zone: .left)
+    public static let terminal = Self(builtin: 3, title: "Terminal", symbol: "terminal", zone: .bottom)
+    public static let build = Self(builtin: 4, title: "Build Output", symbol: "hammer", zone: .bottom)
+    public static let problems = Self(builtin: 5, title: "Problems", symbol: "exclamationmark.circle", zone: .bottom)
+    public static let assistant = Self(builtin: 6, title: "Assistant", symbol: "bubble.left.and.bubble.right", zone: .right)
+    public static let structure = Self(builtin: 7, title: "Structure", symbol: "list.bullet.indent", zone: .right)
+    public static let inspector = Self(builtin: 8, title: "Inspector", symbol: "slider.horizontal.3", zone: .right)
+    public static let allCases: [Self] = [.files, .search, .sourceControl, .terminal, .build, .problems, .assistant, .structure, .inspector]
+
+    /// IDs >= 100 are reserved for caller-supplied tools, independent of their panel contents.
+    public init(id: Int, title: String, symbol: String, zone: Zone) {
+        precondition(id >= 100, "Custom tool IDs must not collide with built-ins")
+        self.init(builtin: id, title: title, symbol: symbol, zone: zone)
     }
-    public var title: String {
-        switch self {
-        case .files: "Files"
-        case .search: "Search"
-        case .sourceControl: "Source Control"
-        case .terminal: "Terminal"
-        case .build: "Build Output"
-        case .problems: "Problems"
-        case .assistant: "Assistant"
-        case .structure: "Structure"
-        case .inspector: "Inspector"
-        }
+
+    private init(builtin: Int, title: String, symbol: String, zone: Zone) {
+        rawValue = builtin
+        self.title = title
+        self.symbol = symbol
+        self.zone = zone
     }
-    public var symbol: String {
-        switch self {
-        case .files: "folder"
-        case .search: "magnifyingglass"
-        case .sourceControl: "arrow.triangle.branch"
-        case .terminal: "terminal"
-        case .build: "hammer"
-        case .problems: "exclamationmark.circle"
-        case .assistant: "bubble.left.and.bubble.right"
-        case .structure: "list.bullet.indent"
-        case .inspector: "slider.horizontal.3"
+
+    public init?(rawValue: Int) {
+        guard let tool = Self.allCases.first(where: { $0.rawValue == rawValue }) else { return nil }
+
+        self = tool
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, title, symbol, zone }
+
+    public init(from decoder: any Decoder) throws {
+        if let raw = try? decoder.singleValueContainer().decode(Int.self), let tool = Self(rawValue: raw) {
+            self = tool
+
+            return
         }
+
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let id = try c.decode(Int.self, forKey: .id)
+        guard id >= 100 else { throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "Invalid custom tool ID") }
+
+        self.init(builtin: id, title: try c.decode(String.self, forKey: .title), symbol: try c.decode(String.self, forKey: .symbol), zone: try c.decode(Zone.self, forKey: .zone))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        if rawValue < 100 {
+            var c = encoder.singleValueContainer()
+            try c.encode(rawValue)
+
+            return
+        }
+
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(rawValue, forKey: .id)
+        try c.encode(title, forKey: .title)
+        try c.encode(symbol, forKey: .symbol)
+        try c.encode(zone, forKey: .zone)
     }
 }
 
@@ -61,9 +93,9 @@ public struct WorkspaceLayout: Codable, Equatable, Sendable {
 
     func validated(available: Set<WorkspaceTool>) -> Self {
         var result = self
-        if let left, left.zone != .left || !available.contains(left) { result.left = nil }
-        if let right, right.zone != .right || !available.contains(right) { result.right = nil }
-        if let bottom, bottom.zone != .bottom || !available.contains(bottom) { result.bottom = nil }
+        result.left = available.first { $0.rawValue == left?.rawValue && $0.zone == .left }
+        result.right = available.first { $0.rawValue == right?.rawValue && $0.zone == .right }
+        result.bottom = available.first { $0.rawValue == bottom?.rawValue && $0.zone == .bottom }
         result.leftWidth = leftWidth.isFinite ? min(440, max(200, leftWidth)) : 260
         result.rightWidth = rightWidth.isFinite ? min(480, max(240, rightWidth)) : 300
         result.bottomHeight = bottomHeight.isFinite ? min(380, max(140, bottomHeight)) : 220
@@ -84,6 +116,7 @@ public final class WorkspaceLayoutState {
     private var observers: [UUID: () -> Void] = [:]
 
     public init(layout: WorkspaceLayout = .init(), available: Set<WorkspaceTool> = [.files]) {
+        precondition(Set(available.map(\.rawValue)).count == available.count, "Tool IDs must be unique")
         self.available = available
         self.layout = layout.validated(available: available)
     }

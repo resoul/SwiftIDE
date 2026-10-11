@@ -32,6 +32,7 @@ private let toolAvailable: Bool = {
 private final class Asked {
     private(set) var count = 0
     var answer: TrustDecision
+
     init(_ answer: TrustDecision) { self.answer = answer }
 
     func prompt(_ name: String, _ root: URL) async -> TrustDecision {

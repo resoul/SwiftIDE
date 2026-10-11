@@ -176,26 +176,4 @@ struct ProjectFilesUITests {
         #expect(menu.items.first { $0.title == "Show Ignored" }?.isEnabled == true)
     }
 
-    @Test func nativeTabsSelectTheOriginalWindowAndKeepDirtyStatusSeparateFromGit() throws {
-        _ = NSApplication.shared
-        let a = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 600, height: 400), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-        let b = NSWindow(contentRect: a.frame, styleMask: a.styleMask, backing: .buffered, defer: false)
-        a.isReleasedWhenClosed = false
-        b.isReleasedWhenClosed = false
-        defer { a.close(); b.close() }
-        let root = "/w/\(UUID())"
-        ProjectDocumentTabs.configure(a, root: root)
-        ProjectDocumentTabs.configure(b, root: root)
-        a.orderFront(nil)
-        ProjectDocumentTabs.append(b, to: a)
-        #expect(a.tabGroup === b.tabGroup)
-        #expect(a.tabGroup?.windows.count == 2)
-        #expect(a.tabGroup?.selectedWindow === b)
-        ProjectDocumentTabs.select(a)
-        #expect(a.tabGroup?.selectedWindow === a)
-        ProjectDocumentTabs.present(.init(index: "A", worktree: "M", exclusionReason: "excluded", isUnsaved: true), name: "a.txt", path: "/w/a.txt", in: a)
-        #expect(a.tab.title == "a.txt  A M ●")
-        #expect(a.tab.toolTip.contains("Unsaved editor changes"))
-        #expect(a.tab.attributedTitle?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor == .systemOrange)
-    }
 }

@@ -11,6 +11,7 @@ private final class ScriptedProvider: CompletionProviding {
     var items: [CompletionItem]
     var incomplete = false
     private(set) var carets: [Int] = []
+
     init(items: [CompletionItem]) { self.items = items }
 
     func completion(for session: DocumentSession, caret: @MainActor () -> Int) async -> CompletionOutcome {

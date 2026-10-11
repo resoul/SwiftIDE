@@ -33,6 +33,9 @@ public final class DefinitionController {
         self.navigator = navigator
     }
 
+    /// A request or chooser from an editor that is no longer active must not navigate later.
+    public func cancel() { latest += 1 }
+
     public func jump(from offset: Int) async {
         latest += 1
         let mine = latest
@@ -48,7 +51,7 @@ public final class DefinitionController {
             case 1: go(to: distinct[0], navigator: navigator)
             default:
                 navigator.choose(among: distinct, near: offset) { [weak self, weak navigator] place in
-                    guard let self, let navigator else { return }
+                    guard let self, let navigator, self.latest == mine else { return }
 
                     self.go(to: place, navigator: navigator)
                 }

@@ -5,6 +5,7 @@ import AppKit
 public struct WorkspacePanel {
     public let view: NSView
     public let focusTarget: NSView?
+
     public init(view: NSView, focusTarget: NSView? = nil) {
         self.view = view
         self.focusTarget = focusTarget
@@ -21,7 +22,7 @@ public final class WorkspaceShellViewController: NSViewController {
     private let right = ShellPanel()
     private let bottom = ShellPanel()
     private let editor: NSView
-    private let editorFocus: NSView?
+    public var editorFocus: NSView?
     private let panels: [WorkspaceTool: WorkspacePanel]
     private var leftItem: NSSplitViewItem!
     private var rightItem: NSSplitViewItem!
@@ -29,13 +30,20 @@ public final class WorkspaceShellViewController: NSViewController {
     private(set) var buttons: [WorkspaceTool: NSButton] = [:]
     private let projectLabel = NSTextField(labelWithString: "")
     private let projectSwitcher = NSButton()
+    private let projectAccessory = NSStackView()
     public var projectMenu: (() -> NSMenu)? { didSet { projectSwitcher.isEnabled = projectMenu != nil } }
+    /// A supplied project control, such as a branch picker. The shell has no service dependency.
+    public func installProjectAccessory(_ control: NSView?) {
+        for old in projectAccessory.arrangedSubviews { projectAccessory.removeArrangedSubview(old); old.removeFromSuperview() }
+        if let control { projectAccessory.addArrangedSubview(control) }
+    }
     private let detailLabel = NSTextField(labelWithString: "")
     private let statusLabel = NSTextField(labelWithString: "")
     private let pathLabel = NSTextField(labelWithString: "")
     private var subscription: UUID?
     private var isUpdatingLayout = false
     private var lastSize: NSSize = .zero
+    private var chrome: [NSView] = []
 
     public init(
         state: WorkspaceLayoutState,
@@ -94,8 +102,11 @@ public final class WorkspaceShellViewController: NSViewController {
         bottomItem.maximumThickness = 380
         vertical.addSplitViewItem(top)
         vertical.addSplitViewItem(bottomItem)
-        let body = stack([rail(leftSide: true), vertical.view, rail(leftSide: false)], vertical: false)
-        pin(stack([toolbar(), body, statusBar()], vertical: true), to: view)
+        let leftRail = rail(leftSide: true), rightRail = rail(leftSide: false)
+        let topBar = toolbar(), status = statusBar()
+        chrome = [leftRail, rightRail, topBar, status]
+        let body = stack([leftRail, vertical.view, rightRail], vertical: false)
+        pin(stack([topBar, body, status], vertical: true), to: view)
         render()
     }
 
@@ -166,12 +177,12 @@ public final class WorkspaceShellViewController: NSViewController {
         projectSwitcher.title = ""
         projectSwitcher.target = self
         projectSwitcher.action = #selector(showProjectMenu(_:))
-        projectSwitcher.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Switch project")
+        projectSwitcher.image = WorkspaceIcon.image("chevron.down", description: "Switch project")
         projectSwitcher.isBordered = false
         projectSwitcher.toolTip = "Open and recent projects"
         projectSwitcher.isEnabled = projectMenu != nil
 
-        return padded(stack([projectLabel, projectSwitcher, NSView(), detailLabel, focus, reset], vertical: false, spacing: 8), height: 46)
+        return padded(stack([projectLabel, projectSwitcher, projectAccessory, NSView(), detailLabel, focus, reset], vertical: false, spacing: 8), height: 46)
     }
 
     @objc private func showProjectMenu(_ sender: NSButton) {
@@ -191,11 +202,12 @@ public final class WorkspaceShellViewController: NSViewController {
 
     private func rail(leftSide: Bool) -> NSView {
         var views: [NSView] = []
-        let tools: [WorkspaceTool] = leftSide ? [.files, .search, .sourceControl] : [.assistant, .structure, .inspector]
+        let registered = Set(WorkspaceTool.allCases).union(state.available).sorted { $0.rawValue < $1.rawValue }
+        let tools = registered.filter { $0.zone == (leftSide ? .left : .right) }
         for tool in tools { views.append(toolButton(tool)) }
         views.append(NSView())
         if leftSide {
-            for tool in [WorkspaceTool.terminal, .build, .problems] { views.append(toolButton(tool)) }
+            for tool in registered where tool.zone == .bottom { views.append(toolButton(tool)) }
         }
 
         let rail = stack(views, vertical: true, spacing: 8, insets: NSEdgeInsets(top: 10, left: 6, bottom: 10, right: 6))
@@ -206,7 +218,7 @@ public final class WorkspaceShellViewController: NSViewController {
 
     private func toolButton(_ tool: WorkspaceTool) -> NSButton {
         let button = NSButton(title: "", target: self, action: #selector(selectTool(_:)))
-        button.image = NSImage(systemSymbolName: tool.symbol, accessibilityDescription: tool.title)
+        button.image = WorkspaceIcon.image(tool.symbol, description: tool.title)
         button.tag = tool.rawValue
         button.isBordered = false
         button.isEnabled = state.available.contains(tool) && panels[tool] != nil
@@ -220,7 +232,7 @@ public final class WorkspaceShellViewController: NSViewController {
     }
 
     @objc private func selectTool(_ sender: NSButton) {
-        guard let tool = WorkspaceTool(rawValue: sender.tag) else { return }
+        guard let tool = state.available.first(where: { $0.rawValue == sender.tag }) else { return }
 
         select(tool)
     }
@@ -231,6 +243,7 @@ public final class WorkspaceShellViewController: NSViewController {
         isUpdatingLayout = true
         defer { isUpdatingLayout = false }
         let layout = state.layout
+        for item in chrome { item.isHidden = state.isFocused }
         leftItem.isCollapsed = layout.left == nil
         rightItem.isCollapsed = layout.right == nil
         bottomItem.isCollapsed = layout.bottom == nil
@@ -266,7 +279,7 @@ public final class WorkspaceShellViewController: NSViewController {
     }
 
     @objc fileprivate func hidePanel(_ sender: NSButton) {
-        guard let tool = WorkspaceTool(rawValue: sender.tag) else { return }
+        guard let tool = state.available.first(where: { $0.rawValue == sender.tag }) else { return }
 
         select(tool)
     }
@@ -291,7 +304,7 @@ private final class ShellPanel: NSView {
 
         current?.removeFromSuperview()
         let close = NSButton(title: "", target: target, action: #selector(WorkspaceShellViewController.hidePanel(_:)))
-        close.image = NSImage(systemSymbolName: "minus", accessibilityDescription: "Hide " + tool.title)
+        close.image = WorkspaceIcon.image("minus", description: "Hide " + tool.title)
         close.isBordered = false
         close.tag = tool.rawValue
         let heading = padded(stack([label(tool.title, weight: .semibold), NSView(), close], vertical: false), height: 38)

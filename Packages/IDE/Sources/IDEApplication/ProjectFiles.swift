@@ -62,6 +62,7 @@ public final class ProjectFiles {
     public var statusExplanation = "Git status is not connected yet" { didSet { changed() } }
     public var unsavedPaths: Set<String> = [] { didSet { changed() } }
     public var onExclusionsChange: ((ProjectExclusions) -> Void)?
+    public var onRefresh: (() -> Void)?
 
     private let reader: any ProjectDirectoryReading
     private var listings: [String: [ProjectFile]] = [:]
@@ -71,6 +72,7 @@ public final class ProjectFiles {
     private var tasks: [String: Task<Void, Never>] = [:]
     private var generations: [String: UUID] = [:]
     private var observers: [UUID: () -> Void] = [:]
+    private var gitSnapshot: GitSnapshot?
 
     public init(root: String, reader: any ProjectDirectoryReading, exclusions: ProjectExclusions = .init()) {
         self.root = DocumentPath.canonical(root)
@@ -82,7 +84,7 @@ public final class ProjectFiles {
 
     public func children(of path: String) -> [ProjectFile] {
         (listings[path] ?? []).filter {
-            (showExcluded || exclusionReason(for: $0.path) == nil) && (showIgnored || decorations[$0.path]?.ignoredReason == nil)
+            (showExcluded || exclusionReason(for: $0.path) == nil) && (showIgnored || gitDecoration(for: $0.path).ignoredReason == nil)
         }
     }
 
@@ -108,6 +110,12 @@ public final class ProjectFiles {
 
     /// Only directories that have been expanded are refreshed. No recursive scan for exclusions.
     public func refresh() {
+        refreshListings()
+        onRefresh?()
+    }
+
+    /// Refresh directory rows after an external status provider completes, without requesting it again.
+    public func refreshListings() {
         for path in expanded { load(path, replacing: true) }
     }
 
@@ -145,6 +153,7 @@ public final class ProjectFiles {
                 // The marker is observed in the listing; no manifest is executed and no build tree is walked.
                 let isPackage = direct.contains { $0.name == "Package.swift" && !$0.isDirectory }
                 defaults[path] = isPackage ? [path + "/.build"] : []
+                rebuildGitDecorations()
                 states[path] = .loaded
             } catch {
                 guard let self, generations[path] == generation else { return }
@@ -160,11 +169,36 @@ public final class ProjectFiles {
     }
 
     public func decoration(for path: String) -> FileDecoration {
-        var value = decorations[path] ?? FileDecoration()
+        var value = gitDecoration(for: path)
         value.exclusionReason = exclusionReason(for: path)
         value.isUnsaved = unsavedPaths.contains(resolvedPaths[path] ?? path)
 
         return value
+    }
+
+    public func applyGitSnapshot(_ snapshot: GitSnapshot) {
+        gitSnapshot = snapshot
+        rebuildGitDecorations()
+    }
+
+    private func rebuildGitDecorations() {
+        guard let gitSnapshot else { return }
+
+        let values = gitSnapshot.decorations(exclusionReason: { self.exclusionReason(for: $0) })
+        if values != decorations { decorations = values }
+    }
+
+    private func gitDecoration(for path: String) -> FileDecoration {
+        if let direct = decorations[path] { return direct }
+
+        var parent = (path as NSString).deletingLastPathComponent
+        while parent == root || parent.hasPrefix(root + "/") {
+            if let ignored = decorations[parent]?.ignoredReason { return FileDecoration(ignoredReason: ignored) }
+            if parent == root { break }
+            parent = (parent as NSString).deletingLastPathComponent
+        }
+
+        return FileDecoration()
     }
 
     private func relative(_ path: String) -> String? {
@@ -202,6 +236,7 @@ public final class ProjectFiles {
         guard let name = relative(path), exclusionRoot(for: path) == nil else { return }
 
         exclusions.explicit.insert(name)
+        rebuildGitDecorations()
         onExclusionsChange?(exclusions)
         changed()
     }
@@ -211,6 +246,7 @@ public final class ProjectFiles {
 
         exclusions.explicit.remove(name)
         exclusions.includedDefaults.insert(name)
+        rebuildGitDecorations()
         onExclusionsChange?(exclusions)
         changed()
     }

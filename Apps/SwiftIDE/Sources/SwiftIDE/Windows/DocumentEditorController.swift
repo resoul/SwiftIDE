@@ -42,6 +42,24 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
     var onClose: ((DocumentEditorController) -> Void)?
     private(set) var isClosed = false
     private var isClosing = false
+    private var checkoutEditing: Bool?
+    private var savesInFlight = 0
+    var isSaving: Bool { savesInFlight > 0 }
+    func setGitCheckoutLocked(_ locked: Bool) {
+        if locked, checkoutEditing == nil {
+            checkoutEditing = editor.textView.isEditable
+            editor.textView.isEditable = false
+            editor.undo.isInteractionLocked = true
+            deactivate()
+        } else if !locked, let editable = checkoutEditing {
+            checkoutEditing = nil
+            editor.textView.isEditable = editable && !isSystemFile && !isReadOnlyForLongLines
+            editor.undo.isInteractionLocked = false
+        }
+
+        refreshSubtitle()
+    }
+    func checkDiskAfterGit() { externalChanges.checkNow() }
 
     func bind(to window: NSWindow) {
         presentationWindow = window
@@ -245,6 +263,8 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
     }
 
     private func allowEditing() {
+        guard checkoutEditing == nil else { return }
+
         isReadOnlyForLongLines = false
         editor.textView.isEditable = true
         longLines.dismiss()
@@ -307,6 +327,7 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
     // MARK: Menu
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if checkoutEditing != nil { return false }
         if item.action == #selector(selectLanguage(_:)) {
             let chosen = item.representedObject as? String
             item.state = chosen == languageSelector.override?.rawValue ? .on : .off
@@ -403,7 +424,11 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
     /// the document is clean: text typed during the write stays unsaved. A document without a
     /// file asks for a name first.
     func save() async -> Bool {
+        guard checkoutEditing == nil, !isSaving else { return false }
+
         if session.isUntitled { return await saveAs() }
+        savesInFlight += 1
+        defer { savesInFlight -= 1 }
         do {
             _ = try await saveDocument.execute(document: session)
             refreshTitle()
@@ -422,6 +447,10 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
 
     /// Asks for a name and saves the document there; from then on the document is that file.
     func saveAs() async -> Bool {
+        guard checkoutEditing == nil, !isSaving else { return false }
+
+        savesInFlight += 1
+        defer { savesInFlight -= 1 }
         guard let window else { return false }
 
         let panel = NSSavePanel()
@@ -443,6 +472,10 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
 
     /// The write after the save panel has supplied its destination and replacement consent.
     func saveAs(to url: URL, target: SaveAsTarget) async -> Bool {
+        guard checkoutEditing == nil else { return false }
+
+        savesInFlight += 1
+        defer { savesInFlight -= 1 }
         do {
             _ = try await saveDocument.saveAs(
                 document: session,

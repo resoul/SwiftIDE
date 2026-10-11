@@ -12,6 +12,11 @@ public final class NativeUndoCoordinator {
 
     /// The one history of this document, shared by native typing and programmatic edits.
     public var undoManager: UndoManager { manager }
+    /// Temporarily suspends user undo/redo without clearing its history during checkout.
+    public var isInteractionLocked: Bool {
+        get { manager.isInteractionLocked }
+        set { manager.isInteractionLocked = newValue }
+    }
 
     init(backend: TextKitDocumentBackend) {
         self.backend = backend

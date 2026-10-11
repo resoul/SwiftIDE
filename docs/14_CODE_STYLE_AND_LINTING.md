@@ -13,6 +13,7 @@ The goal is to maintain consistent readability of the code automatically and to 
 | One blank line after a multi-line `if` | If work continues in the same block after the whole `if`/`else if`/`else` construct; do not insert between branches or before the closing `}` |
 | One parameter per line in a multi-line signature | For `init` and methods/functions; the first parameter on the line after `(`, the closing `)` on a separate line. A short signature may stay on one line |
 | Adjacent short `if`s — one group | One-line checks need not be separated by blank lines; the result after them is separated by the `return` rule |
+| One blank line around `init` | Separate from the previous/next declaration; comments and attributes such as `@available` belong to the initializer. First/last members need no extra line against the containing braces; same-line declarations stay untouched |
 | Stable whitespace | No more than one consecutive blank line; no trailing whitespace; documentation comments stay attached to their declaration |
 
 Examples of the expected result:
@@ -101,3 +102,23 @@ public init(
 - The condition "the check mode does not change files" is confirmed for `spacing-check` by the self-test; for SwiftFormat/SwiftLint it is a property of their `--lint` / `lint`.
 - `portable_swiftlint` runs without `sourcekitd`; there are no rules that need the analyzer.
 - Updating the versions is by the instructions in `install.sh`; there is no automatic reminder.
+
+
+## Initializer spacing refinement (2026-10-11)
+
+`blank_line_around_initializer` now checks neighboring members in types/extensions and declarations within conditional compilation. It adds spacing before the complete attribute/comment group, never between `@available` and `init`. The same existing token/comment/syntax verification and LF/CRLF preservation protect auto-fixes. The initial 28-test checker run and pipeline self-test passed; `format.sh` applied the new rule to 42 checked source files. These blank-line-only changes can be committed separately from Pull and the earlier network slices. Final project verification is recorded with ADR-044.
+
+```swift
+private let output = NSTextView()
+private var subscription: UUID?
+
+public init(model: GitClone) {
+    self.model = model
+    super.init(nibName: nil, bundle: nil)
+}
+
+@available(*, unavailable)
+public required init?(coder: NSCoder) {
+    fatalError("init(coder:) is not supported")
+}
+```

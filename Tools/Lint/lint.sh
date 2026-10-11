@@ -18,7 +18,7 @@ echo "== SwiftLint $("$LINT/.tools/swiftlint" --version)"
 warnings=$("$LINT/.tools/swiftlint" lint --quiet --config .swiftlint.yml 2>/dev/null | grep -c ": warning:" || true)
 echo "SwiftLint warnings (not failing): $warnings"
 
-echo "== spacing-check: blank lines before return / after multi-line if"
+echo "== spacing-check: blank lines before return / after multi-line if / around init"
 "$SPACING" "${SOURCES[@]}" "${SPACING_EXCLUDES[@]}" || failed=1
 
 if (( failed == 0 )); then echo "lint: ok"; else echo "lint: FAILED (Tools/Lint/format.sh fixes what is fixable)"; fi

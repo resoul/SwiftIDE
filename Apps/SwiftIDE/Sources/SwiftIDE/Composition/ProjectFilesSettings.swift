@@ -5,6 +5,7 @@ import IDEApplication
 @MainActor
 final class ProjectFilesSettings {
     private let defaults: UserDefaults
+
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
     private func key(_ root: String) -> String { "projectFiles.exclusions.v1." + DocumentPath.canonical(root) }
