@@ -28,6 +28,8 @@ public final class WorkspaceShellViewController: NSViewController {
     private var bottomItem: NSSplitViewItem!
     private(set) var buttons: [WorkspaceTool: NSButton] = [:]
     private let projectLabel = NSTextField(labelWithString: "")
+    private let projectSwitcher = NSButton()
+    public var projectMenu: (() -> NSMenu)? { didSet { projectSwitcher.isEnabled = projectMenu != nil } }
     private let detailLabel = NSTextField(labelWithString: "")
     private let statusLabel = NSTextField(labelWithString: "")
     private let pathLabel = NSTextField(labelWithString: "")
@@ -161,7 +163,19 @@ public final class WorkspaceShellViewController: NSViewController {
         let focus = NSButton(title: "Focus Editor", target: self, action: #selector(toggleFocusEditor(_:)))
         let reset = NSButton(title: "Reset Layout", target: self, action: #selector(resetWorkspaceLayout(_:)))
 
-        return padded(stack([projectLabel, NSView(), detailLabel, focus, reset], vertical: false, spacing: 12), height: 46)
+        projectSwitcher.title = ""
+        projectSwitcher.target = self
+        projectSwitcher.action = #selector(showProjectMenu(_:))
+        projectSwitcher.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Switch project")
+        projectSwitcher.isBordered = false
+        projectSwitcher.toolTip = "Open and recent projects"
+        projectSwitcher.isEnabled = projectMenu != nil
+
+        return padded(stack([projectLabel, projectSwitcher, NSView(), detailLabel, focus, reset], vertical: false, spacing: 8), height: 46)
+    }
+
+    @objc private func showProjectMenu(_ sender: NSButton) {
+        projectMenu?().popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height), in: sender)
     }
 
     private func statusBar() -> NSView {

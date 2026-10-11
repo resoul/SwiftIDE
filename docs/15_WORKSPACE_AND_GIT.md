@@ -1,6 +1,6 @@
 # Workspace components and Git integration
 
-**Status:** accepted direction on 2026-10-10 ([ADR-031](07_ARCHITECTURE_DECISIONS.md#adr-031-workspace-components-git-and-file-status-colours)); TK-026 and TK-030 are implemented and tested (2026-10-11, ADR-035/036), with live-window acceptance pending. TK-025 and TK-027–TK-029 remain planned. Workspace Preview and real project windows now use one reusable shell with different providers. Preview still contains sample content. This document defines the next working slices while the language/project backend continues separately.
+**Status:** accepted direction on 2026-10-10 ([ADR-031](07_ARCHITECTURE_DECISIONS.md#adr-031-workspace-components-git-and-file-status-colours)); TK-025, TK-026 and TK-030 are implemented and tested (2026-10-11, ADR-035/036/037), with live-window acceptance pending. TK-027–TK-029 remain planned. Workspace Preview and real project windows use one reusable shell with different providers; normal startup shows Welcome. Preview still contains sample content. This document defines the next working slices while the language/project backend continues separately.
 
 ## Interface and implementation order
 
@@ -9,8 +9,8 @@ The user's PhpStorm screenshots are the reference for organization: a welcome wi
 1. TK-024 extracts reusable project UI into `WorkspaceUI` inside `Packages/IDE` (ADR-030).
 2. TK-026 connects Files and tabs to the existing document sessions, replacing the editor placeholder with the real editor.
 3. TK-030 connects the common shell to real Files/editor providers before Git; project layout is shared across tabs and persisted by canonical root.
-4. TK-027 adds Git Changes and a read-only diff, followed by the branch picker and a paginated history list.
-5. TK-025 (Welcome and project switcher) can proceed alongside Files/Git against the same project-opening contract.
+4. TK-025 connects Welcome and the project switcher before Git, against the same project-opening contract.
+5. TK-027 adds Git Changes and a read-only diff, followed by the branch picker and a paginated history list.
 6. TK-028 adds local mutations; TK-029 adds network workflows. A lane graph and staging individual lines/hunks are later work, not prerequisites of the first history/diff slice.
 
 Views can first be exercised with injected sample providers in a clearly labelled preview. This is not integration acceptance. Git does not depend on SourceKit-LSP or target preparation. Project opening and document ownership reuse the TK-018 context contract; UI development may use a substitute until that contract is available, without creating a second root-selection policy.
@@ -41,6 +41,27 @@ Git is not connected: Files explicitly says so and ordinary paths retain the nor
 ## TK-030 implementation
 
 The wider preview layout is now the common WorkspaceUI shell, injected with real Files and the original editor in project windows. It retains native document tabs and the existing document lifecycle. Layout is shared between a project's tabs and empty browser, persisted by canonical root and independent of Preview/other roots. Focus Editor restores the prior layout; Reset Layout changes geometry without losing text. Small-window compression does not replace saved preferred sizes. The bars consume existing document/target/readiness status; unavailable tools and their menu commands are disabled. All Git data and actions still belong to TK-027 onward. Manual acceptance R21–R24 is pending.
+
+## TK-025 implementation
+
+Normal startup presents Welcome and then scans the existing recovery journal; it does not create a sample Untitled automatically. Explicit File ▸ New retains its scratch workflow, and File ▸ Open still opens a standalone document. Welcome's sidebar has app/version branding, Projects and an unavailable Settings footer; its content has search, Open Folder and recent projects or an empty state. New Project, Clone and remote-development actions are not exposed before their workflows exist.
+
+Welcome, File ▸ Open Folder and the top-bar project switcher share one validated entry point. A successful opening records the canonical root and focuses an existing project instead of duplicating it. The switcher separates open and recent projects. Closing the last project/document returns to Welcome; closing Welcome leaves the application running. Window ▸ Welcome and Dock reopening show the retained Welcome window. Recovery still offers Restore/Discard per document and retains its disk-conflict and unsaved-text rules.
+
+Recent projects persist as versioned Codable metadata in UserDefaults: canonical path, last successful opening and pinned flag. Pins sort first, then recency; at most 50 unpinned entries are retained. Search matches name/path. Open roots, query/selection and availability stay in memory; root checks are bounded to four background requests and do not enumerate trees, execute manifests or launch processes. Cancelled/older checks cannot overwrite a newer refresh or explicit opening. Missing entries remain visible with Locate/Remove actions. Locate validates the chosen directory, carries the pin and merges a duplicate recent entry; it does not copy settings or configuration trust from the old path. Remove affects only history.
+
+This list is separate from project layout, exclusions, document language choices, configuration permission and crash recovery. SQLite and restoring open tabs across launches are deferred. An unreadable/newer archive is preserved, writes to it are blocked and Welcome displays a warning; new history remains usable for the session. Branch labels come with TK-027. Folder selection, keyboard/VoiceOver, relaunch and recovery interaction remain live acceptance R1–R2 and R25–R29 (ADR-037).
+
+| Data | Storage / lifetime |
+|---|---|
+| Recent canonical roots, last opening, pin | Versioned UserDefaults archive, app-wide |
+| Live projects, query/selection, availability checks | Memory for this app session |
+| Preferred workspace panel layout | Existing UserDefaults adapter, by canonical root |
+| Project exclusions and inclusion overrides | Existing UserDefaults adapter, by canonical root |
+| Manual document language | Existing UserDefaults adapter, by file path |
+| Permission for project configuration | Existing UserDefaults adapter, by canonical root; not a safe-opening guarantee |
+| Unsaved-text recovery | Existing separate journal in Application Support; independent of Recent |
+| SQLite / reopening the previous tab session | Deferred until a concrete workflow requires them |
 
 ## File and folder colours
 

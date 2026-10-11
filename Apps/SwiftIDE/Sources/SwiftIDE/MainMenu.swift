@@ -58,6 +58,7 @@ enum MainMenu {
             NSMenuItem(title: "Preview: System Appearance", action: #selector(WorkspacePreviewWindowController.previewSystemAppearance(_:)), keyEquivalent: "")
         ]))
         main.addItem(submenuItem(title: "Window", items: [
+            NSMenuItem(title: "Welcome", action: #selector(AppDelegate.showWelcome(_:)), keyEquivalent: ""),
             NSMenuItem(title: "Workspace Preview", action: #selector(AppDelegate.showWorkspacePreview(_:)), keyEquivalent: "")
         ]))
         NSApp.mainMenu = main

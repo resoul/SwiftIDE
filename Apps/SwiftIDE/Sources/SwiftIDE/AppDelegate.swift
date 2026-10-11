@@ -8,8 +8,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windows: [WorkspaceWindowController] = []
     private var projects: [String: ProjectWorkspaceController] = [:]
     private var closingProjects: Set<String> = []
-    init(composition: AppCompositionRoot = AppCompositionRoot()) {
+    private var openingFolders: Set<String> = []
+    private var isTerminating = false
+    private let recoveryPrompt: ((RecoveryCandidate) -> Bool)?
+    private(set) var welcome: WelcomeWindowController?
+    init(composition: AppCompositionRoot = AppCompositionRoot(), recoveryPrompt: ((RecoveryCandidate) -> Bool)? = nil) {
         self.composition = composition
+        self.recoveryPrompt = recoveryPrompt
         super.init()
     }
     private var workspacePreview: WorkspacePreviewWindowController?
@@ -35,18 +40,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        Task {
-            // Unsaved text from a run that did not end cleanly is offered back before anything else.
-            await restoreUnsavedWork()
-            if windows.isEmpty { newDocument(nil) }
+        Task { await start() }
+    }
+
+    /// Welcome is the starting surface; recovering work may then open real document windows.
+    func start() async {
+        if windows.isEmpty && projects.isEmpty { showWelcome(nil) }
+        await restoreUnsavedWork()
+    }
+
+    @objc func showWelcome(_ sender: Any?) {
+        if welcome == nil {
+            let controller = WelcomeWindowController(model: composition.recentProjects)
+            controller.content.openFolder = { [weak self] in self?.openFolder(nil) }
+            controller.content.openProject = { [weak self] path in Task { await self?.openProjectFolder(path: path) } }
+            controller.content.locateProject = { [weak self] path in self?.locateProject(path: path) }
+            welcome = controller
         }
+
+        welcome?.showWindow(nil)
+    }
+
+    private func returnToWelcomeIfNeeded() {
+        if !isTerminating && windows.isEmpty && projects.isEmpty { showWelcome(nil) }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showWelcome(nil) }
+
+        return true
     }
 
     /// Back in front: the selected Xcode, the language server's configuration files and the package
     /// manifests may have changed meanwhile, and none of them tells (ADR-034).
     func applicationDidBecomeActive(_ notification: Notification) {
-        Task { await composition.languageServices.refreshEnvironment() }
+        if !windows.isEmpty || !projects.isEmpty { Task { await composition.languageServices.refreshEnvironment() } }
         for project in projects.values { project.files.refresh() }
+        if welcome?.window?.isVisible == true { composition.recentProjects.refreshAvailability() }
     }
 
     /// Leaving for the background is the moment a user may force-quit or lose power: the unsaved
@@ -60,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// AppKit does not consult windows when the app quits, so unsaved documents are checked here
     /// with the same procedure the windows use. Quitting waits for the answers.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard windows.contains(where: { $0.session.isDirty }) else { return .terminateNow }
+        guard windows.contains(where: { $0.session.isDirty }) else { isTerminating = true; return .terminateNow }
 
         Task {
             // The windows are read again after every answer, not captured once.
@@ -77,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     for session in sessions { controller(for: session)?.resumeRecovery() }
                 }
             )
+            isTerminating = allowed
             NSApp.reply(toApplicationShouldTerminate: allowed)
         }
 
@@ -86,9 +117,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Servers end when their pipes close, but not waiting for that keeps them from outliving us.
     func applicationWillTerminate(_ notification: Notification) {
         composition.languageServices.terminateAll()
+        composition.recentProjects.stopChecking()
+        welcome?.content.disconnect()
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     @objc func newDocument(_ sender: Any?) {
         show(composition.makeUntitledWindow(), in: activeProject)
@@ -113,7 +146,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.prompt = "Open Folder"
         guard panel.runModal() == .OK, let folder = panel.url else { return }
 
-        openProject(path: folder.path).showWorkspace()
+        Task { await openProjectFolder(path: folder.path) }
+    }
+
+    /// All user folder entry points share validation, history and focus behaviour.
+    @discardableResult
+    func openProjectFolder(path: String, replacing oldPath: String? = nil) async -> ProjectWorkspaceController? {
+        guard openingFolders.insert(path).inserted else { return nil }
+
+        defer { openingFolders.remove(path) }
+        // An already-open project can still be focused even when its folder was removed on disk.
+        if let existing = projects[path], oldPath == nil {
+            existing.showWorkspace()
+            composition.recentProjects.opened(canonicalPath: existing.files.root, checked: false)
+            welcome?.hide()
+
+            return existing
+        }
+
+        let state = await composition.folderChecker.check(path: path)
+        guard !Task.isCancelled, !isTerminating else { return nil }
+
+        composition.recentProjects.checked(path, state: state)
+        guard case .available(let root) = state else {
+            showFolderFailure(path: path, state: state)
+
+            return nil
+        }
+
+        let project = openProject(path: root)
+        project.showWorkspace()
+        composition.recentProjects.opened(canonicalPath: root, replacing: oldPath)
+        welcome?.hide()
+
+        return project
+    }
+
+    private func locateProject(path: String) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Locate Folder"
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+
+        Task { await openProjectFolder(path: folder.path, replacing: path) }
+    }
+
+    private func showFolderFailure(path: String, state: ProjectFolderAvailability) {
+        let alert = NSAlert()
+        alert.messageText = "Could not open “\((path as NSString).lastPathComponent)”"
+        if case .unavailable(let reason) = state { alert.informativeText = reason }
+        else { alert.informativeText = "The project folder could not be found." }
+
+        alert.addButton(withTitle: "Locate Folder…")
+        alert.addButton(withTitle: "Cancel")
+        // Missing is actionable, but does not delete a recent record or grant configuration trust.
+        if let window = welcome?.window, window.isVisible {
+            alert.beginSheetModal(for: window) { [weak self] answer in
+                if answer == .alertFirstButtonReturn { self?.locateProject(path: path) }
+            }
+        } else if alert.runModal() == .alertFirstButtonReturn {
+            locateProject(path: path)
+        }
     }
 
     @discardableResult
@@ -124,11 +219,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         composition.languageServices.contexts.open(folder: root)
         let project = ProjectWorkspaceController(files: composition.makeProjectFiles(root: root), layout: composition.makeWorkspaceLayout(root: root))
         projects[root] = project
+        project.projectMenu = { [weak self] in self?.projectSwitcherMenu() ?? NSMenu() }
         project.openFile = { [weak self] path in Task { await self?.open(path: path) } }
         project.onClose = { [weak self] in
-            self?.projects[root] = nil
-            self?.composition.languageServices.contexts.close(folder: root)
+            guard let self else { return }
+
+            projects[root] = nil
+            composition.languageServices.contexts.close(folder: root)
+            composition.recentProjects.setOpenRoots(Set(projects.keys))
+            returnToWelcomeIfNeeded()
         }
+        composition.recentProjects.setOpenRoots(Set(projects.keys))
         // A file already open keeps its session and editor; it becomes a tab of this explicit root.
         for document in windows where composition.languageServices.contexts.context(forFile: document.session.path)?.root == root {
             for old in projects.values where old !== project && old.documents.contains(where: { $0 === document }) {
@@ -138,6 +239,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         return project
+    }
+
+    func projectSwitcherMenu() -> NSMenu {
+        let menu = NSMenu()
+        func add(_ title: String, path: String) {
+            let item = NSMenuItem(title: title, action: #selector(openProjectFromMenu(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = path
+            item.toolTip = path
+            menu.addItem(item)
+        }
+        if !projects.isEmpty {
+            let heading = NSMenuItem(title: "Open Projects", action: nil, keyEquivalent: "")
+            heading.isEnabled = false
+            menu.addItem(heading)
+            for path in projects.keys.sorted() { add((path as NSString).lastPathComponent, path: path) }
+            menu.addItem(.separator())
+        }
+
+        let recent = composition.recentProjects.projects.filter { projects[$0.path] == nil }
+        if !recent.isEmpty {
+            let heading = NSMenuItem(title: "Recent Projects", action: nil, keyEquivalent: "")
+            heading.isEnabled = false
+            menu.addItem(heading)
+            for entry in recent { add((entry.isPinned ? "★ " : "") + entry.name, path: entry.path) }
+            menu.addItem(.separator())
+        }
+
+        let open = NSMenuItem(title: "Open Folder…", action: #selector(openFolder(_:)), keyEquivalent: "")
+        open.target = self
+        menu.addItem(open)
+        let welcome = NSMenuItem(title: "Welcome", action: #selector(showWelcome(_:)), keyEquivalent: "")
+        welcome.target = self
+        menu.addItem(welcome)
+
+        return menu
+    }
+
+    @objc private func openProjectFromMenu(_ sender: NSMenuItem) {
+        guard let path = sender.representedObject as? String else { return }
+
+        Task { await openProjectFolder(path: path) }
     }
 
     private var activeProject: ProjectWorkspaceController? {
@@ -192,6 +335,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 show(controller, in: root.flatMap { projects[$0] })
             } else {
                 windows.first { $0.session === opened.session }?.showDocument()
+                welcome?.hide()
             }
 
             if let location {
@@ -268,6 +412,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Returns whether to restore.
     private func askToRestore(_ candidate: RecoveryCandidate) -> Bool {
+        if let recoveryPrompt { return recoveryPrompt(candidate) }
+
         let record = candidate.record
         let when = record.savedAt.formatted(date: .abbreviated, time: .shortened)
         var lines = ["Unsaved changes were found from \(when)."]
@@ -333,9 +479,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             composition.close(closed.session)
             windows.removeAll { $0 === closed }
             for project in projects.values where project.documents.contains(where: { $0 === closed }) { project.remove(closed) }
+            returnToWelcomeIfNeeded()
         }
         controller.unsavedChanges = unsavedChanges
         windows.append(controller)
+        welcome?.hide()
         if let project { project.add(controller) } else { controller.showDocument() }
     }
 

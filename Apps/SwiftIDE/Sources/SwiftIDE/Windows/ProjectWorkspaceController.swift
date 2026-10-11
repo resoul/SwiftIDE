@@ -10,6 +10,12 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     private(set) var documents: [WorkspaceWindowController] = []
     var openFile: ((String) -> Void)?
     var onClose: (() -> Void)?
+    var projectMenu: (() -> NSMenu)? {
+        didSet {
+            browser.shell.projectMenu = projectMenu
+            for document in documents { document.workspaceShell?.projectMenu = projectMenu }
+        }
+    }
     private var closing = false
     private let browser: ProjectFilesContainer
 
@@ -53,6 +59,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         let previous = documents.last?.window
         newWindow.tabGroup?.removeWindow(newWindow)
         document.installFiles(files, layout: layout) { [weak self] in self?.openFile?($0) }
+        document.workspaceShell?.projectMenu = projectMenu
         ProjectDocumentTabs.configure(newWindow, root: files.root)
         if let previous {
             ProjectDocumentTabs.append(newWindow, to: previous)
