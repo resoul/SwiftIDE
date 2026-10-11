@@ -56,22 +56,20 @@ extension NativeAppTests {
             #expect(unrelated.attachedSheet == nil)
         }
 
-        @Test(arguments: [false, true]) func aProjectQuestionUsesItsSelectedTabRatherThanAHiddenSibling(untitled: Bool) async throws {
+        @Test func aQuestionUsesTheSharedProjectWindowAndClosingAnotherTabDoesNotCancelIt() async throws {
             let a = session("/w/tabs/a.txt")
-            let b = DocumentSession(path: "/w/tabs/b.txt", backend: StringDocumentBackend(loadedText: ""), isUntitled: untitled)
-            let first = window(), second = window()
-            ProjectDocumentTabs.configure(first, root: "/w/tabs")
-            ProjectDocumentTabs.configure(second, root: "/w/tabs")
-            ProjectDocumentTabs.append(second, to: first)
+            let b = DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: ""), isUntitled: true)
+            let parent = window()
             let coordinator = ProjectTrustCoordinator { URL(fileURLWithPath: $0.isUntitled ? "/loose" : "/w/tabs") }
-            coordinator.register(a, window: first)
-            coordinator.register(b, window: second)
+            coordinator.register(a, window: parent)
+            coordinator.register(b, window: parent)
             let task = Task { await coordinator.ask(projectName: "tabs", root: URL(fileURLWithPath: "/w/tabs")) }
-            defer { coordinator.unregister(a); coordinator.unregister(b); first.close(); second.close() }
-            try #require(await waitFor { second.attachedSheet != nil })
-            #expect(first.attachedSheet == nil)
-            coordinator.unregister(untitled ? a : b)
-            #expect(await task.value == nil)
+            defer { coordinator.unregister(a); coordinator.unregister(b); parent.close() }
+            try #require(await waitFor { parent.attachedSheet != nil })
+            coordinator.unregister(b)
+            #expect(parent.attachedSheet != nil, "closing an unrelated tab must not cancel the project's sheet")
+            parent.endSheet(try #require(parent.attachedSheet), returnCode: .alertSecondButtonReturn)
+            #expect(await task.value == .granted)
         }
 
         @Test func anAnswerForAWindowThatMovedToAnotherRootIsNotAppliedToTheOldProject() async throws {
