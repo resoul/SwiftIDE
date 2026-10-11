@@ -801,6 +801,14 @@ The end-to-end test "a package file sees the neighbouring files" failed in the f
 
 **Automated result (local Xcode 27.0).** The final complete package run passed 865 tests (46 SyntaxInfrastructure + 214 LanguageInfrastructure + 514 IDEApplication + 67 FileSystemInfrastructure + 24 WorkspaceUI); App passed 21 tests, the executable built and the pinned lint command passed with four existing warnings. An earlier full package run timed out in the pre-existing real-server nested-package completion test; its isolated retry and the final full run passed. This observation is retained rather than described as two consecutive clean runs. The native foreground-window probe also failed when App tests ran concurrently; the shared serialized native suite passed all cases without weakening the key-window assertion. Live checks remain pending.
 
+### TK-026 follow-up: native folder collapse (2026-10-11)
+
+A live report crashed in AppKit's `_recursiveCollapseItemEntry`. A native outline regression reproduced SIGSEGV before the fix: expand a folder and its nested folder, then collapse the parent. Expand/collapse/selection delegates synchronously changed ProjectFiles; its subscriber immediately called reloadData while NSOutlineView was still traversing its entries. This was an application reentrancy error, not established as an OS-only bug.
+
+ProjectFilesViewController now coalesces model notifications onto the next main-queue turn. Data-source child arrays and placeholder objects remain stable between complete reloads; the previous snapshot is retained until AppKit finishes rebuilding. Disconnect invalidates pending work. Existing UI tests now wait for displayed state instead of treating model publication as an immediate native reload. Two new native tests cover 30 ordinary/recursive collapse cycles with expanded descendants, root collapse, a cancelled pending load, stable placeholder identity, late answers and disposal before a queued reload. Actual disclosure-button mouse interaction remains manual check R30.
+
+**Validation of the collapse fix (local Xcode 27.0).** The native regression exited with SIGSEGV before the fix; afterwards all 32 WorkspaceUI tests and all 26 App tests passed. The executable build, pinned lint and diff check passed, with four existing lint warnings. The complete package run exercised 881 tests: SyntaxInfrastructure 46, LanguageInfrastructure 214, IDEApplication 520, FileSystemInfrastructure 69 and WorkspaceUI 32. It had one failure in the unchanged real-server nested-package completion test (90-second timeout); that isolated retry passed in about four seconds. The full run is not described as entirely green. Actual disclosure-button acceptance is pending R30.
+
 ## ADR-036: Common workspace shell before Git (TK-030)
 
 **Status:** implemented on 2026-10-11 at the user's request, before TK-027; live-window acceptance R21–R24 remains pending.

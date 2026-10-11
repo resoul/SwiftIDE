@@ -40,7 +40,7 @@ The user subsequently confirmed Q7 and Q12 on 2026-10-11: a permitted project re
 | P. Description, jump, diagnostics | P21 | P1–P20, P22 |
 | Q. Readiness, progress, trust, opened folders, targets, configuration (TK-018) | Q1–Q5, Q7, Q12, Q20 | Q6, Q8–Q11, Q13–Q19, Q21–Q33, Q35, Q37 not run; Q34 preliminary; Q36 partial and preliminary |
 | Q. Reusable workspace UI (TK-024) | | Q38–Q39; repeat Q3–Q8 and Q12 after extraction |
-| R. Workspace and Git (TK-025/026/030 implemented, live checks pending) | | R1–R4 (excluding Git ignore), Files/Welcome part of R13 and R17–R29; remaining checks with later slices |
+| R. Workspace and Git (TK-025/026/030 implemented, live checks pending) | | R1–R4 (excluding Git ignore), Files/Welcome part of R13 and R17–R30; remaining checks with later slices |
 
 Everything else in the sections B, C, H, I, K, M, N, O and P is still unchecked by hand; the earlier statements "not checked in a live window" stay true for those items.
 
@@ -422,3 +422,11 @@ Pending live checks; generated component images and automated AppKit tests do no
 | R27 | Open the same folder by its real path and a symlink; open two files and edit one; select this project in the top-bar switcher | One canonical recent entry and one owning project/tab group; current editor, unsaved text, caret/scroll and Undo survive; switcher separates open/recent projects; no fabricated branch data |
 | R28 | Close a project, move/delete its folder, re-activate Welcome; attempt Open and cancel; Locate an existing folder; Remove from Recent | Missing entry stays visible; Cancel preserves it; Locate opens only after destination validation, carries its pin and merges a duplicate history entry; settings/trust are not copied from the old root; Remove deletes only metadata, not files, open windows or project settings |
 | R29 | Create unsaved work, force-quit as in F1, restart; Restore, then repeat with Discard; also open a standalone file and use explicit New | Recovery prompts still work and preserve disk-conflict rules; Restore hides Welcome and opens dirty text; Discard leaves Welcome when nothing is open; standalone opening does not add a project; New remains explicit; closing the last document returns to Welcome |
+
+### Files-collapse regression (2026-10-11)
+
+Pending live acceptance after the reported NSOutlineView crash and its native-test reproduction/fix.
+
+| # | Action | Expected |
+|---|---|---|
+| R30 | Use disclosure buttons to expand a folder and its nested folders, collapse/reopen the parent and root repeatedly; also collapse a loading folder, refresh, switch tabs and close the project | No crash, unexpected reopening or corrupted rows; loading cancellation and late answers keep the folder closed; shared tree state/selection remain consistent; queued refresh cannot update a disconnected view |

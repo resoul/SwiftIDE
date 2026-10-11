@@ -10,6 +10,9 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
     private var rows: [String: FileRow] = [:]
     private var subscription: UUID?
     private var rendering = false
+    private var pendingRender: UUID?
+    /// AppKit must see the same child objects/counts until the next complete reload.
+    private var displayedChildren: [String: [FileRow]] = [:]
     private let status = NSTextField(wrappingLabelWithString: "")
     private var scroll = NSScrollView()
 
@@ -62,7 +65,7 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
             scroll.widthAnchor.constraint(equalTo: stack.widthAnchor),
             status.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
-        subscription = model.subscribe { [weak self] in self?.render() }
+        subscription = model.subscribe { [weak self] in self?.scheduleRender() }
         render()
         model.expand(model.root)
     }
@@ -71,6 +74,7 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
     public func disconnect() {
         if let subscription { model.unsubscribe(subscription) }
         subscription = nil
+        pendingRender = nil
     }
 
     private func row(_ file: ProjectFile) -> FileRow {
@@ -83,16 +87,40 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
     }
 
     private func children(_ parent: FileRow?) -> [FileRow] {
-        guard let parent else { return [row(ProjectFile(path: model.root, isDirectory: true))] }
+        if parent?.message != nil { return [] }
+        let key = parent?.file.path ?? ""
+        if let children = displayedChildren[key] { return children }
 
-        if let message = model.state(of: parent.file.path).message {
-            return [FileRow(file: parent.file, message: message)]
+        let children: [FileRow]
+        if let parent {
+            if let message = model.state(of: parent.file.path).message {
+                children = [FileRow(file: parent.file, message: message)]
+            } else {
+                let entries = model.children(of: parent.file.path)
+                children = entries.isEmpty ? [FileRow(file: parent.file, message: "Empty folder")] : entries.map(row)
+            }
+        } else {
+            children = [row(ProjectFile(path: model.root, isDirectory: true))]
         }
 
-        let entries = model.children(of: parent.file.path)
-        if entries.isEmpty { return [FileRow(file: parent.file, message: "Empty folder")] }
+        displayedChildren[key] = children
 
-        return entries.map(row)
+        return children
+    }
+
+    private func scheduleRender() {
+        guard pendingRender == nil, subscription != nil else { return }
+
+        let token = UUID()
+        pendingRender = token
+        // Expand/collapse/selection notifications can arrive inside AppKit's recursive update.
+        // Reloading there invalidates the entries it is still traversing. Coalesce until it returns.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, pendingRender == token else { return }
+
+            pendingRender = nil
+            render()
+        }
     }
 
     private func render() {
@@ -101,14 +129,19 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         rendering = true
         defer { rendering = false }
         let position = scroll.contentView.bounds.origin
-        outline.reloadData()
-        for path in model.expanded.sorted(by: { $0.count < $1.count }) {
-            if let item = rows[path] { outline.expandItem(item) }
-        }
-        if let path = model.selection, let item = rows[path], outline.row(forItem: item) >= 0 {
-            outline.selectRowIndexes(IndexSet(integer: outline.row(forItem: item)), byExtendingSelection: false)
-        } else {
-            outline.deselectAll(nil)
+        let previousChildren = displayedChildren
+        displayedChildren = [:]
+        // Keep even placeholder items alive until AppKit has released its old tree entries.
+        withExtendedLifetime(previousChildren) {
+            outline.reloadData()
+            for path in model.expanded.sorted(by: { $0.count < $1.count }) {
+                if let item = rows[path] { outline.expandItem(item) }
+            }
+            if let path = model.selection, let item = rows[path], outline.row(forItem: item) >= 0 {
+                outline.selectRowIndexes(IndexSet(integer: outline.row(forItem: item)), byExtendingSelection: false)
+            } else {
+                outline.deselectAll(nil)
+            }
         }
 
         scroll.contentView.scroll(to: position)
