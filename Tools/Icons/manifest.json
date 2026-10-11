@@ -1,0 +1,127 @@
+{
+  "upstream": "https://github.com/tabler/tabler-icons",
+  "version": "v3.49.0",
+  "strokeWidth": 1.5,
+  "icons": [
+    {
+      "name": "adjustments-horizontal",
+      "case": "adjustmentsHorizontal",
+      "sha256": "51c876babc598cf69ad1146f0fb621919a975758df0cc7abf45052006358a353"
+    },
+    {
+      "name": "alert-circle",
+      "case": "alertCircle",
+      "sha256": "7aff9be6b14daf212f982513de43ad7784752c021995719d00006cad8a75bef0"
+    },
+    {
+      "name": "box",
+      "case": "box",
+      "sha256": "9c41c0236687a8ffa1c00e7de7c6a1c55bef1073c8adaf2c277f6f36f4552a8f"
+    },
+    {
+      "name": "brand-docker",
+      "case": "brandDocker",
+      "sha256": "33b091283f8327b7afefabace80ecf8e129766a15948adb96c1354b13c5512c1"
+    },
+    {
+      "name": "brand-swift",
+      "case": "brandSwift",
+      "sha256": "a36b8ca916cd2b95a788be0245b2261c1d72848448e8ebc23fb735ed090137b3"
+    },
+    {
+      "name": "chevron-down",
+      "case": "chevronDown",
+      "sha256": "5a2e5c2a155ce06264a3f7299073ed636142dfd0b324b747387d9cfbf9fb5e3e"
+    },
+    {
+      "name": "code",
+      "case": "code",
+      "sha256": "ff3d40c83c1a908bc3aa173671232e5015dba2f7f3538edc23fa2218a3d329e2"
+    },
+    {
+      "name": "external-link",
+      "case": "externalLink",
+      "sha256": "95de8d4e3e77d34b39a94e157ff26b5a860015c6ce3056794f63dd3a55805bbc"
+    },
+    {
+      "name": "file",
+      "case": "file",
+      "sha256": "c3995cdcfc6b74ff439efd5a8817c14ac4f821ae4435c0d2e6c021e3f39a6808"
+    },
+    {
+      "name": "file-code",
+      "case": "fileCode",
+      "sha256": "d5ff36cdf06d2e4a701e1f717bae2ab5057abe9f0febc84420d655f0299ac350"
+    },
+    {
+      "name": "folder",
+      "case": "folder",
+      "sha256": "acdf398775addb8104673e5a8ef29d01d40184c6a5b3c62a93f10309cf9ef253"
+    },
+    {
+      "name": "folder-symlink",
+      "case": "folderSymlink",
+      "sha256": "d513d390792dde1781262e40313fb9319c1bbaed26b2e11487ed8217a2aaabce"
+    },
+    {
+      "name": "git-branch",
+      "case": "gitBranch",
+      "sha256": "7c45a13d2b0e6a6915730471345ebf7fbe0374bcd61d19679d59c5ffa38a234b"
+    },
+    {
+      "name": "hammer",
+      "case": "hammer",
+      "sha256": "b45f27628989c1964bc9c0849340c71a5525a4e0b5901793e63a52809062261b"
+    },
+    {
+      "name": "link",
+      "case": "link",
+      "sha256": "27e34930284da308ed31c4ddc9c14fc333db08be5b6c42bcbf99f77ec5bad626"
+    },
+    {
+      "name": "list-tree",
+      "case": "listTree",
+      "sha256": "92f6b37060b0b40083a6769eb5f4e0f22321fcdd40f0f557d422303da49607bf"
+    },
+    {
+      "name": "messages",
+      "case": "messages",
+      "sha256": "eb7841d7719e9b16fdad1810dbe15ddc9f247f69becbb5ee13299e46bd997c84"
+    },
+    {
+      "name": "minus",
+      "case": "minus",
+      "sha256": "a6556d9c556316b946c28af277be016b4d56ad8618dc2a731ce455100438c0ea"
+    },
+    {
+      "name": "plus",
+      "case": "plus",
+      "sha256": "9cc497d4cc1eb38cf9daae18f41ffdc1a5e2a8431d70247b0854978f303f28d6"
+    },
+    {
+      "name": "refresh",
+      "case": "refresh",
+      "sha256": "9dd8ab8cac268489501cbb0a106d93cc3f367add493d20c47ec1e1d9804c760a"
+    },
+    {
+      "name": "search",
+      "case": "search",
+      "sha256": "3dd53b9606283dfa0adcb0b10a7d9a4432369d4bebcfacf67f80fbe358381c34"
+    },
+    {
+      "name": "settings",
+      "case": "settings",
+      "sha256": "ef9cf42d822c00b4fad5bc5eeceddd4e1ec3774bb7ddd09891d0fba274bc3e95"
+    },
+    {
+      "name": "terminal-2",
+      "case": "terminal2",
+      "sha256": "ea232ff7461f39a6c65c5919c0f9b28de29d2586730a9eeef2b2428526ceb069"
+    },
+    {
+      "name": "x",
+      "case": "x",
+      "sha256": "9350785360414c39450c3505f17d1745e55a7534edace8548e30cf49e3727d43"
+    }
+  ]
+}

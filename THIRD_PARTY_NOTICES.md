@@ -1,6 +1,6 @@
 # Third-party software
 
-SwiftIDE links the following libraries (see `Packages/IDE/Package.swift`, ADR-014). Their notices are reproduced as their licences require.
+SwiftIDE includes the following libraries and icon resources (see `Packages/IDE/Package.swift`, ADR-014). Their notices are reproduced as their licences require.
 
 ## tree-sitter 0.25.10 — MIT
 
@@ -154,6 +154,34 @@ The highlight queries `c-`, `cpp-` and `objc-highlights.scm` in `Packages/IDE/So
 The MIT License (MIT)
 
 Copyright (c) 2023 Amaan Qureshi <amaanq12@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Tabler Icons v3.49.0 — MIT
+
+The curated SVG originals in `Tools/Icons/SVG` come from https://github.com/tabler/tabler-icons/tree/v3.49.0/icons/outline. Vector PDFs in the `IconUI` resource bundle are generated from them; the upstream notice also ships in that bundle.
+
+```
+MIT License
+
+Copyright (c) 2020-2026 Paweł Kuna
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
