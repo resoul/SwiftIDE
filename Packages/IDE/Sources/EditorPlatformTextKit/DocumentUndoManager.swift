@@ -20,6 +20,13 @@ final class DocumentUndoManager: UndoManager, @unchecked Sendable {
     nonisolated(unsafe) private var isRegistering = false
     nonisolated(unsafe) private var boundaryPending = false
 
+    nonisolated(unsafe) var isInteractionLocked = false
+    override var canUndo: Bool { !isInteractionLocked && super.canUndo }
+    override var canRedo: Bool { !isInteractionLocked && super.canRedo }
+    override func undo() { if !isInteractionLocked { super.undo() } }
+    override func redo() { if !isInteractionLocked { super.redo() } }
+    override func undoNestedGroup() { if !isInteractionLocked { super.undoNestedGroup() } }
+
     // MARK: Group bookkeeping
 
     override func beginUndoGrouping() {

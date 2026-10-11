@@ -14,6 +14,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-028: whole-file Git stage/unstage (including unborn HEAD), commit all staged contents with a retained multiline draft, create at HEAD and explicit local-branch switching; bounded live output/cancel, shared-metadata write gate and stale-state checks. Checkout saves or cancels every open worktree document, temporarily locks editing/Undo and refreshes retained sessions without implicit discard. Automated verification and pending manual acceptance are recorded in ADR-041.
+
 - TK-027: real Git inspection in project windows. Added GitInfrastructure CLI adapter, project-scoped status/branch/history state and reusable Changes/Log/branch/diff views. Tree and tabs receive actual Git colours and ignore rules, linked worktrees use Git-reported metadata, read-only diff opens in central content while dirty editors retain Undo. Background disk/ref events, bounded processes and stale-result rejection are covered by temporary-repository and native-window tests. Local mutations and network workflows remain TK-028/TK-029 (ADR-040).
 
 - TK-032: reusable IconUI library with curated Tabler v3.49.0 SVG sources, deterministic offline vector PDF generation and typed template images. Welcome, folders, central tabs and tool rails use the set; custom tools retain SF Symbols or use Tabler names. MIT notice ships in the resource bundle; native vector, cache-isolation, size and light/dark tint checks added (ADR-039).

@@ -6,6 +6,8 @@ import IDEDomain
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let composition: AppCompositionRoot
     private var documents: [DocumentEditorController] = []
+    private let gitCheckoutPrompt: ((DocumentSession) async -> GitCheckoutDocuments.Decision)?
+    private lazy var gitCheckout = GitCheckoutCoordinator(documents: { [weak self] in self?.documents ?? [] }, prompt: gitCheckoutPrompt)
     private var standalone: [DocumentID: WorkspaceWindowController] = [:]
     private var projects: [String: ProjectWorkspaceController] = [:]
     private var closingProjects: Set<String> = []
@@ -13,9 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var isTerminating = false
     private let recoveryPrompt: ((RecoveryCandidate) -> Bool)?
     private(set) var welcome: WelcomeWindowController?
-    init(composition: AppCompositionRoot = AppCompositionRoot(), recoveryPrompt: ((RecoveryCandidate) -> Bool)? = nil) {
+    init(composition: AppCompositionRoot = AppCompositionRoot(), recoveryPrompt: ((RecoveryCandidate) -> Bool)? = nil, gitCheckoutPrompt: ((DocumentSession) async -> GitCheckoutDocuments.Decision)? = nil) {
         self.composition = composition
         self.recoveryPrompt = recoveryPrompt
+        self.gitCheckoutPrompt = gitCheckoutPrompt
         super.init()
     }
     private var workspacePreview: WorkspacePreviewWindowController?
@@ -219,6 +222,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         composition.languageServices.contexts.open(folder: root)
         let project = ProjectWorkspaceController(files: composition.makeProjectFiles(root: root), layout: composition.makeWorkspaceLayout(root: root), git: composition.makeGitWorkspace(root: root))
+        project.git?.prepareCheckout = { [weak self] repository in await self?.gitCheckout.prepare(repository) ?? false }
+        project.git?.checkoutFinished = { [weak self] repository in self?.gitCheckout.finish(repository) }
         projects[root] = project
         project.projectMenu = { [weak self] in self?.projectSwitcherMenu() ?? NSMenu() }
         project.openFile = { [weak self, weak project] path in Task { await self?.open(path: path, in: project) } }
@@ -511,6 +516,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         controller.unsavedChanges = unsavedChanges
         documents.append(controller)
+        gitCheckout.register(controller)
         welcome?.hide()
         if let project { project.add(controller) } else { hostStandalone(controller) }
     }

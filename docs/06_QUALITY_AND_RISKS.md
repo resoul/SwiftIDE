@@ -176,3 +176,11 @@ Git inspection uses real temporary repositories and native component/project-win
 
 
 The final TK-027 App validation passed 29 tests with only the separate foreground-window probe excluded. That unchanged probe passed once, then failed twice with an inactive macOS process/key-window timeout; final full-suite success is not claimed. Its interactive-desktop check remains pending alongside live Git acceptance. The full IDE package passed 906 tests; final focused Git checks passed 15; executable build and lint passed (four existing warnings).
+
+
+## TK-028 local Git actions
+
+A shared in-process write gate and HEAD/index/status preflight reduce accidental stale/concurrent actions; external Git can still change between preflight and the command. Stage reads disk and commit includes all staged contents, so neither implies inclusion of unsaved editor text. Hooks, filters and signing may execute configured helpers during explicit actions; their interaction is noninteractive and bounded. Cancellation can leave partial changes or a lock file, which is reported rather than removed or rolled back. Checkout checks the entire open worktree's documents, freezes user editing/Undo temporarily and explicitly rechecks disk on every prepared exit. Existing dirty/deletion/encoding/recovery handling remains responsible for retaining text. Live R14–R15/R45–R53 and helper/large-repository behavior remain pending.
+
+
+TK-028 automatic validation passed the full 918-test IDE package and 31-test App suite. The foreground-window probe passed this time; its previously observed intermittent activation behavior remains an environment risk, not a reason to weaken its assertion. Final local-action checks passed 12 tests plus the real two-project App case; build/lint passed with four existing warnings. The integrated commit form was visually inspected in both appearances at 900 × 560; this does not complete live/manual acceptance.

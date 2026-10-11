@@ -33,6 +33,16 @@ public final class GitWorkspace {
     public var liveUpdatesAvailable: Bool? {
         didSet { if oldValue != liveUpdatesAvailable { changed() } }
     }
+    public private(set) var operationState = GitOperationState.idle
+    public private(set) var operationTitle = ""
+    public private(set) var operationOutput = ""
+    public var prepareCheckout: ((GitRepository) async -> Bool)?
+    public var checkoutFinished: ((GitRepository) -> Void)?
+    public var supportsLocalActions: Bool { mutations != nil }
+    public var canMutate: Bool { supportsLocalActions && state == .ready && !operationState.isBusy && !stopped }
+    private let mutations: (any GitMutating)?
+    private var operationTask: Task<Void, Never>?
+    private var operationID = UUID()
     private let service: any GitInspecting
     private var revision: String?
     private var customHistory = false
@@ -44,10 +54,13 @@ public final class GitWorkspace {
     private var stopped = false
     private var scheduledRefresh: Task<Void, Never>?
 
-    public init(root: String, service: any GitInspecting) { self.root = root; self.service = service }
+    public init(root: String, service: any GitInspecting, mutations: (any GitMutating)? = nil) {
+        self.root = root; self.service = service
+        self.mutations = mutations ?? (service as? any GitMutating)
+    }
 
     public func refresh() {
-        guard !stopped else { return }
+        guard !stopped, !operationState.isBusy else { return }
 
         refreshTask?.cancel(); historyTask?.cancel(); diffTask?.cancel(); filesTask?.cancel()
         epoch = UUID(); diffID = UUID(); commitID = UUID()
@@ -203,11 +216,73 @@ public final class GitWorkspace {
         }
     }
 
+    public func perform(_ action: GitLocalAction) {
+        guard canMutate, let expected = snapshot, let mutations else { return }
+
+        refreshTask?.cancel(); scheduledRefresh?.cancel()
+        operationID = UUID()
+        let token = operationID
+        operationTitle = action.title; operationOutput = ""
+        operationState = action.changesCheckout ? .preparing : .running
+        changed()
+        let prepare = prepareCheckout, finish = checkoutFinished
+        operationTask = Task { [weak self, service] in
+            var prepared = false
+            defer { if prepared { finish?(expected.repository) } }
+            do {
+                var reviewed = expected
+                if action.changesCheckout {
+                    guard let prepare, await prepare(expected.repository) else { throw CancellationError() }
+
+                    prepared = true
+                    try Task.checkCancellation()
+                    reviewed = try await service.snapshot(at: expected.repository.root)
+                    guard reviewed.repository == expected.repository, reviewed.head == expected.head, reviewed.branch == expected.branch else {
+                        throw GitInspectionError.failed("Checkout changed while saving documents; review and retry")
+                    }
+                }
+
+                try Task.checkCancellation()
+                guard let self, !stopped, operationID == token else { return }
+
+                operationState = .running; changed()
+                try await mutations.perform(action, expected: reviewed) { [weak self] chunk in
+                    Task { @MainActor [weak self] in
+                        guard let self, !self.stopped, self.operationID == token else { return }
+
+                        self.operationOutput = String((self.operationOutput + chunk).suffix(32_000))
+                        self.changed()
+                    }
+                }
+                guard !stopped, operationID == token else { return }
+
+                operationState = Task.isCancelled ? .cancelled : .succeeded
+            } catch {
+                guard let self, !stopped, operationID == token else { return }
+
+                operationState = error is CancellationError || Task.isCancelled ? .cancelled : .failed(error.localizedDescription)
+            }
+            guard let self, !stopped, operationID == token else { return }
+
+            operationTask = nil
+            changed()
+            refresh() // Failure/cancellation may still have changed Git. Never claim rollback.
+        }
+    }
+
+    public func cancelOperation() {
+        guard operationState.isBusy else { return }
+
+        operationState = .cancelling
+        operationTask?.cancel()
+        changed()
+    }
+
     public func stop() {
         stopped = true; epoch = UUID(); diffID = UUID(); commitID = UUID()
         refreshTask?.cancel(); historyTask?.cancel(); diffTask?.cancel(); filesTask?.cancel()
-        scheduledRefresh?.cancel()
-        onInspect = nil
+        scheduledRefresh?.cancel(); operationTask?.cancel()
+        onInspect = nil; prepareCheckout = nil; checkoutFinished = nil
     }
 
     private func resetHistory() {

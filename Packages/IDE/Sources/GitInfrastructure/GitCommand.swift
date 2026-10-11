@@ -11,14 +11,15 @@ enum GitCommand {
         arguments: [String],
         input: Data? = nil,
         limit: Int = 8_000_000,
-        timeout: TimeInterval = 15
+        timeout: TimeInterval = 15,
+        onOutput: (@Sendable (String) -> Void)? = nil
     ) async throws -> GitCommandResult {
         let execution = Execution(limit: limit)
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 DispatchQueue.global(qos: .userInitiated).async {
-                    execution.start(executable: executable, root: root, arguments: arguments, input: input, timeout: timeout, continuation: continuation)
+                    execution.start(executable: executable, root: root, arguments: arguments, input: input, timeout: timeout, onOutput: onOutput, continuation: continuation)
                 }
             }
         } onCancel: { execution.cancel() }
@@ -31,6 +32,7 @@ enum GitCommand {
         private var output = Data(), errors = Data()
         private var cancelled = false, expired = false, overflow = false, finished = false
         private var processGroup: Int32?
+        private var streamedBytes = 0
         init(limit: Int) { self.limit = limit }
 
         func start(
@@ -39,6 +41,7 @@ enum GitCommand {
             arguments: [String],
             input: Data?,
             timeout: TimeInterval,
+            onOutput: (@Sendable (String) -> Void)?,
             continuation: CheckedContinuation<GitCommandResult, any Error>
         ) {
             let stdout = Pipe(), stderr = Pipe()
@@ -98,6 +101,21 @@ enum GitCommand {
 
                             return false
                         }
+                        if let onOutput {
+                            let preview = lock.withLock { () -> Data? in
+                                guard streamedBytes < 128_000 else { return nil }
+
+                                let preview = Data(data.prefix(128_000 - streamedBytes))
+                                streamedBytes += preview.count
+
+                                return preview
+                            }
+                            if let preview {
+                                onOutput(String(decoding: preview, as: UTF8.self))
+                                if lock.withLock({ streamedBytes == 128_000 }) { onOutput("\n[Git output preview limited]\n") }
+                            }
+                        }
+
                         if terminate { end() }
                     }
                 }

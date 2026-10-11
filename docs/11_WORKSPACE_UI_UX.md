@@ -171,3 +171,8 @@ WorkspaceUI depends on the package's reusable IconUI target. Tabler SVG sources 
 ### Real Git providers (TK-027)
 
 Changes, Git Log, branch references and read-only Git diff are reusable WorkspaceUI controllers consuming one GitWorkspace. App injects Changes into the left source-control tool, Log into an extensible bottom tool, and the branch controller into the generic project accessory host. A central inspection tab is a supplied read-only view with no DocumentSession; it shares ordering/selection presentation while the App retains real document lifecycle. Other panels remain arbitrary providers. See ADR-040 and docs/15 for states, refresh and limits.
+
+
+### TK-028 local actions
+
+Reusable Changes exposes whole-file Stage/Unstage and an on-demand multiline Commit form; commit includes all staged contents and retains its draft after error/cancel. A shared operation view supplies bounded live output, error/result and Cancel. The branch accessory distinguishes Create at HEAD, explicit Switch local branch and remote history inspection. App owns repository-wide save-or-cancel and temporary editor locks; panels own no document/process lifecycle. The form starts collapsed so Changes remains usable alongside a bottom tool. Git → Commit Staged (Command-K) opens/focuses the form in the same project; no extra document window is created.

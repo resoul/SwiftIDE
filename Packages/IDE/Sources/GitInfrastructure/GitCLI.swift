@@ -1,11 +1,12 @@
 import Foundation
+import CryptoKit
 import IDEApplication
 
 public struct GitCLI: GitInspecting {
     public let executable: URL
     public init(executable: URL = URL(fileURLWithPath: "/usr/bin/git")) { self.executable = executable }
 
-    private func run(_ arguments: [String], at root: String, input: Data? = nil, limit: Int = 8_000_000, accepted: Set<Int32> = [0]) async throws -> Data {
+    func run(_ arguments: [String], at root: String, input: Data? = nil, limit: Int = 8_000_000, accepted: Set<Int32> = [0], timeout: TimeInterval = 15, output: (@Sendable (String) -> Void)? = nil) async throws -> Data {
         let literal = arguments.first == "check-ignore" ? [] : ["--literal-pathspecs"]
         let invocation = ["--no-optional-locks"] + literal + [
             "-c",
@@ -19,17 +20,18 @@ public struct GitCLI: GitInspecting {
             "-C",
             root
         ] + arguments
-        let result = try await GitCommand.run(executable: executable, root: root, arguments: invocation, input: input, limit: limit)
+        let result = try await GitCommand.run(executable: executable, root: root, arguments: invocation, input: input, limit: limit, timeout: timeout, onOutput: output)
         guard accepted.contains(result.status) else {
             if result.error.contains("not a git repository") { throw GitInspectionError.unavailable("This folder is not in a Git repository") }
 
-            throw GitInspectionError.failed("Git: " + result.error.trimmingCharacters(in: .whitespacesAndNewlines).suffix(800))
+            let reason = String(result.error.trimmingCharacters(in: .whitespacesAndNewlines).suffix(800))
+            throw GitInspectionError.failed(reason.isEmpty ? "Git command failed (exit \(result.status)); see action output" : "Git: " + reason)
         }
 
         return result.output
     }
 
-    private func repository(at root: String) async throws -> GitRepository {
+    func repository(at root: String) async throws -> GitRepository {
         func value(_ arguments: [String]) async throws -> String {
             var text = try GitPorcelain.string(await run(arguments, at: root))
             if text.hasSuffix("\n") { text.removeLast() }
@@ -64,7 +66,7 @@ public struct GitCLI: GitInspecting {
 
             let refs = try await branches(in: repository)
             let verification = try await run(["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all", "--ignored=matching"], at: repository.root)
-            if verification == data { return try GitPorcelain.status(data, repository: repository, branches: refs, ignored: reasons) }
+            if verification == data { return try GitPorcelain.status(data, repository: repository, branches: refs, ignored: reasons, mutationToken: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()) }
         }
 
         throw GitInspectionError.failed("Repository changed during refresh; refresh Git again")

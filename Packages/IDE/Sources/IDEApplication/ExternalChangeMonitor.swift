@@ -97,6 +97,9 @@ public final class ExternalChangeMonitor {
     /// A look or a wait is under way. For tests.
     public var isBusy: Bool { debounce != nil || evaluation != nil }
 
+    /// An explicit checkout completion also evaluates files when a native event was missed.
+    public func checkNow() { eventArrived() }
+
     public func waitUntilIdle() async {
         while let current = evaluation { await current.value }
     }

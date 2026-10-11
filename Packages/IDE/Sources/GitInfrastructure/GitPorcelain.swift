@@ -24,7 +24,7 @@ enum GitPorcelain {
         return value
     }
 
-    static func status(_ data: Data, repository: GitRepository, branches: [GitBranch], ignored: [String: String]) throws -> GitSnapshot {
+    static func status(_ data: Data, repository: GitRepository, branches: [GitBranch], ignored: [String: String], mutationToken: String? = nil) throws -> GitSnapshot {
         let records = try data.split(separator: 0).map { try string(Data($0)) }
         var branch: String?, head: String?, upstream: String?, ahead: Int?, behind: Int?
         var changes: [GitChange] = [], i = 0
@@ -67,7 +67,7 @@ enum GitPorcelain {
             }
         }
 
-        return GitSnapshot(repository: repository, branch: branch, head: head, upstream: upstream, ahead: ahead, behind: behind, changes: changes, branches: branches)
+        return GitSnapshot(repository: repository, branch: branch, head: head, upstream: upstream, ahead: ahead, behind: behind, changes: changes, branches: branches, mutationToken: mutationToken)
     }
 
     static func commitFiles(_ data: Data) throws -> [GitCommitFile] {

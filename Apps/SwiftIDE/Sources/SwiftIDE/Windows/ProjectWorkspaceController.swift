@@ -75,6 +75,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             if let gitChanges { browser.addChild(gitChanges); gitChanges.openFile = { [weak self] in self?.openFile?($0) } }
             if let gitLog { browser.addChild(gitLog) }
             if let gitBranches { browser.addChild(gitBranches); shell.installProjectAccessory(gitBranches.view) }
+            gitBranches?.onActionStarted = { [weak self] in self?.shell.select(.sourceControl) }
             gitBranches?.onViewHistory = { [weak self] in self?.shell.select(.gitLog) }
             git.onInspect = { [weak self] in
                 guard let self else { return }
@@ -250,9 +251,14 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func showPreviewSourceControl(_ sender: Any?) { if git != nil { shell.select(.sourceControl) } }
     @objc func showGitLog(_ sender: Any?) { if git != nil { shell.select(.gitLog) } }
     @objc func refreshGit(_ sender: Any?) { git?.refresh() }
+    @objc func commitGit(_ sender: Any?) { shell.select(.sourceControl); gitChanges?.focusCommitMessage() }
+    @objc func cancelGit(_ sender: Any?) { git?.cancelOperation() }
     @objc func showPreviewTerminal(_ sender: Any?) {}
     @objc func showPreviewAssistant(_ sender: Any?) {}
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(commitGit(_:)) { return git?.canMutate == true }
+        if item.action == #selector(cancelGit(_:)) { return git?.operationState.isBusy == true }
+        if item.action == #selector(refreshGit(_:)) { return git != nil && git?.operationState.isBusy == false }
         if item.action == #selector(showPreviewSourceControl(_:)) { return git != nil }
         if item.action == #selector(showGitLog(_:)) || item.action == #selector(refreshGit(_:)) { return git != nil }
         if [#selector(showPreviewSearch(_:)), #selector(showPreviewTerminal(_:)), #selector(showPreviewAssistant(_:))].contains(item.action) { return false }

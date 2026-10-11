@@ -47,6 +47,7 @@ public struct GitSnapshot: Equatable, Sendable {
     public let behind: Int?
     public let changes: [GitChange]
     public let branches: [GitBranch]
+    public let mutationToken: String?
     public let capturedAt: Date
     public var headDescription: String {
         if let branch { return head == nil ? branch + " (unborn)" : branch }
@@ -62,6 +63,7 @@ public struct GitSnapshot: Equatable, Sendable {
         behind: Int? = nil,
         changes: [GitChange],
         branches: [GitBranch] = [],
+        mutationToken: String? = nil,
         capturedAt: Date = .now
     ) {
         self.repository = repository
@@ -72,6 +74,7 @@ public struct GitSnapshot: Equatable, Sendable {
         self.behind = behind
         self.changes = changes
         self.branches = branches
+        self.mutationToken = mutationToken
         self.capturedAt = capturedAt
     }
 

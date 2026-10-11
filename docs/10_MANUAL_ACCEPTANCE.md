@@ -361,7 +361,7 @@ TK-024 was implemented on 2026-10-11. These checks are pending for the extracted
 
 ## R. Workspace components and Git (TK-025–TK-030, ADR-031/035/036/037)
 
-TK-025/026/027/030/031/032 are implemented and tested; their live checks are pending, not passed results. Git inspection works in real project windows; Preview remains sample content. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R2 and R25–R29 for Welcome; R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored enables after a successful Git snapshot. Run Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
+TK-025/026/027/028/030/031/032 are implemented and tested; their live checks are pending, not passed results. Git inspection works in real project windows; Preview remains sample content. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R2 and R25–R29 for Welcome; R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored enables after a successful Git snapshot. Run Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
 
 | № | Do | Expected |
 |---|---|---|
@@ -378,8 +378,8 @@ TK-025/026/027/030/031/032 are implemented and tested; their live checks are pen
 | R11 | Inspect a file with unsaved editor text; select a diff, a binary/large diff and commits in paginated Log | Git comparison is disk/index with unsaved text marked separately; no silent save; limited previews are explained; history does not block the editor |
 | R12 | Switch project windows during a slow refresh; change repository externally; make Git unavailable or fail a refresh | Old-project answers are discarded; no focus/selection theft; errors do not turn Changes into a clean empty list; last known state is identified if retained |
 | R13 | Switch light/dark appearance; select coloured rows; navigate tree/pickers/Changes/Log by keyboard and VoiceOver | Red/green/blue/orange remain readable; selected rows preserve status; accessible labels explain statuses and exclusions without colour |
-| R14 | Stage/unstage whole files, commit selected index contents and create a branch in a disposable repository | Explicit operations report the actual result; staged/unstaged views refresh; errors and cancellation preserve buffers and do not claim rollback |
-| R15 | Switch a branch while a document has unsaved changes; cancel, then resolve changes and retry | Existing unsaved-document reconciliation runs; cancellation keeps text/checkout; successful switch reconciles affected open sessions without losing text |
+| R14 | Stage/unstage whole files, commit all staged index contents and create a branch in a disposable repository | Explicit operations report the actual result; staged/unstaged views refresh; errors and cancellation preserve buffers and do not claim rollback |
+| R15 | Switch a branch while a document has unsaved changes; cancel, then resolve changes and retry | Save-or-cancel checks every open document in this worktree; cancellation keeps text/checkout; successful switch reconciles affected open sessions without losing text |
 | R16 | Clone from a local remote, cancel/fail a clone, Fetch/Push, then Pull using the selected policy with a conflict | Progress/errors/credentials/cancellation are clear; project opens only on successful clone; conflicts have a recovery workflow; offline inspection works; locally known remote refs are not claimed current without a fetch |
 
 ## Known limitations that should not be taken for errors
@@ -457,7 +457,7 @@ Automated component and real-editor tests do not replace these live checks.
 
 ### Git inspection (TK-027 / ADR-040)
 
-Run the existing Git parts of R4–R13 plus these checks later; they are deliberately pending while the user is unavailable. R14–R16 belong to later mutation/network slices.
+Run the existing Git parts of R4–R13 plus these checks later; they are deliberately pending while the user is unavailable. R14–R15 are implemented in TK-028 with pending live acceptance; R16 belongs to TK-029.
 
 | # | Action | Expected |
 |---|---|---|
@@ -466,3 +466,20 @@ Run the existing Git parts of R4–R13 plus these checks later; they are deliber
 | R42 | Open several documents, leave one dirty, inspect several diffs, drag the Diff tab and use Command-W; resize/hide panels and Focus Editor | One reusable central read-only Diff tab; dirty document text/Undo/caret/scroll survive; Save is unavailable for inspection; closing a diff does not close the project or a document |
 | R43 | Search local/remote refs, choose View history; filter loaded commits, Load more, select files of root/merge/rename commits; change HEAD externally | Inspection does not switch branches; pagination is anchored and refresh resets history to current HEAD; merge diff names first-parent comparison; remote freshness/hosting checks are not invented |
 | R44 | Use keyboard/Return and VoiceOver in Changes/Log/branch picker; switch themes and select coloured rows; close a project during refresh | Labels and selected foreground remain readable; search/selection/focus survive refresh; late results and callbacks cannot reopen the project; stopped Git processes/streams are released |
+
+
+### Local Git actions (TK-028 / ADR-041)
+
+Use disposable repositories and perform R14–R15 plus the following. These are pending live checks, not observed results.
+
+| № | Do | Expected |
+|---|---|---|
+| R45 | In an unborn repository stage and unstage a file; edit after stage, then unstage; repeat with rename/delete and a path containing spaces/newlines | Stage uses whole disk contents; index-only unstage preserves every disk byte/deletion, including without HEAD; both Changes sides stay distinct |
+| R46 | Stage multiple files, leave another unstaged and an editor dirty; enter a multiline message and commit; fail a hook or signing | ALL staged contents are committed; unstaged/unsaved content is not silently included; live output/error is shown; draft clears only on success |
+| R47 | Create at HEAD, use duplicate/invalid names; select a remote ref, then switch a local branch | Creation keeps checkout; invalid/duplicate names fail without resetting a branch; remote refs remain inspection-only; switching is explicit |
+| R48 | Open documents of the same repository in different project/standalone windows; dirty two, save the first and cancel the second; retry with a failed save or typing in another editor while saving | No checkout on refusal/failure/new dirty text; previous explicit saves remain saved; no buffer is discarded; prompts belong to the document's window |
+| R49 | Switch with conflicting saved disk edits, an untracked obstruction or a branch active in a linked worktree | Git refuses normally; error is visible; no force, stash, merge or automatic discard; editors/Undo unlock |
+| R50 | Successfully switch between branches that change/delete open files; undo an automatic reload | Clean changed documents reload in the retained controllers; reload is undoable; deleted/unreadable documents keep text with their existing notice; disk remains on the chosen branch |
+| R51 | Run a slow hook/filter, Cancel; repeat by closing the owning project during action/preparation, with another project in the same repository open | Child process stops; other editors unlock; late results do not reopen the window; refresh reflects any changes already made, with no rollback claim; a remaining Git lock is reported rather than deleted automatically |
+| R52 | Double-click action buttons repeatedly; start an action from another opened root of the same repository; alter HEAD/index externally after review | One action per model and shared metadata; concurrent action reports busy; stale preflight refuses and refreshes, preserving buffers; external Git is not claimed atomically locked |
+| R53 | Keyboard/VoiceOver, IME, light/dark, narrow window and bottom panel; commit form and streamed output | Actions and errors are accessible/readable; composition prevents checkout; the collapsed form keeps space for Changes; busy controls disable and message survives failures; panel layout remains flexible |

@@ -43,6 +43,11 @@ enum MainMenu {
             NSMenuItem(title: "Ask About Project Configuration Again", action: #selector(DocumentEditorController.askAboutProjectConfigurationAgain(_:)), keyEquivalent: "")
         ]))
 
+        main.addItem(submenuItem(title: "Git", items: [
+            NSMenuItem(title: "Commit Staged…", action: #selector(ProjectWorkspaceController.commitGit(_:)), keyEquivalent: "k"),
+            NSMenuItem(title: "Cancel Git Action", action: #selector(ProjectWorkspaceController.cancelGit(_:)), keyEquivalent: "")
+        ]))
+
         main.addItem(submenuItem(title: "View", items: [
             NSMenuItem(title: "Files", action: #selector(WorkspacePreviewWindowController.showPreviewFiles(_:)), keyEquivalent: "1"),
             NSMenuItem(title: "Search", action: #selector(WorkspacePreviewWindowController.showPreviewSearch(_:)), keyEquivalent: "2"),
