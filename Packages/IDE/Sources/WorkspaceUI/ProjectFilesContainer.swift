@@ -7,13 +7,21 @@ public final class ProjectFilesContainer: NSViewController {
     public let files: ProjectFilesViewController
     public let shell: WorkspaceShellViewController
 
-    public init(model: ProjectFiles, editor: NSView, editorFocus: NSView? = nil, layout: WorkspaceLayoutState = .init()) {
+    public init(
+        model: ProjectFiles,
+        editor: NSView,
+        editorFocus: NSView? = nil,
+        layout: WorkspaceLayoutState = .init(),
+        panels: [WorkspaceTool: WorkspacePanel] = [:]
+    ) {
         files = ProjectFilesViewController(model: model)
+        var providers = panels
+        providers[.files] = WorkspacePanel(view: files.view, focusTarget: files.outline)
         shell = WorkspaceShellViewController(
             state: layout,
             editor: editor,
             editorFocus: editorFocus,
-            panels: [.files: WorkspacePanel(view: files.view, focusTarget: files.outline)],
+            panels: providers,
             project: (model.root as NSString).lastPathComponent,
             path: model.root
         )

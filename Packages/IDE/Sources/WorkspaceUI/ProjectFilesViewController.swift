@@ -198,9 +198,11 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         let icon = NSImageView()
         if row.message == nil {
             // Generic extension icons avoid synchronous inspection of every path/network mount.
-            icon.image = row.file.isDirectory ? NSImage(systemSymbolName: row.file.isSymbolicLink ? "folder.badge.questionmark" : "folder", accessibilityDescription: "Folder")
+            icon.image = row.file.isDirectory ? WorkspaceIcon.image(row.file.isSymbolicLink ? "folder.badge.questionmark" : "folder", description: "Folder")
                 : NSWorkspace.shared.icon(for: UTType(filenameExtension: (row.file.name as NSString).pathExtension) ?? .data)
         }
+
+        if row.file.isDirectory { icon.contentTintColor = .secondaryLabelColor }
 
         let content = NSStackView(views: [icon, label, badge])
         content.orientation = .horizontal

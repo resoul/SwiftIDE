@@ -6,6 +6,7 @@ import IDEDomain
 import LanguageInfrastructure
 import SyntaxInfrastructure
 import WorkspaceUI
+import GitInfrastructure
 
 @MainActor
 final class AppCompositionRoot {
@@ -46,7 +47,9 @@ final class AppCompositionRoot {
         recentProjects = RecentProjects(store: recentStore ?? UserDefaultsRecentProjectsStore(), checker: folderChecker)
     }
 
-    func makeWorkspaceLayout(root: String) -> WorkspaceLayoutState { layoutSettings.makeState(root: root) }
+    func makeWorkspaceLayout(root: String) -> WorkspaceLayoutState { layoutSettings.makeState(root: root, available: [.files, .sourceControl, .gitLog]) }
+
+    func makeGitWorkspace(root: String) -> GitWorkspace { GitWorkspace(root: root, service: GitCLI()) }
 
     func makeProjectFiles(root: String) -> ProjectFiles {
         let files = ProjectFiles(root: root, reader: ProjectDirectoryReader(), exclusions: filesSettings.load(root: root))
@@ -129,11 +132,11 @@ final class AppCompositionRoot {
         try await restorer.retire(candidate, restoredAs: session, afterKeeping: keep)
     }
 
-    func makeUntitledWindow() -> WorkspaceWindowController {
+    func makeUntitledDocument() -> DocumentEditorController {
         let editor = TextKitEditorFactory.makeEditor(loadedText: Self.sampleText)
         let session = DocumentSession(path: "Untitled.swift", backend: editor.backend, isUntitled: true)
 
-        let controller = WorkspaceWindowController(
+        let controller = DocumentEditorController(
             document: session,
             editor: editor,
             registry: registry,
@@ -146,9 +149,19 @@ final class AppCompositionRoot {
             languages: languages,
             languageServices: languageServices
         )
-        if let window = controller.window { trustCoordinator.register(session, window: window) }
+        controller.onWindowChange = { [weak self, weak session] window in
+            if let session { self?.trustCoordinator.register(session, window: window) }
+        }
 
         return controller
+    }
+
+    func makeUntitledWindow() -> WorkspaceWindowController {
+        WorkspaceWindowController(document: makeUntitledDocument())
+    }
+
+    func makeWindow(for session: DocumentSession) -> WorkspaceWindowController {
+        WorkspaceWindowController(document: makeDocument(for: session))
     }
 
     private func makeExternalChangeMonitor(for session: DocumentSession) -> ExternalChangeMonitor {
@@ -159,12 +172,12 @@ final class AppCompositionRoot {
         try await openDocument.execute(path: path)
     }
 
-    func makeWindow(for session: DocumentSession) -> WorkspaceWindowController {
+    func makeDocument(for session: DocumentSession) -> DocumentEditorController {
         guard let editor = pendingEditors.removeValue(forKey: session.id) else {
             preconditionFailure("A new document must come with its editor")
         }
 
-        let controller = WorkspaceWindowController(
+        let controller = DocumentEditorController(
             document: session,
             editor: editor,
             registry: registry,
@@ -177,7 +190,9 @@ final class AppCompositionRoot {
             languages: languages,
             languageServices: languageServices
         )
-        if let window = controller.window { trustCoordinator.register(session, window: window) }
+        controller.onWindowChange = { [weak self, weak session] window in
+            if let session { self?.trustCoordinator.register(session, window: window) }
+        }
 
         return controller
     }
@@ -191,6 +206,7 @@ final class AppCompositionRoot {
     }
 
     func close(_ session: DocumentSession) {
+        pendingEditors[session.id] = nil
         trustCoordinator.unregister(session)
         registry.remove(session)
     }

@@ -95,6 +95,12 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
         }
     }
 
+    public func deactivate() {
+        hover.dismiss()
+        definition.cancel()
+        dismissMarginMessage()
+    }
+
     isolated deinit {
         input.pointerMoved = nil
         input.interactionBegan = nil

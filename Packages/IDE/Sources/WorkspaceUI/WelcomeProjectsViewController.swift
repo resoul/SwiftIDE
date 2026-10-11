@@ -50,7 +50,7 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
     public func focusSearch() { view.window?.makeFirstResponder(search) }
 
     private func makeSidebar() -> NSView {
-        let icon = NSImageView(image: NSImage(systemSymbolName: "swift", accessibilityDescription: "SwiftIDE") ?? NSImage())
+        let icon = NSImageView(image: WorkspaceIcon.image("swift", description: "SwiftIDE") ?? NSImage())
         icon.contentTintColor = .systemOrange
         icon.imageScaling = .scaleProportionallyUpOrDown
         icon.widthAnchor.constraint(equalToConstant: 38).isActive = true
@@ -67,7 +67,7 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
         projects.state = .on
         projects.setAccessibilityLabel("Projects")
         let settings = NSButton(title: "Settings…", target: nil, action: nil)
-        settings.image = NSImage(systemSymbolName: "gearshape", accessibilityDescription: nil)
+        settings.image = WorkspaceIcon.image("gearshape", description: nil)
         settings.imagePosition = .imageLeading
         settings.bezelStyle = .inline
         settings.isEnabled = false
@@ -245,7 +245,7 @@ final class WelcomeProjectCell: NSTableCellView {
         path.font = .systemFont(ofSize: 12)
         path.lineBreakMode = .byTruncatingMiddle
         status.font = .systemFont(ofSize: 11)
-        let icon = NSImageView(image: NSImage(systemSymbolName: "folder.fill", accessibilityDescription: nil) ?? NSImage())
+        let icon = NSImageView(image: WorkspaceIcon.image("folder.fill", description: nil) ?? NSImage())
         icon.contentTintColor = .controlAccentColor
         icon.widthAnchor.constraint(equalToConstant: 32).isActive = true
         let labels = welcomeStack([title, path, status], vertical: true, spacing: 4)

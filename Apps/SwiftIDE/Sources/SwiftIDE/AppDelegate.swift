@@ -5,7 +5,8 @@ import IDEDomain
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let composition: AppCompositionRoot
-    private var windows: [WorkspaceWindowController] = []
+    private var documents: [DocumentEditorController] = []
+    private var standalone: [DocumentID: WorkspaceWindowController] = [:]
     private var projects: [String: ProjectWorkspaceController] = [:]
     private var closingProjects: Set<String> = []
     private var openingFolders: Set<String> = []
@@ -45,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Welcome is the starting surface; recovering work may then open real document windows.
     func start() async {
-        if windows.isEmpty && projects.isEmpty { showWelcome(nil) }
+        if documents.isEmpty && projects.isEmpty { showWelcome(nil) }
         await restoreUnsavedWork()
     }
 
@@ -62,7 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func returnToWelcomeIfNeeded() {
-        if !isTerminating && windows.isEmpty && projects.isEmpty { showWelcome(nil) }
+        if !isTerminating && documents.isEmpty && projects.isEmpty { showWelcome(nil) }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -74,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Back in front: the selected Xcode, the language server's configuration files and the package
     /// manifests may have changed meanwhile, and none of them tells (ADR-034).
     func applicationDidBecomeActive(_ notification: Notification) {
-        if !windows.isEmpty || !projects.isEmpty { Task { await composition.languageServices.refreshEnvironment() } }
+        if !documents.isEmpty || !projects.isEmpty { Task { await composition.languageServices.refreshEnvironment() } }
         for project in projects.values { project.files.refresh() }
         if welcome?.window?.isVisible == true { composition.recentProjects.refreshAvailability() }
     }
@@ -82,24 +83,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Leaving for the background is the moment a user may force-quit or lose power: the unsaved
     /// text is written now instead of waiting for the next pause in typing.
     func applicationDidResignActive(_ notification: Notification) {
-        Task { [windows] in
-            for window in windows { await window.flushRecovery() }
+        Task { [documents] in
+            for window in documents { await window.flushRecovery() }
         }
     }
 
     /// AppKit does not consult windows when the app quits, so unsaved documents are checked here
-    /// with the same procedure the windows use. Quitting waits for the answers.
+    /// with the same procedure the documents use. Quitting waits for the answers.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard windows.contains(where: { $0.session.isDirty }) else { isTerminating = true; return .terminateNow }
+        guard documents.contains(where: { $0.session.isDirty }) else { isTerminating = true; return .terminateNow }
 
         Task {
-            // The windows are read again after every answer, not captured once.
+            // The documents are read again after every answer, not captured once.
             // The user's choice to lose changes must also remove their recovery copies, or they are
             // offered back at the next start. That takes time during which more can be typed, so it
             // is part of the decision: the procedure checks again afterwards, and nothing
             // suspends between its final check and this reply.
             let allowed = await unsavedChanges.canQuit(
-                documents: { [unowned self] in windows.map(\.session) },
+                documents: { [unowned self] in documents.map(\.session) },
                 release: { [unowned self] sessions in
                     for session in sessions { await controller(for: session)?.withdrawRecovery() }
                 },
@@ -124,7 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     @objc func newDocument(_ sender: Any?) {
-        show(composition.makeUntitledWindow(), in: activeProject)
+        show(composition.makeUntitledDocument(), in: activeProject)
     }
 
     @objc func showWorkspacePreview(_ sender: Any?) {
@@ -217,10 +218,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let project = projects[root] { return project }
 
         composition.languageServices.contexts.open(folder: root)
-        let project = ProjectWorkspaceController(files: composition.makeProjectFiles(root: root), layout: composition.makeWorkspaceLayout(root: root))
+        let project = ProjectWorkspaceController(files: composition.makeProjectFiles(root: root), layout: composition.makeWorkspaceLayout(root: root), git: composition.makeGitWorkspace(root: root))
         projects[root] = project
         project.projectMenu = { [weak self] in self?.projectSwitcherMenu() ?? NSMenu() }
-        project.openFile = { [weak self] path in Task { await self?.open(path: path) } }
+        project.openFile = { [weak self, weak project] path in Task { await self?.open(path: path, in: project) } }
+        project.onRequestClose = { [weak self, weak project] in
+            if let project { Task { await self?.closeProject(project) } }
+        }
+        project.onReleaseDocument = { [weak self] in self?.hostStandalone($0) }
         project.onClose = { [weak self] in
             guard let self else { return }
 
@@ -231,10 +236,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         composition.recentProjects.setOpenRoots(Set(projects.keys))
         // A file already open keeps its session and editor; it becomes a tab of this explicit root.
-        for document in windows where composition.languageServices.contexts.context(forFile: document.session.path)?.root == root {
+        for document in documents where composition.languageServices.contexts.context(forFile: document.session.path)?.root == root {
             for old in projects.values where old !== project && old.documents.contains(where: { $0 === document }) {
                 old.remove(document)
             }
+            standalone.removeValue(forKey: document.session.id)?.releaseDocument()
             project.add(document)
         }
 
@@ -254,7 +260,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let heading = NSMenuItem(title: "Open Projects", action: nil, keyEquivalent: "")
             heading.isEnabled = false
             menu.addItem(heading)
-            for path in projects.keys.sorted() { add((path as NSString).lastPathComponent, path: path) }
+            for path in projects.keys.sorted() {
+                let branch = projects[path]?.git?.snapshot?.headDescription
+                add((path as NSString).lastPathComponent + (branch.map { " · " + $0 } ?? ""), path: path)
+            }
             menu.addItem(.separator())
         }
 
@@ -285,7 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var activeProject: ProjectWorkspaceController? {
         projects.values.first { project in
-            project.window === NSApp.keyWindow || project.documents.contains { $0.window === NSApp.keyWindow }
+            project.window === NSApp.keyWindow
         }
     }
 
@@ -314,6 +323,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func chooseFiles(startingAt folder: URL?) {
+        let project = activeProject
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
@@ -321,25 +331,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard panel.runModal() == .OK else { return }
 
         for url in panel.urls {
-            Task { await open(path: url.path) }
+            Task { await open(path: url.path, in: project) }
         }
     }
 
-    func open(path: String, revealing location: DefinitionLocation? = nil) async {
+    func open(path: String, revealing location: DefinitionLocation? = nil, in preferredProject: ProjectWorkspaceController? = nil) async {
         do {
             let opened = try await composition.open(path: path)
+            let targetIsOpen = preferredProject.map { projects[$0.files.root] === $0 } ?? true
+            guard !isTerminating, targetIsOpen else {
+                if opened.isNew { composition.close(opened.session) }
+
+                return
+            }
+
             if opened.isNew {
-                let controller = composition.makeWindow(for: opened.session)
+                let controller = composition.makeDocument(for: opened.session)
                 if location != nil, Self.isSystemFile(path) { controller.openForReading() }
                 let root = composition.languageServices.contexts.context(forFile: path)?.root
-                show(controller, in: root.flatMap { projects[$0] })
+                show(controller, in: preferredProject ?? root.flatMap { projects[$0] })
             } else {
-                windows.first { $0.session === opened.session }?.showDocument()
+                if let document = documents.first(where: { $0.session === opened.session }) {
+                    if let preferredProject, let host = standalone.removeValue(forKey: document.session.id) {
+                        host.releaseDocument()
+                        preferredProject.add(document)
+                    }
+
+                    document.showDocument()
+                }
+
                 welcome?.hide()
             }
 
             if let location {
-                windows.first { $0.session === opened.session }?.reveal(line: location.line, character: location.character)
+                documents.first { $0.session === opened.session }?.reveal(line: location.line, character: location.character)
             }
         } catch is CancellationError {
             return
@@ -376,9 +401,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     guard let session = restored.session else { break }
 
                     if restored.isNew {
-                        show(composition.makeWindow(for: session))
+                        show(composition.makeDocument(for: session))
                     } else {
-                        windows.first { $0.session === session }?.showWindow(nil)
+                        documents.first { $0.session === session }?.showDocument()
                     }
 
                     // The old record goes only once the restored text is confirmed under its own;
@@ -436,8 +461,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return alert.runModal() == .alertFirstButtonReturn
     }
 
-    private func controller(for session: DocumentSession) -> WorkspaceWindowController? {
-        windows.first { $0.session === session }
+    private func controller(for session: DocumentSession) -> DocumentEditorController? {
+        documents.first { $0.session === session }
     }
 
     /// Files that belong to the toolchain, an SDK or the system, which a jump to a definition can
@@ -463,28 +488,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func goBack(_ sender: Any?) {
         guard let place = history.pop() else { return }
 
-        Task { await open(path: place.path, revealing: DefinitionLocation(path: place.path, line: place.line, character: place.character)) }
+        let project = activeProject
+        Task { await open(path: place.path, revealing: DefinitionLocation(path: place.path, line: place.line, character: place.character), in: project) }
     }
 
-    private func show(_ controller: WorkspaceWindowController, in project: ProjectWorkspaceController? = nil) {
+    private func show(_ controller: DocumentEditorController, in project: ProjectWorkspaceController? = nil) {
         controller.onJumpFrom = { [weak self] place in self?.history.push(place) }
-        controller.onOpenLocation = { [weak self] location in
+        controller.onOpenLocation = { [weak self, weak controller] location in
             guard let self else { return }
 
-            Task { await self.open(path: location.path, revealing: location) }
+            let project = projects.values.first { $0.documents.contains { $0 === controller } }
+            Task { await self.open(path: location.path, revealing: location, in: project) }
         }
         controller.onClose = { [weak self] closed in
             guard let self else { return }
 
             composition.close(closed.session)
-            windows.removeAll { $0 === closed }
+            documents.removeAll { $0 === closed }
+            if let host = standalone.removeValue(forKey: closed.session.id) { host.window?.close() }
             for project in projects.values where project.documents.contains(where: { $0 === closed }) { project.remove(closed) }
             returnToWelcomeIfNeeded()
         }
         controller.unsavedChanges = unsavedChanges
-        windows.append(controller)
+        documents.append(controller)
         welcome?.hide()
-        if let project { project.add(controller) } else { controller.showDocument() }
+        if let project { project.add(controller) } else { hostStandalone(controller) }
+    }
+
+    private func hostStandalone(_ document: DocumentEditorController) {
+        let host = WorkspaceWindowController(document: document)
+        standalone[document.session.id] = host
+        host.showDocument()
+    }
+
+    @objc func closeDocument(_ sender: Any?) {
+        if let project = activeProject { project.closeDocument(sender) }
+        else { NSApp.keyWindow?.performClose(sender) }
     }
 
 }

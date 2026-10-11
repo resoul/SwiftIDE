@@ -361,7 +361,7 @@ TK-024 was implemented on 2026-10-11. These checks are pending for the extracted
 
 ## R. Workspace components and Git (TK-025–TK-030, ADR-031/035/036/037)
 
-TK-025/026/030 are implemented and tested; their live checks are pending, not passed results. Git checks are future work, not capabilities of Workspace Preview. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R2 and R25–R29 for Welcome; R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored remains disabled until TK-027 supplies real information. Run Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
+TK-025/026/027/030/031/032 are implemented and tested; their live checks are pending, not passed results. Git inspection works in real project windows; Preview remains sample content. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R2 and R25–R29 for Welcome; R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored enables after a successful Git snapshot. Run Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
 
 | № | Do | Expected |
 |---|---|---|
@@ -430,3 +430,39 @@ Pending live acceptance after the reported NSOutlineView crash and its native-te
 | # | Action | Expected |
 |---|---|---|
 | R30 | Use disclosure buttons to expand a folder and its nested folders, collapse/reopen the parent and root repeatedly; also collapse a loading folder, refresh, switch tabs and close the project | No crash, unexpected reopening or corrupted rows; loading cancellation and late answers keep the folder closed; shared tree state/selection remain consistent; queued refresh cannot update a disconnected view |
+
+
+### Central content tabs and arbitrary panel hosts (TK-031 / ADR-038)
+
+Automated component and real-editor tests do not replace these live checks.
+
+| # | Action | Expected |
+|---|---|---|
+| R31 | Open a folder, open several files from Files and File → Open; reopen an alias of an already open file | One project window and one tree; tabs only above the editor, no duplicate document/session; active tab corresponds to the visible file |
+| R32 | Drag the first/middle/last tabs to either end, including with more tabs than fit; attempt a drop into another project | Order changes within the same content strip; selected document, Undo, caret and scroll remain intact; foreign drops do not transfer documents |
+| R33 | Edit two tabs, switch, Undo, Save and Save As; switch immediately after Save | Each file keeps its own state; the requested file saves; Save As changes name/path without creating a tab; unsaved dot and tree status agree |
+| R34 | Use Close/Command-W on clean and dirty tabs, Cancel/Save/Don't Save; close the final tab and then close the window with several dirty files | A tab close affects only that document; Cancel retains it; final tab leaves empty project content; native window/project closure reconciles all documents |
+| R35 | Hide Files, use Focus Editor twice, then Control-Command-F; resize and return | Central tabs/editor expand; Focus Editor hides surrounding chrome/panels and restores the prior layout; native full screen remains one project window |
+| R36 | Switch tabs while composing with a real IME and while completion/hover/definition is pending; jump to an SDK or outside file | Composition and normal editing remain correct; old popups/responses cannot act on a different tab; definition opens/focuses the right tab and system files stay read-only |
+| R37 | Inspect light/dark themes and minimum window size, keyboard tab navigation and VoiceOver; Preview: hide/show tool drafts and arbitrary-provider component checks | Active/dirty/excluded statuses and close controls remain readable/accessible; panels retain their own state independently of editor tabs |
+
+
+### Tabler native vector icons (TK-032 / ADR-039)
+
+| # | Action | Expected |
+|---|---|---|
+| R38 | Open Welcome, a project with folders and symbolic links, several file tabs, and Workspace Preview; switch light/dark mode and inspect at different display scales | Consistent Tabler outlines, legible folder/link/Swift/file symbols, correctly tinted active controls; disabled tools visibly disabled; no white squares or missing icons; file statuses remain independent |
+| R39 | Use keyboard navigation and VoiceOver on project switching, tool buttons and tab close; hide/show arbitrary panels | Existing action names and focus behavior remain intact; custom SF Symbol tools and tabler:brand-docker remain valid; no panel-specific backend logic in IconUI |
+
+
+### Git inspection (TK-027 / ADR-040)
+
+Run the existing Git parts of R4–R13 plus these checks later; they are deliberately pending while the user is unavailable. R14–R16 belong to later mutation/network slices.
+
+| # | Action | Expected |
+|---|---|---|
+| R40 | Open a nested package in a Git repository and a linked worktree; inspect root/branch, edit files and modify refs externally | Correct canonical repository and separate/common metadata; background updates do not steal focus; Files/tab colours and changed descendant folders update; no invented clean state on errors |
+| R41 | Stage externally, then edit again; select each Changes group, create a conflict/rename/delete and inspect a binary/large preview | Separate index/worktree comparisons; explicit unmerged/binary/limited states; old/new paths and deleted entries remain in Changes; unsaved text is separate |
+| R42 | Open several documents, leave one dirty, inspect several diffs, drag the Diff tab and use Command-W; resize/hide panels and Focus Editor | One reusable central read-only Diff tab; dirty document text/Undo/caret/scroll survive; Save is unavailable for inspection; closing a diff does not close the project or a document |
+| R43 | Search local/remote refs, choose View history; filter loaded commits, Load more, select files of root/merge/rename commits; change HEAD externally | Inspection does not switch branches; pagination is anchored and refresh resets history to current HEAD; merge diff names first-parent comparison; remote freshness/hosting checks are not invented |
+| R44 | Use keyboard/Return and VoiceOver in Changes/Log/branch picker; switch themes and select coloured rows; close a project during refresh | Labels and selected foreground remain readable; search/selection/focus survive refresh; late results and callbacks cannot reopen the project; stopped Git processes/streams are released |

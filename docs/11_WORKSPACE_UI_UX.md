@@ -1,6 +1,6 @@
 # Workspace: UI and UX
 
-**Status:** the agreed design direction of 2026-10-10. This describes the target interface, with implemented slices identified below. TK-026 connects a real Files panel and native document tabs through Open Folder (ADR-035); TK-030 connects the common shell to real project windows (ADR-036); TK-025 connects Welcome and the project switcher (ADR-037). Preview supplies sample tool content to the same shell. Live acceptance remains pending.
+**Status:** the agreed design direction of 2026-10-10. This describes the target interface, with implemented slices identified below. TK-026 connects a real Files panel through Open Folder (ADR-035); TK-031 replaces native window tabs with tabs inside the central editor content and extensible tools (ADR-038); TK-030 connects the common shell to real project windows (ADR-036); TK-025 connects Welcome and the project switcher (ADR-037). Preview supplies sample tool content to the same shell. Live acceptance remains pending.
 
 The reference is the provided PhpStorm screenshots: a single window, compact tool strips at the edges, a central editor and flexible auxiliary panels. For SwiftIDE we use this organization of space with the familiar behaviour of a native macOS application.
 
@@ -102,7 +102,28 @@ A welcome window with recent projects and Open Folder is implemented as TK-025 (
 
 `WelcomeProjectsViewController` lives in WorkspaceUI. The sidebar header shows app branding/version, its content selects Projects, and its footer reserves Settings with a disabled, explained control. The main content header contains search/Open Folder; its body is the recent list or an empty/no-matches message. Rows show name, abbreviated path, pin/open status and missing/unavailable reasons. A context menu supplies Open, Pin/Unpin, Locate Folder and Remove from Recent. Search matches name/path, selects the first match when the current selection disappears and Return opens the selected project. Table arrows, Return and double-click use native controls. Background checks keep search input, selection and scroll position.
 
-App supplies opening/locating callbacks and owns WelcomeWindowController. Successful project/file opening hides Welcome; closing the final working project/document returns to it. Window ▸ Welcome and Dock reopening are available after closing the Welcome window. The top-bar project menu is rebuilt from current open roots and recent metadata and focuses existing native tab groups. Welcome performs no project preparation. The storage split and limits are in ADR-037; actual keyboard/IME/VoiceOver, selected-row contrast, native folder panels and relaunch remain manual acceptance.
+App supplies opening/locating callbacks and owns WelcomeWindowController. Successful project/file opening hides Welcome; closing the final working project/document returns to it. Window ▸ Welcome and Dock reopening are available after closing the Welcome window. The top-bar project menu is rebuilt from current open roots and recent metadata and focuses existing project windows. Welcome performs no project preparation. The storage split and limits are in ADR-037; actual keyboard/IME/VoiceOver, selected-row contrast, native folder panels and relaunch remain manual acceptance.
+
+### Central editor and arbitrary panels (TK-031)
+
+One project owns one window, shell and Files tree. EditorAreaViewController contains a horizontal NSCollectionView tab strip and the active original document editor. A tab has an icon, name, independent dirty/status badges, full-path tooltip and Close. Local drag/drop changes DocumentTabs order within the same project; cross-window/external drops are rejected. Save As retains document identity. Close/Command-W closes the requested tab through unsaved reconciliation; closing the final tab leaves an empty editor area. Native window closure reconciles all documents. The same document controller can move between a standalone host and project content without rebuilding its editor.
+
+Panel zones accept arbitrary supplied NSViews and focus targets. WorkspaceTool is an extensible descriptor (stable ID, title, symbol and zone), not an enum requiring a new case for each service. IDs 0–8 retain old layout serialization; custom tools use caller-assigned unique IDs >= 100. Registering a view does not provide a Git, AI, Docker or terminal service. Focus Editor hides panels, rails and top/status bars, retaining central tabs/editor, and restores the previous layout. View → Toggle Full Screen uses the same native window (Control-Command-F). Preview and production still use separate providers.
+
+A production caller can supply a new panel without changing the central editor or adding a tool enum case. The same registration boundary is available in ProjectFilesContainer:
+
+```swift
+let containers = WorkspaceTool(id: 100, title: "Containers", symbol: "shippingbox", zone: .right)
+let layout = WorkspaceLayoutState(available: [.files, containers])
+let content = ProjectFilesContainer(
+    model: files,
+    editor: editorArea.view,
+    layout: layout,
+    panels: [containers: WorkspacePanel(view: containersView, focusTarget: containersSearch)]
+)
+```
+
+Tab order/selection remain in memory; existing root-scoped layout preferences and recovery/history remain independent. Editor splits, tear-off tabs and session restoration are later work. Actual dragging, IME, VoiceOver and full-screen transitions require R31–R37 manual acceptance.
 
 ## Acceptance of the shell
 
@@ -127,16 +148,26 @@ These are future acceptance criteria, not a report of checks passed. The exact s
 
 ## First real Files/tab slice (TK-026)
 
-Open Folder opens the real project browser; opening text files joins their existing editor windows as native AppKit tabs. The package owns the Files panel and native-tab presentation; App retains document/window lifecycle. A tab shows its filename and a separate unsaved dot. Switching keeps the same TextKit view, undo history, caret/selection and scroll; closing uses the existing Save/Cancel/Don't Save workflow. Close Project checks all documents; closing the last tab leaves a useful empty browser.
+The initial TK-026 slice used native window tabs; this tab ownership is now superseded by TK-031 / ADR-038. Open Folder opens the real project browser; the original slice joined existing editor windows as native AppKit tabs. The package owns the Files panel and native-tab presentation; App retains document/window lifecycle. A tab shows its filename and a separate unsaved dot. Switching keeps the same TextKit view, undo history, caret/selection and scroll; closing uses the existing Save/Cancel/Don't Save workflow. Close Project checks all documents; closing the last tab leaves a useful empty browser.
 
 The Files panel is resizable, supports native outline keyboard navigation, Return/double-click, Reveal in Finder and project exclusion controls. Orange exclusions have reasons/tooltips; status badges and accessible labels carry meaning independently of colour. Real Git states are not available until TK-027 and are labelled unavailable; Show Ignored is disabled meanwhile. View ▸ Files and Focus Editor operate on the real document window. The common shell surrounds both real Files/editor providers and the separate preview samples (TK-030). Other tools remain disabled in real projects. Appearance, VoiceOver, focus and resizing still require R3/R4/R13/R17–R20 manual acceptance; automated native-window tests do not substitute for it.
 
 ## Common shell connected before Git (TK-030)
 
-WorkspaceShellViewController in WorkspaceUI owns the preview's top/status bars, two tool rails, central surface and left/right/bottom split zones. WorkspacePanel injects views and focus targets; the original editor and Files are production providers. Preview remains an independent sample host of this same shell. App retains window/document creation, the native tabs and the original save/close/Undo/language-service workflows. Standalone files and startup scratch documents keep their existing editor windows until attached to an opened project.
+WorkspaceShellViewController in WorkspaceUI owns the preview's top/status bars, two tool rails, central surface and left/right/bottom split zones. WorkspacePanel injects views and focus targets; the original editor and Files are production providers. Preview remains an independent sample host of this same shell. App retains document creation and the original save/close/Undo/language-service workflows. The initial native-window tabs described here are replaced by TK-031 / ADR-038. Standalone files and startup scratch documents keep their existing editor windows until attached to an opened project.
 
 WorkspaceLayoutState is shared by every native document tab and the empty browser of one canonical project. Visibility, preferred dimensions, Focus Editor and Reset Layout propagate without recreating editors or changing another tab's first responder. App persists the normal layout in UserDefaults by project root; entering Focus Editor does not save all panels as permanently hidden. Preview retains its separate preference key. Invalid sizes and unsupported/wrong-zone tools are sanitized. Automatic compression on a smaller screen does not overwrite preferred dimensions; user divider drags update dimensions.
 
 Real windows display project name/root, current language/target and the existing document/readiness/diagnostic/status wording, with full text in tooltips when truncated. There is no fabricated branch, scheme or destination. Files is the sole connected tool in this slice; Search, Source Control, Terminal, Build Output, Problems, Assistant, Structure and Inspector have disabled rail buttons, and corresponding View commands are unavailable. In-document search and existing diagnostic overlays remain their existing editor features; a project Search or Problems panel is separate future work.
 
 Manual checks R21–R24 cover real/preview appearance, small windows and actual divider dragging, layout persistence across project reopening, focus/keyboard/IME and status during background preparation. Automated AppKit tests are recorded separately and do not mark these checks passed.
+
+
+### Shared icon resources (TK-032)
+
+WorkspaceUI depends on the package's reusable IconUI target. Tabler SVG sources generate committed vector PDF resources offline; UI applies native template colours (ADR-039). Other package UI targets can add the same dependency when they need icons. Use `TablerIcon.folder.image(accessibilityDescription:)` for typed images. Existing custom tool SF Symbol names remain supported; `symbol: "tabler:brand-docker"` selects a curated Tabler icon. The source pin, complete licence, regeneration profile and instructions are in Tools/Icons.
+
+
+### Real Git providers (TK-027)
+
+Changes, Git Log, branch references and read-only Git diff are reusable WorkspaceUI controllers consuming one GitWorkspace. App injects Changes into the left source-control tool, Log into an extensible bottom tool, and the branch controller into the generic project accessory host. A central inspection tab is a supplied read-only view with no DocumentSession; it shares ordering/selection presentation while the App retains real document lifecycle. Other panels remain arbitrary providers. See ADR-040 and docs/15 for states, refresh and limits.

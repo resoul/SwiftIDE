@@ -7,10 +7,12 @@ let package = Package(
     products: [
         .library(name: "IDEDomain", targets: ["IDEDomain"]),
         .library(name: "IDEApplication", targets: ["IDEApplication"]),
+        .library(name: "GitInfrastructure", targets: ["GitInfrastructure"]),
         .library(name: "FileSystemInfrastructure", targets: ["FileSystemInfrastructure"]),
         .library(name: "EditorPlatformTextKit", targets: ["EditorPlatformTextKit"]),
         .library(name: "EditorUI", targets: ["EditorUI"]),
         .library(name: "WorkspaceUI", targets: ["WorkspaceUI"]),
+        .library(name: "IconUI", targets: ["IconUI"]),
         .library(name: "SyntaxInfrastructure", targets: ["SyntaxInfrastructure"]),
         .library(name: "LanguageInfrastructure", targets: ["LanguageInfrastructure"]),
         .library(name: "IDETestSupport", targets: ["IDETestSupport"])
@@ -25,10 +27,12 @@ let package = Package(
     targets: [
         .target(name: "IDEDomain"),
         .target(name: "IDEApplication", dependencies: ["IDEDomain"]),
+        .target(name: "GitInfrastructure", dependencies: ["IDEApplication"]),
         .target(name: "FileSystemInfrastructure", dependencies: ["IDEDomain", "IDEApplication"]),
         .target(name: "EditorPlatformTextKit", dependencies: ["IDEDomain", "IDEApplication"]),
         .target(name: "EditorUI", dependencies: ["IDEApplication", "EditorPlatformTextKit"]),
-        .target(name: "WorkspaceUI", dependencies: ["IDEApplication"]),
+        .target(name: "WorkspaceUI", dependencies: ["IDEApplication", "IconUI"]),
+        .target(name: "IconUI", resources: [.process("Resources")]),
         .target(
             name: "SyntaxInfrastructure",
             dependencies: [
@@ -56,6 +60,8 @@ let package = Package(
             name: "LanguageInfrastructureTests",
             dependencies: ["IDEDomain", "IDEApplication", "LanguageInfrastructure", "IDETestSupport", "EditorPlatformTextKit", "EditorUI", "WorkspaceUI"]
         ),
+        .testTarget(name: "GitInfrastructureTests", dependencies: ["GitInfrastructure", "IDEApplication"]),
+        .testTarget(name: "IconUITests", dependencies: ["IconUI"]),
         .testTarget(name: "WorkspaceUITests", dependencies: ["WorkspaceUI", "IDEApplication"]),
         .testTarget(
             name: "FileSystemInfrastructureTests",

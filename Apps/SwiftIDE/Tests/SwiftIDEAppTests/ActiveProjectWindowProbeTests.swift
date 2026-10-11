@@ -13,7 +13,7 @@ extension NativeAppTests {
         let modules = FileManager.default.fileExists(atPath: products.appendingPathComponent("Modules").path)
             ? products.appendingPathComponent("Modules") : products
         var objects: [String] = []
-        for module in ["IDEDomain", "IDEApplication", "IDETestSupport", "WorkspaceUI"] {
+        for module in ["IDEDomain", "IDEApplication", "IDETestSupport", "IconUI", "WorkspaceUI"] {
             let merged = products.appendingPathComponent("\(module).o")
             if FileManager.default.fileExists(atPath: merged.path) {
                 objects.append(merged.path)
