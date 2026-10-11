@@ -346,3 +346,21 @@ func movingWithinTheWordWhileWaitingDoesNotRestartTheWait() async {
     await rig.settle()
     #expect(rig.provider.asked == [12], "half a second after the pointer came to the word")
 }
+
+@Test @MainActor
+func deactivatingAnEditorDiscardsItsPendingDefinition() async throws {
+    let session = DocumentSession(path: "/w/A.swift", backend: StringDocumentBackend(loadedText: "x"))
+    let provider = FakeDefinitions()
+    provider.hold = true
+    provider.answer = .locations([DefinitionLocation(path: "/w/B.swift", line: 0, character: 0)])
+    let navigator = FakeNavigator()
+    let controller = DefinitionController(session: session, provider: provider, navigator: navigator)
+    let request = Task { await controller.jump(from: 0) }
+    let deadline = ContinuousClock.now + .seconds(5)
+    while provider.gate == nil, ContinuousClock.now < deadline { await Task.yield() }
+    let gate = try #require(provider.gate)
+    controller.cancel()
+    gate.resume()
+    await request.value
+    #expect(navigator.events.isEmpty)
+}
