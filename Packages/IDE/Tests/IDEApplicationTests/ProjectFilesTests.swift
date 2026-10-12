@@ -189,6 +189,10 @@ struct ProjectFilesTests {
         #expect(model.children(of: "/w").map(\.name) == ["new"])
         model.refresh()
         try await awaitRequests(reader, 3)
+        #expect(
+            model.hasListing(of: "/w") && model.children(of: "/w").map(\.name) == ["new"],
+            "refresh keeps the successful listing"
+        )
         await reader.finish(2, with: .failure(CocoaError(.fileReadNoPermission)))
         let end = ContinuousClock.now + .seconds(5)
         while model.state(of: "/w") == .loading, ContinuousClock.now < end { await Task.yield() }
@@ -199,6 +203,10 @@ struct ProjectFilesTests {
         }
 
         #expect(model.state(of: "/w").message?.contains("Could not read folder") == true)
+        #expect(
+            model.hasListing(of: "/w") && model.children(of: "/w").map(\.name) == ["new"],
+            "failure retains the previous listing without pretending it is fresh"
+        )
         model.stop()
     }
 }

@@ -94,6 +94,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Fixed
 
+- Files panel flicker and scroll jumps: preserve cached rows during refresh, apply child insertions/removals without rebuilding the outline, update existing status cells, and anchor the viewport to surviving files. Git snapshots no longer reenumerate folders; coalesced disk events and explicit Refresh/save/activation retain filesystem updates. The prior deferred-update collapse-crash guard is preserved; live acceptance R93 pending.
+
 - Files-tree crash when collapsing a folder with expanded children: model notifications used to reload NSOutlineView synchronously inside its recursive collapse operation. Tree updates now coalesce onto the next main-queue turn; child/placeholder objects stay stable and retained until the reload finishes, and disconnect invalidates queued work. Added a native regression that crashed with SIGSEGV before the fix and checks 30 expand/collapse cycles, plus loading/cancellation/identity/disconnect coverage.
 
 - Language-server transport: a child closing stdin could kill the client with SIGPIPE. The channel now disables that signal for its write descriptor, keeps the application's signal handler unchanged, serializes descriptor closure with writes and makes repeated close safe. Three tests include an isolated regression probe for closed stdin, child exit and close during a blocked write. The late-diagnostics test now waits for its rejection log instead of assuming it arrives in 100 ms (ADR-020, ADR-034).

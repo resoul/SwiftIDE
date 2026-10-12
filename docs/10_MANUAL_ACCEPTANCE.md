@@ -566,3 +566,9 @@ R87–R91 are pending. Use disposable repositories for the real operation result
 | № | Do | Expected |
 |---|---|---|
 | R92 | Press ⌘, (or SwiftIDE ▸ Settings…); choose Light, Dark, then System; quit and relaunch | One Settings window; Theme is applied at once to Welcome, project and document windows; the choice is restored at launch; System follows macOS, also when macOS switches appearance while the app runs; the segmented control is keyboard- and VoiceOver-accessible |
+
+### Files panel stability (ADR-049; pending)
+
+| № | Do | Expected |
+|---|---|---|
+| R93 | Expand a long Files tree, scroll midway, open/edit/save a visible file and refresh Git; insert/delete files above the viewport externally, then Refresh; collapse/reopen nested folders; repeat with slow/failed directory reads and both appearances | Status/dirty/selection updates preserve visible rows without flicker or jumping; background refresh retains cached children, failure is explicit; surviving visible file and its offset remain anchored after changes above it; real additions/deletions still appear; selection/expansion survive; native recursive collapse never crashes |

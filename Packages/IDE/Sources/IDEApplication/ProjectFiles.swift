@@ -54,13 +54,14 @@ public final class ProjectFiles {
     public private(set) var exclusions: ProjectExclusions
     public private(set) var expanded: Set<String> = []
     public private(set) var selection: String?
-    public var showExcluded = true { didSet { changed() } }
-    public var showIgnored = true { didSet { changed() } }
-    public var hasIgnoreInformation = false { didSet { changed() } }
+    public var showExcluded = true { didSet { if oldValue != showExcluded { changed() } } }
+    public var showIgnored = true { didSet { if oldValue != showIgnored { changed() } } }
+    public var hasIgnoreInformation = false { didSet { if oldValue != hasIgnoreInformation { changed() } } }
     /// Supplied by TK-027. No Git result means unavailable, never an invented clean snapshot.
-    public var decorations: [String: FileDecoration] = [:] { didSet { changed() } }
-    public var statusExplanation = "Git status is not connected yet" { didSet { changed() } }
-    public var unsavedPaths: Set<String> = [] { didSet { changed() } }
+    public var decorations: [String: FileDecoration] = [:] { didSet { if oldValue != decorations { changed() } } }
+    public var statusExplanation = "Git status is not connected yet" {
+        didSet { if oldValue != statusExplanation { changed() } } }
+    public var unsavedPaths: Set<String> = [] { didSet { if oldValue != unsavedPaths { changed() } } }
     public var onExclusionsChange: ((ProjectExclusions) -> Void)?
     public var onRefresh: (() -> Void)?
 
@@ -81,6 +82,8 @@ public final class ProjectFiles {
     }
 
     public func state(of path: String) -> DirectoryState { states[path] ?? .idle }
+    /// A successful empty listing is distinct from a folder that has never loaded.
+    public func hasListing(of path: String) -> Bool { listings[path] != nil }
 
     public func children(of path: String) -> [ProjectFile] {
         (listings[path] ?? []).filter {

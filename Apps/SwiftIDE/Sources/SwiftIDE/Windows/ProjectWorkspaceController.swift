@@ -30,6 +30,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     private var gitSubscription: UUID?
     private var lastGitOperationState = GitOperationState.idle
     private var gitEvents: GitRepositoryEvents?
+    private var fileRefreshTask: Task<Void, Never>?
     private var watchedRepository: GitRepository?
     private var presentedSnapshotDate: Date?
     var documents: [DocumentEditorController] { tabs.order.compactMap { editors[$0] } }
@@ -244,12 +245,14 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             presentedSnapshotDate = snapshot.capturedAt
             files.applyGitSnapshot(snapshot)
             files.hasIgnoreInformation = true
-            files.refreshListings()
             if watchedRepository != snapshot.repository {
                 gitEvents?.stop()
                 watchedRepository = snapshot.repository
-                gitEvents = GitRepositoryEvents(repository: snapshot.repository) { [weak git] in
-                    Task { @MainActor in git?.scheduleRefresh() }
+                gitEvents = GitRepositoryEvents(repository: snapshot.repository) { [weak self, weak git] in
+                    Task { @MainActor in
+                        git?.scheduleRefresh()
+                        self?.scheduleFileRefresh()
+                    }
                 }
                 git.liveUpdatesAvailable = gitEvents?.isActive
             }
@@ -257,6 +260,17 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
         files.statusExplanation = git.explanation
         updatePresentation()
+    }
+
+    private func scheduleFileRefresh() {
+        fileRefreshTask?.cancel()
+        fileRefreshTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
+            guard let self, !closing, !Task.isCancelled else { return }
+
+            files.refreshListings()
+            fileRefreshTask = nil
+        }
     }
 
     private func presentGitNotification(_ git: GitWorkspace) {
@@ -323,6 +337,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         if let tabSubscription { tabs.unsubscribe(tabSubscription) }
         if let gitSubscription { git?.unsubscribe(gitSubscription) }
         gitEvents?.stop(); gitEvents = nil
+        fileRefreshTask?.cancel(); fileRefreshTask = nil
         conflictTask?.cancel(); conflictID = UUID(); confirmationTask?.cancel()
         for controller in conflictEditors.values { controller.stop() }; conflictEditors = [:]
         standaloneConflict?.stop(); standaloneConflict = nil

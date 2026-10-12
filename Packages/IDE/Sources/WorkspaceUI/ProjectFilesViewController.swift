@@ -12,7 +12,8 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
     private var subscription: UUID?
     private var rendering = false
     private var pendingRender: UUID?
-    /// AppKit must see the same child objects/counts until the next complete reload.
+    private var hasRendered = false
+    /// AppKit sees a stable child snapshot until the next deferred update.
     private var displayedChildren: [String: [FileRow]] = [:]
     private let status = NSTextField(wrappingLabelWithString: "")
     private var scroll = NSScrollView.nonElastic()
@@ -51,6 +52,7 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         scroll.documentView = outline
         status.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         status.textColor = .secondaryLabelColor
+        status.maximumNumberOfLines = 2
         let stack = NSStackView(views: [header, scroll, status])
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -64,7 +66,8 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
             stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -10),
             header.widthAnchor.constraint(equalTo: stack.widthAnchor),
             scroll.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            status.widthAnchor.constraint(equalTo: stack.widthAnchor)
+            status.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            status.heightAnchor.constraint(equalToConstant: 30)
         ])
         subscription = model.subscribe { [weak self] in self?.scheduleRender() }
         render()
@@ -89,24 +92,41 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
 
     private func children(_ parent: FileRow?) -> [FileRow] {
         if parent?.message != nil { return [] }
+        if let parent, !parent.file.canExpand { return [] }
         let key = parent?.file.path ?? ""
         if let children = displayedChildren[key] { return children }
 
-        let children: [FileRow]
-        if let parent {
-            if let message = model.state(of: parent.file.path).message {
-                children = [FileRow(file: parent.file, message: message)]
-            } else {
-                let entries = model.children(of: parent.file.path)
-                children = entries.isEmpty ? [FileRow(file: parent.file, message: "Empty folder")] : entries.map(row)
-            }
-        } else {
-            children = [row(ProjectFile(path: model.root, isDirectory: true))]
-        }
-
+        let children = makeChildren(parent)
         displayedChildren[key] = children
 
         return children
+    }
+
+    private func makeChildren(_ parent: FileRow?) -> [FileRow] {
+        if let parent {
+            guard parent.file.canExpand else { return [] }
+
+            let path = parent.file.path
+            let state = model.state(of: path)
+            var result = model.hasListing(of: path) ? model.children(of: path).map(row) : []
+            let message: String?
+            if case .failed = state {
+                message = state.message
+            } else if !model.hasListing(of: path) {
+                message = state.message
+            } else {
+                message = result.isEmpty ? "Empty folder" : nil
+            }
+
+            if let message {
+                let previous = displayedChildren[path]?.first { $0.message == message && $0.file == parent.file }
+                result.append(previous ?? FileRow(file: parent.file, message: message))
+            }
+
+            return result
+        }
+
+        return [row(ProjectFile(path: model.root, isDirectory: true))]
     }
 
     private func scheduleRender() {
@@ -115,7 +135,7 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         let token = UUID()
         pendingRender = token
         // Expand/collapse/selection notifications can arrive inside AppKit's recursive update.
-        // Reloading there invalidates the entries it is still traversing. Coalesce until it returns.
+        // Changing children there invalidates entries it is still traversing. Wait until it returns.
         DispatchQueue.main.async { [weak self] in
             guard let self, pendingRender == token else { return }
 
@@ -130,13 +150,53 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         rendering = true
         defer { rendering = false }
         let position = scroll.contentView.bounds.origin
+        let visible = outline.rows(in: outline.visibleRect)
+        let anchors: [(FileRow, CGFloat)] = visible.location == NSNotFound
+            ? []
+            : (visible.location..<NSMaxRange(visible)).compactMap { index in
+                guard let item = outline.item(atRow: index) as? FileRow else { return nil }
+
+                return (item, outline.rect(ofRow: index).minY - position.y)
+            }
         let previousChildren = displayedChildren
-        displayedChildren = [:]
-        // Keep even placeholder items alive until AppKit has released its old tree entries.
+        // Retain removed placeholders/nodes until native batch/expansion operations finish.
         withExtendedLifetime(previousChildren) {
-            outline.reloadData()
+            if !hasRendered {
+                outline.reloadData()
+                hasRendered = true
+            } else {
+                for key in previousChildren.keys.sorted(by: { $0.count < $1.count }) {
+                    let parent = key.isEmpty ? nil : rows[key]
+                    guard key.isEmpty || parent != nil else { continue }
+
+                    let old = displayedChildren[key] ?? []
+                    let next = makeChildren(parent)
+                    let changes = next.map(ObjectIdentifier.init).difference(from: old.map(ObjectIdentifier.init))
+                    guard !changes.isEmpty else { continue }
+
+                    displayedChildren[key] = next
+                    guard parent == nil || outline.isItemExpanded(parent) else { continue }
+
+                    var removed = IndexSet(), inserted = IndexSet()
+                    for change in changes {
+                        switch change {
+                        case .remove(let index, _, _): removed.insert(index)
+                        case .insert(let index, _, _): inserted.insert(index)
+                        }
+                    }
+                    outline.beginUpdates()
+                    if !removed.isEmpty { outline.removeItems(at: removed, inParent: parent, withAnimation: []) }
+                    if !inserted.isEmpty { outline.insertItems(at: inserted, inParent: parent, withAnimation: []) }
+                    outline.endUpdates()
+                }
+            }
+
+            for item in rows.values where !model.expanded.contains(item.file.path) && outline.isItemExpanded(item) {
+                outline.collapseItem(item)
+            }
             for path in model.expanded.sorted(by: { $0.count < $1.count }) {
-                if let item = rows[path] { outline.expandItem(item) }
+                if let item = rows[path], item.file.canExpand, outline.row(forItem: item) >= 0,
+                   !outline.isItemExpanded(item) { outline.expandItem(item) }
             }
             if let path = model.selection, let item = rows[path], outline.row(forItem: item) >= 0 {
                 outline.selectRowIndexes(IndexSet(integer: outline.row(forItem: item)), byExtendingSelection: false)
@@ -145,9 +205,29 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
             }
         }
 
-        scroll.contentView.scroll(to: position)
-        scroll.reflectScrolledClipView(scroll.contentView)
         status.stringValue = model.statusExplanation
+        view.layoutSubtreeIfNeeded()
+        let anchor = anchors.first { anchorRow($0.0) >= 0 }
+        let y = anchor.map { outline.rect(ofRow: anchorRow($0.0)).minY - $0.1 } ?? position.y
+        scroll.contentView.scroll(to: NSPoint(x: position.x, y: y))
+        scroll.reflectScrolledClipView(scroll.contentView)
+        let updatedVisible = outline.rows(in: outline.visibleRect)
+        if updatedVisible.location != NSNotFound {
+            for index in updatedVisible.location..<NSMaxRange(updatedVisible) {
+                if let item = outline.item(atRow: index) as? FileRow,
+                   let cell = outline.view(atColumn: 0, row: index, makeIfNecessary: false) as? FileStatusCell {
+                    cell.present(item.file, message: item.message, decoration: model.decoration(for: item.file.path))
+                }
+            }
+        }
+    }
+
+    private func anchorRow(_ item: FileRow) -> Int {
+        let index = outline.row(forItem: item)
+        if index >= 0 { return index }
+        guard item.message == nil, let current = rows[item.file.path] else { return -1 }
+
+        return outline.row(forItem: current)
     }
 
     public func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
@@ -189,49 +269,10 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
     public func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
         guard let row = item as? FileRow else { return nil }
 
-        let decoration = model.decoration(for: row.file.path)
-        let label = NSTextField(labelWithString: row.message ?? row.file.name)
-        label.lineBreakMode = .byTruncatingMiddle
-        label.textColor = row.message == nil ? decoration.tone.colour : .secondaryLabelColor
-        let badge = NSTextField(labelWithString: row.message == nil ? decoration.badges : "")
-        badge.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        badge.setContentHuggingPriority(.required, for: .horizontal)
-        let icon = NSImageView()
-        if row.message == nil {
-            // Generic extension icons avoid synchronous inspection of every path/network mount.
-            icon.image = row.file.isDirectory
-                ? WorkspaceIcon.image(
-                    row.file.isSymbolicLink ? "folder.badge.questionmark" : "folder",
-                    description: "Folder"
-                )
-                : NSWorkspace.shared
-                    .icon(for: UTType(filenameExtension: (row.file.name as NSString).pathExtension) ?? .data)
-        }
-
-        if row.file.isDirectory { icon.contentTintColor = .secondaryLabelColor }
-
-        let content = NSStackView(views: [icon, label, badge])
-        content.orientation = .horizontal
-        content.spacing = 6
-        let cell = FileStatusCell(name: label, badge: badge, colour: label.textColor ?? .labelColor)
-        content.translatesAutoresizingMaskIntoConstraints = false
-        cell.addSubview(content)
-        NSLayoutConstraint.activate([
-            content.leadingAnchor.constraint(equalTo: cell.leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: cell.trailingAnchor),
-            content.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
-        ])
-        icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
-        let linkNote = row.file.isSymbolicLink
-            ? "Symbolic link; linked folders are revealed in Finder, not expanded"
-            : ""
-        cell.toolTip = [row.file.path, row.message ?? decoration.explanation, linkNote].filter { !$0.isEmpty }
-            .joined(separator: "\n")
-        cell.setAccessibilityElement(true)
-        cell
-            .setAccessibilityLabel([row.message ?? row.file.name, decoration.explanation, linkNote]
-            .filter { !$0.isEmpty }.joined(separator: ", "))
+        let identifier = NSUserInterfaceItemIdentifier("FileStatus")
+        let cell = outline.makeView(withIdentifier: identifier, owner: self) as? FileStatusCell ?? FileStatusCell()
+        cell.identifier = identifier
+        cell.present(row.file, message: row.message, decoration: model.decoration(for: row.file.path))
 
         return cell
     }
@@ -300,20 +341,70 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
 
 @MainActor
 final class FileStatusCell: NSTableCellView {
-    private let name: NSTextField
-    private let badge: NSTextField
-    private let colour: NSColor
+    private let name = NSTextField(labelWithString: "")
+    private let badge = NSTextField(labelWithString: "")
+    private let icon = NSImageView()
+    private var colour = NSColor.labelColor
+    private var file: ProjectFile?
+    private var isPlaceholder = false
+    private var lastMessage: String?
+    private var lastDecoration: FileDecoration?
 
-    init(name: NSTextField, badge: NSTextField, colour: NSColor) {
-        self.name = name
-        self.badge = badge
-        self.colour = colour
+    init() {
         super.init(frame: .zero)
         textField = name
+        name.lineBreakMode = .byTruncatingMiddle
+        badge.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        badge.setContentHuggingPriority(.required, for: .horizontal)
+        let content = NSStackView(views: [icon, name, badge])
+        content.orientation = .horizontal
+        content.spacing = 6
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor),
+            content.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 16),
+            icon.heightAnchor.constraint(equalToConstant: 16)
+        ])
+        setAccessibilityElement(true)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func present(_ file: ProjectFile, message: String?, decoration: FileDecoration) {
+        guard self.file != file || lastMessage != message || lastDecoration != decoration else { return }
+
+        if self.file != file || isPlaceholder != (message != nil) {
+            icon.image = message != nil
+                ? nil
+                : file.isDirectory
+                ? WorkspaceIcon.image(
+                    file.isSymbolicLink ? "folder.badge.questionmark" : "folder",
+                    description: "Folder"
+                )
+                : NSWorkspace.shared
+                    .icon(for: UTType(filenameExtension: (file.name as NSString).pathExtension) ?? .data)
+            icon.contentTintColor = file.isDirectory ? .secondaryLabelColor : nil
+        }
+
+        self.file = file
+        lastMessage = message
+        lastDecoration = decoration
+        isPlaceholder = message != nil
+        name.stringValue = message ?? file.name
+        badge.stringValue = message == nil ? decoration.badges : ""
+        colour = message == nil ? decoration.tone.colour : .secondaryLabelColor
+        name.textColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : colour
+        badge.textColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : .labelColor
+        let linkNote = file.isSymbolicLink ? "Symbolic link; linked folders are revealed in Finder, not expanded" : ""
+        toolTip = [file.path, message ?? decoration.explanation, linkNote].filter { !$0.isEmpty }
+            .joined(separator: "\n")
+        setAccessibilityLabel([message ?? file.name, decoration.explanation, linkNote].filter { !$0.isEmpty }
+            .joined(separator: ", "))
+    }
 
     override var backgroundStyle: NSView.BackgroundStyle {
         didSet {

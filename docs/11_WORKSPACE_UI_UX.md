@@ -12,6 +12,8 @@ App connects actual Git operation results and a Show details action to that proj
 
 ## Window structure
 
+**Files stability follow-up (2026-10-12).** After initial setup, Files does not call `reloadData` for selection, dirty state or Git colours. Existing visible cells update in place; folder child changes use native unanimated insert/remove batches. Background reads retain the last successful listing (including an empty listing); a failed refresh retains it with an explicit failure row. The viewport follows the first surviving visible item and its offset, so insertion/removal above it does not jump the reading position. The status footer uses a bounded two-line height. Deferred/coalesced updates and retained item snapshots preserve the earlier native collapse-crash fix. Git status/progress presentation does not trigger directory reads; coalesced repository disk events, explicit Refresh, save and activation still refresh expanded folders. Automated regressions are recorded in ADR-049; live R93 pending.
+
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Project ▾  Branch ▾       Scheme ▾  Destination ▾  Run / Stop  Search │
