@@ -226,7 +226,10 @@ func theCurrentRevisionIsReadOnlyWhenTheFileDiffersFromWhatIsKnown() async throw
     let store = AtomicDocumentFileStore()
     let known = try await store.read(path: path, maximumBytes: .max).revision
 
-    #expect(try await store.currentRevision(path: path, assumingUnchangedFrom: known) == known, "same file: not read again")
+    #expect(
+        try await store.currentRevision(path: path, assumingUnchangedFrom: known) == known,
+        "same file: not read again"
+    )
 
     try sandbox.replaceAtomically("a.swift", "two\n")
     let changed = try #require(try await store.currentRevision(path: path, assumingUnchangedFrom: known))
@@ -240,6 +243,9 @@ func theCurrentRevisionIsReadOnlyWhenTheFileDiffersFromWhatIsKnown() async throw
 func aDirectoryIsNotAFileForTheCurrentRevision() async throws {
     let sandbox = try Sandbox()
     await #expect(throws: FileStoreError.notRegularFile) {
-        _ = try await AtomicDocumentFileStore().currentRevision(path: sandbox.directory.path, assumingUnchangedFrom: nil)
+        _ = try await AtomicDocumentFileStore().currentRevision(
+            path: sandbox.directory.path,
+            assumingUnchangedFrom: nil
+        )
     }
 }

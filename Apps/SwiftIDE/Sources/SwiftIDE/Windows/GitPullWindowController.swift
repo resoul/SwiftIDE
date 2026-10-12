@@ -13,7 +13,12 @@ final class GitPullWindowController: NSWindowController, NSWindowDelegate {
 
     init(workspace: GitWorkspace) {
         content = GitPullViewController(model: GitPullReview(workspace: workspace))
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 660, height: 490), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 660, height: 490),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
         window.title = "Pull Branch"; window.isReleasedWhenClosed = false; window.tabbingMode = .disallowed
         window.contentViewController = content
         super.init(window: window); window.delegate = self
@@ -28,7 +33,11 @@ final class GitPullWindowController: NSWindowController, NSWindowDelegate {
         guard let window else { return }
 
         self.parent = parent
-        sheetNotification = NotificationCenter.default.addObserver(forName: NSWindow.didEndSheetNotification, object: parent, queue: .main) { [weak self] _ in
+        sheetNotification = NotificationCenter.default.addObserver(
+            forName: NSWindow.didEndSheetNotification,
+            object: parent,
+            queue: .main
+        ) { [weak self] _ in
             Task { @MainActor [weak self] in self?.updatePresentation() }
         }
         content.select(remote: remote, source: source); parent.beginSheet(window)
@@ -51,7 +60,8 @@ final class GitPullWindowController: NSWindowController, NSWindowDelegate {
     }
     func dismiss() {
         if let subscription { content.model.workspace.unsubscribe(subscription) }; subscription = nil
-        if let sheetNotification { NotificationCenter.default.removeObserver(sheetNotification) }; sheetNotification = nil
+        if let sheetNotification { NotificationCenter.default.removeObserver(sheetNotification) }
+        sheetNotification = nil
         parent = nil; temporarilyHidden = false
         content.model.stop(); content.disconnect()
         if let window { window.sheetParent?.endSheet(window); window.orderOut(nil) }

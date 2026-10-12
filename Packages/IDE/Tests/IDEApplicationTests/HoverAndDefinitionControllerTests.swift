@@ -36,7 +36,10 @@ private final class FakeHoverView: HoverPresenting {
 @MainActor
 private struct Rig {
     // "let value = compute(1)\n": value 4..<9, compute 12..<19
-    let session = DocumentSession(path: "/w/A.swift", backend: StringDocumentBackend(loadedText: "let value = compute(1)\n"))
+    let session = DocumentSession(
+        path: "/w/A.swift",
+        backend: StringDocumentBackend(loadedText: "let value = compute(1)\n")
+    )
     let provider = FakeHover()
     let view = FakeHoverView()
     let clock = ManualDelayClock()
@@ -44,7 +47,11 @@ private struct Rig {
     var local: [Int: [String]] = [:]
 
     init(local: [Int: [String]] = [:]) {
-        let words = [UTF16TextRange(location: 0, length: 3), UTF16TextRange(location: 4, length: 5), UTF16TextRange(location: 12, length: 7)]
+        let words = [
+            UTF16TextRange(location: 0, length: 3),
+            UTF16TextRange(location: 4, length: 5),
+            UTF16TextRange(location: 12, length: 7)
+        ]
         controller = HoverController(
             session: session,
             provider: provider,
@@ -80,7 +87,10 @@ func aPointerThatRestsOnAWordGetsItsDescriptionUnderIt() async {
     rig.clock.advance(by: .milliseconds(1))
     await rig.settle()
     #expect(rig.provider.asked == [12], "asked at the start of the word, not where the pointer is")
-    #expect(rig.view.shown.last?.text == "a function" && rig.view.shown.last?.anchor == UTF16TextRange(location: 12, length: 7))
+    #expect(rig.view.shown.last?.text == "a function" && rig.view.shown.last?.anchor == UTF16TextRange(
+        location: 12,
+        length: 7
+    ))
     #expect(rig.controller.isShowing)
 }
 
@@ -90,7 +100,10 @@ func movingOnWithinTheWordChangesNothingAndToAnotherWordStartsOver() async {
     await rig.rest(at: 13)
     rig.controller.pointerMoved(to: 15)
     await rig.settle()
-    #expect(rig.view.dismissals == 0 && rig.provider.asked.count == 1, "same word: the description stays, nothing is asked again")
+    #expect(
+        rig.view.dismissals == 0 && rig.provider.asked.count == 1,
+        "same word: the description stays, nothing is asked again"
+    )
 
     rig.controller.pointerMoved(to: 5)
     await rig.settle()
@@ -120,7 +133,11 @@ func anEditOrMarkedTextTakesTheDescriptionAway() async throws {
     let rig = Rig()
     await rig.rest(at: 13)
     #expect(rig.view.isVisible)
-    try rig.session.apply([DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "x")], expectedVersion: rig.session.version, origin: .typing)
+    try rig.session.apply(
+        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "x")],
+        expectedVersion: rig.session.version,
+        origin: .typing
+    )
     #expect(!rig.view.isVisible)
 
     await rig.rest(at: 14)
@@ -152,7 +169,9 @@ func ADescriptionThatArrivesAfterThePointerMovedOnIsNotShown() async {
 @Test @MainActor
 func theServersRangeIsWhatTheDescriptionIsAnchoredToAndKeepsItWhilethePointerIsOverIt() async {
     let rig = Rig()
-    rig.provider.answer = { _ in .content(HoverContent(text: "the call", range: UTF16TextRange(location: 12, length: 10))) }
+    rig.provider.answer = { _ in
+        .content(HoverContent(text: "the call", range: UTF16TextRange(location: 12, length: 10)))
+    }
     await rig.rest(at: 13)
     #expect(rig.view.shown.last?.anchor == UTF16TextRange(location: 12, length: 10))
     rig.controller.pointerMoved(to: 21)          // beyond the word, inside the described text
@@ -195,7 +214,10 @@ func byKeyTheDescriptionIsAskedForAtOnceAtTheWordOfTheCaret() async {
     let rig = Rig()
     rig.controller.requestAtCaret(5)
     await rig.settle()
-    #expect(rig.provider.asked == [4] && rig.view.shown.last?.anchor == UTF16TextRange(location: 4, length: 5), "no waiting")
+    #expect(
+        rig.provider.asked == [4] && rig.view.shown.last?.anchor == UTF16TextRange(location: 4, length: 5),
+        "no waiting"
+    )
 }
 
 @Test @MainActor
@@ -240,12 +262,18 @@ private final class FakeDefinitions: DefinitionProviding {
 private final class FakeNavigator: DefinitionNavigating {
     private(set) var events: [String] = []
     func moveCaret(to offset: Int) { events.append("caret \(offset)") }
-    func open(_ location: DefinitionLocation) { events.append("open \(location.path):\(location.line):\(location.character)") }
+    func open(_ location: DefinitionLocation) {
+        events.append("open \(location.path):\(location.line):\(location.character)")
+    }
     func tell(_ message: String, at offset: Int) { events.append("tell \(message) @\(offset)") }
 
     /// What the user would choose: the index in `choice`, or nobody.
     var choice: Int?
-    func choose(among places: [DefinitionLocation], near offset: Int, pick: @escaping @MainActor (DefinitionLocation) -> Void) {
+    func choose(
+        among places: [DefinitionLocation],
+        near offset: Int,
+        pick: @escaping @MainActor (DefinitionLocation) -> Void
+    ) {
         events.append("choose \(places.count) @\(offset)")
         if let choice { pick(places[choice]) }
     }
@@ -264,8 +292,10 @@ private func jump(_ answer: DefinitionOutcome) async -> [String] {
 
 @Test @MainActor
 func aDefinitionInThisDocumentMovesTheCaretAndInAnotherFileOpensIt() async {
-    #expect(await jump(.locations([DefinitionLocation(path: "/w/A.swift", line: 0, character: 4, offset: 4)])) == ["caret 4"])
-    #expect(await jump(.locations([DefinitionLocation(path: "/w/B.swift", line: 3, character: 2)])) == ["open /w/B.swift:3:2"])
+    #expect(await jump(.locations([DefinitionLocation(path: "/w/A.swift", line: 0, character: 4, offset: 4)])) ==
+        ["caret 4"])
+    #expect(await jump(.locations([DefinitionLocation(path: "/w/B.swift", line: 3, character: 2)])) ==
+        ["open /w/B.swift:3:2"])
 }
 
 @Test @MainActor
@@ -297,7 +327,10 @@ func theSamePlaceNamedTwiceIsNotAChoice() async {
 func leavingTheChoiceWithoutPickingGoesNowhere() async {
     let session = DocumentSession(path: "/w/A.swift", backend: StringDocumentBackend(loadedText: "x"))
     let provider = FakeDefinitions()
-    provider.answer = .locations([DefinitionLocation(path: "/w/B.swift", line: 1, character: 0), DefinitionLocation(path: "/w/C.swift", line: 2, character: 0)])
+    provider.answer = .locations([
+        DefinitionLocation(path: "/w/B.swift", line: 1, character: 0),
+        DefinitionLocation(path: "/w/C.swift", line: 2, character: 0)
+    ])
     let navigator = FakeNavigator()
     await DefinitionController(session: session, provider: provider, navigator: navigator).jump(from: 7)
     #expect(navigator.events == ["choose 2 @7"])

@@ -64,13 +64,23 @@ private func kind(of token: String, in text: String, spans: [HighlightSpan], occ
     return Set(kinds.map { $0.map { String(describing: $0) } ?? "none" }).count == 1 ? kinds.first ?? nil : nil
 }
 
-private func expect(_ short: [(String, HighlightKind?)] = [], also long: [(String, HighlightKind?, Int)] = [], in text: String, language: DocumentLanguage, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+private func expect(
+    _ short: [(String, HighlightKind?)] = [],
+    also long: [(String, HighlightKind?, Int)] = [],
+    in text: String,
+    language: DocumentLanguage,
+    sourceLocation: SourceLocation = #_sourceLocation
+) async throws {
     let run = try Run(language)
     let spans = await run.spans(of: text)
     #expect(!spans.isEmpty, "\(language) gave no colours", sourceLocation: sourceLocation)
     let pairs = short.map { ($0.0, $0.1, 1) } + long
     for (token, expected, occurrence) in pairs {
-        #expect(kind(of: token, in: text, spans: spans, occurrence: occurrence) == expected, "\(token) in \(language)", sourceLocation: sourceLocation)
+        #expect(
+            kind(of: token, in: text, spans: spans, occurrence: occurrence) == expected,
+            "\(token) in \(language)",
+            sourceLocation: sourceLocation
+        )
     }
 }
 
@@ -79,7 +89,9 @@ private func expect(_ short: [(String, HighlightKind?)] = [], also long: [(Strin
 @Test
 func theThreeLanguagesWithAGrammarAreMadeAndTheOthersAreRefused() throws {
     #expect(TreeSitterHighlighter.supportedLanguages == [.swift, .c, .cpp, .objectiveC])
-    for language in TreeSitterHighlighter.supportedLanguages { _ = try TreeSitterHighlighter(language: language).language }
+    for language in TreeSitterHighlighter.supportedLanguages {
+        _ = try TreeSitterHighlighter(language: language).language
+    }
     for language in [DocumentLanguage.objectiveCPP, .plainText] {
         #expect(throws: SyntaxInfrastructureError.self) { _ = try TreeSitterHighlighter(language: language) }
     }
@@ -197,22 +209,27 @@ private let objcText = """
 
 @Test
 func objectiveCSourceIsColouredByWhatItIs() async throws {
-    try await expect([
-        ("#import", .attribute),
-        ("@interface", .keyword),
-        ("@property", .keyword),
-        ("@end", .keyword),
-        ("@implementation", .keyword),
-        ("nonatomic", .keyword),
-        ("void", .type),
-        ("id", .type),
-        ("BOOL", .type),
-        ("NSString", .type),
-        ("NSLog", .function),
-        ("@\"hi %d\"", .string),
-        ("reload", .function),
-        ("self", .builtin),
-    ], also: [("int", .type, 2), ("count", .parameter, 1), ("doIt", .function, 1), ("with", .function, 1)], in: objcText, language: .objectiveC)
+    try await expect(
+        [
+            ("#import", .attribute),
+            ("@interface", .keyword),
+            ("@property", .keyword),
+            ("@end", .keyword),
+            ("@implementation", .keyword),
+            ("nonatomic", .keyword),
+            ("void", .type),
+            ("id", .type),
+            ("BOOL", .type),
+            ("NSString", .type),
+            ("NSLog", .function),
+            ("@\"hi %d\"", .string),
+            ("reload", .function),
+            ("self", .builtin),
+        ],
+        also: [("int", .type, 2), ("count", .parameter, 1), ("doIt", .function, 1), ("with", .function, 1)],
+        in: objcText,
+        language: .objectiveC
+    )
 }
 
 // MARK: A block comment that is never closed
@@ -227,7 +244,10 @@ func anUnclosedBlockCommentColoursTheRestAsCommentInEveryCLanguage() async throw
         let open = (text as NSString).range(of: "/*").location
         let rest = spans.filter { $0.location >= open }
         #expect(rest.allSatisfy { $0.kind == .comment }, "\(language): \(rest)")
-        #expect(rest.reduce(0) { $0 + $1.length } == (text as NSString).length - open, "\(language): the whole rest is comment")
+        #expect(
+            rest.reduce(0) { $0 + $1.length } == (text as NSString).length - open,
+            "\(language): the whole rest is comment"
+        )
     }
 }
 
@@ -237,7 +257,10 @@ func aSlashStarInsideAStringOrALineCommentOpensNothing() async throws {
         let text = "const char *s = \"a /* b\";\n// c /* d\nint n = 1;\n"
         let run = try Run(language)
         let spans = await run.spans(of: text)
-        #expect(kind(of: "int", in: text, spans: spans, occurrence: 1) == .type, "\(language): code after them is coloured as code")
+        #expect(
+            kind(of: "int", in: text, spans: spans, occurrence: 1) == .type,
+            "\(language): code after them is coloured as code"
+        )
         #expect(kind(of: "1", in: text, spans: spans, occurrence: 1) == .number, "\(language)")
         #expect(kind(of: "// c /* d", in: text, spans: spans) == .comment, "\(language)")
     }
@@ -263,11 +286,13 @@ func typingASlashStarOpensACommentOverTheRestAndClosingItGivesTheColoursBack() a
     var units = Array("int a = 1;\nint b = 2;\nint c = 3;\n".utf16)
     _ = await run.spans(of: String(decoding: units, as: UTF16.self))
     func edit(_ range: UTF16TextRange, _ text: String, version: UInt64) async -> [HighlightSpan] {
-        let changes = DocumentChangeSet(documentID: DocumentID(),
-                                        oldVersion: version - 1,
-                                        newVersion: version,
-                                        edits: [DocumentEdit(range: range, replacement: text)],
-                                        origin: .typing)
+        let changes = DocumentChangeSet(
+            documentID: DocumentID(),
+            oldVersion: version - 1,
+            newVersion: version,
+            edits: [DocumentEdit(range: range, replacement: text)],
+            origin: .typing
+        )
         units.replaceSubrange(range.location..<(range.location + range.length), with: Array(text.utf16))
         run.highlighter.edit(changes)
         run.highlighter.requestHighlights(in: 0..<units.count, version: version)
@@ -278,7 +303,10 @@ func typingASlashStarOpensACommentOverTheRestAndClosingItGivesTheColoursBack() a
     #expect(opened.filter { $0.location >= 11 }.allSatisfy { $0.kind == .comment } && !opened.isEmpty)
     let closed = await edit(UTF16TextRange(location: 11 + 2 + 10, length: 0), "*/", version: 2)
     let text = String(decoding: units, as: UTF16.self)
-    #expect(kind(of: "int", in: text, spans: closed, occurrence: 3) == .type, "after the comment ends the code is code again: \(text.debugDescription)")
+    #expect(
+        kind(of: "int", in: text, spans: closed, occurrence: 3) == .type,
+        "after the comment ends the code is code again: \(text.debugDescription)"
+    )
 }
 
 // MARK: Real headers
@@ -295,7 +323,8 @@ private let sdk: String? = {
     finder.waitUntilExit()
     guard finder.terminationStatus == 0 else { return nil }
 
-    let path = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    let path = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
 
     return FileManager.default.fileExists(atPath: path) ? path : nil
 }()
@@ -320,7 +349,10 @@ func headersOfTheSDKAreColouredInTimeAndAreConsistent(path: String, language: Do
     #expect(!spans.isEmpty)
     var previousEnd = 0
     for span in spans {
-        #expect(span.location >= previousEnd && span.length > 0 && span.end <= length, "\(path): span \(span) after \(previousEnd)")
+        #expect(
+            span.location >= previousEnd && span.length > 0 && span.end <= length,
+            "\(path): span \(span) after \(previousEnd)"
+        )
         previousEnd = span.end
     }
     let kinds = Set(spans.map(\.kind))

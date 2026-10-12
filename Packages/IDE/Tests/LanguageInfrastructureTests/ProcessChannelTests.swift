@@ -7,7 +7,10 @@ import Testing
 /// restores the default disposition; a runner that ignores SIGPIPE must not mask the regression.
 @Test
 func aBrokenProcessPipeThrowsWithoutKillingTheClient() async throws {
-    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("pipe-probe-\(UUID().uuidString)", isDirectory: true)
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "pipe-probe-\(UUID().uuidString)",
+        isDirectory: true
+    )
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: folder) }
     let source = folder.appendingPathComponent("Probe.swift")
@@ -18,12 +21,28 @@ func aBrokenProcessPipeThrowsWithoutKillingTheClient() async throws {
     let executable = folder.appendingPathComponent("probe")
     _ = try await BoundedProcess.run(
         executable: URL(fileURLWithPath: "/usr/bin/xcrun"),
-        arguments: ["swiftc", "-swift-version", "6", "-parse-as-library", "-module-cache-path", folder.appendingPathComponent("modules").path, channel.path, source.path, "-o", executable.path],
+        arguments: [
+            "swiftc",
+            "-swift-version",
+            "6",
+            "-parse-as-library",
+            "-module-cache-path",
+            folder.appendingPathComponent("modules").path,
+            channel.path,
+            source.path,
+            "-o",
+            executable.path
+        ],
         timeout: .seconds(60),
         outputLimit: 1_000_000
     )
     for scenario in ["no-reader", "exited", "queued-close"] {
-        let output = try await BoundedProcess.run(executable: executable, arguments: [scenario], timeout: .seconds(10), outputLimit: 10_000)
+        let output = try await BoundedProcess.run(
+            executable: executable,
+            arguments: [scenario],
+            timeout: .seconds(10),
+            outputLimit: 10_000
+        )
 
         #expect(String(decoding: output, as: UTF8.self) == "EPIPE\n", "\(scenario)")
     }

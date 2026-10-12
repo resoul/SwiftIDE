@@ -262,7 +262,11 @@ func anObserverThatUnsubscribesAnotherDuringACallStopsItFromBeingCalled() throws
 // MARK: The document's language decides
 
 @MainActor
-private func controller(path: String, supported: Set<DocumentLanguage> = [.swift]) -> (SyntaxColouringController, DocumentLanguageSelector, DocumentSession, Shown, ScriptedHighlighterBox) {
+private func controller(
+    path: String,
+    supported: Set<DocumentLanguage> = [.swift]
+)
+    -> (SyntaxColouringController, DocumentLanguageSelector, DocumentSession, Shown, ScriptedHighlighterBox) {
     let backend = StringDocumentBackend(loadedText: "let a = 1")
     let session = DocumentSession(path: path, backend: backend)
     let selector = DocumentLanguageSelector(session: session)

@@ -65,10 +65,22 @@ private struct Fixture {
         session = DocumentSession(path: "/w/Main.swift", backend: editor.backend)
         let lineIndex = DocumentLineIndex(session: session, source: editor.backend)
         host = EditorHostView(editor: editor, lineIndex: lineIndex)
-        window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 700, height: 400), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 700, height: 400),
+            styleMask: [.titled, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.contentView = host
         window.makeFirstResponder(editor.textView)
-        coordinator = LanguageFeaturesCoordinator(session: session, editor: editor, host: host, lineIndex: lineIndex, provider: provider, clock: clock)
+        coordinator = LanguageFeaturesCoordinator(
+            session: session,
+            editor: editor,
+            host: host,
+            lineIndex: lineIndex,
+            provider: provider,
+            clock: clock
+        )
         let opened = opened
         coordinator.openLocation = { opened.places.append($0) }
         window.layoutIfNeeded()
@@ -129,7 +141,17 @@ func aPointerThatRestsOnAWordAsksForItsDescriptionAndShowsItInASmallWindow() asy
     #expect(f.provider.hoverAsked == [12])
     #expect(f.coordinator.popup.isVisible && f.coordinator.popup.text == "a symbol")
 
-    let exit = NSEvent.enterExitEvent(with: .mouseExited, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: f.window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil)!
+    let exit = NSEvent.enterExitEvent(
+        with: .mouseExited,
+        location: .zero,
+        modifierFlags: [],
+        timestamp: 0,
+        windowNumber: f.window.windowNumber,
+        context: nil,
+        eventNumber: 0,
+        trackingNumber: 0,
+        userData: nil
+    )!
     f.textView.mouseExited(with: exit)
     #expect(!f.coordinator.popup.isVisible)
 }
@@ -142,7 +164,10 @@ func typingOrClickingTakesTheDescriptionAway() async {
     f.clock.advance(by: .milliseconds(500))
     await f.settle()
     #expect(f.coordinator.popup.isVisible)
-    #expect(!f.codeView().handleCommandClick(f.event(.leftMouseDown, at: f.point(ofCharacter: 5))), "a plain click is the text view's own")
+    #expect(
+        !f.codeView().handleCommandClick(f.event(.leftMouseDown, at: f.point(ofCharacter: 5))),
+        "a plain click is the text view's own"
+    )
     #expect(!f.coordinator.popup.isVisible)
 
     f.textView.mouseMoved(with: f.event(.mouseMoved, at: f.point(ofCharacter: 14)))
@@ -150,7 +175,18 @@ func typingOrClickingTakesTheDescriptionAway() async {
     f.clock.advance(by: .milliseconds(500))
     await f.settle()
     #expect(f.coordinator.popup.isVisible)
-    let key = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: f.window.windowNumber, context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0)!
+    let key = NSEvent.keyEvent(
+        with: .keyDown,
+        location: .zero,
+        modifierFlags: [],
+        timestamp: 0,
+        windowNumber: f.window.windowNumber,
+        context: nil,
+        characters: "a",
+        charactersIgnoringModifiers: "a",
+        isARepeat: false,
+        keyCode: 0
+    )!
     f.textView.keyDown(with: key)
     #expect(!f.coordinator.popup.isVisible)
 }
@@ -159,7 +195,18 @@ func typingOrClickingTakesTheDescriptionAway() async {
 func controlShiftSpaceAsksForTheDescriptionAtTheCaret() async {
     let f = Fixture()
     f.textView.setSelectedRange(NSRange(location: 13, length: 0))
-    let key = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.control, .shift], timestamp: 0, windowNumber: f.window.windowNumber, context: nil, characters: " ", charactersIgnoringModifiers: " ", isARepeat: false, keyCode: 49)!
+    let key = NSEvent.keyEvent(
+        with: .keyDown,
+        location: .zero,
+        modifierFlags: [.control, .shift],
+        timestamp: 0,
+        windowNumber: f.window.windowNumber,
+        context: nil,
+        characters: " ",
+        charactersIgnoringModifiers: " ",
+        isARepeat: false,
+        keyCode: 49
+    )!
     f.textView.keyDown(with: key)
     await f.settle()
     #expect(f.provider.hoverAsked == [12] && f.coordinator.popup.isVisible, "no waiting for a key")
@@ -170,8 +217,17 @@ func controlShiftSpaceAsksForTheDescriptionAtTheCaret() async {
 @Test @MainActor
 func aCommandClickJumpsToTheDefinitionInTheSameDocumentByMovingTheCaret() async {
     let f = Fixture()
-    f.provider.definitionAnswer = .locations([DefinitionLocation(path: "/w/Main.swift", line: 0, character: 4, offset: 4)])
-    #expect(f.codeView().handleCommandClick(f.event(.leftMouseDown, at: f.point(ofCharacter: 30), modifiers: .command)))   // "value" on line 2
+    f.provider.definitionAnswer = .locations([DefinitionLocation(
+        path: "/w/Main.swift",
+        line: 0,
+        character: 4,
+        offset: 4
+    )])
+    #expect(f.codeView().handleCommandClick(f.event(
+        .leftMouseDown,
+        at: f.point(ofCharacter: 30),
+        modifiers: .command
+    )))   // "value" on line 2
     await f.settle()
     #expect(f.provider.definitionAsked.count == 1)
     #expect(f.textView.selectedRange() == NSRange(location: 4, length: 0), "the click itself did not move the caret")
@@ -199,10 +255,25 @@ func withNoDefinitionTheUserIsToldAndTheWordGoesAway() async {
 @Test @MainActor
 func aClickWithOtherModifiersOrOnNothingIsTheTextViewsOwn() async {
     let f = Fixture()
-    #expect(!f.codeView().handleCommandClick(f.event(.leftMouseDown, at: f.point(ofCharacter: 14), modifiers: [.command, .shift])))
-    #expect(!f.codeView().handleCommandClick(f.event(.leftMouseDown, at: f.point(ofCharacter: 14), modifiers: [.option])))
+    #expect(!f.codeView().handleCommandClick(f.event(
+        .leftMouseDown,
+        at: f.point(ofCharacter: 14),
+        modifiers: [.command, .shift]
+    )))
+    #expect(!f.codeView().handleCommandClick(f.event(
+        .leftMouseDown,
+        at: f.point(ofCharacter: 14),
+        modifiers: [.option]
+    )))
     let endOfLine = f.point(ofCharacter: 21)
-    #expect(!f.codeView().handleCommandClick(f.event(.leftMouseDown, at: NSPoint(x: endOfLine.x + 200, y: endOfLine.y), modifiers: .command)), "Command-click on no character")
+    #expect(
+        !f.codeView().handleCommandClick(f.event(
+            .leftMouseDown,
+            at: NSPoint(x: endOfLine.x + 200, y: endOfLine.y),
+            modifiers: .command
+        )),
+        "Command-click on no character"
+    )
     await f.settle()
     #expect(f.provider.definitionAsked.isEmpty, "Command-Shift-click extends a selection")
 }
@@ -213,7 +284,11 @@ func aClickWithOtherModifiersOrOnNothingIsTheTextViewsOwn() async {
 func aReportMarksTheLinesInTheMarginAndCountsThem() async throws {
     let f = Fixture()
     f.provider.publish(DocumentDiagnostics(items: [
-        DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .error, message: "cannot find 'compute'"),
+        DocumentDiagnostic(
+            range: UTF16TextRange(location: 12, length: 7),
+            severity: .error,
+            message: "cannot find 'compute'"
+        ),
         DocumentDiagnostic(range: UTF16TextRange(location: 27, length: 5), severity: .warning, message: "unused"),
     ], version: f.session.version, isVerified: false))
 
@@ -229,7 +304,11 @@ func aReportMarksTheLinesInTheMarginAndCountsThem() async throws {
 func theProblemAtAPlaceIsInTheDescriptionBeforeWhatTheServerSays() async {
     let f = Fixture()
     f.provider.publish(DocumentDiagnostics(items: [
-        DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .error, message: "cannot find 'compute'"),
+        DocumentDiagnostic(
+            range: UTF16TextRange(location: 12, length: 7),
+            severity: .error,
+            message: "cannot find 'compute'"
+        ),
     ], version: f.session.version, isVerified: false))
     f.textView.mouseMoved(with: f.event(.mouseMoved, at: f.point(ofCharacter: 14)))
     await f.settle()
@@ -301,7 +380,13 @@ private func redPixels(in view: NSView, rect: NSRect) -> Int {
 func anErrorIsReallyDrawnAsRedUnderTheWordAndGoneWhenItIsCleared() async throws {
     let f = Fixture()
     f.window.layoutIfNeeded()
-    let word = f.textView.convert(f.window.convertFromScreen(f.textView.firstRect(forCharacterRange: NSRange(location: 12, length: 7), actualRange: nil)), from: nil)
+    let word = f.textView.convert(
+        f.window.convertFromScreen(f.textView.firstRect(
+            forCharacterRange: NSRange(location: 12, length: 7),
+            actualRange: nil
+        )),
+        from: nil
+    )
     let area = f.host.convert(word, from: f.textView).insetBy(dx: -2, dy: -4)
     #expect(redPixels(in: f.host, rect: area) == 0, "nothing red before")
 
@@ -322,7 +407,13 @@ func anErrorIsReallyDrawnAsRedUnderTheWordAndGoneWhenItIsCleared() async throws 
 func aProblemIsReallyDrawnUnderTheWordAndTheOverlayTakesNoClicks() async throws {
     let f = Fixture()
     f.window.layoutIfNeeded()
-    let word = f.textView.convert(f.window.convertFromScreen(f.textView.firstRect(forCharacterRange: NSRange(location: 12, length: 7), actualRange: nil)), from: nil)
+    let word = f.textView.convert(
+        f.window.convertFromScreen(f.textView.firstRect(
+            forCharacterRange: NSRange(location: 12, length: 7),
+            actualRange: nil
+        )),
+        from: nil
+    )
     let area = f.host.convert(word, from: f.textView).insetBy(dx: -2, dy: -4)
     #expect(redPixels(in: f.host, rect: area) == 0, "nothing red before")
 
@@ -344,7 +435,12 @@ func aProblemIsReallyDrawnUnderTheWordAndTheOverlayTakesNoClicks() async throws 
 @Test @MainActor
 func theLessASureAPlaceIsThePalerItsLine() {
     func alpha(_ freshness: DiagnosticMark.Freshness) -> CGFloat {
-        DiagnosticsPresenter.colour(for: DiagnosticMark(range: UTF16TextRange(location: 0, length: 1), severity: .error, message: "", freshness: freshness)).alphaComponent
+        DiagnosticsPresenter.colour(for: DiagnosticMark(
+            range: UTF16TextRange(location: 0, length: 1),
+            severity: .error,
+            message: "",
+            freshness: freshness
+        )).alphaComponent
     }
     #expect(alpha(.verified) == 1)
     #expect(alpha(.unverified) < alpha(.verified) && alpha(.stale) < alpha(.unverified))
@@ -352,9 +448,27 @@ func theLessASureAPlaceIsThePalerItsLine() {
 
 @Test @MainActor
 func anEmptyRangeIsDrawnUnderACharacterAndNothingBeyondTheText() {
-    #expect(DiagnosticsPresenter.visibleRange(of: UTF16TextRange(location: 5, length: 0), documentLength: 10) == UTF16TextRange(location: 5, length: 1))
-    #expect(DiagnosticsPresenter.visibleRange(of: UTF16TextRange(location: 10, length: 0), documentLength: 10) == UTF16TextRange(location: 9, length: 1), "at the end: the one before")
-    #expect(DiagnosticsPresenter.visibleRange(of: UTF16TextRange(location: 8, length: 5), documentLength: 10) == UTF16TextRange(location: 8, length: 2), "cut at the end")
+    #expect(DiagnosticsPresenter
+        .visibleRange(of: UTF16TextRange(location: 5, length: 0), documentLength: 10) == UTF16TextRange(
+            location: 5,
+            length: 1
+        ))
+    #expect(
+        DiagnosticsPresenter
+            .visibleRange(of: UTF16TextRange(location: 10, length: 0), documentLength: 10) == UTF16TextRange(
+                location: 9,
+                length: 1
+            ),
+        "at the end: the one before"
+    )
+    #expect(
+        DiagnosticsPresenter
+            .visibleRange(of: UTF16TextRange(location: 8, length: 5), documentLength: 10) == UTF16TextRange(
+                location: 8,
+                length: 2
+            ),
+        "cut at the end"
+    )
     #expect(DiagnosticsPresenter.visibleRange(of: UTF16TextRange(location: 11, length: 1), documentLength: 10) == nil)
     #expect(DiagnosticsPresenter.visibleRange(of: UTF16TextRange(location: 0, length: 0), documentLength: 0) == nil)
 }
@@ -372,7 +486,10 @@ func theMarginDrawsADotBesideTheNumberOfALineWithAProblem() async throws {
         DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .error, message: "bad"),
     ], version: f.session.version, isVerified: false))
     ruler.displayIfNeeded()
-    let after = redPixels(in: ruler, rect: NSRect(x: 0, y: 0, width: 12, height: ruler.bounds.height).intersection(ruler.bounds))
+    let after = redPixels(
+        in: ruler,
+        rect: NSRect(x: 0, y: 0, width: 12, height: ruler.bounds.height).intersection(ruler.bounds)
+    )
     #expect(after > 8, "a red dot of about six points: \(after) pixels")
 }
 
@@ -384,7 +501,18 @@ func anArrowKeyTakesTheDescriptionAwayEvenThoughItChangesNoText() async {
     f.clock.advance(by: .milliseconds(500))
     await f.settle()
     #expect(f.coordinator.popup.isVisible)
-    let arrow = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.numericPad, .function], timestamp: 0, windowNumber: f.window.windowNumber, context: nil, characters: "\u{F702}", charactersIgnoringModifiers: "\u{F702}", isARepeat: false, keyCode: 123)!
+    let arrow = NSEvent.keyEvent(
+        with: .keyDown,
+        location: .zero,
+        modifierFlags: [.numericPad, .function],
+        timestamp: 0,
+        windowNumber: f.window.windowNumber,
+        context: nil,
+        characters: "\u{F702}",
+        charactersIgnoringModifiers: "\u{F702}",
+        isARepeat: false,
+        keyCode: 123
+    )!
     f.textView.keyDown(with: arrow)
     #expect(!f.coordinator.popup.isVisible)
 }
@@ -403,7 +531,12 @@ func aJumpWithinALongDocumentScrollsToTheDefinition() async {
     let text = (1...300).map { "let value\($0) = \($0)" }.joined(separator: "\n") + "\n"
     let f = Fixture(text)
     let target = (text as NSString).range(of: "value290").location
-    f.provider.definitionAnswer = .locations([DefinitionLocation(path: "/w/Main.swift", line: 289, character: 4, offset: target)])
+    f.provider.definitionAnswer = .locations([DefinitionLocation(
+        path: "/w/Main.swift",
+        line: 289,
+        character: 4,
+        offset: target
+    )])
     f.textView.setSelectedRange(NSRange(location: 4, length: 0))
     f.coordinator.jumpToDefinition()
     await f.settle()
@@ -451,7 +584,12 @@ func aJumpTellsTheWindowWhereItLeftSoThatItCanComeBack() async {
     f.provider.definitionAnswer = .locations([DefinitionLocation(path: "/w/Other.swift", line: 9, character: 2)])
     f.coordinator.jumpToDefinition()
     await f.settle()
-    f.provider.definitionAnswer = .locations([DefinitionLocation(path: "/w/Main.swift", line: 0, character: 4, offset: 4)])
+    f.provider.definitionAnswer = .locations([DefinitionLocation(
+        path: "/w/Main.swift",
+        line: 0,
+        character: 4,
+        offset: 4
+    )])
     f.coordinator.jumpToDefinition()
     await f.settle()
     #expect(left == [14, 14], "once for the other file, once for the move within this one")
@@ -465,7 +603,11 @@ func aJumpTellsTheWindowWhereItLeftSoThatItCanComeBack() async {
 func theHistoryRemembersPlacesNewestLastAndForgetsWhatIsReturnedTo() {
     var history = NavigationHistory()
     #expect(!history.canGoBack && history.pop() == nil)
-    let a = NavigationPlace(path: "/w/A.swift", line: 1, character: 2), b = NavigationPlace(path: "/w/B.swift", line: 3, character: 0)
+    let a = NavigationPlace(path: "/w/A.swift", line: 1, character: 2), b = NavigationPlace(
+        path: "/w/B.swift",
+        line: 3,
+        character: 0
+    )
     history.push(a)
     history.push(a)
     history.push(b)
@@ -487,12 +629,22 @@ func theHistoryKeepsOnlyTheLatestHundred() {
 func aProblemBetweenCharactersIsReallyDrawnOverTheWholeLine() async throws {
     let f = Fixture("foo(\"x\")\n")
     f.window.layoutIfNeeded()
-    let start = f.textView.convert(f.window.convertFromScreen(f.textView.firstRect(forCharacterRange: NSRange(location: 0, length: 3), actualRange: nil)), from: nil)
+    let start = f.textView.convert(
+        f.window.convertFromScreen(f.textView.firstRect(
+            forCharacterRange: NSRange(location: 0, length: 3),
+            actualRange: nil
+        )),
+        from: nil
+    )
     let area = f.host.convert(start, from: f.textView).insetBy(dx: -2, dy: -4)
     #expect(redPixels(in: f.host, rect: area) == 0)
 
     f.provider.publish(DocumentDiagnostics(items: [
-        DocumentDiagnostic(range: UTF16TextRange(location: 7, length: 0), severity: .error, message: "missing argument"),
+        DocumentDiagnostic(
+            range: UTF16TextRange(location: 7, length: 0),
+            severity: .error,
+            message: "missing argument"
+        ),
     ], version: f.session.version, isVerified: false))
     f.window.layoutIfNeeded()
     f.textView.displayIfNeeded()
@@ -514,7 +666,11 @@ func thePointerOnAMarginDotShowsWhatTheLineSaysAndLeavingTakesItAway() async thr
     let f = Fixture()
     f.provider.publish(DocumentDiagnostics(items: [
         DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .warning, message: "unused"),
-        DocumentDiagnostic(range: UTF16TextRange(location: 20, length: 0), severity: .error, message: "cannot find 'compute'"),
+        DocumentDiagnostic(
+            range: UTF16TextRange(location: 20, length: 0),
+            severity: .error,
+            message: "cannot find 'compute'"
+        ),
     ], version: f.session.version, isVerified: false))
 
     let first = try marginRow(f, line: 1)
@@ -589,7 +745,13 @@ func theMarginIsToldOnlyWhenThePointerChangesLineNotOnEveryMove() throws {
 @Test @MainActor
 func aProblemFoundOnFallbackSettingsIsPalerAndSaysSoInItsDescription() async {
     func mark(_ basis: DiagnosticsBasis) -> DiagnosticMark {
-        DiagnosticMark(range: UTF16TextRange(location: 0, length: 1), severity: .error, message: "bad", freshness: .verified, basis: basis)
+        DiagnosticMark(
+            range: UTF16TextRange(location: 0, length: 1),
+            severity: .error,
+            message: "bad",
+            freshness: .verified,
+            basis: basis
+        )
     }
     let normal = DiagnosticsPresenter.colour(for: mark(.unconfirmed)).usingColorSpace(.deviceRGB)?.alphaComponent ?? 0
     let fallback = DiagnosticsPresenter.colour(for: mark(.fallback)).usingColorSpace(.deviceRGB)?.alphaComponent ?? 1
@@ -597,11 +759,18 @@ func aProblemFoundOnFallbackSettingsIsPalerAndSaysSoInItsDescription() async {
 
     let f = Fixture()
     f.provider.publish(DocumentDiagnostics(items: [
-        DocumentDiagnostic(range: UTF16TextRange(location: 12, length: 7), severity: .error, message: "cannot find 'compute'"),
+        DocumentDiagnostic(
+            range: UTF16TextRange(location: 12, length: 7),
+            severity: .error,
+            message: "cannot find 'compute'"
+        ),
     ], version: f.session.version, isVerified: false, basis: .fallback))
     f.textView.mouseMoved(with: f.event(.mouseMoved, at: f.point(ofCharacter: 14)))
     await f.settle()
     f.clock.advance(by: .milliseconds(500))
     await f.settle()
-    #expect(f.coordinator.popup.text.hasPrefix("error: cannot find 'compute' (using fallback settings)"), Comment(rawValue: f.coordinator.popup.text))
+    #expect(
+        f.coordinator.popup.text.hasPrefix("error: cannot find 'compute' (using fallback settings)"),
+        Comment(rawValue: f.coordinator.popup.text)
+    )
 }

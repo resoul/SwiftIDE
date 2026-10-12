@@ -10,7 +10,9 @@ private let fixture = URL(fileURLWithPath: #filePath)
     .appendingPathComponent("Fixtures/SwiftPMPackage")
 
 private let swiftAvailable: Bool = {
-    guard FileManager.default.fileExists(atPath: fixture.appendingPathComponent("Package.swift").path) else { return false }
+    guard FileManager.default.fileExists(atPath: fixture.appendingPathComponent("Package.swift").path) else {
+        return false
+    }
 
     let finder = Process()
     finder.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
@@ -41,7 +43,10 @@ private func describer(
 @Test(.enabled(if: swiftAvailable))
 func theRealSwiftDescribesTheFixtureAndLeavesTheProjectsFolderAlone() async throws {
     let root = fixture.deletingLastPathComponent().appendingPathComponent("SwiftPMPackage")
-    let copy = FileManager.default.temporaryDirectory.appendingPathComponent("describe-copy-\(UUID().uuidString)", isDirectory: true)
+    let copy = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "describe-copy-\(UUID().uuidString)",
+        isDirectory: true
+    )
     try FileManager.default.copyItem(at: root, to: copy)
     try? FileManager.default.removeItem(at: copy.appendingPathComponent(".build"))
     let scratchFolder = scratch()
@@ -52,13 +57,19 @@ func theRealSwiftDescribesTheFixtureAndLeavesTheProjectsFolderAlone() async thro
     #expect(layout.targets.map(\.name).sorted() == ["App", "Lib", "LibTests"])
     #expect(layout.membership(of: copy.path + "/Sources/Lib/Greeter.swift").names == ["Lib"])
     #expect(layout.membership(of: copy.path + "/Tests/LibTests/GreeterTests.swift").names == ["LibTests"])
-    #expect(!FileManager.default.fileExists(atPath: copy.appendingPathComponent(".build").path), "nothing is written into the project's folder")
+    #expect(
+        !FileManager.default.fileExists(atPath: copy.appendingPathComponent(".build").path),
+        "nothing is written into the project's folder"
+    )
     #expect(FileManager.default.fileExists(atPath: scratchFolder.path), "what it needs is kept in its own folder")
 }
 
 @Test(.enabled(if: swiftAvailable))
 func aFolderThatIsNotAPackageIsAFailureWithAReason() async throws {
-    let empty = FileManager.default.temporaryDirectory.appendingPathComponent("not-a-package-\(UUID().uuidString)", isDirectory: true)
+    let empty = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "not-a-package-\(UUID().uuidString)",
+        isDirectory: true
+    )
     try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: empty) }
 
@@ -130,13 +141,20 @@ private func executableScript(_ body: String) throws -> URL {
 
 @Test
 func theDescriptionRunsTheSwiftOfTheToolchainItIsGiven() async throws {
-    let script = try executableScript(#"echo '{"targets": [{"name": "FromTheToolchain", "path": "S", "sources": []}]}'"#)
+    let script =
+        try executableScript(#"echo '{"targets": [{"name": "FromTheToolchain", "path": "S", "sources": []}]}'"#)
     defer { try? FileManager.default.removeItem(at: script) }
     let toolchain = Toolchain(swift: script.path, sourceKitLSP: "/x/sourcekit-lsp", version: "test")
 
-    let layout = try await SwiftPackageDescriber(scratchDirectory: scratch()).describe(root: "/w/pkg", toolchain: toolchain)
+    let layout = try await SwiftPackageDescriber(scratchDirectory: scratch()).describe(
+        root: "/w/pkg",
+        toolchain: toolchain
+    )
 
-    #expect(layout.targets.map(\.name) == ["FromTheToolchain"], "the swift of the toolchain ran, not the one `xcrun` finds")
+    #expect(
+        layout.targets.map(\.name) == ["FromTheToolchain"],
+        "the swift of the toolchain ran, not the one `xcrun` finds"
+    )
 }
 
 @Test
@@ -147,7 +165,10 @@ func theCommandIsToldWhichSwiftToRunAndNilWhenThereIsNoToolchain() async throws 
 
         return (URL(fileURLWithPath: "/bin/echo"), [#"{"targets": []}"#])
     }
-    _ = try await describer.describe(root: "/w", toolchain: Toolchain(swift: "/a/swift", sourceKitLSP: "/a/lsp", version: "v"))
+    _ = try await describer.describe(
+        root: "/w",
+        toolchain: Toolchain(swift: "/a/swift", sourceKitLSP: "/a/lsp", version: "v")
+    )
     _ = try await describer.describe(root: "/w", toolchain: nil)
 
     #expect(seen.withLock { $0 } == ["/a/swift", nil])

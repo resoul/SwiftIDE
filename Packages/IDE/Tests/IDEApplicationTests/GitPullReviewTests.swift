@@ -10,7 +10,8 @@ struct GitPullReviewTests {
         try #require(predicate())
     }
     @Test func reviewDoesNotWriteAndOnlyExplicitPullStartsOnceWithCheckout() async throws {
-        let service = PullReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service), model = GitPullReview(workspace: workspace)
+        let service = PullReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service),
+            model = GitPullReview(workspace: workspace)
         defer { model.stop(); workspace.stop() }
         workspace.refresh(); try await wait { workspace.canMutate }
         var prepared = false; workspace.prepareCheckout = { _ in prepared = true; return true }
@@ -29,7 +30,8 @@ struct GitPullReviewTests {
         #expect(!model.canPull)
     }
     @Test func cancelledDocumentPreparationNeverStartsNetworkMutation() async throws {
-        let service = PullReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service), model = GitPullReview(workspace: workspace)
+        let service = PullReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service),
+            model = GitPullReview(workspace: workspace)
         defer { model.stop(); workspace.stop() }
         workspace.refresh(); try await wait { workspace.canMutate }
         workspace.prepareCheckout = { _ in false }
@@ -38,7 +40,8 @@ struct GitPullReviewTests {
         #expect(await service.writes == 0 && !model.canPull)
     }
     @Test func inputChangesOwnerStopAndMovedBranchRejectLateReview() async throws {
-        let service = PullReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service), model = GitPullReview(workspace: workspace)
+        let service = PullReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service),
+            model = GitPullReview(workspace: workspace)
         defer { model.stop(); workspace.stop() }
         workspace.refresh(); try await wait { workspace.canMutate }
         await service.holdReview()
@@ -67,16 +70,42 @@ private actor PullReviewFixture: GitInspecting, GitMutating, GitPullPlanning {
     private(set) var sent: GitPullPlan?
     private var failure = false, hold = false
     private var continuation: CheckedContinuation<Void, Never>?
-    func snapshot(at projectRoot: String) async throws -> GitSnapshot { .init(repository: Self.repository, branch: "main", head: current.oid, changes: [], branches: [current], remotes: ["origin"]) }
-    func history(in repository: GitRepository, revision: String, offset: Int, count: Int) async throws -> GitHistoryPage { .init(commits: [], hasMore: false) }
+    func snapshot(at projectRoot: String) async throws -> GitSnapshot {
+        .init(
+            repository: Self.repository,
+            branch: "main",
+            head: current.oid,
+            changes: [],
+            branches: [current],
+            remotes: ["origin"]
+        )
+    }
+    func history(
+        in repository: GitRepository,
+        revision: String,
+        offset: Int,
+        count: Int
+    ) async throws -> GitHistoryPage {
+        .init(commits: [], hasMore: false)
+    }
     func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] { [] }
     func diff(in repository: GitRepository, comparison: GitComparison) async throws -> String { "" }
     func planPull(in snapshot: GitSnapshot, remote: String, source: String) async throws -> GitPullPlan {
         if hold { hold = false; await withCheckedContinuation { continuation = $0 } }
 
-        return .init(repository: Self.repository, branch: current, remote: remote, source: source, url: "https://host/repo.git")
+        return .init(
+            repository: Self.repository,
+            branch: current,
+            remote: remote,
+            source: source,
+            url: "https://host/repo.git"
+        )
     }
-    func perform(_ action: GitLocalAction, expected: GitSnapshot, output: @escaping @Sendable (String) -> Void) async throws {
+    func perform(
+        _ action: GitLocalAction,
+        expected: GitSnapshot,
+        output: @escaping @Sendable (String) -> Void
+    ) async throws {
         guard case .pull(let plan) = action else { throw GitInspectionError.failed("Unexpected action") }
 
         writes += 1; sent = plan; output("Sending reviewed branch\n")

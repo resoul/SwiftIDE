@@ -83,7 +83,10 @@ public final class HoverPopup: NSObject, HoverPresenting {
         let size = Self.size(of: shown, font: label.font ?? .systemFont(ofSize: 12))
         let frame = CompletionPopup.frame(
             size: size,
-            below: textView.firstRect(forCharacterRange: NSRange(location: anchor.location, length: 0), actualRange: nil),
+            below: textView.firstRect(
+                forCharacterRange: NSRange(location: anchor.location, length: 0),
+                actualRange: nil
+            ),
             visibleScreen: (window.screen ?? NSScreen.main)?.visibleFrame
         )
         panel.setFrame(frame, display: true)

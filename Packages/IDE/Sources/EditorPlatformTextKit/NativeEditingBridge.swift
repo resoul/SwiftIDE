@@ -113,7 +113,8 @@ final class NativeEditingBridge: NSObject, NSTextViewDelegate {
         }
 
         let string = storage.mutableString
-        for boundary in [range.location, range.location + range.length] where boundary > 0 && boundary < storage.length {
+        for boundary in [range.location, range.location + range.length]
+            where boundary > 0 && boundary < storage.length {
             if UTF16.isLeadSurrogate(string.character(at: boundary - 1)),
                UTF16.isTrailSurrogate(string.character(at: boundary)) {
                 return false

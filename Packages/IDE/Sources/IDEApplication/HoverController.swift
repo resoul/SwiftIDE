@@ -83,7 +83,12 @@ public final class HoverController {
         guard let offset else { return dismiss() }
 
         // Still on the text being described: nothing changes, even where there is no word.
-        if let shown = shownAnchor, offset >= shown.location, offset < max(shown.location + shown.length, shown.location + 1) { return }
+        if let shown = shownAnchor, offset >= shown.location, offset < max(
+            shown.location + shown.length,
+            shown.location + 1
+        ) {
+            return
+        }
 
         guard let word = wordAt(offset) else { return dismiss() }
 
@@ -142,7 +147,10 @@ public final class HoverController {
         pendingAnchor = nil
         switch outcome {
         case .content(let content):
-            present((local + [content.text]).joined(separator: "\n\n"), content.range.flatMap { $0.length > 0 ? $0 : nil } ?? word)
+            present(
+                (local + [content.text]).joined(separator: "\n\n"),
+                content.range.flatMap { $0.length > 0 ? $0 : nil } ?? word
+            )
         case .nothing:
             if local.isEmpty, byKey { present("No quick help here", word) }
         case .failed(.unavailable(let reason)):

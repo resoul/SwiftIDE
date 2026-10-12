@@ -14,7 +14,12 @@ struct GitLocalViewsTests {
         _ = NSApplication.shared
         let service = ActionViewsGit(), model = GitWorkspace(root: "/repo", service: service)
         let changes = GitChangesViewController(model: model)
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 320, height: 700), styleMask: [.titled], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 320, height: 700),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false; window.contentViewController = changes
         window.orderFront(nil)
         defer { changes.disconnect(); model.stop(); window.close() }
@@ -46,7 +51,8 @@ struct GitLocalViewsTests {
             changes.view.layoutSubtreeIfNeeded()
             let bitmap = try #require(changes.view.bitmapImageRepForCachingDisplay(in: changes.view.bounds))
             changes.view.cacheDisplay(in: changes.view.bounds, to: bitmap)
-            try #require(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: "/private/tmp/swiftide-git-actions-\(name).png"))
+            try #require(bitmap.representation(using: .png, properties: [:]))
+                .write(to: URL(fileURLWithPath: "/private/tmp/swiftide-git-actions-\(name).png"))
         }
         changes.commitStaged(nil)
         try await wait { model.operationState == .succeeded && model.state == .ready }
@@ -88,7 +94,9 @@ struct GitLocalViewsTests {
         #expect(picker.switchBranch.isEnabled)
         picker.switchSelected(nil)
         try await wait { model.operationState == .succeeded && model.state == .ready }
-        #expect(await service.last == .switchBranch(try #require(model.snapshot?.branches.first { $0.name == "other" })))
+        #expect(await service.last == .switchBranch(try #require(model.snapshot?.branches.first {
+            $0.name == "other"
+        })))
     }
 }
 
@@ -97,15 +105,33 @@ private actor ActionViewsGit: GitInspecting, GitMutating {
     private(set) var last: GitLocalAction?
     private var failing = false
     func snapshot(at projectRoot: String) async throws -> GitSnapshot {
-        .init(repository: .init(root: "/repo", gitDirectory: "/repo/.git", commonDirectory: "/repo/.git"), branch: "main", head: String(repeating: "a", count: 40), changes: [Self.change], branches: [
-            .init(reference: "refs/heads/other", oid: String(repeating: "b", count: 40)),
-            .init(reference: "refs/remotes/origin/main", oid: String(repeating: "a", count: 40))
-        ], remotes: ["origin", "backup"])
+        .init(
+            repository: .init(root: "/repo", gitDirectory: "/repo/.git", commonDirectory: "/repo/.git"),
+            branch: "main",
+            head: String(repeating: "a", count: 40),
+            changes: [Self.change],
+            branches: [
+                .init(reference: "refs/heads/other", oid: String(repeating: "b", count: 40)),
+                .init(reference: "refs/remotes/origin/main", oid: String(repeating: "a", count: 40))
+            ],
+            remotes: ["origin", "backup"]
+        )
     }
-    func history(in repository: GitRepository, revision: String, offset: Int, count: Int) async throws -> GitHistoryPage { .init(commits: [], hasMore: false) }
+    func history(
+        in repository: GitRepository,
+        revision: String,
+        offset: Int,
+        count: Int
+    ) async throws -> GitHistoryPage {
+        .init(commits: [], hasMore: false)
+    }
     func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] { [] }
     func diff(in repository: GitRepository, comparison: GitComparison) async throws -> String { "diff" }
-    func perform(_ action: GitLocalAction, expected: GitSnapshot, output: @escaping @Sendable (String) -> Void) async throws {
+    func perform(
+        _ action: GitLocalAction,
+        expected: GitSnapshot,
+        output: @escaping @Sendable (String) -> Void
+    ) async throws {
         last = action
         output("hook output\n")
         if failing { failing = false; throw GitInspectionError.failed("hook failed") }

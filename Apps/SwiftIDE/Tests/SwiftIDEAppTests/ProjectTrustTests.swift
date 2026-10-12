@@ -35,7 +35,11 @@ extension NativeAppTests {
             MainMenu.install()
             let project = try #require(NSApp.mainMenu?.items.first { $0.submenu?.title == "Project" }?.submenu)
             let items = project.items.filter { !$0.isSeparatorItem }
-            #expect(items.map(\.title) == ["Allow Project Configuration", "Don't Allow Project Configuration", "Ask About Project Configuration Again"])
+            #expect(items.map(\.title) == [
+                "Allow Project Configuration",
+                "Don't Allow Project Configuration",
+                "Ask About Project Configuration Again"
+            ])
             #expect(items.map(\.action) == [
                 #selector(WorkspaceWindowController.allowProjectConfiguration(_:)),
                 #selector(WorkspaceWindowController.disallowProjectConfiguration(_:)),

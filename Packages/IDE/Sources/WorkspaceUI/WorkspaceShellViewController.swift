@@ -36,7 +36,10 @@ public final class WorkspaceShellViewController: NSViewController {
     public var projectMenu: (() -> NSMenu)? { didSet { projectSwitcher.isEnabled = projectMenu != nil } }
     /// A supplied project control, such as a branch picker. The shell has no service dependency.
     public func installProjectAccessory(_ control: NSView?) {
-        for old in projectAccessory.arrangedSubviews { projectAccessory.removeArrangedSubview(old); old.removeFromSuperview() }
+        for old in projectAccessory.arrangedSubviews {
+            projectAccessory.removeArrangedSubview(old)
+            old.removeFromSuperview()
+        }
         if let control { projectAccessory.addArrangedSubview(control) }
     }
     private let detailLabel = NSTextField(labelWithString: "")
@@ -76,10 +79,14 @@ public final class WorkspaceShellViewController: NSViewController {
         view = WorkspaceBackgroundView(role: .chrome)
         view.frame = NSRect(x: 0, y: 0, width: 1280, height: 820)
         let horizontalSplit = WorkspaceSplitView()
-        horizontalSplit.onDividerDrag = { [weak self] before in self?.rememberDraggedSizes(before: before, vertical: false) }
+        horizontalSplit.onDividerDrag = { [weak self] before in
+            self?.rememberDraggedSizes(before: before, vertical: false)
+        }
         horizontal.splitView = horizontalSplit
         let verticalSplit = WorkspaceSplitView()
-        verticalSplit.onDividerDrag = { [weak self] before in self?.rememberDraggedSizes(before: before, vertical: true) }
+        verticalSplit.onDividerDrag = { [weak self] before in
+            self?.rememberDraggedSizes(before: before, vertical: true)
+        }
         vertical.splitView = verticalSplit
         horizontal.splitView.isVertical = true
         horizontal.splitView.dividerStyle = .thin
@@ -192,7 +199,14 @@ public final class WorkspaceShellViewController: NSViewController {
         projectSwitcher.toolTip = "Open and recent projects"
         projectSwitcher.isEnabled = projectMenu != nil
 
-        return padded(stack([projectLabel, projectSwitcher, projectAccessory, NSView(), detailLabel, focus, reset], vertical: false, spacing: 8), height: 46)
+        return padded(
+            stack(
+                [projectLabel, projectSwitcher, projectAccessory, NSView(), detailLabel, focus, reset],
+                vertical: false,
+                spacing: 8
+            ),
+            height: 46
+        )
     }
 
     @objc private func showProjectMenu(_ sender: NSButton) {
@@ -220,7 +234,12 @@ public final class WorkspaceShellViewController: NSViewController {
             for tool in registered where tool.zone == .bottom { views.append(toolButton(tool)) }
         }
 
-        let rail = stack(views, vertical: true, spacing: 8, insets: NSEdgeInsets(top: 10, left: 6, bottom: 10, right: 6))
+        let rail = stack(
+            views,
+            vertical: true,
+            spacing: 8,
+            insets: NSEdgeInsets(top: 10, left: 6, bottom: 10, right: 6)
+        )
         rail.widthAnchor.constraint(equalToConstant: 44).isActive = true
 
         return rail
@@ -262,8 +281,14 @@ public final class WorkspaceShellViewController: NSViewController {
         if let tool = layout.bottom, let panel = panels[tool] { bottom.show(panel, tool: tool, target: self) }
         view.layoutSubtreeIfNeeded()
         if layout.left != nil { horizontal.splitView.setPosition(layout.leftWidth, ofDividerAt: 0) }
-        if layout.right != nil { horizontal.splitView.setPosition(horizontal.view.bounds.width - layout.rightWidth, ofDividerAt: 1) }
-        if layout.bottom != nil { vertical.splitView.setPosition(vertical.view.bounds.height - layout.bottomHeight, ofDividerAt: 0) }
+        if layout.right != nil {
+            horizontal.splitView.setPosition(horizontal.view.bounds.width - layout.rightWidth, ofDividerAt: 1)
+        }
+
+        if layout.bottom != nil {
+            vertical.splitView.setPosition(vertical.view.bounds.height - layout.bottomHeight, ofDividerAt: 0)
+        }
+
         for (tool, button) in buttons {
             let selected = layout.contains(tool)
             button.contentTintColor = selected ? .controlAccentColor : .secondaryLabelColor
@@ -283,7 +308,9 @@ public final class WorkspaceShellViewController: NSViewController {
         // can compress panes, but do not replace the project's saved preferences.
         state.resize(
             left: !vertical && !leftItem.isCollapsed && abs(after[0] - before[0]) > 1 ? after[0] : nil,
-            right: !vertical && !rightItem.isCollapsed && abs(after[after.count - 1] - before[before.count - 1]) > 1 ? after[after.count - 1] : nil,
+            right: !vertical && !rightItem.isCollapsed && abs(after[after.count - 1] - before[before.count - 1]) > 1
+                ? after[after.count - 1]
+                : nil,
             bottom: vertical && !bottomItem.isCollapsed && abs(after[1] - before[1]) > 1 ? after[1] : nil
         )
     }
@@ -317,7 +344,10 @@ private final class ShellPanel: NSView {
         close.image = WorkspaceIcon.image("minus", description: "Hide " + tool.title)
         close.isBordered = false
         close.tag = tool.rawValue
-        let heading = padded(stack([label(tool.title, weight: .semibold), NSView(), close], vertical: false), height: 38)
+        let heading = padded(
+            stack([label(tool.title, weight: .semibold), NSView(), close], vertical: false),
+            height: 38
+        )
         let container = stack([heading, panel.view], vertical: true)
         pin(container, to: self)
         current = container
@@ -343,7 +373,12 @@ private func label(_ text: String, weight: NSFont.Weight = .regular, secondary: 
 }
 
 @MainActor
-private func stack(_ views: [NSView], vertical: Bool, spacing: CGFloat = 0, insets: NSEdgeInsets = NSEdgeInsets()) -> NSStackView {
+private func stack(
+    _ views: [NSView],
+    vertical: Bool,
+    spacing: CGFloat = 0,
+    insets: NSEdgeInsets = NSEdgeInsets()
+) -> NSStackView {
     let view = NSStackView(views: views)
     view.orientation = vertical ? .vertical : .horizontal
     view.alignment = vertical ? .leading : .top
@@ -355,7 +390,8 @@ private func stack(_ views: [NSView], vertical: Bool, spacing: CGFloat = 0, inse
         if vertical {
             $0.widthAnchor.constraint(equalTo: view.widthAnchor, constant: -insets.left - insets.right).isActive = true
         } else {
-            $0.heightAnchor.constraint(equalTo: view.heightAnchor, constant: -insets.top - insets.bottom).isActive = true
+            $0.heightAnchor.constraint(equalTo: view.heightAnchor, constant: -insets.top - insets.bottom)
+                .isActive = true
         }
     }
 

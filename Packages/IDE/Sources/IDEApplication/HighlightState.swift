@@ -44,7 +44,13 @@ public struct HighlightState: Sendable {
         // The window keeps covering what it covered, plus the inserted text; stretches awaiting a
         // redraw move the same way.
         if !window.isEmpty {
-            window = Self.moved(window, start: start, oldEnd: oldEnd, delta: delta, replacementLength: replacementLength)
+            window = Self.moved(
+                window,
+                start: start,
+                oldEnd: oldEnd,
+                delta: delta,
+                replacementLength: replacementLength
+            )
         }
 
         if !dirty.isEmpty {
@@ -158,11 +164,19 @@ public struct HighlightState: Sendable {
         // Old spans that straddle the new window's edges keep their outside parts.
         for span in spans(overlapping: newWindow) {
             if span.location < newWindow.lowerBound {
-                result.append(HighlightSpan(location: span.location, length: newWindow.lowerBound - span.location, kind: span.kind))
+                result.append(HighlightSpan(
+                    location: span.location,
+                    length: newWindow.lowerBound - span.location,
+                    kind: span.kind
+                ))
             }
 
             if span.end > newWindow.upperBound {
-                result.append(HighlightSpan(location: newWindow.upperBound, length: span.end - newWindow.upperBound, kind: span.kind))
+                result.append(HighlightSpan(
+                    location: newWindow.upperBound,
+                    length: span.end - newWindow.upperBound,
+                    kind: span.kind
+                ))
             }
         }
         result.sort { $0.location < $1.location }

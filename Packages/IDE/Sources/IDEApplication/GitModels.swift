@@ -183,7 +183,8 @@ public enum GitComparison: Equatable, Sendable {
     public var title: String {
         switch self {
         case .index: "Index ↔ HEAD · " + path
-        case .worktree(let change): (change.decoration.isConflict ? "Unmerged working tree · " : "Disk ↔ index · ") + path
+        case .worktree(let change):
+            (change.decoration.isConflict ? "Unmerged working tree · " : "Disk ↔ index · ") + path
         case .untracked: "Untracked on disk · " + path
         case .commit(let c, _): String(c.oid.prefix(8)) + " ↔ first parent · " + path
         }

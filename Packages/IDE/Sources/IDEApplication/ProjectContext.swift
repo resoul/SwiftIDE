@@ -175,7 +175,9 @@ public final class ProjectContexts {
 
                     let path = (directory as NSString).appendingPathComponent(name)
                     var isDirectory: ObjCBool = false
-                    guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else { continue }
+                    guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+                        continue
+                    }
 
                     if buildSystem(ofFolder: path, fileManager: fileManager) != .none { return true }
 
@@ -190,8 +192,13 @@ public final class ProjectContexts {
 
     /// By the markers in the folder. When there are several, the order is fixed (SwiftPM, Bazel, Xcode,
     /// compilation database) and not guessed from anything else: a mixed folder is for the user to sort out.
-    public nonisolated static func buildSystem(ofFolder folder: String, fileManager: FileManager = .default) -> BuildSystem {
-        func exists(_ name: String) -> Bool { fileManager.fileExists(atPath: (folder as NSString).appendingPathComponent(name)) }
+    public nonisolated static func buildSystem(
+        ofFolder folder: String,
+        fileManager: FileManager = .default
+    ) -> BuildSystem {
+        func exists(_ name: String) -> Bool {
+            fileManager.fileExists(atPath: (folder as NSString).appendingPathComponent(name))
+        }
 
         if exists("Package.swift") { return .swiftPM }
 

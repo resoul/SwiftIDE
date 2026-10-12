@@ -241,7 +241,13 @@ public struct LineIndex: Sendable {
             index += 1
         }
 
-        return Location(chunk: low, indexInChunk: index, start: start, line: chunkLine[low] + index, record: lines[index])
+        return Location(
+            chunk: low,
+            indexInChunk: index,
+            start: start,
+            line: chunkLine[low] + index,
+            record: lines[index]
+        )
     }
 
     private func locate(line: Int) -> Location {

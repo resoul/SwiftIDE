@@ -13,7 +13,11 @@ public enum ProjectTrustDialog {
     public static func content(projectName: String) -> Content {
         Content(
             title: "Allow the project configuration?",
-            detail: "“\(projectName)” has configuration that may launch external processes and change the parameters of their execution. Declining disables this configuration but does not stop the processing of the manifest and the SwiftPM preparation.",
+            detail: """
+            “\(projectName)” has configuration that may launch external processes and change the parameters of their \
+            execution. Declining disables this configuration but does not stop the processing of the manifest and the \
+            SwiftPM preparation.
+            """,
             buttons: ["Don't allow", "Allow configuration"]
         )
     }
@@ -64,7 +68,12 @@ public final class ProjectTrustPresenter {
                 }
 
                 let alert = ProjectTrustDialog.makeAlert(projectName: projectName)
-                let presentation = Presentation(id: id, parent: parent, alert: alert, continuation: continuation) { [weak self] in
+                let presentation = Presentation(
+                    id: id,
+                    parent: parent,
+                    alert: alert,
+                    continuation: continuation
+                ) { [weak self] in
                     self?.finish(key: key, id: id, decision: nil)
                 }
                 pending[key] = presentation
@@ -119,7 +128,12 @@ public final class ProjectTrustPresenter {
             self.continuation = continuation
             self.onClose = onClose
             super.init()
-            NotificationCenter.default.addObserver(self, selector: #selector(ownerWillClose), name: NSWindow.willCloseNotification, object: parent)
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(ownerWillClose),
+                name: NSWindow.willCloseNotification,
+                object: parent
+            )
         }
 
         @objc private func ownerWillClose(_ notification: Notification) {

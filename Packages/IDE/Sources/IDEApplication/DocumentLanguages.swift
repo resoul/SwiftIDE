@@ -158,7 +158,9 @@ public final class DocumentLanguageSelector {
         }
 
         let guess = DocumentLanguage.guess(forPath: session.path)
-        let source: LanguageSource = guess.language == .plainText ? .unknown : (guess.isProvisional ? .provisionalFileName : .fileName)
+        let source: LanguageSource = guess.language == .plainText
+            ? .unknown
+            : (guess.isProvisional ? .provisionalFileName : .fileName)
 
         return ResolvedLanguage(language: guess.language, source: source, revision: revision)
     }

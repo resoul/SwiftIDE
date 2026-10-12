@@ -6,7 +6,9 @@ actor GitMutationGate {
     static let shared = GitMutationGate()
     private var active: Set<String> = []
     func run(key: String, operation: @Sendable () async throws -> Void) async throws {
-        guard active.insert(key).inserted else { throw GitInspectionError.failed("Another Git action is running for this repository") }
+        guard active.insert(key).inserted else {
+            throw GitInspectionError.failed("Another Git action is running for this repository")
+        }
 
         defer { active.remove(key) }
         try Task.checkCancellation()
@@ -15,7 +17,11 @@ actor GitMutationGate {
 }
 
 extension GitCLI: GitMutating {
-    public func perform(_ action: GitLocalAction, expected: GitSnapshot, output: @escaping @Sendable (String) -> Void) async throws {
+    public func perform(
+        _ action: GitLocalAction,
+        expected: GitSnapshot,
+        output: @escaping @Sendable (String) -> Void
+    ) async throws {
         try await GitMutationGate.shared.run(key: expected.repository.commonDirectory) {
             let current = try await snapshot(at: expected.repository.root)
             guard current.repository == expected.repository,
@@ -48,7 +54,8 @@ extension GitCLI: GitMutating {
 
                 return
             case .stage(let change), .unstage(let change):
-                guard expected.changes.contains(change), !change.decoration.isConflict, change.decoration.ignoredReason == nil else {
+                guard expected.changes.contains(change), !change.decoration.isConflict,
+                      change.decoration.ignoredReason == nil else {
                     throw GitInspectionError.failed("Select a current changed file")
                 }
 
@@ -69,9 +76,12 @@ extension GitCLI: GitMutating {
                     }
                 }
             case .commit(let message):
-                guard current.integration == nil else { throw GitInspectionError.failed("Use Continue for the current Git operation") }
+                guard current.integration == nil else {
+                    throw GitInspectionError.failed("Use Continue for the current Git operation")
+                }
 
-                guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, message.utf8.count <= 64_000, !message.contains("\0") else {
+                guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, message.utf8.count <= 64_000,
+                      !message.contains("\0") else {
                     throw GitInspectionError.failed("Enter a nonempty commit message (up to 64 KB)")
                 }
 
@@ -84,26 +94,34 @@ extension GitCLI: GitMutating {
                 input = Data(message.utf8)
             case .createBranch(let name):
                 try await validateBranch(name, root: current.repository.root)
-                guard let head = current.head else { throw GitInspectionError.failed("Create the first commit before creating another branch") }
+                guard let head = current.head else {
+                    throw GitInspectionError.failed("Create the first commit before creating another branch")
+                }
 
                 arguments = ["branch", "--no-track", name, try GitPorcelain.oid(head)]
             case .switchBranch(let branch):
-                guard current.integration == nil else { throw GitInspectionError.failed("Finish or abort the current Git operation before switching") }
+                guard current.integration == nil else {
+                    throw GitInspectionError.failed("Finish or abort the current Git operation before switching")
+                }
 
-                guard !branch.isRemote, branch.reference.hasPrefix("refs/heads/"), current.branches.contains(branch) else {
-                    throw GitInspectionError.failed("Select a current local branch; remote refs are available for inspection")
+                guard !branch.isRemote, branch.reference.hasPrefix("refs/heads/"),
+                      current.branches.contains(branch) else {
+                    throw GitInspectionError
+                        .failed("Select a current local branch; remote refs are available for inspection")
                 }
 
                 try await validateBranch(branch.name, root: current.repository.root)
                 // Never force, merge, stash, guess a remote branch or recurse into submodules.
                 arguments = ["switch", "--no-guess", "--no-recurse-submodules", "--", branch.name]
             }
-            _ = try await run(["-c", "gc.auto=0", "-c", "maintenance.auto=false"] + arguments,
-                              at: current.repository.root,
-                              input: input,
-                              limit: 1_000_000,
-                              timeout: 120,
-                              output: output)
+            _ = try await run(
+                ["-c", "gc.auto=0", "-c", "maintenance.auto=false"] + arguments,
+                at: current.repository.root,
+                input: input,
+                limit: 1_000_000,
+                timeout: 120,
+                output: output
+            )
         }
     }
 

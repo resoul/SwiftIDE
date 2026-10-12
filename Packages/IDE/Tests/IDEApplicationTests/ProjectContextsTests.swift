@@ -45,7 +45,8 @@ func aFoldersBuildSystemIsRecognisedByWhatIsInIt() throws {
     #expect(ProjectContexts.buildSystem(ofFolder: try tree.make("b", marker: "MODULE.bazel")) == .bazel)
     #expect(ProjectContexts.buildSystem(ofFolder: try tree.make("c", marker: "App.xcodeproj")) == .xcode)
     #expect(ProjectContexts.buildSystem(ofFolder: try tree.make("d", marker: "App.xcworkspace")) == .xcode)
-    #expect(ProjectContexts.buildSystem(ofFolder: try tree.make("e", marker: "compile_commands.json")) == .compilationDatabase)
+    #expect(ProjectContexts
+        .buildSystem(ofFolder: try tree.make("e", marker: "compile_commands.json")) == .compilationDatabase)
     #expect(ProjectContexts.buildSystem(ofFolder: try tree.make("f")) == BuildSystem.none)
 }
 
@@ -54,7 +55,10 @@ func whenSeveralSystemsAreInOneFolderTheOrderIsFixedAndNotGuessed() throws {
     let tree = try Tree()
     let both = try tree.make("both", marker: "Package.swift")
     try "x".write(toFile: both + "/MODULE.bazel", atomically: true, encoding: .utf8)
-    #expect(ProjectContexts.buildSystem(ofFolder: both) == .swiftPM, "SwiftPM first, as before; a mixed folder is the user's to choose")
+    #expect(
+        ProjectContexts.buildSystem(ofFolder: both) == .swiftPM,
+        "SwiftPM first, as before; a mixed folder is the user's to choose"
+    )
 }
 
 // MARK: Which context a file has
@@ -169,7 +173,10 @@ func aContextCarriesTheRevisionItWasMadeAt() throws {
     contexts.open(folder: a)
     let after = try #require(contexts.context(forFile: a + "/f.swift"))
 
-    #expect(after.revision == before.revision + 1, "the same project, opened by the user: another context to the consumers")
+    #expect(
+        after.revision == before.revision + 1,
+        "the same project, opened by the user: another context to the consumers"
+    )
     #expect(before != after)
 }
 
@@ -208,17 +215,27 @@ func aProjectBelowAFolderIsFoundAFewLevelsDownAndNotBeyond() throws {
 func theScanOfAFolderIsBounded() throws {
     let tree = try Tree()
     let wide = try tree.make("wide")
-    for i in 0..<60 { try FileManager.default.createDirectory(atPath: wide + "/d\(i)", withIntermediateDirectories: true) }
+    for i in 0..<60 {
+        try FileManager.default.createDirectory(atPath: wide + "/d\(i)", withIntermediateDirectories: true)
+    }
     try tree.make("wide/d59", marker: "Package.swift")
 
-    #expect(!ProjectContexts.containsProject(below: wide, limit: 20), "gives up at the limit rather than walk a whole disk")
+    #expect(
+        !ProjectContexts.containsProject(below: wide, limit: 20),
+        "gives up at the limit rather than walk a whole disk"
+    )
     #expect(ProjectContexts.containsProject(below: wide, limit: 5000))
 }
 
 // MARK: The target of a file in the context
 
 private func oneTargetLayout(root: String) -> PackageLayout {
-    PackageLayout(targets: [PackageTarget(name: "App", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])])
+    PackageLayout(targets: [PackageTarget(
+        name: "App",
+        kind: .executable,
+        directory: root + "/Sources/App",
+        sources: ["main.swift"]
+    )])
 }
 
 @MainActor @Test
@@ -233,7 +250,10 @@ func aContextCarriesTheTargetOfItsFileOnceThePackageLayoutIsKnown() throws {
     contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
     let context = try #require(contexts.context(forFile: file))
     #expect(context.target == "App" && context.targetNames == ["App"])
-    #expect(try #require(contexts.context(forFile: root + "/Package.swift")).target == nil, "a file of no target has none")
+    #expect(
+        try #require(contexts.context(forFile: root + "/Package.swift")).target == nil,
+        "a file of no target has none"
+    )
 }
 
 @MainActor @Test
@@ -293,7 +313,8 @@ func aContextKnowsNothingOfItsToolsUntilTheyAreSet() throws {
     let contexts = ProjectContexts()
     let context = try #require(contexts.context(forFile: root + "/Sources/a.swift"))
 
-    #expect(context.environment == ProjectEnvironment() && context.environment.toolchain == nil && context.environment.configuration == .unknown)
+    #expect(context.environment == ProjectEnvironment() && context.environment.toolchain == nil && context.environment
+        .configuration == .unknown)
 }
 
 @MainActor @Test
@@ -342,11 +363,20 @@ func aChangedEnvironmentDropsTheLayoutAnUnchangedOneKeepsIt() throws {
 
     contexts.setEnvironment(first, forRoot: root)
     #expect(contexts.layout(forRoot: root) != nil, "nothing changed: the layout is still the answer")
-    contexts.setEnvironment(ProjectEnvironment(toolchain: toolchain, configuration: .selected("release")), forRoot: root)
+    contexts.setEnvironment(
+        ProjectEnvironment(toolchain: toolchain, configuration: .selected("release")),
+        forRoot: root
+    )
     #expect(contexts.layout(forRoot: root) == nil, "made under another configuration: asked for again")
 
     contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
-    contexts.setEnvironment(ProjectEnvironment(toolchain: Toolchain(swift: "/y/swift", sourceKitLSP: "/y/s", version: "6.5"), configuration: .selected("release")), forRoot: root)
+    contexts.setEnvironment(
+        ProjectEnvironment(
+            toolchain: Toolchain(swift: "/y/swift", sourceKitLSP: "/y/s", version: "6.5"),
+            configuration: .selected("release")
+        ),
+        forRoot: root
+    )
     #expect(contexts.layout(forRoot: root) == nil, "made by another toolchain: asked for again")
 }
 
@@ -355,7 +385,11 @@ func aChangedConfigurationFingerprintInvalidatesTheLayoutAndContext() throws {
     let tree = try Tree()
     let root = try tree.make("pkg", marker: "Package.swift")
     let contexts = ProjectContexts()
-    var environment = ProjectEnvironment(toolchain: toolchain, configuration: .inherited("debug"), configurationFingerprint: "before")
+    var environment = ProjectEnvironment(
+        toolchain: toolchain,
+        configuration: .inherited("debug"),
+        configurationFingerprint: "before"
+    )
     contexts.setEnvironment(environment, forRoot: root)
     contexts.setLayout(oneTargetLayout(root: root), forRoot: root)
     let before = try #require(contexts.context(forFile: root + "/Sources/App/main.swift"))

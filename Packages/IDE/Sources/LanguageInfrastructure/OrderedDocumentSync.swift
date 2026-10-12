@@ -85,14 +85,18 @@ public final class OrderedDocumentSync {
     /// The `languageId` the server is told for a document, or nil if it is not a document for this
     /// server. By default what the file name says for Swift; the application replaces it with the
     /// document's language (`DocumentLanguageSelector`), which can be chosen by the user.
-    public var languageID: @MainActor (DocumentSession) -> String? = { OrderedDocumentSync.languageID(forPath: $0.path) }
+    public var languageID: @MainActor (DocumentSession) -> String? = {
+        OrderedDocumentSync.languageID(forPath: $0.path)
+    }
 
     public convenience init(
         limits: Limits = Limits(),
         capturePolicy: CapturePolicy = .standard,
         virtualDirectory: URL? = nil
     ) {
-        self.init(limits: limits, capturePolicy: capturePolicy, virtualDirectory: virtualDirectory, capture: { try await $0.capture(policy: $1) })
+        self.init(limits: limits, capturePolicy: capturePolicy, virtualDirectory: virtualDirectory, capture: {
+            try await $0.capture(policy: $1)
+        })
     }
 
     init(limits: Limits, capturePolicy: CapturePolicy, virtualDirectory: URL? = nil, capture: @escaping Capture) {
@@ -108,7 +112,8 @@ public final class OrderedDocumentSync {
             guard let virtualDirectory else { return nil }
 
             // A server tells the language of a file by its name, so the stand-in has the right one.
-            let name = "Untitled-\(session.id.rawValue.uuidString.prefix(8))." + Self.fileExtension(forLanguageID: languageID(session))
+            let name = "Untitled-\(session.id.rawValue.uuidString.prefix(8))." + Self
+                .fileExtension(forLanguageID: languageID(session))
 
             return virtualDirectory.appendingPathComponent(name).absoluteString
         }
@@ -225,7 +230,9 @@ public final class OrderedDocumentSync {
         // The scan of a large text is not the main thread's to do. Edits made meanwhile are kept.
         let text = capture.snapshot.text
         let index = await Task.detached(priority: .userInitiated) { LineIndex(text) }.value
-        guard tracked[session.id] === entry, entry.epoch == epoch, case .opening(let buffered) = entry.phase else { return }
+        guard tracked[session.id] === entry, entry.epoch == epoch, case .opening(let buffered) = entry.phase else {
+            return
+        }
 
         entry.uri = address(of: session) ?? ""
         entry.index = index
@@ -292,7 +299,9 @@ public final class OrderedDocumentSync {
         resyncCount += 1
         let epoch = entry.epoch
         connection.notifyLater { [weak self, weak entry] in
-            guard let self, let entry, self.tracked[entry.session.id] === entry, entry.epoch == epoch else { return nil }
+            guard let self, let entry, self.tracked[entry.session.id] === entry, entry.epoch == epoch else {
+                return nil
+            }
 
             // On the main actor, at the moment of writing: the text and its version are of now, and
             // from here the index follows the document again.

@@ -25,7 +25,11 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
     }
 
     /// Initialises, shuts down and answers everything else with null; completion with `items`.
-    static func standard(completion: [JSONValue] = [], hover: JSONValue = .null, definition: JSONValue = .null) -> Handler {
+    static func standard(
+        completion: [JSONValue] = [],
+        hover: JSONValue = .null,
+        definition: JSONValue = .null
+    ) -> Handler {
         { message, server in
             guard let method = message["method"]?.stringValue, let id = message["id"] else { return }
 
@@ -152,7 +156,10 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
             guard let range = buffer.range(of: Data("\r\n\r\n".utf8)) else { return nil }
 
             let header = String(decoding: buffer[buffer.startIndex..<range.lowerBound], as: UTF8.self)
-            guard let length = header.split(separator: ":").last.flatMap({ Int($0.trimmingCharacters(in: .whitespaces)) }) else { return nil }
+            guard let length = header.split(separator: ":").last
+                .flatMap({ Int($0.trimmingCharacters(in: .whitespaces)) }) else {
+                return nil
+            }
 
             guard buffer.distance(from: range.upperBound, to: buffer.endIndex) >= length else { return nil }
 
@@ -190,7 +197,8 @@ struct LSPDocumentModel {
             for change in params["contentChanges"]?.arrayValue ?? [] {
                 let text = Array((change["text"]?.stringValue ?? "").utf16)
                 if let range = change["range"] {
-                    guard let start = offset(range["start"], in: units), let end = offset(range["end"], in: units), start <= end else {
+                    guard let start = offset(range["start"], in: units), let end = offset(range["end"], in: units),
+                          start <= end else {
                         problems.append("bad range \(range)")
                         continue
                     }
@@ -202,7 +210,10 @@ struct LSPDocumentModel {
             }
             texts[uri] = units
             if let version = params["textDocument"]?["version"]?.intValue {
-                if let previous = versions[uri], version <= previous { problems.append("version \(version) after \(previous)") }
+                if let previous = versions[uri], version <= previous {
+                    problems.append("version \(version) after \(previous)")
+                }
+
                 versions[uri] = version
             }
         default:
@@ -215,7 +226,9 @@ struct LSPDocumentModel {
     }
 
     private func offset(_ position: JSONValue?, in units: [UInt16]) -> Int? {
-        guard let line = position?["line"]?.intValue, let character = position?["character"]?.intValue else { return nil }
+        guard let line = position?["line"]?.intValue, let character = position?["character"]?.intValue else {
+            return nil
+        }
 
         var starts = [0]
         var i = 0

@@ -76,13 +76,19 @@ func openingSendsTheTextVersionAndAddress() async throws {
 @Test @MainActor
 func documentsTheServerCannotUseAreRefusedWithAReason() async throws {
     let rig = Rig()
-    let untitled = DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: "x"), isUntitled: true)
+    let untitled = DocumentSession(
+        path: "Untitled.swift",
+        backend: StringDocumentBackend(loadedText: "x"),
+        isUntitled: true
+    )
     await #expect(throws: DocumentSyncError.untitled) { try await rig.sync.open(untitled) }
     let notes = DocumentSession(path: "/w/notes.txt", backend: StringDocumentBackend(loadedText: "x"))
     await #expect(throws: DocumentSyncError.unsupportedLanguage) { try await rig.sync.open(notes) }
 
     let small = Rig(text: String(repeating: "a", count: 100), limits: .init(maximumUTF16Length: 50))
-    await #expect(throws: DocumentSyncError.tooLarge(utf16Length: 100, limit: 50)) { try await small.sync.open(small.session) }
+    await #expect(throws: DocumentSyncError.tooLarge(utf16Length: 100, limit: 50)) {
+        try await small.sync.open(small.session)
+    }
 
     try await rig.sync.open(rig.session)
     await #expect(throws: DocumentSyncError.alreadyOpen) { try await rig.sync.open(rig.session) }
@@ -135,9 +141,15 @@ func manyRandomEditsLeaveTheServerWithExactlyTheDocument() async throws {
                 let lo = max(cuts.removeFirst(), floor), hi = max(cuts.removeFirst(), lo)
                 var range = ns.rangeOfComposedCharacterSequences(for: NSRange(location: lo, length: hi - lo))
                 if range.location < floor { range = NSRange(location: floor, length: max(0, range.upperBound - floor)) }
-                edits.append(DocumentEdit(range: UTF16TextRange(location: range.location, length: range.length), replacement: pieces.randomElement(using: &generator)!))
+                edits.append(DocumentEdit(
+                    range: UTF16TextRange(location: range.location, length: range.length),
+                    replacement: pieces.randomElement(using: &generator)!
+                ))
                 floor = range.upperBound
-                if edits.count > 1, edits[edits.count - 1].range.location == edits[edits.count - 2].range.location + edits[edits.count - 2].range.length, edits[edits.count - 1].range.length == 0, edits[edits.count - 2].range.length == 0 {
+                if edits.count > 1,
+                   edits[edits.count - 1].range.location == edits[edits.count - 2].range
+                   .location + edits[edits.count - 2].range.length, edits[edits.count - 1].range.length == 0,
+                   edits[edits.count - 2].range.length == 0 {
                     edits.removeLast()   // two insertions at one place are not allowed in a transaction
                 }
             }
@@ -156,14 +168,19 @@ func versionsGoUpByTheDocumentsVersions() async throws {
     try rig.edit(0, 0, "b")
     try rig.edit(0, 0, "c")
     #expect(await rig.server.waitForMethod("textDocument/didChange", count: 3))
-    let versions = rig.server.messages(named: "textDocument/didChange").compactMap { $0["params"]?["textDocument"]?["version"]?.intValue }
+    let versions = rig.server.messages(named: "textDocument/didChange").compactMap {
+        $0["params"]?["textDocument"]?["version"]?.intValue
+    }
     #expect(versions == [1, 2, 3])
 }
 
 @Test @MainActor
 func editsMadeWhileTheTextIsBeingCopiedFollowTheOpening() async throws {
     // Slices of 8 units: the copy of this text takes many turns of the main thread.
-    let rig = Rig(text: String(repeating: "line of text\n", count: 200), capture: CapturePolicy(synchronousLimit: 0, sliceUnits: 8))
+    let rig = Rig(
+        text: String(repeating: "line of text\n", count: 200),
+        capture: CapturePolicy(synchronousLimit: 0, sliceUnits: 8)
+    )
     let opening = Task { @MainActor in try await rig.sync.open(rig.session) }
     for _ in 0..<25 { await Task.yield() }
     try rig.edit(3, 0, "<one>")
@@ -233,7 +250,12 @@ func savingUnderAnotherNameClosesTheOldAddressAndOpensTheNew() async throws {
     try await sync.open(session)
 
     try session.replaceText("let x = 2\n", expectedVersion: 0)
-    _ = try await SaveDocumentUseCase(store: files).saveAs(document: session, to: "/w/New.swift", target: .newFile, registry: registry)
+    _ = try await SaveDocumentUseCase(store: files).saveAs(
+        document: session,
+        to: "/w/New.swift",
+        target: .newFile,
+        registry: registry
+    )
 
     #expect(await server.waitForMethod("textDocument/didOpen", count: 2))
     var model = LSPDocumentModel()
@@ -241,7 +263,10 @@ func savingUnderAnotherNameClosesTheOldAddressAndOpensTheNew() async throws {
     #expect(model.text("file:///w/Old.swift") == nil, "closed at the old address")
     #expect(model.text("file:///w/New.swift") == "let x = 2\n")
     // The new address is followed.
-    try session.apply([DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// c\n")], expectedVersion: session.version)
+    try session.apply(
+        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// c\n")],
+        expectedVersion: session.version
+    )
     #expect(await server.waitUntil {
         var m = LSPDocumentModel()
         for message in server.received { m.consume(message) }
@@ -263,12 +288,20 @@ func aDocumentClosedRightAfterSaveAsIsNotClosedTwiceAtTheOldAddress() async thro
     sync.attach(LanguageServerConnection(channel: server, onNotification: { _, _ in }))
     try await sync.open(session)
 
-    _ = try await SaveDocumentUseCase(store: files).saveAs(document: session, to: "/w/New.swift", target: .newFile, registry: registry)
+    _ = try await SaveDocumentUseCase(store: files).saveAs(
+        document: session,
+        to: "/w/New.swift",
+        target: .newFile,
+        registry: registry
+    )
     sync.close(session)    // before the new address was opened
     try await Task.sleep(for: .milliseconds(50))
 
     #expect(server.messages(named: "textDocument/didClose").count == 1, "the old address, once")
-    #expect(server.messages(named: "textDocument/didOpen").count == 1, "and the new one is never opened for a document that was closed")
+    #expect(
+        server.messages(named: "textDocument/didOpen").count == 1,
+        "and the new one is never opened for a document that was closed"
+    )
 }
 
 @Test @MainActor
@@ -284,17 +317,31 @@ func aDocumentClosedBeforeItWasOpenedOnTheServerSaysNothingToIt() async throws {
 
 @Test @MainActor
 func aDocumentWithNoFileGetsAStandInNameInItsOwnLanguage() async throws {
-    let cases: [(String?, String)] = [("swift", "swift"), ("c", "c"), ("cpp", "cpp"), ("objective-c", "m"), ("objective-cpp", "mm"), (nil, "swift")]
+    let cases: [(String?, String)] = [
+        ("swift", "swift"),
+        ("c", "c"),
+        ("cpp", "cpp"),
+        ("objective-c", "m"),
+        ("objective-cpp", "mm"),
+        (nil, "swift")
+    ]
     for (languageID, suffix) in cases {
         let server = ScriptedServer()
         let sync = OrderedDocumentSync(virtualDirectory: URL(fileURLWithPath: "/w/scratch", isDirectory: true))
         sync.attach(LanguageServerConnection(channel: server, onNotification: { _, _ in }))
         sync.languageID = { _ in languageID ?? "swift" }
-        let session = DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: "x"), isUntitled: true)
+        let session = DocumentSession(
+            path: "Untitled.swift",
+            backend: StringDocumentBackend(loadedText: "x"),
+            isUntitled: true
+        )
         try await sync.open(session)
 
         let uri = try #require(sync.uri(of: session))
-        #expect(uri.hasPrefix("file:///w/scratch/Untitled-") && uri.hasSuffix("." + suffix), "\(languageID ?? "nil") → \(uri)")
+        #expect(
+            uri.hasPrefix("file:///w/scratch/Untitled-") && uri.hasSuffix("." + suffix),
+            "\(languageID ?? "nil") → \(uri)"
+        )
     }
 }
 
@@ -346,7 +393,10 @@ func anEditInsideALineTerminatorIsSentWidenedToTheWholeTerminator() async throws
         let rig = Rig(text: text, path: "/w/Case\(index).swift")
         try await rig.sync.open(rig.session)
         try rig.edit(location, length, replacement)
-        #expect(await rig.serverCatchesUp(), "case \(index): \(text.debugDescription) -> \(rig.session.text.debugDescription)")
+        #expect(
+            await rig.serverCatchesUp(),
+            "case \(index): \(text.debugDescription) -> \(rig.session.text.debugDescription)"
+        )
     }
 }
 
@@ -375,20 +425,31 @@ func editsMadeAfterTheCopyWasTakenButBeforeTheOpeningAreSentAfterIt() async thro
     let server = ScriptedServer()
     let connection = LanguageServerConnection(channel: server, onNotification: { _, _ in })
     let copy = GatedCopy()
-    let sync = OrderedDocumentSync(limits: .init(), capturePolicy: .standard, capture: { try await copy.capture($0, $1) })
+    let sync = OrderedDocumentSync(limits: .init(), capturePolicy: .standard, capture: {
+        try await copy.capture($0, $1)
+    })
     sync.attach(connection)
     let session = DocumentSession(path: "/w/Gate.swift", backend: StringDocumentBackend(loadedText: "let a = 1\n"))
 
     let opening = Task { @MainActor in try await sync.open(session) }
     while !copy.taken { await Task.yield() }
-    try session.apply([DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// one\n")], expectedVersion: 0)
-    try session.apply([DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// two\n")], expectedVersion: 1)
+    try session.apply(
+        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// one\n")],
+        expectedVersion: 0
+    )
+    try session.apply(
+        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// two\n")],
+        expectedVersion: 1
+    )
     copy.release()
     try await opening.value
 
     #expect(await server.waitUntil { server.model().text("file:///w/Gate.swift") == "// two\n// one\nlet a = 1\n" })
     #expect(server.model().problems.isEmpty)
-    #expect(server.messages(named: "textDocument/didOpen").first?["params"]?["textDocument"]?["version"] == .int(0), "the text sent is the one that was copied")
+    #expect(
+        server.messages(named: "textDocument/didOpen").first?["params"]?["textDocument"]?["version"] == .int(0),
+        "the text sent is the one that was copied"
+    )
     #expect(sync.resyncCount == 0)
 }
 
@@ -400,11 +461,13 @@ func aChangeThatDoesNotFollowOnFromWhatWasSentIsRepairedByAFullText() async thro
     try await rig.sync.open(rig.session)
     // Version 5 follows version 0 of nothing the server was told about.
     rig.sync.receive(
-        DocumentChangeSet(documentID: rig.session.id,
-                          oldVersion: 4,
-                          newVersion: 5,
-                          edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "x")],
-                          origin: .command),
+        DocumentChangeSet(
+            documentID: rig.session.id,
+            oldVersion: 4,
+            newVersion: 5,
+            edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "x")],
+            origin: .command
+        ),
         for: rig.session
     )
     #expect(rig.sync.resyncCount == 1)
@@ -418,11 +481,13 @@ func aChangeThatDisagreesWithTheDocumentsLengthIsRepairedByAFullText() async thr
     try await rig.sync.open(rig.session)
     // Claims to insert three characters in the session's latest version; the text did not change.
     rig.sync.receive(
-        DocumentChangeSet(documentID: rig.session.id,
-                          oldVersion: 0,
-                          newVersion: 0,
-                          edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "zzz")],
-                          origin: .command),
+        DocumentChangeSet(
+            documentID: rig.session.id,
+            oldVersion: 0,
+            newVersion: 0,
+            edits: [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "zzz")],
+            origin: .command
+        ),
         for: rig.session
     )
     #expect(rig.sync.resyncCount == 1)

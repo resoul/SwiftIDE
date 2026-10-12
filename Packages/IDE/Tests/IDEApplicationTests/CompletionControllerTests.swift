@@ -35,8 +35,21 @@ private final class FakePresenter: CompletionPresenting {
     func showStatus(_ status: CompletionStatus, anchorOffset: Int) { statuses.append(status); isVisible = true }
 }
 
-private func item(_ label: String, insert: String? = nil, filter: String? = nil, sort: String? = nil, kind: CompletionKind = .method) -> CompletionItem {
-    CompletionItem(label: label, detail: "T", insertText: insert ?? label, sortText: sort ?? label, filterText: filter ?? label, kind: kind)
+private func item(
+    _ label: String,
+    insert: String? = nil,
+    filter: String? = nil,
+    sort: String? = nil,
+    kind: CompletionKind = .method
+) -> CompletionItem {
+    CompletionItem(
+        label: label,
+        detail: "T",
+        insertText: insert ?? label,
+        sortText: sort ?? label,
+        filterText: filter ?? label,
+        kind: kind
+    )
 }
 
 private let members: [CompletionItem] = [
@@ -69,7 +82,9 @@ private final class Rig {
             provider: provider,
             environment: CompletionEnvironment(
                 caret: { box.flatMap { $0.hasCaret ? $0.caret : nil } },
-                text: { range in (session.text as NSString).substring(with: NSRange(location: range.location, length: range.length)) },
+                text: { range in
+                    (session.text as NSString).substring(with: NSRange(location: range.location, length: range.length))
+                },
                 setCaret: { box?.carets.append($0); box?.caret = $0 }
             ),
             presenter: presenter,
@@ -121,7 +136,10 @@ func aTypedDotAfterAWordStartsCompletionAtTheCaretAfterIt() async throws {
     #expect(rig.provider.calls.map(\.caret) == [14])
     let shown = try #require(rig.presenter.shown.last)
     #expect(shown.anchor == 14 && shown.selected == 0)
-    #expect(shown.labels == ["Array", "append(contentsOf: String)", "count", "hasPrefix(prefix: String)", "uppercased()"], "in the server's sort order")
+    #expect(
+        shown.labels == ["Array", "append(contentsOf: String)", "count", "hasPrefix(prefix: String)", "uppercased()"],
+        "in the server's sort order"
+    )
 }
 
 @Test @MainActor
@@ -200,7 +218,10 @@ func typingTheStartOfAWordNarrowsTheListWithoutAskingAgain() async throws {
     try rig.type(".")
     await rig.settle()
     try rig.type("a")
-    #expect(rig.presenter.shown.last?.labels == ["append(contentsOf: String)", "Array"], "exact case first, then any case")
+    #expect(
+        rig.presenter.shown.last?.labels == ["append(contentsOf: String)", "Array"],
+        "exact case first, then any case"
+    )
     try rig.type("p")
     #expect(rig.presenter.shown.last?.labels == ["append(contentsOf: String)"])
     await rig.settle()
@@ -285,7 +306,11 @@ func theSelectionOfAKeystrokeReportedBeforeItsEditDoesNotEndCompletion() async t
     // The view moved its caret and said so; the session's change comes in the same turn.
     rig.caret += 1
     rig.controller.selectionDidChange()
-    try rig.session.apply([DocumentEdit(range: UTF16TextRange(location: rig.caret - 1, length: 0), replacement: "a")], expectedVersion: rig.session.version, origin: .typing)
+    try rig.session.apply(
+        [DocumentEdit(range: UTF16TextRange(location: rig.caret - 1, length: 0), replacement: "a")],
+        expectedVersion: rig.session.version,
+        origin: .typing
+    )
     await rig.settle()
     #expect(rig.controller.isActive)
 }
@@ -293,7 +318,13 @@ func theSelectionOfAKeystrokeReportedBeforeItsEditDoesNotEndCompletion() async t
 @Test @MainActor
 func anyEditThatIsNotTypingAtTheEndOfTheWordEndsCompletion() async throws {
     let cases: [(String, (Rig) throws -> Void)] = [
-        ("elsewhere", { try $0.session.apply([DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// ")], expectedVersion: $0.session.version, origin: .typing) }),
+        ("elsewhere", {
+            try $0.session.apply(
+                [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// ")],
+                expectedVersion: $0.session.version,
+                origin: .typing
+            )
+        }),
         ("a command", { try $0.type("x", origin: .command) }),
         ("an undo", { try $0.type("x", origin: .undo) }),
         ("two edits at once", { try $0.session.apply([
@@ -408,7 +439,8 @@ func acceptingACallWithNoArgumentsOrAPropertyPutsTheCaretAfterIt() async throws 
     await property.settle()
     try property.type("cou")
     #expect(property.controller.accept())
-    #expect(property.session.text.hasSuffix("s.count") && property.carets == [(property.session.text as NSString).length])
+    #expect(property.session.text.hasSuffix("s.count") && property
+        .carets == [(property.session.text as NSString).length])
 }
 
 @Test @MainActor
@@ -448,8 +480,19 @@ func acceptingIsOneUndoableLanguageActionEdit() async throws {
 
 @Test @MainActor
 func theFilterRanksExactCaseThenAnyCaseThenALaterWord() {
-    let items = [item("hasPrefix(prefix:)", filter: "hasPrefix(:)"), item("Prefix"), item("prefix"), item("my_prefix"), item("suffix")]
-    #expect(CompletionController.filter(items, prefix: "pre", limit: 10).map(\.label) == ["prefix", "Prefix", "hasPrefix(prefix:)", "my_prefix"])
+    let items = [
+        item("hasPrefix(prefix:)", filter: "hasPrefix(:)"),
+        item("Prefix"),
+        item("prefix"),
+        item("my_prefix"),
+        item("suffix")
+    ]
+    #expect(CompletionController.filter(items, prefix: "pre", limit: 10).map(\.label) == [
+        "prefix",
+        "Prefix",
+        "hasPrefix(prefix:)",
+        "my_prefix"
+    ])
     #expect(CompletionController.filter(items, prefix: "", limit: 2).count == 2, "a limit applies")
     #expect(CompletionController.filter(items, prefix: "zzz", limit: 10).isEmpty)
 }
@@ -458,25 +501,33 @@ func theFilterRanksExactCaseThenAnyCaseThenALaterWord() {
 func aMatchInTheMiddleOfAWordIsNotAMatch() {
     let items = [item("uppercased()"), item("count", kind: .property)]
     #expect(CompletionController.filter(items, prefix: "a", limit: 10).isEmpty)
-    #expect(CompletionController.filter(items, prefix: "cas", limit: 10).isEmpty, "\"cas\" is inside \"uppercased\", not at a word of it")
+    #expect(
+        CompletionController.filter(items, prefix: "cas", limit: 10).isEmpty,
+        "\"cas\" is inside \"uppercased\", not at a word of it"
+    )
 }
 
 @Test @MainActor
 func theFilterUsesTheFilterTextNotTheLabel() {
     let items = [item("append(contentsOf: String)", filter: "append(contentsOf:)")]
     #expect(CompletionController.filter(items, prefix: "append(c", limit: 5).count == 1)
-    #expect(CompletionController.filter(items, prefix: "String", limit: 5).isEmpty, "the label's type text is not matched")
+    #expect(
+        CompletionController.filter(items, prefix: "String", limit: 5).isEmpty,
+        "the label's type text is not matched"
+    )
 }
 
 // MARK: The range the server names
 
 private func ranged(_ label: String, insert: String? = nil, from: Int, to: Int) -> CompletionItem {
-    CompletionItem(label: label,
-                   insertText: insert ?? label,
-                   sortText: label,
-                   filterText: label,
-                   replacementRange: UTF16TextRange(location: from, length: to - from),
-                   kind: .property)
+    CompletionItem(
+        label: label,
+        insertText: insert ?? label,
+        sortText: label,
+        filterText: label,
+        replacementRange: UTF16TextRange(location: from, length: to - from),
+        kind: .property
+    )
 }
 
 @Test @MainActor
@@ -514,7 +565,10 @@ func aRangeThatStartsBeforeTheWordReplacesWhatItNames() async throws {
 
 @Test @MainActor
 func anItemWhoseRangeDoesNotContainTheCaretIsNotOffered() async throws {
-    let rig = Rig(text: "s.", items: [ranged("count", from: 0, to: 1), ranged("isEmpty", from: 2, to: 2), item("first")])
+    let rig = Rig(
+        text: "s.",
+        items: [ranged("count", from: 0, to: 1), ranged("isEmpty", from: 2, to: 2), item("first")]
+    )
     rig.caret = 2
     rig.controller.requestManually()
     await rig.settle()
@@ -709,7 +763,10 @@ func noSuggestionsIsSaidWhenAskedByHandAndNotAfterADot() async throws {
     afterDot.provider.answer = { _ in .items([], isIncomplete: false) }
     try afterDot.type(".")
     await afterDot.settle()
-    #expect(afterDot.presenter.statuses.isEmpty && !afterDot.controller.isActive, "nothing on screen, nothing left open")
+    #expect(
+        afterDot.presenter.statuses.isEmpty && !afterDot.controller.isActive,
+        "nothing on screen, nothing left open"
+    )
 }
 
 @Test @MainActor

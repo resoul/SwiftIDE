@@ -211,7 +211,12 @@ public final class LineNumberRulerView: NSRulerView {
             text.draw(at: NSPoint(x: bounds.maxX - 8 - size.width, y: top))
             if let severity = problemLines[label.number - 1] {
                 Self.colour(for: severity).setFill()
-                NSBezierPath(ovalIn: NSRect(x: 4, y: top + (size.height - Self.markerSize) / 2, width: Self.markerSize, height: Self.markerSize)).fill()
+                NSBezierPath(ovalIn: NSRect(
+                    x: 4,
+                    y: top + (size.height - Self.markerSize) / 2,
+                    width: Self.markerSize,
+                    height: Self.markerSize
+                )).fill()
             }
         }
     }

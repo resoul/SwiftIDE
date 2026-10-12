@@ -57,7 +57,11 @@ struct GitLocalActionsTests {
         let document = DocumentSession(path: "/repo/a", backend: backend)
         try document.replaceText("unsaved", expectedVersion: 0)
         var prompts = 0
-        let coordinator = GitCheckoutDocuments(documents: { [document] }, prompt: { _ in prompts += 1; return .save }, save: { _ in false })
+        let coordinator = GitCheckoutDocuments(documents: { [document] }, prompt: { _ in prompts += 1
+
+        return .save }, save: { _ in
+            false
+        })
         backend.simulateComposition(.began)
         #expect(await coordinator.prepare(root: "/repo") == false && prompts == 0)
         backend.simulateComposition(.ended)
@@ -72,15 +76,31 @@ struct GitLocalActionsTests {
         for document in [a, b, outside] { try document.replaceText("edited", expectedVersion: 0) }
         let save = SaveDocumentUseCase(store: MemoryDocumentFileStore())
         var asked: [String] = []
-        let cancelled = GitCheckoutDocuments(documents: { [a, b, outside] }, prompt: { document in asked.append(document.path); return .cancel }, save: { _ in Issue.record("Cancel must not save"); return false })
+        let cancelled = GitCheckoutDocuments(
+            documents: { [a, b, outside] },
+            prompt: { document in asked.append(document.path)
+
+        return .cancel },
+            save: { _ in
+            Issue.record("Cancel must not save")
+
+            return false
+        }
+        )
         #expect(await cancelled.prepare(root: "/repo") == false)
         #expect(a.isDirty && b.isDirty && asked == ["/repo/a"])
         asked = []
-        let approved = GitCheckoutDocuments(documents: { [a, b, outside] }, prompt: { document in asked.append(document.path); return .save }, save: { document in
+        let approved = GitCheckoutDocuments(
+            documents: { [a, b, outside] },
+            prompt: { document in asked.append(document.path)
+
+        return .save },
+            save: { document in
             _ = try? await save.execute(document: document)
 
             return !document.isDirty
-        })
+        }
+        )
         #expect(await approved.prepare(root: "/repo"))
         #expect(asked == ["/repo/a", "/repo/other/b"] && !a.isDirty && !b.isDirty && outside.isDirty)
         try b.replaceText("new edit", expectedVersion: b.version)
@@ -102,16 +122,29 @@ private actor LocalActionFixture: GitInspecting, GitMutating {
     func snapshot(at projectRoot: String) async throws -> GitSnapshot {
         snapshots += 1
 
-        return .init(repository: .init(root: "/repo", gitDirectory: "/repo/.git", commonDirectory: "/repo/.git"),
-                     branch: "main",
-                     head: head,
-                     changes: [.init(path: "a", decoration: .init(worktree: "M"))],
-                     branches: [.init(reference: "refs/heads/other", oid: String(repeating: "b", count: 40))])
+        return .init(
+            repository: .init(root: "/repo", gitDirectory: "/repo/.git", commonDirectory: "/repo/.git"),
+            branch: "main",
+            head: head,
+            changes: [.init(path: "a", decoration: .init(worktree: "M"))],
+            branches: [.init(reference: "refs/heads/other", oid: String(repeating: "b", count: 40))]
+        )
     }
-    func history(in repository: GitRepository, revision: String, offset: Int, count: Int) async throws -> GitHistoryPage { .init(commits: [], hasMore: false) }
+    func history(
+        in repository: GitRepository,
+        revision: String,
+        offset: Int,
+        count: Int
+    ) async throws -> GitHistoryPage {
+        .init(commits: [], hasMore: false)
+    }
     func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] { [] }
     func diff(in repository: GitRepository, comparison: GitComparison) async throws -> String { "diff" }
-    func perform(_ action: GitLocalAction, expected: GitSnapshot, output: @escaping @Sendable (String) -> Void) async throws {
+    func perform(
+        _ action: GitLocalAction,
+        expected: GitSnapshot,
+        output: @escaping @Sendable (String) -> Void
+    ) async throws {
         calls += 1; output("started\n")
         await withCheckedContinuation { pending = $0 }
         try Task.checkCancellation()

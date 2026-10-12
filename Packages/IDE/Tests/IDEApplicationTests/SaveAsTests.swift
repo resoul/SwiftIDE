@@ -9,7 +9,12 @@ private func untitled(_ text: String = "scratch") -> DocumentSession {
 }
 
 @MainActor
-private func opened(_ path: String, _ text: String, in store: MemoryDocumentFileStore, registry: DocumentRegistry) async throws -> DocumentSession {
+private func opened(
+    _ path: String,
+    _ text: String,
+    in store: MemoryDocumentFileStore,
+    registry: DocumentRegistry
+) async throws -> DocumentSession {
     let open = OpenDocumentUseCase(store: store, registry: registry) { file in
         DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))
     }
@@ -96,7 +101,12 @@ func replacingAnExistingFileNeedsTheUsersExplicitAnswer() async throws {
     try session.replaceText("new!", expectedVersion: 0)
 
     let confirmed = try #require(await store.revision(at: "/w/Taken.swift"))
-    _ = try await save.saveAs(document: session, to: "/w/Taken.swift", target: .replacing(confirmed), registry: registry)
+    _ = try await save.saveAs(
+        document: session,
+        to: "/w/Taken.swift",
+        target: .replacing(confirmed),
+        registry: registry
+    )
 
     #expect(await store.text(at: "/w/Taken.swift") == "new!")
     #expect(session.path == "/w/Taken.swift" && !session.isDirty)
@@ -113,7 +123,12 @@ func aFileOpenInAnotherWindowCannotBeTheTarget() async throws {
 
     let confirmed = try #require(await store.revision(at: "/w/Other.swift"))
     await #expect(throws: SaveError.targetOpenElsewhere(path: "/w/Other.swift")) {
-        try await save.saveAs(document: session, to: "/w/Other.swift", target: .replacing(confirmed), registry: registry)
+        try await save.saveAs(
+            document: session,
+            to: "/w/Other.swift",
+            target: .replacing(confirmed),
+            registry: registry
+        )
     }
     #expect(await store.text(at: "/w/Other.swift") == "other")
     #expect(session.isUntitled)
@@ -210,7 +225,9 @@ func aSecondSaveAsWhileOneIsRunningIsRefused() async throws {
     let backend = StringDocumentBackend(loadedText: "abc")
     let session = DocumentSession(path: "Untitled.swift", backend: backend, isUntitled: true)
     backend.simulateComposition(.began)           // keeps the first one waiting
-    let first = Task { try await save.saveAs(document: session, to: "/w/A.swift", target: .newFile, registry: registry) }
+    let first = Task {
+        try await save.saveAs(document: session, to: "/w/A.swift", target: .newFile, registry: registry)
+    }
     await Task.yield()
     await #expect(throws: SaveError.saveInProgress(session.id)) {
         try await save.saveAs(document: session, to: "/w/B.swift", target: .newFile, registry: registry)
@@ -235,7 +252,12 @@ func theTargetNameIsHeldWhileSaveAsWaitsForAComposition() async throws {
     backend.simulateComposition(.began)
     let confirmed = try #require(await store.revision(at: "/w/Target.swift"))
     let saving = Task {
-        try await save.saveAs(document: session, to: "/w/Target.swift", target: .replacing(confirmed), registry: registry)
+        try await save.saveAs(
+            document: session,
+            to: "/w/Target.swift",
+            target: .replacing(confirmed),
+            registry: registry
+        )
     }
     await Task.yield()
     await Task.yield()
@@ -245,7 +267,11 @@ func theTargetNameIsHeldWhileSaveAsWaitsForAComposition() async throws {
     await #expect(throws: OpenDocumentError.beingSavedElsewhere(path: "/w/Target.swift")) {
         try await open.execute(path: "/w/Target.swift")
     }
-    let rival = DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: "rival"), isUntitled: true)
+    let rival = DocumentSession(
+        path: "Untitled.swift",
+        backend: StringDocumentBackend(loadedText: "rival"),
+        isUntitled: true
+    )
     await #expect(throws: SaveError.targetBeingSaved(path: "/w/Target.swift")) {
         try await save.saveAs(document: rival, to: "/w/Target.swift", target: .replacing(confirmed), registry: registry)
     }
@@ -273,7 +299,12 @@ func theReservationIsReleasedWhenSaveAsFails() async throws {
     #expect(!registry.isReserved(path: "/w/Taken.swift"))
     // And another attempt can take it.
     let confirmed = try #require(await store.revision(at: "/w/Taken.swift"))
-    _ = try await save.saveAs(document: session, to: "/w/Taken.swift", target: .replacing(confirmed), registry: registry)
+    _ = try await save.saveAs(
+        document: session,
+        to: "/w/Taken.swift",
+        target: .replacing(confirmed),
+        registry: registry
+    )
     #expect(session.path == "/w/Taken.swift")
 }
 
@@ -289,7 +320,12 @@ func consentToReplaceCoversOnlyTheFileTheUserSaw() async throws {
     await store.externallyWrite("changed after the user agreed", at: "/w/Taken.swift")
 
     do {
-        _ = try await save.saveAs(document: session, to: "/w/Taken.swift", target: .replacing(confirmed), registry: registry)
+        _ = try await save.saveAs(
+            document: session,
+            to: "/w/Taken.swift",
+            target: .replacing(confirmed),
+            registry: registry
+        )
         Issue.record("Expected conflict")
     } catch FileStoreError.conflict {
     }
@@ -306,7 +342,12 @@ func consentToReplaceDoesNotSurviveTheFileBeingDeleted() async throws {
     // The memory store has no delete; a different name stands for "the file is no longer there".
     let session = untitled("mine")
     await #expect(throws: FileStoreError.conflict(current: nil)) {
-        try await save.saveAs(document: session, to: "/w/Elsewhere.swift", target: .replacing(confirmed), registry: registry)
+        try await save.saveAs(
+            document: session,
+            to: "/w/Elsewhere.swift",
+            target: .replacing(confirmed),
+            registry: registry
+        )
     }
     #expect(await store.text(at: "/w/Elsewhere.swift") == nil)
 }

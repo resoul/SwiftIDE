@@ -116,7 +116,11 @@ public final class SaveDocumentUseCase {
 
         guard !document.isUntitled else { throw SaveError.untitled(document.id) }
 
-        return try await perform(document, trigger: trigger, destination: .current(overwriting: overwritingExternalChanges))
+        return try await perform(
+            document,
+            trigger: trigger,
+            destination: .current(overwriting: overwritingExternalChanges)
+        )
     }
 
     /// Saves the document under a new name and moves it there: later saves go to the new file.
@@ -206,7 +210,8 @@ public final class SaveDocumentUseCase {
             // against the file this text was based on, whatever happens to the document meanwhile.
             expectation = overwriting ? .overwrite : .revision(capture.diskRevision)
         case .newName(let path, let target, _):
-            snapshot = try await document.capture(forPath: path, policy: capturePolicy, endsComposition: explicit).snapshot
+            snapshot = try await document.capture(forPath: path, policy: capturePolicy, endsComposition: explicit)
+                .snapshot
             switch target {
             case .newFile: expectation = .revision(nil)
             case .replacing(let confirmed): expectation = .revision(confirmed)

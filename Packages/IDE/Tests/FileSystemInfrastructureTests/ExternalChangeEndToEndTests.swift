@@ -120,7 +120,9 @@ func aDocumentWithUnsavedChangesIsNotReloadedAndStillConflictsOnSave() async thr
     #expect(await rig.eventually { rig.monitor.state == .changedWhileEdited })
     #expect(rig.session.text == "// mine\nlet a = 1\n")
 
-    await #expect(throws: FileStoreError.self) { _ = try await SaveDocumentUseCase(store: rig.store).execute(document: rig.session) }
+    await #expect(throws: FileStoreError.self) {
+        _ = try await SaveDocumentUseCase(store: rig.store).execute(document: rig.session)
+    }
     #expect(try rig.fileText() == "let a = 'theirs'\n", "their change was not overwritten")
 
     try await rig.monitor.reload()

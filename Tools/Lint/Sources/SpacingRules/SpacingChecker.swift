@@ -19,6 +19,8 @@ public enum Rule: String, CaseIterable, Sendable {
     case blankLineBeforeReturn = "blank_line_before_return"
     case blankLineAfterMultilineIf = "blank_line_after_multiline_if"
     case blankLineAroundInitializer = "blank_line_around_initializer"
+    case longLineBody = "long_line_body"
+    case longLineStatements = "long_line_statements"
 }
 
 /// The blank-line rules of TK-023, found in the syntax tree, never in the text.
@@ -30,28 +32,55 @@ public enum Rule: String, CaseIterable, Sendable {
 /// - An initializer is separated from neighboring declarations, including its attributes/comments.
 ///   A first/last member needs no extra blank line against the containing braces.
 ///
+/// - A block written as `{ statements }` on a line longer than `maxLineLength` has its body on lines of its
+///   own and its `}` on a line of its own, so a formatter wraps the statement's header no more than it must,
+///   never the header with the body left behind it. Of the blocks that close their line, the outermost one,
+///   the last on the line, is expanded, and so on until the line fits or no such block is left.
+/// - Statements joined with `;` on a line longer than `maxLineLength` are put on lines of their own, so a
+///   formatter never has to wrap one of them in the middle of its expression.
+///
 /// A comment directly above the statement belongs to it: the blank line goes above the comment.
 /// The first statement of a block, a statement on the same line as the one before, and
 /// single-line `if`s in a row need nothing.
 public enum SpacingChecker {
+    /// The longest line, in characters; `--max-width` of `.swiftformat` and `line_length` of `.swiftlint.yml`.
+    public static let maxLineLength = 120
+
     /// The violations in `source`, in source order.
     public static func check(_ source: String, path: String = "<source>") -> [Violation] {
         let tree = Parser.parse(source: source)
-        return find(in: tree, path: path).map(\.violation).sorted { ($0.line, $0.column) < ($1.line, $1.column) }
+        let all = find(in: tree, path: path) + findBodies(in: tree, source: source, path: path)
+            + findStatements(in: tree, source: source, path: path)
+        return all.map(\.violation).sorted { ($0.line, $0.column) < ($1.line, $1.column) }
     }
 
     /// `source` with the missing blank lines added, or nil when none is missing. Throws if the
     /// result would not be the same code: tokens and comments are compared, and the result may not
     /// have more syntax errors than the original.
     public static func fix(_ source: String, path: String = "<source>") throws -> String? {
-        let tree = Parser.parse(source: source)
-        let found = find(in: tree, path: path)
-        guard !found.isEmpty else { return nil }
+        var current = source
+        // Expanding a body can leave the line still too long, with another block on it.
+        for _ in 0..<16 {
+            let tree = Parser.parse(source: current)
+            // The bodies first: a block that closes a long line is put on lines of its own before the `;`
+            // inside it are looked at, or its statements would be split while the block is still on one line.
+            let bodies = findBodies(in: tree, source: current, path: path)
+            if !bodies.isEmpty {
+                current = BodyExpander(ids: Set(bodies.map(\.itemID))).rewrite(tree).description
+                continue
+            }
+            let joined = findStatements(in: tree, source: current, path: path)
+            guard !joined.isEmpty else { break }
 
-        let fixed = Inserter(ids: Set(found.map(\.itemID))).rewrite(tree)
-        let output = fixed.description
-        try verify(original: source, fixed: output, path: path)
-        return output
+            current = StatementSplitter(ids: Set(joined.map(\.itemID))).rewrite(tree).description
+        }
+        let tree = Parser.parse(source: current)
+        let found = find(in: tree, path: path)
+        if !found.isEmpty { current = Inserter(ids: Set(found.map(\.itemID))).rewrite(tree).description }
+        guard current != source else { return nil }
+
+        try verify(original: source, fixed: current, path: path)
+        return current
     }
 
     public struct FixRefused: Error, CustomStringConvertible {
@@ -73,14 +102,15 @@ public enum SpacingChecker {
         return finder.found
     }
 
-    /// Throws unless `fixed` is `original` with only blank lines added.
+    /// Throws unless `fixed` is `original` with only line breaks, indentation and `;` between statements changed.
     static func verify(original originalSource: String, fixed fixedSource: String, path: String) throws {
         let original = Parser.parse(source: originalSource)
         let fixed = Parser.parse(source: fixedSource)
         func shape(_ tree: SourceFileSyntax) -> (tokens: [String], comments: [String]) {
             var tokens: [String] = [], comments: [String] = []
             for token in tree.tokens(viewMode: .sourceAccurate) {
-                tokens.append(token.text)
+                // A `;` between statements goes when they are put on lines of their own.
+                if token.tokenKind != .semicolon { tokens.append(token.text) }
                 for piece in token.leadingTrivia + token.trailingTrivia {
                     if let text = piece.commentText { comments.append(text) }
                 }
@@ -149,6 +179,332 @@ public enum SpacingChecker {
             let start = converter.location(for: item.positionAfterSkippingLeadingTrivia)
             let end = converter.location(for: item.endPositionBeforeTrailingTrivia)
             return end.line > start.line
+        }
+    }
+
+    // MARK: Long one-line bodies
+
+    private static func findBodies(in tree: SourceFileSyntax, source: String, path: String) -> [Found] {
+        let finder = BodyFinder(
+            converter: SourceLocationConverter(fileName: path, tree: tree),
+            lines: source.split(separator: "\n", omittingEmptySubsequences: false),
+            path: path
+        )
+        finder.walk(tree)
+        return finder.result()
+    }
+
+    /// The blocks of `{ statements }` written on one line, on a line that is too long.
+    private final class BodyFinder: SyntaxVisitor {
+        struct Candidate {
+            let id: SyntaxIdentifier
+            let line: Int
+            let column: Int
+            let range: Range<AbsolutePosition>
+        }
+
+        let converter: SourceLocationConverter
+        let lines: [Substring]
+        let path: String
+        var candidates: [Candidate] = []
+
+        init(converter: SourceLocationConverter, lines: [Substring], path: String) {
+            self.converter = converter
+            self.lines = lines
+            self.path = path
+            super.init(viewMode: .sourceAccurate)
+        }
+
+        override func visit(_ node: CodeBlockSyntax) -> SyntaxVisitorContinueKind {
+            consider(node, node.leftBrace, node.statements.count, node.rightBrace)
+            return .visitChildren
+        }
+
+        override func visit(_ node: ClosureExprSyntax) -> SyntaxVisitorContinueKind {
+            // `Task { … }`, `lock.withLock { … }`, `answer = { _ in … }`; one that closes its line only.
+            consider(node, node.leftBrace, node.statements.count, node.rightBrace)
+            return .visitChildren
+        }
+
+        override func visit(_ node: AccessorBlockSyntax) -> SyntaxVisitorContinueKind {
+            if case .getter(let statements) = node.accessors {
+                consider(node, node.leftBrace, statements.count, node.rightBrace)
+            }
+            return .visitChildren
+        }
+
+        private func consider(_ node: some SyntaxProtocol, _ left: TokenSyntax, _ statements: Int, _ right: TokenSyntax) {
+            guard statements > 0 else { return }
+
+            let open = converter.location(for: left.positionAfterSkippingLeadingTrivia)
+            let close = converter.location(for: right.positionAfterSkippingLeadingTrivia)
+            guard open.line == close.line, open.line <= lines.count,
+                  lines[open.line - 1].count > SpacingChecker.maxLineLength,
+                  closesItsLine(right), isPlain(node, left, right) else { return }
+
+            candidates.append(Candidate(
+                id: node.id,
+                line: open.line,
+                column: open.column,
+                range: node.positionAfterSkippingLeadingTrivia..<node.endPositionBeforeTrailingTrivia
+            ))
+        }
+
+        /// Nothing but closing parentheses or a comma follows the `}` on its line.
+        private func closesItsLine(_ right: TokenSyntax) -> Bool {
+            var token = right.nextToken(viewMode: .sourceAccurate)
+            while let next = token {
+                if next.leadingTrivia.contains(where: { $0.isNewline }) { return true }
+
+                guard [.rightParen, .comma, .rightSquare].contains(next.tokenKind) else { return false }
+
+                token = next.nextToken(viewMode: .sourceAccurate)
+            }
+            return true
+        }
+
+        /// Between the braces there are no comments, and the layout is only spaces.
+        private func isPlain(_ node: some SyntaxProtocol, _ left: TokenSyntax, _ right: TokenSyntax) -> Bool {
+            for token in node.tokens(viewMode: .sourceAccurate) {
+                let pieces = (token.id == left.id ? [] : Array(token.leadingTrivia)) +
+                    (token.id == right.id ? [] : Array(token.trailingTrivia))
+                if pieces.contains(where: { $0.isComment || $0.isNewline }) { return false }
+            }
+            return true
+        }
+
+        /// The outermost candidate of each line, the last of them.
+        func result() -> [Found] {
+            var chosen: [Candidate] = []
+            for line in Set(candidates.map(\.line)) {
+                let onLine = candidates.filter { $0.line == line }
+                let outermost = onLine.filter { inner in
+                    !onLine.contains { $0.id != inner.id && $0.range.contains(inner.range.lowerBound) && $0.range != inner.range }
+                }
+                if let last = outermost.max(by: { $0.range.lowerBound < $1.range.lowerBound }) { chosen.append(last) }
+            }
+            return chosen.map {
+                Found(
+                    itemID: $0.id,
+                    violation: Violation(
+                        path: path,
+                        line: $0.line,
+                        column: $0.column,
+                        rule: .longLineBody,
+                        message: "the line is longer than \(SpacingChecker.maxLineLength) characters; "
+                            + "put the body of the block on lines of its own"
+                    )
+                )
+            }
+        }
+    }
+
+    /// Puts the statements of the chosen blocks on lines of their own, and the `}` on its own line.
+    private final class BodyExpander: SyntaxRewriter {
+        let ids: Set<SyntaxIdentifier>
+        /// The indentation of the line a block starts on: the original text, known from the first token's line.
+        init(ids: Set<SyntaxIdentifier>) {
+            self.ids = ids
+            super.init(viewMode: .sourceAccurate)
+        }
+
+        override func visit(_ node: CodeBlockSyntax) -> CodeBlockSyntax {
+            var result = super.visit(node)
+            guard ids.contains(node.id) else { return result }
+
+            let indent = Self.indentation(of: node)
+            result.leftBrace = Self.withoutTrailingSpaces(result.leftBrace)
+            result.statements = Self.expanded(result.statements, indent: indent)
+            result.rightBrace = Self.onItsOwnLine(result.rightBrace, indent: indent)
+            return result
+        }
+
+        override func visit(_ node: ClosureExprSyntax) -> ExprSyntax {
+            var result = super.visit(node).cast(ClosureExprSyntax.self)
+            guard ids.contains(node.id) else { return ExprSyntax(result) }
+
+            let indent = Self.indentation(of: node)
+            if var signature = result.signature {
+                signature.inKeyword = Self.withoutTrailingSpaces(signature.inKeyword)
+                result.signature = signature
+            } else {
+                result.leftBrace = Self.withoutTrailingSpaces(result.leftBrace)
+            }
+            result.statements = Self.expanded(result.statements, indent: indent)
+            result.rightBrace = Self.onItsOwnLine(result.rightBrace, indent: indent)
+            return ExprSyntax(result)
+        }
+
+        override func visit(_ node: AccessorBlockSyntax) -> AccessorBlockSyntax {
+            var result = super.visit(node)
+            guard ids.contains(node.id), case .getter(let statements) = result.accessors else { return result }
+
+            let indent = Self.indentation(of: node)
+            result.leftBrace = Self.withoutTrailingSpaces(result.leftBrace)
+            result.accessors = .getter(Self.expanded(statements, indent: indent))
+            result.rightBrace = Self.onItsOwnLine(result.rightBrace, indent: indent)
+            return result
+        }
+
+        /// The spaces that begin the line of the node's first token, taken from the trivia before it, or,
+        /// when the token follows other code on its line, from the start of that line.
+        private static func indentation(of node: some SyntaxProtocol) -> Int {
+            var line = node.root.description
+            let offset = node.positionAfterSkippingLeadingTrivia.utf8Offset
+            let bytes = Array(line.utf8)
+            var start = offset
+            while start > 0, bytes[start - 1] != UInt8(ascii: "\n") { start -= 1 }
+            line = String(decoding: bytes[start..<offset], as: UTF8.self)
+            return line.prefix { $0 == " " }.count
+        }
+
+        private static func withoutTrailingSpaces(_ token: TokenSyntax) -> TokenSyntax {
+            var token = token
+            token.trailingTrivia = Trivia(pieces: token.trailingTrivia.filter { !$0.isSpace })
+            return token
+        }
+
+        private static func onItsOwnLine(_ token: TokenSyntax, indent: Int) -> TokenSyntax {
+            var token = token
+            token.leadingTrivia = [.newlines(1), .spaces(indent)]
+            return token
+        }
+
+        private static func expanded(_ statements: CodeBlockItemListSyntax, indent: Int) -> CodeBlockItemListSyntax {
+            let items = Array(statements)
+            return CodeBlockItemListSyntax(items.enumerated().map { index, item in
+                var item = item
+                item.semicolon = nil
+                item.leadingTrivia = [.newlines(1), .spaces(indent + 4)]
+                if index == items.count - 1 {
+                    item.trailingTrivia = Trivia(pieces: item.trailingTrivia.filter { !$0.isSpace })
+                }
+                return item
+            })
+        }
+    }
+
+    // MARK: Statements joined with `;` on a long line
+
+    private static func findStatements(in tree: SourceFileSyntax, source: String, path: String) -> [Found] {
+        let finder = StatementFinder(
+            converter: SourceLocationConverter(fileName: path, tree: tree),
+            lines: source.split(separator: "\n", omittingEmptySubsequences: false),
+            path: path
+        )
+        finder.walk(tree)
+        return finder.found
+    }
+
+    /// The statements that follow another on a line that is too long: after a `;`, or after the `:` of a
+    /// `case` label.
+    private final class StatementFinder: SyntaxVisitor {
+        let converter: SourceLocationConverter
+        let lines: [Substring]
+        let path: String
+        var found: [Found] = []
+
+        init(converter: SourceLocationConverter, lines: [Substring], path: String) {
+            self.converter = converter
+            self.lines = lines
+            self.path = path
+            super.init(viewMode: .sourceAccurate)
+        }
+
+        override func visit(_ node: CodeBlockItemListSyntax) -> SyntaxVisitorContinueKind {
+            for item in node {
+                let location = converter.location(for: item.positionAfterSkippingLeadingTrivia)
+                guard location.line <= lines.count, lines[location.line - 1].count > SpacingChecker.maxLineLength,
+                      StatementSplitter.breakKind(of: item) != nil else { continue }
+
+                found.append(Found(
+                    itemID: item.id,
+                    violation: Violation(
+                        path: path,
+                        line: location.line,
+                        column: location.column,
+                        rule: .longLineStatements,
+                        message: "the line is longer than \(SpacingChecker.maxLineLength) characters; "
+                            + "put each statement on a line of its own"
+                    )
+                ))
+            }
+            return .visitChildren
+        }
+    }
+
+    private final class StatementSplitter: SyntaxRewriter {
+        enum Kind { case afterSemicolon, afterColon }
+
+        let ids: Set<SyntaxIdentifier>
+
+        init(ids: Set<SyntaxIdentifier>) {
+            self.ids = ids
+            super.init(viewMode: .sourceAccurate)
+        }
+
+        /// Whether the item starts on the line of the code before it, and how it is joined to it.
+        static func breakKind(of item: CodeBlockItemSyntax) -> Kind? {
+            guard let first = item.firstToken(viewMode: .sourceAccurate),
+                  let previous = first.previousToken(viewMode: .sourceAccurate),
+                  !first.leadingTrivia.contains(where: { $0.isNewline }) else { return nil }
+
+            switch previous.tokenKind {
+            case .semicolon: return .afterSemicolon
+            case .colon: return .afterColon
+            default: return nil
+            }
+        }
+
+        override func visit(_ node: SwitchCaseSyntax) -> SwitchCaseSyntax {
+            var result = super.visit(node)
+            guard let first = node.statements.first, ids.contains(first.id),
+                  Self.breakKind(of: first) == .afterColon else { return result }
+
+            func bare(_ token: TokenSyntax) -> TokenSyntax {
+                var token = token
+                token.trailingTrivia = Trivia(pieces: token.trailingTrivia.filter { !$0.isSpace })
+                return token
+            }
+            switch result.label {
+            case .case(var label):
+                label.colon = bare(label.colon)
+                result.label = .case(label)
+            case .default(var label):
+                label.colon = bare(label.colon)
+                result.label = .default(label)
+            }
+            return result
+        }
+
+        override func visit(_ node: CodeBlockItemListSyntax) -> CodeBlockItemListSyntax {
+            let items = Array(super.visit(node))
+            let originals = Array(node)
+            var result = items
+            for index in items.indices where ids.contains(originals[index].id) {
+                guard let kind = Self.breakKind(of: originals[index]) else { continue }
+
+                var indent = Self.lineIndentation(of: originals[index])
+                if kind == .afterSemicolon, index > 0 {
+                    result[index - 1].semicolon = nil
+                    // Behind a `case` label on the same line, the statements are one level in.
+                    var first = index - 1
+                    while first > 0, Self.breakKind(of: originals[first]) == .afterSemicolon { first -= 1 }
+                    if Self.breakKind(of: originals[first]) == .afterColon { indent += 4 }
+                } else if kind == .afterColon {
+                    indent += 4
+                }
+                result[index].leadingTrivia = [.newlines(1), .spaces(indent)]
+            }
+            return CodeBlockItemListSyntax(result)
+        }
+
+        private static func lineIndentation(of node: some SyntaxProtocol) -> Int {
+            let bytes = Array(node.root.description.utf8)
+            let offset = node.positionAfterSkippingLeadingTrivia.utf8Offset
+            var start = offset
+            while start > 0, bytes[start - 1] != UInt8(ascii: "\n") { start -= 1 }
+            return bytes[start..<offset].prefix { $0 == UInt8(ascii: " ") }.count
         }
     }
 
@@ -241,6 +597,8 @@ private extension TriviaPiece {
         default: false
         }
     }
+
+    var isNewline: Bool { newlineCount > 0 }
 
     var isComment: Bool {
         switch self {

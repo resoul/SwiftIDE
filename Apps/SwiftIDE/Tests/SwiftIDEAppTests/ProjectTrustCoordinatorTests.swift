@@ -13,7 +13,12 @@ extension NativeAppTests {
     struct ProjectTrustCoordinatorTests {
         private func window() -> NSWindow {
             _ = NSApplication.shared
-            let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 400, height: 240), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let window = NSWindow(
+                contentRect: NSRect(x: -2000, y: -2000, width: 400, height: 240),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
             window.isReleasedWhenClosed = false
             window.orderFront(nil)
 
@@ -58,7 +63,11 @@ extension NativeAppTests {
 
         @Test func aQuestionUsesTheSharedProjectWindowAndClosingAnotherTabDoesNotCancelIt() async throws {
             let a = session("/w/tabs/a.txt")
-            let b = DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: ""), isUntitled: true)
+            let b = DocumentSession(
+                path: "Untitled.swift",
+                backend: StringDocumentBackend(loadedText: ""),
+                isUntitled: true
+            )
             let parent = window()
             let coordinator = ProjectTrustCoordinator { URL(fileURLWithPath: $0.isUntitled ? "/loose" : "/w/tabs") }
             coordinator.register(a, window: parent)
@@ -89,17 +98,25 @@ extension NativeAppTests {
         }
 
         @Test func applicationCompositionRegistersTheDocumentWindowAndRemovesItOnClose() async throws {
-            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("app-trust-\(UUID().uuidString)")
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("app-trust-\(UUID().uuidString)")
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: directory) }
-            try "// package marker".write(to: directory.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
+            try "// package marker".write(
+                to: directory.appendingPathComponent("Package.swift"),
+                atomically: true,
+                encoding: .utf8
+            )
             let file = directory.appendingPathComponent("main.swift")
             try "let x = 1".write(to: file, atomically: true, encoding: .utf8)
             let composition = AppCompositionRoot()
             let prompt = try #require(composition.languageServices.trustPrompt)
-            let services = LanguageServices(scratchRoot: directory.appendingPathComponent("scratch"), makeService: { root, _ in
+            let services = LanguageServices(
+                scratchRoot: directory.appendingPathComponent("scratch"),
+                makeService: { root, _ in
                 SourceKitLanguageService(workspaceRoot: root, channelFactory: { throw LSPError.notRunning })
-            })
+            }
+            )
             services.trustPrompt = prompt
             composition.languageServices = services
             let opened = try await composition.open(path: file.path)

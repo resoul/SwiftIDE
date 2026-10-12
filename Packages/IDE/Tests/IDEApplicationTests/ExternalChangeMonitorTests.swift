@@ -354,7 +354,11 @@ func saveAsMovesTheWatchToTheNewName() async throws {
 @Test @MainActor
 func aDocumentWithoutAFileIsWatchedOnceItIsSaved() async throws {
     let store = Store(base: MemoryDocumentFileStore())
-    let session = DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: "x"), isUntitled: true)
+    let session = DocumentSession(
+        path: "Untitled.swift",
+        backend: StringDocumentBackend(loadedText: "x"),
+        isUntitled: true
+    )
     let watcher = ManualFileWatcher()
     let clock = ManualDelayClock()
     let monitor = ExternalChangeMonitor(

@@ -23,7 +23,12 @@ public final class EditorAreaViewController: NSViewController {
     public private(set) var active: NSViewController?
     public private(set) var focusTarget: NSView?
     private let content = NSView()
-    private let empty = NSTextField(wrappingLabelWithString: "Open a file from Files to begin editing.\nDouble-click a file, or select it and press Return.")
+    private let empty =
+        NSTextField(
+            wrappingLabelWithString: """
+            Open a file from Files to begin editing.\nDouble-click a file, or select it and press Return.
+            """
+        )
 
     public init() { super.init(nibName: nil, bundle: nil) }
 
@@ -81,7 +86,8 @@ public final class EditorAreaViewController: NSViewController {
 }
 
 @MainActor
-public final class DocumentTabBarViewController: NSViewController, NSCollectionViewDataSource, NSCollectionViewDelegateFlowLayout {
+public final class DocumentTabBarViewController: NSViewController, NSCollectionViewDataSource,
+    NSCollectionViewDelegateFlowLayout {
     public let collection = NSCollectionView()
     public var onSelect: ((DocumentID) -> Void)?
     public var onClose: ((DocumentID) -> Void)?
@@ -145,7 +151,10 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
             self.collectionView(collection, layout: layout, sizeForItemAt: IndexPath(item: index, section: 0)).width
         }
         let width = widths.reduce(16, +) + CGFloat(max(0, widths.count - 1)) * 4
-        let size = NSSize(width: max(scroll.contentView.bounds.width, width), height: max(42, scroll.contentView.bounds.height))
+        let size = NSSize(
+            width: max(scroll.contentView.bounds.width, width),
+            height: max(42, scroll.contentView.bounds.height)
+        )
         if collection.frame.size != size { collection.setFrameSize(size) }
     }
 
@@ -197,8 +206,13 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
         scroll.reflectScrolledClipView(clip)
     }
 
-    public func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int { displayedItems.count }
-    public func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
+    public func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int {
+        displayedItems.count
+    }
+    public func collectionView(
+        _ collectionView: NSCollectionView,
+        itemForRepresentedObjectAt indexPath: IndexPath
+    ) -> NSCollectionViewItem {
         let item = collectionView.makeItem(withIdentifier: .init("DocumentTab"), for: indexPath)
         guard let cell = item as? DocumentTabCell, displayedItems.indices.contains(indexPath.item) else { return item }
 
@@ -208,7 +222,11 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
 
         return cell
     }
-    public func collectionView(_ collectionView: NSCollectionView, layout collectionViewLayout: NSCollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> NSSize {
+    public func collectionView(
+        _ collectionView: NSCollectionView,
+        layout collectionViewLayout: NSCollectionViewLayout,
+        sizeForItemAt indexPath: IndexPath
+    ) -> NSSize {
         guard displayedItems.indices.contains(indexPath.item) else { return NSSize(width: 100, height: 30) }
 
         let item = displayedItems[indexPath.item]
@@ -222,7 +240,10 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
 
         onSelect?(displayedItems[path.item].id)
     }
-    public func collectionView(_ collectionView: NSCollectionView, pasteboardWriterForItemAt indexPath: IndexPath) -> (any NSPasteboardWriting)? {
+    public func collectionView(
+        _ collectionView: NSCollectionView,
+        pasteboardWriterForItemAt indexPath: IndexPath
+    ) -> (any NSPasteboardWriting)? {
         guard displayedItems.indices.contains(indexPath.item) else { return nil }
 
         let writer = NSPasteboardItem()
@@ -230,20 +251,40 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
 
         return writer
     }
-    public func collectionView(_ collectionView: NSCollectionView, validateDrop draggingInfo: any NSDraggingInfo, proposedIndexPath proposedDropIndexPath: AutoreleasingUnsafeMutablePointer<NSIndexPath>, dropOperation proposedDropOperation: UnsafeMutablePointer<NSCollectionView.DropOperation>) -> NSDragOperation {
-        guard draggingInfo.draggingSource as? NSCollectionView === collection, draggedID(from: draggingInfo.draggingPasteboard) != nil else { return [] }
+    public func collectionView(
+        _ collectionView: NSCollectionView,
+        validateDrop draggingInfo: any NSDraggingInfo,
+        proposedIndexPath proposedDropIndexPath: AutoreleasingUnsafeMutablePointer<NSIndexPath>,
+        dropOperation proposedDropOperation: UnsafeMutablePointer<NSCollectionView.DropOperation>
+    ) -> NSDragOperation {
+        guard draggingInfo.draggingSource as? NSCollectionView === collection,
+              draggedID(from: draggingInfo.draggingPasteboard) != nil else {
+            return []
+        }
 
         proposedDropOperation.pointee = .before
 
         return .move
     }
-    public func collectionView(_ collectionView: NSCollectionView, acceptDrop draggingInfo: any NSDraggingInfo, indexPath: IndexPath, dropOperation: NSCollectionView.DropOperation) -> Bool {
+    public func collectionView(
+        _ collectionView: NSCollectionView,
+        acceptDrop draggingInfo: any NSDraggingInfo,
+        indexPath: IndexPath,
+        dropOperation: NSCollectionView.DropOperation
+    ) -> Bool {
         guard dropOperation == .before else { return false }
 
-        return moveTab(from: draggingInfo.draggingSource as? NSCollectionView, pasteboard: draggingInfo.draggingPasteboard, to: indexPath.item)
+        return moveTab(
+            from: draggingInfo.draggingSource as? NSCollectionView,
+            pasteboard: draggingInfo.draggingPasteboard,
+            to: indexPath.item
+        )
     }
     func moveTab(from source: NSCollectionView?, pasteboard: NSPasteboard, to index: Int) -> Bool {
-        guard source === collection, let id = draggedID(from: pasteboard), (0...displayedItems.count).contains(index) else { return false }
+        guard source === collection, let id = draggedID(from: pasteboard),
+              (0...displayedItems.count).contains(index) else {
+            return false
+        }
 
         onMove?(id, index)
 
@@ -295,7 +336,10 @@ private final class DocumentTabCell: NSCollectionViewItem {
         _ = view
         label.stringValue = item.name + (item.decoration.badges.isEmpty ? "" : "  " + item.decoration.badges)
         label.textColor = item.decoration.tone.colour
-        icon.image = WorkspaceIcon.image((item.name as NSString).pathExtension == "swift" ? "swift" : "doc.text", description: nil)
+        icon.image = WorkspaceIcon.image(
+            (item.name as NSString).pathExtension == "swift" ? "swift" : "doc.text",
+            description: nil
+        )
         icon.contentTintColor = .secondaryLabelColor
         view.toolTip = [item.path, item.decoration.explanation].filter { !$0.isEmpty }.joined(separator: "\n")
         view.setAccessibilityLabel(label.stringValue)

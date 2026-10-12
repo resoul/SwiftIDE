@@ -433,3 +433,54 @@ func conditionalInitializersAreSeparatedWithinTheirClause() throws {
     let fixed = try #require(try SpacingChecker.fix(source))
     #expect(SpacingChecker.check(fixed).isEmpty)
 }
+
+// MARK: Long lines: the body goes on its own lines, not the header
+
+private let padding = String(repeating: "x", count: 100)
+
+@Test
+func aOneLineBodyOnALongLineGetsLinesOfItsOwn() throws {
+    let source = "func f() {\n    if lock.withLock({ \(padding) == 1 }) { onOutput(\"limited\") }\n}\n"
+    #expect(rules(source) == [.longLineBody])
+    let fixed = try #require(try SpacingChecker.fix(source))
+    #expect(fixed == "func f() {\n    if lock.withLock({ \(padding) == 1 }) {\n        onOutput(\"limited\")\n    }\n}\n")
+    #expect(SpacingChecker.check(fixed).isEmpty)
+    #expect(try SpacingChecker.fix(fixed) == nil, "idempotent")
+}
+
+@Test
+func aShortLineIsLeftAlone() {
+    #expect(rules("func f() {\n    if a { b() }; c()\n    Task { d() }\n}\n").isEmpty)
+}
+
+@Test
+func theOutermostBlockClosingTheLineIsTheOneExpanded() throws {
+    let source = "func f() {\n    for item in items where item.\(padding) { items.forEach { use($0) } }\n}\n"
+    let fixed = try #require(try SpacingChecker.fix(source))
+    #expect(fixed == "func f() {\n    for item in items where item.\(padding) {\n        items.forEach { use($0) }\n    }\n}\n")
+}
+
+@Test
+func aClosureThatDoesNotCloseTheLineIsNotExpanded() {
+    #expect(rules("let title = excluded.map { \"Include \\($0) \(padding)\" } ?? \"Exclude from Project\"\n").isEmpty)
+}
+
+@Test
+func statementsJoinedWithSemicolonsOnALongLineAreSplit() throws {
+    let source = "func f() {\n    let \(padding) = 1; a.b = 2; c()\n}\n"
+    #expect(rules(source) == [.longLineStatements, .longLineStatements])
+    let fixed = try #require(try SpacingChecker.fix(source))
+    #expect(fixed == "func f() {\n    let \(padding) = 1\n    a.b = 2\n    c()\n}\n")
+}
+
+@Test
+func statementsBehindACaseLabelAreSplitOneLevelIn() throws {
+    let source = "func f(_ x: Int) {\n    switch x {\n    case 1: use(\"\(padding)\"); more()\n    default: break\n    }\n}\n"
+    let fixed = try #require(try SpacingChecker.fix(source))
+    #expect(fixed == "func f(_ x: Int) {\n    switch x {\n    case 1:\n        use(\"\(padding)\")\n        more()\n    default: break\n    }\n}\n")
+}
+
+@Test
+func aBodyWithACommentIsNotExpanded() {
+    #expect(rules("func f() {\n    if a { b() /* \(padding) */ }\n}\n").isEmpty)
+}

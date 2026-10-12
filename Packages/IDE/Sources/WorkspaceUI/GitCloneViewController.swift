@@ -7,7 +7,14 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
     public let model: GitClone
     public var chooseParent: (() -> Void)?
     public var close: (() -> Void)?
-    public var parentDirectory: String = "" { didSet { if isViewLoaded { parentLabel.stringValue = parentDirectory; render() } } }
+    public var parentDirectory: String = "" {
+        didSet {
+            if isViewLoaded {
+                parentLabel.stringValue = parentDirectory
+                render()
+            }
+        }
+    }
     let source = NSTextField(string: "")
     let name = NSTextField(string: "")
     let start = NSButton(title: "Clone", target: nil, action: nil)
@@ -41,10 +48,29 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
         output.setAccessibilityLabel("Clone output")
         let scroll = NSScrollView(); scroll.documentView = output; scroll.hasVerticalScroller = true
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
-        let note = NSTextField(wrappingLabelWithString: "Uses configured Git credentials and SSH keys. Existing folders are never overwritten. On failure or cancellation, a partial folder may remain; inspect or remove it before retrying.")
+        let note =
+            NSTextField(
+                wrappingLabelWithString: """
+                Uses configured Git credentials and SSH keys. Existing folders are never overwritten. On failure or \
+                cancellation, a partial folder may remain; inspect or remove it before retrying.
+                """
+            )
         note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
         status.font = .systemFont(ofSize: 12)
-        gitPin(gitStack([title, source, gitStack([parentLabel, choose], vertical: false), name, note, status, scroll, gitStack([cancel, start], vertical: false)]), to: view, inset: 20)
+        gitPin(
+            gitStack([
+                title,
+                source,
+                gitStack([parentLabel, choose], vertical: false),
+                name,
+                note,
+                status,
+                scroll,
+                gitStack([cancel, start], vertical: false)
+            ]),
+            to: view,
+            inset: 20
+        )
         subscription = model.subscribe { [weak self] in self?.render() }
         render()
     }

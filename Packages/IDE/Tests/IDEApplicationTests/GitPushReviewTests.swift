@@ -10,7 +10,8 @@ struct GitPushReviewTests {
         try #require(predicate())
     }
     @Test func reviewDoesNotWriteAndOnlyExplicitPushStartsOnceWithoutCheckout() async throws {
-        let service = PushReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service), model = GitPushReview(workspace: workspace)
+        let service = PushReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service),
+            model = GitPushReview(workspace: workspace)
         defer { model.stop(); workspace.stop() }
         workspace.refresh(); try await wait { workspace.canMutate }
         var prepared = false; workspace.prepareCheckout = { _ in prepared = true; return true }
@@ -29,7 +30,8 @@ struct GitPushReviewTests {
         #expect(!model.canPush)
     }
     @Test func inputChangesOwnerStopAndMovedBranchRejectLateReview() async throws {
-        let service = PushReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service), model = GitPushReview(workspace: workspace)
+        let service = PushReviewFixture(), workspace = GitWorkspace(root: "/repo", service: service),
+            model = GitPushReview(workspace: workspace)
         defer { model.stop(); workspace.stop() }
         workspace.refresh(); try await wait { workspace.canMutate }
         await service.holdReview()
@@ -59,16 +61,47 @@ private actor PushReviewFixture: GitInspecting, GitMutating, GitPushPlanning {
     private(set) var sent: GitPushPlan?
     private var failure = false, hold = false
     private var continuation: CheckedContinuation<Void, Never>?
-    func snapshot(at projectRoot: String) async throws -> GitSnapshot { .init(repository: Self.repository, branch: "main", head: current.oid, changes: [], branches: [current], remotes: ["origin"]) }
-    func history(in repository: GitRepository, revision: String, offset: Int, count: Int) async throws -> GitHistoryPage { .init(commits: [], hasMore: false) }
+    func snapshot(at projectRoot: String) async throws -> GitSnapshot {
+        .init(
+            repository: Self.repository,
+            branch: "main",
+            head: current.oid,
+            changes: [],
+            branches: [current],
+            remotes: ["origin"]
+        )
+    }
+    func history(
+        in repository: GitRepository,
+        revision: String,
+        offset: Int,
+        count: Int
+    ) async throws -> GitHistoryPage {
+        .init(commits: [], hasMore: false)
+    }
     func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] { [] }
     func diff(in repository: GitRepository, comparison: GitComparison) async throws -> String { "" }
-    func planPush(in snapshot: GitSnapshot, branch: GitBranch, remote: String, destination: String) async throws -> GitPushPlan {
+    func planPush(
+        in snapshot: GitSnapshot,
+        branch: GitBranch,
+        remote: String,
+        destination: String
+    ) async throws -> GitPushPlan {
         if hold { hold = false; await withCheckedContinuation { continuation = $0 } }
 
-        return .init(repository: Self.repository, branch: branch, remote: remote, destination: destination, url: "https://host/repo.git")
+        return .init(
+            repository: Self.repository,
+            branch: branch,
+            remote: remote,
+            destination: destination,
+            url: "https://host/repo.git"
+        )
     }
-    func perform(_ action: GitLocalAction, expected: GitSnapshot, output: @escaping @Sendable (String) -> Void) async throws {
+    func perform(
+        _ action: GitLocalAction,
+        expected: GitSnapshot,
+        output: @escaping @Sendable (String) -> Void
+    ) async throws {
         guard case .push(let plan) = action else { throw GitInspectionError.failed("Unexpected action") }
 
         writes += 1; sent = plan; output("Sending reviewed branch\n")

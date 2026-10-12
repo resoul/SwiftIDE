@@ -16,7 +16,12 @@ struct WorkspaceShellTests {
         scroll.documentView = editor
         let container = ProjectFilesContainer(model: model, editor: scroll, editorFocus: editor)
         container.shell.present(detail: "Plain Text", status: "TextKit 2")
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820),
+            styleMask: [.titled, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.contentViewController = container
         defer { container.disconnect(); model.stop(); window.close() }
@@ -87,9 +92,27 @@ struct WorkspaceShellTests {
         editor.string = "original"
         editor.setSelectedRange(NSRange(location: 3, length: 1))
         let input = NSTextField()
-        let a = WorkspaceShellViewController(state: state, editor: editor, editorFocus: editor, panels: [.files: .init(view: input, focusTarget: input)], project: "A", path: "/a")
-        let b = WorkspaceShellViewController(state: state, editor: NSView(), panels: [.files: .init(view: NSView())], project: "A", path: "/a")
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        let a = WorkspaceShellViewController(
+            state: state,
+            editor: editor,
+            editorFocus: editor,
+            panels: [.files: .init(view: input, focusTarget: input)],
+            project: "A",
+            path: "/a"
+        )
+        let b = WorkspaceShellViewController(
+            state: state,
+            editor: NSView(),
+            panels: [.files: .init(view: NSView())],
+            project: "A",
+            path: "/a"
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820),
+            styleMask: [.titled, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.contentViewController = a
         _ = b.view
@@ -121,8 +144,24 @@ struct WorkspaceShellTests {
         _ = NSApplication.shared
         let state = WorkspaceLayoutState(available: Set(WorkspaceTool.allCases))
         let draft = NSTextField(string: "saved draft")
-        let shell = WorkspaceShellViewController(state: state, editor: NSView(), panels: [.files: .init(view: NSView()), .assistant: .init(view: draft), .inspector: .init(view: NSView()), .terminal: .init(view: NSView())], project: "Preview", path: "/preview")
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        let shell = WorkspaceShellViewController(
+            state: state,
+            editor: NSView(),
+            panels: [
+                .files: .init(view: NSView()),
+                .assistant: .init(view: draft),
+                .inspector: .init(view: NSView()),
+                .terminal: .init(view: NSView())
+            ],
+            project: "Preview",
+            path: "/preview"
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820),
+            styleMask: [.titled, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.contentViewController = shell
         defer { shell.disconnect(); window.close() }
@@ -155,9 +194,11 @@ struct WorkspaceShellTests {
 
 private struct ShellDirectoryReader: ProjectDirectoryReading {
     func children(of path: String) async throws -> [ProjectFile] {
-        [ProjectFile(path: path + "/Sources", isDirectory: true),
-         ProjectFile(path: path + "/.build", isDirectory: true),
-         ProjectFile(path: path + "/Package.swift", isDirectory: false),
-         ProjectFile(path: path + "/README.md", isDirectory: false)]
+        [
+            ProjectFile(path: path + "/Sources", isDirectory: true),
+            ProjectFile(path: path + "/.build", isDirectory: true),
+            ProjectFile(path: path + "/Package.swift", isDirectory: false),
+            ProjectFile(path: path + "/README.md", isDirectory: false)
+        ]
     }
 }

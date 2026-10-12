@@ -28,10 +28,12 @@ public struct ProjectDirectoryReader: ProjectDirectoryReading {
                 var directory: ObjCBool = false
                 if linked { _ = FileManager.default.fileExists(atPath: url.path, isDirectory: &directory) }
 
-                return ProjectFile(path: entryPath,
-                                   isDirectory: values.isDirectory == true || directory.boolValue,
-                                   isSymbolicLink: linked,
-                                   resolvedPath: DocumentPath.canonical(entryPath))
+                return ProjectFile(
+                    path: entryPath,
+                    isDirectory: values.isDirectory == true || directory.boolValue,
+                    isSymbolicLink: linked,
+                    resolvedPath: DocumentPath.canonical(entryPath)
+                )
             }
         }
 

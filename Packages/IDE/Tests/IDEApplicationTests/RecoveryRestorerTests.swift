@@ -24,7 +24,11 @@ private struct World {
             files: files,
             open: open,
             makeScratch: { title in
-                DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: ""), isUntitled: true)
+                DocumentSession(
+                    path: "Untitled.swift",
+                    backend: StringDocumentBackend(loadedText: ""),
+                    isUntitled: true
+                )
             }
         )
     }
@@ -76,7 +80,12 @@ func theScanSaysWhatBecameOfEachFile() async throws {
 
     let scan = try await w.restorer.scan()
     let states = Dictionary(uniqueKeysWithValues: scan.candidates.map { ($0.record.title, $0.disk) })
-    #expect(states == ["Same.swift": .unchanged, "Moved.swift": .changed, "Gone.swift": .missing, "Untitled": .notApplicable])
+    #expect(states == [
+        "Same.swift": .unchanged,
+        "Moved.swift": .changed,
+        "Gone.swift": .missing,
+        "Untitled": .notApplicable
+    ])
 }
 
 @Test @MainActor
@@ -188,7 +197,10 @@ func theOriginalRecordIsKeptWhenItIsTheOneTheNewDocumentWillOverwrite() async th
     try await w.restorer.discard(RecoveryCandidate(record: record, disk: .unchanged), unlessKept: record.key)
     #expect(await w.recovery.keys == [record.key])
 
-    try await w.restorer.discard(RecoveryCandidate(record: record, disk: .unchanged), unlessKept: .file(atPath: "/other"))
+    try await w.restorer.discard(
+        RecoveryCandidate(record: record, disk: .unchanged),
+        unlessKept: .file(atPath: "/other")
+    )
     #expect(await w.recovery.keys.isEmpty)
 }
 

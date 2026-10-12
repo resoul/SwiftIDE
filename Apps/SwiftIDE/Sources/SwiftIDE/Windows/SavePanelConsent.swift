@@ -16,7 +16,8 @@ final class SavePanelConsent: NSObject, NSOpenSavePanelDelegate {
 
         let directory = (sender as? NSSavePanel)?.directoryURL
         let full = (filename as NSString).isAbsolutePath
-            ? filename : (directory?.appendingPathComponent(filename).path ?? filename)
+            ? filename
+            : (directory?.appendingPathComponent(filename).path ?? filename)
         observed = (DocumentPath.canonical(full), revisionOfFile(full))
 
         return filename

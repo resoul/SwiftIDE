@@ -40,7 +40,12 @@ private struct Window {
     init(text: String, path: String, untitled: Bool, services: LanguageServices) {
         editor = TextKitEditorFactory.makeEditor(loadedText: text)
         session = DocumentSession(path: path, backend: editor.backend, isUntitled: untitled)
-        nsWindow = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 600, height: 400), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        nsWindow = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 600, height: 400),
+            styleMask: [.titled, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         nsWindow.contentView = EditorHostView(editor: editor)
         nsWindow.makeFirstResponder(editor.textView)
         coordinator = CompletionCoordinator(session: session, editor: editor, provider: services)
@@ -53,16 +58,18 @@ private struct Window {
     }
 
     func key(_ code: UInt16, characters: String) -> NSEvent {
-        NSEvent.keyEvent(with: .keyDown,
-                         location: .zero,
-                         modifierFlags: [],
-                         timestamp: 0,
-                         windowNumber: nsWindow.windowNumber,
-                         context: nil,
-                         characters: characters,
-                         charactersIgnoringModifiers: characters,
-                         isARepeat: false,
-                         keyCode: code)!
+        NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: nsWindow.windowNumber,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: code
+        )!
     }
 }
 
@@ -79,7 +86,10 @@ private func waitUntil(_ timeout: Duration = .seconds(90), _ condition: () -> Bo
 
 @MainActor
 private func makeServices() -> (LanguageServices, URL) {
-    let scratch = FileManager.default.temporaryDirectory.appendingPathComponent("completion-e2e-\(UUID().uuidString)", isDirectory: true)
+    let scratch = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "completion-e2e-\(UUID().uuidString)",
+        isDirectory: true
+    )
 
     return (LanguageServices(scratchRoot: scratch), scratch)
 }
@@ -101,7 +111,10 @@ func aDocumentWithNoFileGetsStandardLibraryCompletionFromTheRealServer() async t
     // Accept with Return.
     #expect(CompletionCoordinator.handle(w.key(36, characters: "\r"), controller: w.coordinator.controller))
     #expect(w.session.text == "let s = \"abc\"\ns.uppercased()")
-    #expect(w.textView.selectedRange().location == (w.session.text as NSString).length, "after the parentheses of a call with no arguments")
+    #expect(
+        w.textView.selectedRange().location == (w.session.text as NSString).length,
+        "after the parentheses of a call with no arguments"
+    )
 }
 
 @Test(.enabled(if: toolAvailable)) @MainActor
@@ -127,7 +140,10 @@ func aFileInAPackageSeesTheOtherFilesOfItsPackage() async throws {
     let w = Window(text: source + "greeter", path: mainFile.path, untitled: false, services: services)
     await services.attach(w.session)
     #expect(services.service(for: w.session) != nil)
-    #expect(services.runningRoots.map(\.lastPathComponent) == ["SwiftPMPackage"], "the server of the package, not the loose one")
+    #expect(
+        services.runningRoots.map(\.lastPathComponent) == ["SwiftPMPackage"],
+        "the server of the package, not the loose one"
+    )
 
     w.type(".")
     // A package is loaded the first time it is asked about, and a busy machine takes long over
@@ -139,7 +155,10 @@ func aFileInAPackageSeesTheOtherFilesOfItsPackage() async throws {
     w.type("greet")
     #expect(await waitUntil { w.coordinator.controller.isShowing })
     #expect(CompletionCoordinator.handle(w.key(36, characters: "\r"), controller: w.coordinator.controller))
-    #expect(w.session.text.hasSuffix("greeter.greeting()"), "a member of Greeter, declared in another file of the package")
+    #expect(
+        w.session.text.hasSuffix("greeter.greeting()"),
+        "a member of Greeter, declared in another file of the package"
+    )
 }
 
 @Test(.enabled(if: toolAvailable)) @MainActor
@@ -151,5 +170,8 @@ func completionAskedByHandInTheMiddleOfAWordNarrowsToIt() async throws {
     w.coordinator.controller.requestManually()
     #expect(await waitUntil { w.coordinator.controller.isShowing })
     #expect(CompletionCoordinator.handle(w.key(36, characters: "\r"), controller: w.coordinator.controller))
-    #expect(w.session.text.hasSuffix("s.uppercased()"), "the word typed so far was replaced, not appended to: \(w.session.text.debugDescription)")
+    #expect(
+        w.session.text.hasSuffix("s.uppercased()"),
+        "the word typed so far was replaced, not appended to: \(w.session.text.debugDescription)"
+    )
 }

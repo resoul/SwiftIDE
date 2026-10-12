@@ -15,13 +15,23 @@ private struct SeededGenerator: RandomNumberGenerator {
 func chunkedTextEqualsAPlainArrayThroughRandomEdits() {
     var generator = SeededGenerator(state: 0xC4A7)
     for round in 0..<40 {
-        var model = (0..<Int.random(in: 0...90_000, using: &generator)).map { _ in UInt16.random(in: 0x61...0x7A, using: &generator) }
-        var text = ChunkedText(chunks: stride(from: 0, to: model.count, by: 7_000).map { Array(model[$0..<min($0 + 7_000, model.count)]) })
+        var model = (0..<Int.random(in: 0...90_000, using: &generator)).map { _ in
+            UInt16.random(in: 0x61...0x7A, using: &generator)
+        }
+        var text = ChunkedText(chunks: stride(from: 0, to: model.count, by: 7_000).map {
+            Array(model[$0..<min($0 + 7_000, model.count)])
+        })
         #expect(text.units == model)
         for step in 0..<25 {
             let location = Int.random(in: 0...model.count, using: &generator)
-            let length = Int.random(in: 0...min(Bool.random(using: &generator) ? 40_000 : 20, model.count - location), using: &generator)
-            let inserted = (0..<Int.random(in: 0...(Bool.random(using: &generator) ? 50_000 : 10), using: &generator)).map { _ in UInt16.random(in: 0x41...0x5A, using: &generator) }
+            let length = Int.random(
+                in: 0...min(Bool.random(using: &generator) ? 40_000 : 20, model.count - location),
+                using: &generator
+            )
+            let inserted = (0..<Int.random(in: 0...(Bool.random(using: &generator) ? 50_000 : 10), using: &generator))
+                .map { _ in
+                UInt16.random(in: 0x41...0x5A, using: &generator)
+            }
             do { let ok = text.replace(location..<(location + length), with: inserted); #expect(ok) }
             model.replaceSubrange(location..<(location + length), with: inserted)
             #expect(text.length == model.count, "round \(round) step \(step)")
@@ -35,7 +45,10 @@ func chunkedTextEqualsAPlainArrayThroughRandomEdits() {
 func chunkedTextReadsSubstringsAndParserBytesFromAnyPlace() {
     let model = (0..<50_000).map { UInt16(0x61 + $0 % 26) }
     let text = ChunkedText(chunks: [Array(model[..<20_000]), Array(model[20_000...])])
-    #expect(text.substring(19_990..<20_010) == String(decoding: model[19_990..<20_010], as: UTF16.self), "across a chunk boundary")
+    #expect(
+        text.substring(19_990..<20_010) == String(decoding: model[19_990..<20_010], as: UTF16.self),
+        "across a chunk boundary"
+    )
     #expect(text.substring(0..<0) == "")
     #expect(text.bytes(fromUnit: 50_000) == nil)
     var covered = 0
@@ -69,7 +82,9 @@ func pairsAreFoundAcrossChunkBoundariesAndSearchStopsWhenAsked() {
     for round in 0..<300 {
         // Chunks of arbitrary small sizes, so that boundaries fall between the two units of a pair.
         let alphabet: [UInt16] = [0x2F, 0x2A, 0x61, 0x20]
-        let model = (0..<Int.random(in: 0...60, using: &generator)).map { _ in alphabet.randomElement(using: &generator)! }
+        let model = (0..<Int.random(in: 0...60, using: &generator)).map { _ in
+            alphabet.randomElement(using: &generator)!
+        }
         var chunks: [[UInt16]] = []
         var index = 0
         while index < model.count {
@@ -79,7 +94,10 @@ func pairsAreFoundAcrossChunkBoundariesAndSearchStopsWhenAsked() {
         }
         let text = ChunkedText(chunks: chunks)
         var expected: [Int] = []
-        if model.count > 1 { for i in 0..<(model.count - 1) where model[i] == 0x2F && model[i + 1] == 0x2A { expected.append(i) } }
+        if model.count > 1 {
+            for i in 0..<(model.count - 1) where model[i] == 0x2F && model[i + 1] == 0x2A { expected.append(i) }
+        }
+
         var found: [Int] = []
         text.forEachPair(0x2F, 0x2A) { found.append($0); return true }
         #expect(found == expected, "round \(round)")

@@ -7,7 +7,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let composition: AppCompositionRoot
     private var documents: [DocumentEditorController] = []
     private let gitCheckoutPrompt: ((DocumentSession) async -> GitCheckoutDocuments.Decision)?
-    private lazy var gitCheckout = GitCheckoutCoordinator(documents: { [weak self] in self?.documents ?? [] }, prompt: gitCheckoutPrompt)
+    private lazy var gitCheckout = GitCheckoutCoordinator(
+        documents: { [weak self] in self?.documents ?? [] },
+        prompt: gitCheckoutPrompt
+    )
     private var standalone: [DocumentID: WorkspaceWindowController] = [:]
     private var projects: [String: ProjectWorkspaceController] = [:]
     private var closingProjects: Set<String> = []
@@ -17,7 +20,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var cloneWindow: GitCloneWindowController?
     private(set) var welcome: WelcomeWindowController?
 
-    init(composition: AppCompositionRoot = AppCompositionRoot(), recoveryPrompt: ((RecoveryCandidate) -> Bool)? = nil, gitCheckoutPrompt: ((DocumentSession) async -> GitCheckoutDocuments.Decision)? = nil) {
+    init(
+        composition: AppCompositionRoot = AppCompositionRoot(),
+        recoveryPrompt: ((RecoveryCandidate) -> Bool)? = nil,
+        gitCheckoutPrompt: ((DocumentSession) async -> GitCheckoutDocuments.Decision)? = nil
+    ) {
         self.composition = composition
         self.recoveryPrompt = recoveryPrompt
         self.gitCheckoutPrompt = gitCheckoutPrompt
@@ -242,8 +249,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let project = projects[root] { return project }
 
         composition.languageServices.contexts.open(folder: root)
-        let project = ProjectWorkspaceController(files: composition.makeProjectFiles(root: root), layout: composition.makeWorkspaceLayout(root: root), git: composition.makeGitWorkspace(root: root))
-        project.git?.prepareCheckout = { [weak self] repository in await self?.gitCheckout.prepare(repository) ?? false }
+        let project = ProjectWorkspaceController(
+            files: composition.makeProjectFiles(root: root),
+            layout: composition.makeWorkspaceLayout(root: root),
+            git: composition.makeGitWorkspace(root: root)
+        )
+        project.git?.prepareCheckout = { [weak self] repository in
+            await self?.gitCheckout.prepare(repository) ?? false
+        }
         project.git?.checkoutFinished = { [weak self] repository in self?.gitCheckout.finish(repository) }
         projects[root] = project
         project.projectMenu = { [weak self] in self?.projectSwitcherMenu() ?? NSMenu() }
@@ -269,7 +282,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         composition.recentProjects.setOpenRoots(Set(projects.keys))
         // A file already open keeps its session and editor; it becomes a tab of this explicit root.
-        for document in documents where composition.languageServices.contexts.context(forFile: document.session.path)?.root == root {
+        for document in documents
+            where composition.languageServices.contexts.context(forFile: document.session.path)?.root == root {
             for old in projects.values where old !== project && old.documents.contains(where: { $0 === document }) {
                 old.remove(document)
             }
@@ -368,7 +382,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func open(path: String, revealing location: DefinitionLocation? = nil, in preferredProject: ProjectWorkspaceController? = nil) async {
+    func open(
+        path: String,
+        revealing location: DefinitionLocation? = nil,
+        in preferredProject: ProjectWorkspaceController? = nil
+    ) async {
         do {
             let opened = try await composition.open(path: path)
             let targetIsOpen = preferredProject.map { projects[$0.files.root] === $0 } ?? true
@@ -397,7 +415,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             if let location {
-                documents.first { $0.session === opened.session }?.reveal(line: location.line, character: location.character)
+                documents.first { $0.session === opened.session }?.reveal(
+                    line: location.line,
+                    character: location.character
+                )
             }
         } catch is CancellationError {
             return
@@ -477,7 +498,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var lines = ["Unsaved changes were found from \(when)."]
         switch candidate.disk {
         case .changed:
-            lines.append("The file has been changed on disk since then. Restoring opens your text as unsaved changes; saving will ask before replacing the other changes.")
+            lines
+                .append(
+                    """
+                    The file has been changed on disk since then. Restoring opens your text as unsaved changes; \
+                    saving will ask before replacing the other changes.
+                    """
+                )
         case .missing:
             lines.append("The file no longer exists. It will open as an untitled document.")
         case .unreadable:
@@ -522,7 +549,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let place = history.pop() else { return }
 
         let project = activeProject
-        Task { await open(path: place.path, revealing: DefinitionLocation(path: place.path, line: place.line, character: place.character), in: project) }
+        Task {
+            await open(
+                path: place.path,
+                revealing: DefinitionLocation(path: place.path, line: place.line, character: place.character),
+                in: project
+            )
+        }
     }
 
     private func show(_ controller: DocumentEditorController, in project: ProjectWorkspaceController? = nil) {
@@ -539,7 +572,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             composition.close(closed.session)
             documents.removeAll { $0 === closed }
             if let host = standalone.removeValue(forKey: closed.session.id) { host.window?.close() }
-            for project in projects.values where project.documents.contains(where: { $0 === closed }) { project.remove(closed) }
+            for project in projects.values where project.documents.contains(where: { $0 === closed }) {
+                project.remove(closed)
+            }
             returnToWelcomeIfNeeded()
         }
         controller.unsavedChanges = unsavedChanges
@@ -565,7 +600,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: NSMenuItemValidation {
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(goBack(_:)) { return history.canGoBack }
-        if item.action == #selector(closeOpenedFolders(_:)) { return !composition.languageServices.contexts.openedFolders.isEmpty }
+        if item.action == #selector(closeOpenedFolders(_:)) {
+            return !composition.languageServices.contexts.openedFolders.isEmpty
+        }
+
         if item.action == #selector(closeProject(_:)) { return activeProject != nil }
 
         return true

@@ -8,10 +8,12 @@ extension NativeAppTests {
     /// App coordinator source, proving ownership while the other project's window really is active.
     @Test
     func aProjectQuestionBelongsToItsOwnerWhileAnotherProjectIsActuallyActive() async throws {
-        let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
         let products = app.appendingPathComponent(".build/debug").resolvingSymlinksInPath()
         let modules = FileManager.default.fileExists(atPath: products.appendingPathComponent("Modules").path)
-            ? products.appendingPathComponent("Modules") : products
+            ? products.appendingPathComponent("Modules")
+            : products
         var objects: [String] = []
         for module in ["IDEDomain", "IDEApplication", "IDETestSupport", "IconUI", "WorkspaceUI"] {
             let merged = products.appendingPathComponent("\(module).o")
@@ -23,7 +25,8 @@ extension NativeAppTests {
                     .filter { $0.pathExtension == "o" }.map(\.path).sorted()
             }
         }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("active-project-probe-\(UUID().uuidString)")
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("active-project-probe-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let source = folder.appendingPathComponent("main.swift")
@@ -32,19 +35,26 @@ extension NativeAppTests {
         let coordinator = app.appendingPathComponent("Sources/SwiftIDE/Composition/ProjectTrustCoordinator.swift")
         _ = try await BoundedProcess.run(
             executable: URL(fileURLWithPath: "/usr/bin/xcrun"),
-            arguments: ["swiftc",
-                        "-swift-version",
-                        "6",
-                        "-I",
-                        modules.path,
-                        "-module-cache-path",
-                        folder.appendingPathComponent("modules").path,
-                        source.path,
-                        coordinator.path] + objects + ["-o", executable.path],
+            arguments: [
+                "swiftc",
+                "-swift-version",
+                "6",
+                "-I",
+                modules.path,
+                "-module-cache-path",
+                folder.appendingPathComponent("modules").path,
+                source.path,
+                coordinator.path
+            ] + objects + ["-o", executable.path],
             timeout: .seconds(60),
             outputLimit: 1_000_000
         )
-        let output = try await BoundedProcess.run(executable: executable, arguments: [], timeout: .seconds(20), outputLimit: 10_000)
+        let output = try await BoundedProcess.run(
+            executable: executable,
+            arguments: [],
+            timeout: .seconds(20),
+            outputLimit: 10_000
+        )
         #expect(String(decoding: output, as: UTF8.self) == "owned-A\n")
     }
 }
@@ -70,7 +80,12 @@ final class Delegate: NSObject, NSApplicationDelegate {
     }
 
     private func window() -> NSWindow {
-        let window = NSWindow(contentRect: NSRect(x: 20, y: 20, width: 400, height: 240), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 20, y: 20, width: 400, height: 240),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.orderFront(nil)
 
@@ -94,12 +109,20 @@ final class Delegate: NSObject, NSApplicationDelegate {
         NSApp.activate()
         second.makeKeyAndOrderFront(nil)
         guard await waitFor({ NSApp.keyWindow === second }) else {
-            fail("project B never became key: running=\(NSApp.isRunning) active=\(NSApp.isActive) visible=\(second.isVisible) canKey=\(second.canBecomeKey) isKey=\(second.isKeyWindow) windows=\(NSApp.windows.count)")
+            fail("""
+            project B never became key: running=\(NSApp.isRunning) active=\(NSApp.isActive) \
+            visible=\(second.isVisible) canKey=\(second.canBecomeKey) isKey=\(second.isKeyWindow) \
+            windows=\(NSApp.windows.count)
+            """)
         }
 
         let request = Task { await coordinator.ask(projectName: "A", root: URL(fileURLWithPath: "/w/A")) }
-        guard await waitFor({ first.attachedSheet != nil }), let sheet = first.attachedSheet else { fail("no sheet on project A") }
-        guard sheet.sheetParent === first, second.attachedSheet == nil, NSApp.modalWindow == nil else { fail("wrong owner or application modal") }
+        guard await waitFor({ first.attachedSheet != nil }), let sheet = first.attachedSheet else { fail("""
+        no sheet on project A
+        """) }
+        guard sheet.sheetParent === first, second.attachedSheet == nil, NSApp.modalWindow == nil else { fail("""
+        wrong owner or application modal
+        """) }
         first.endSheet(sheet, returnCode: .alertSecondButtonReturn)
         guard await request.value == .granted else { fail("choice was not returned to project A") }
         coordinator.unregister(a)

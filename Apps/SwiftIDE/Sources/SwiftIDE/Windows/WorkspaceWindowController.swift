@@ -17,10 +17,12 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
     init(document: DocumentEditorController) {
         self.editorController = document
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                              backing: .buffered,
-                              defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
         window.contentViewController = document
@@ -66,7 +68,9 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     func windowWillClose(_ notification: Notification) { editorController.close() }
     func validateMenuItem(_ item: NSMenuItem) -> Bool { editorController.validateMenuItem(item) }
     func save() async -> Bool { await editorController.save() }
-    func saveAs(to url: URL, target: SaveAsTarget) async -> Bool { await editorController.saveAs(to: url, target: target) }
+    func saveAs(to url: URL, target: SaveAsTarget) async -> Bool {
+        await editorController.saveAs(to: url, target: target)
+    }
     func promptForUnsavedChanges() async -> UnsavedChangesDecision { await editorController.promptForUnsavedChanges() }
     func openForReading() { editorController.openForReading() }
     func reveal(line: Int, character: Int) { editorController.reveal(line: line, character: character) }
@@ -78,5 +82,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     @objc func jumpToDefinition(_ sender: Any?) { editorController.jumpToDefinition(sender) }
     @objc func allowProjectConfiguration(_ sender: Any?) { editorController.allowProjectConfiguration(sender) }
     @objc func disallowProjectConfiguration(_ sender: Any?) { editorController.disallowProjectConfiguration(sender) }
-    @objc func askAboutProjectConfigurationAgain(_ sender: Any?) { editorController.askAboutProjectConfigurationAgain(sender) }
+    @objc func askAboutProjectConfigurationAgain(_ sender: Any?) {
+        editorController.askAboutProjectConfigurationAgain(sender)
+    }
 }

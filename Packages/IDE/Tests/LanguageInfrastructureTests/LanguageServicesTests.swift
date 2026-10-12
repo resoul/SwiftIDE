@@ -34,10 +34,18 @@ private final class Rig {
     let configuration = FakeConfigurationFiles()
 
     init(store: (any ProjectTrustStore)? = nil) throws {
-        base = FileManager.default.temporaryDirectory.appendingPathComponent("services-\(UUID().uuidString)", isDirectory: true).standardizedFileURL
+        base = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "services-\(UUID().uuidString)",
+            isDirectory: true
+        ).standardizedFileURL
         scratch = base.appendingPathComponent("scratch", isDirectory: true)
         let servers = servers, clock = clock
-        services = LanguageServices(scratchRoot: scratch, languages: languages, contexts: contexts, trustStore: store) { root, virtual in
+        services = LanguageServices(
+            scratchRoot: scratch,
+            languages: languages,
+            contexts: contexts,
+            trustStore: store
+        ) { root, virtual in
             SourceKitLanguageService(
                 workspaceRoot: root,
                 sync: OrderedDocumentSync(virtualDirectory: virtual),
@@ -81,18 +89,33 @@ private final class Rig {
 
 @Test
 func theNearestPackageAboveAFileIsItsRoot() throws {
-    let base = FileManager.default.temporaryDirectory.appendingPathComponent("locator-\(UUID().uuidString)", isDirectory: true)
+    let base = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "locator-\(UUID().uuidString)",
+        isDirectory: true
+    )
     defer { try? FileManager.default.removeItem(at: base) }
     let outer = base.appendingPathComponent("outer"), inner = outer.appendingPathComponent("Vendor/inner")
-    try FileManager.default.createDirectory(at: inner.appendingPathComponent("Sources/Lib"), withIntermediateDirectories: true)
-    try FileManager.default.createDirectory(at: outer.appendingPathComponent("Sources/App"), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: inner.appendingPathComponent("Sources/Lib"),
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: outer.appendingPathComponent("Sources/App"),
+        withIntermediateDirectories: true
+    )
     try FileManager.default.createDirectory(at: base.appendingPathComponent("loose"), withIntermediateDirectories: true)
     try "x".write(to: outer.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
     try "x".write(to: inner.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
 
-    #expect(PackageRootLocator.root(forFile: outer.appendingPathComponent("Sources/App/main.swift").path)?.path == outer.standardizedFileURL.path)
-    #expect(PackageRootLocator.root(forFile: inner.appendingPathComponent("Sources/Lib/L.swift").path)?.path == inner.standardizedFileURL.path, "the nearer package wins")
-    #expect(PackageRootLocator.root(forFile: outer.appendingPathComponent("Package.swift").path)?.path == outer.standardizedFileURL.path)
+    #expect(PackageRootLocator.root(forFile: outer.appendingPathComponent("Sources/App/main.swift").path)?.path == outer
+        .standardizedFileURL.path)
+    #expect(
+        PackageRootLocator.root(forFile: inner.appendingPathComponent("Sources/Lib/L.swift").path)?.path == inner
+            .standardizedFileURL.path,
+        "the nearer package wins"
+    )
+    #expect(PackageRootLocator.root(forFile: outer.appendingPathComponent("Package.swift").path)?.path == outer
+        .standardizedFileURL.path)
     #expect(PackageRootLocator.root(forFile: base.appendingPathComponent("loose/a.swift").path) == nil)
 }
 
@@ -108,9 +131,15 @@ func filesOfOnePackageShareAServerAndAnotherPackageGetsItsOwn() async throws {
     await rig.services.attach(b)
 
     #expect(rig.servers.count == 2)
-    let roots = rig.servers.made.compactMap { $0.messages(named: "initialize").first?["params"]?["rootUri"]?.stringValue }
+    let roots = rig.servers.made.compactMap {
+        $0.messages(named: "initialize").first?["params"]?["rootUri"]?.stringValue
+    }
     #expect(roots.count == 2)
-    #expect(roots.contains { $0.hasSuffix("/A") || $0.hasSuffix("/A/") } && roots.contains { $0.hasSuffix("/B") || $0.hasSuffix("/B/") }, "\(roots)")
+    #expect(
+        roots.contains { $0.hasSuffix("/A") || $0.hasSuffix("/A/") } && roots
+            .contains { $0.hasSuffix("/B") || $0.hasSuffix("/B/") },
+        "\(roots)"
+    )
     #expect(rig.services.service(for: a1) === rig.services.service(for: a2))
     #expect(rig.services.service(for: a1) !== rig.services.service(for: b))
 }
@@ -126,8 +155,13 @@ func documentsWithNoFileAndFilesOutsideAnyPackageShareTheScratchServer() async t
     #expect(rig.services.service(for: untitled) === rig.services.service(for: loose))
     let server = rig.servers.made[0]
     #expect(await server.waitUntil { server.messages(named: "textDocument/didOpen").count == 2 })
-    let opened = server.messages(named: "textDocument/didOpen").compactMap { $0["params"]?["textDocument"]?["uri"]?.stringValue }
-    #expect(opened.contains { $0.contains("/scratch/Untitled-") && $0.hasSuffix(".swift") }, "a made-up address inside the scratch folder: \(opened)")
+    let opened = server.messages(named: "textDocument/didOpen").compactMap {
+        $0["params"]?["textDocument"]?["uri"]?.stringValue
+    }
+    #expect(
+        opened.contains { $0.contains("/scratch/Untitled-") && $0.hasSuffix(".swift") },
+        "a made-up address inside the scratch folder: \(opened)"
+    )
     #expect(opened.contains { $0.hasSuffix("/loose/file.swift") })
 }
 
@@ -172,11 +206,18 @@ func savingADocumentIntoAPackageMovesItToThatPackagesServer() async throws {
 
     let target = try rig.package("A", file: "Sources/App/Moved.swift")
     let files = MemoryDocumentFileStore()
-    _ = try await SaveDocumentUseCase(store: files).saveAs(document: untitled, to: target, target: .newFile, registry: DocumentRegistry())
+    _ = try await SaveDocumentUseCase(store: files).saveAs(
+        document: untitled,
+        to: target,
+        target: .newFile,
+        registry: DocumentRegistry()
+    )
 
     #expect(await rig.waitForServers(2))
     let packageServer = rig.servers.made[1]
-    #expect(await packageServer.waitUntil { packageServer.model().text(URL(fileURLWithPath: target).absoluteString) == "let moved = 1\n" })
+    #expect(await packageServer.waitUntil {
+        packageServer.model().text(URL(fileURLWithPath: target).absoluteString) == "let moved = 1\n"
+    })
     #expect(await scratchServer.waitUntil { scratchServer.model().texts.isEmpty }, "closed on the scratch server")
     #expect(rig.services.service(for: untitled)?.sync.uri(of: untitled) == URL(fileURLWithPath: target).absoluteString)
 }
@@ -211,13 +252,17 @@ func aSwiftFileChosenAsAnotherLanguageLeavesItsServerAndComesBackWithTheChoiceCl
     selector.setOverride(.plainText)
     #expect(await server.waitUntil { server.messages(named: "textDocument/didClose").count == 1 })
     #expect(rig.services.service(for: session) == nil)
-    #expect(await rig.services.completion(for: session, caret: { 0 }) == .unavailable(.notRunning), "no answer for the old language")
+    #expect(
+        await rig.services.completion(for: session, caret: { 0 }) == .unavailable(.notRunning),
+        "no answer for the old language"
+    )
 
     selector.setOverride(nil)
     #expect(await rig.waitForServers(2), "the package server went away with its last document and starts again")
     let again = rig.servers.made[1]
     #expect(await again.waitForMethod("textDocument/didOpen"))
-    #expect(again.messages(named: "textDocument/didOpen")[0]["params"]?["textDocument"]?["languageId"]?.stringValue == "swift")
+    #expect(again.messages(named: "textDocument/didOpen")[0]["params"]?["textDocument"]?["languageId"]?
+        .stringValue == "swift")
 }
 
 @Test @MainActor
@@ -231,7 +276,8 @@ func aTextFileChosenAsSwiftIsGivenToTheServerOfItsPlace() async throws {
     #expect(await rig.waitForServers(1))
     let server = rig.servers.made[0]
     #expect(await server.waitForMethod("textDocument/didOpen"))
-    #expect(server.messages(named: "textDocument/didOpen")[0]["params"]?["textDocument"]?["languageId"]?.stringValue == "swift")
+    #expect(server.messages(named: "textDocument/didOpen")[0]["params"]?["textDocument"]?["languageId"]?
+        .stringValue == "swift")
     #expect(rig.services.service(for: notes) != nil)
 }
 
@@ -245,9 +291,12 @@ func aCFamilyDocumentIsGivenToTheServerUnderItsOwnLanguageID() async throws {
     let server = rig.servers.made[0]
 
     func openedAs(_ count: Int) async -> String? {
-        guard await server.waitUntil({ server.messages(named: "textDocument/didOpen").count == count }) else { return nil }
+        guard await server.waitUntil({ server.messages(named: "textDocument/didOpen").count == count }) else {
+            return nil
+        }
 
-        return server.messages(named: "textDocument/didOpen")[count - 1]["params"]?["textDocument"]?["languageId"]?.stringValue
+        return server.messages(named: "textDocument/didOpen")[count - 1]["params"]?["textDocument"]?["languageId"]?
+            .stringValue
     }
     #expect(await openedAs(1) == "c", "a .h is taken for C")
     selector.setOverride(.cpp)
@@ -256,7 +305,10 @@ func aCFamilyDocumentIsGivenToTheServerUnderItsOwnLanguageID() async throws {
     #expect(await openedAs(3) == "objective-c")
     selector.setOverride(.objectiveCPP)
     #expect(await openedAs(4) == "objective-cpp")
-    #expect(server.messages(named: "textDocument/didClose").count == 3, "each change closed the document before opening it again")
+    #expect(
+        server.messages(named: "textDocument/didClose").count == 3,
+        "each change closed the document before opening it again"
+    )
 }
 
 @Test @MainActor
@@ -297,11 +349,21 @@ func savingASwiftFileAsTextTakesItOffTheServerAndSavingItBackPutsItOnAgain() asy
     let files = MemoryDocumentFileStore()
     let registry = DocumentRegistry()
 
-    _ = try await SaveDocumentUseCase(store: files).saveAs(document: session, to: (path as NSString).deletingLastPathComponent + "/notes.txt", target: .newFile, registry: registry)
+    _ = try await SaveDocumentUseCase(store: files).saveAs(
+        document: session,
+        to: (path as NSString).deletingLastPathComponent + "/notes.txt",
+        target: .newFile,
+        registry: registry
+    )
     #expect(await server.waitUntil { server.messages(named: "textDocument/didClose").count == 1 })
     #expect(rig.services.service(for: session) == nil)
 
-    _ = try await SaveDocumentUseCase(store: files).saveAs(document: session, to: path, target: .newFile, registry: registry)
+    _ = try await SaveDocumentUseCase(store: files).saveAs(
+        document: session,
+        to: path,
+        target: .newFile,
+        registry: registry
+    )
     #expect(await rig.waitForServers(2))
     #expect(await rig.servers.made[1].waitForMethod("textDocument/didOpen"))
 }
@@ -315,10 +377,20 @@ func everyLanguageButPlainTextHasAServerID() {
 
 // MARK: Diagnostics, hover and definition through the services
 
-private func report(_ uri: String, version: Int? = nil, message: String = "boom", from: Int = 4, to: Int = 5) -> JSONValue {
+private func report(
+    _ uri: String,
+    version: Int? = nil,
+    message: String = "boom",
+    from: Int = 4,
+    to: Int = 5
+) -> JSONValue {
     var params: [String: JSONValue] = [
         "uri": .string(uri),
-        "diagnostics": [["message": .string(message), "severity": 2, "range": ["start": ["line": 0, "character": .int(from)], "end": ["line": 0, "character": .int(to)]]]],
+        "diagnostics": [[
+            "message": .string(message),
+            "severity": 2,
+            "range": ["start": ["line": 0, "character": .int(from)], "end": ["line": 0, "character": .int(to)]]
+        ]],
     ]
     if let version { params["version"] = .int(version) }
 
@@ -347,7 +419,8 @@ func aReportIsPlacedInTheTextAndTheObserversAreTold() async throws {
     #expect(told == 1)
 
     service.received("textDocument/publishDiagnostics", report(uri, version: 0, message: "named"), from: 1)
-    #expect(rig.services.diagnostics(for: session)?.isVerified == true && rig.services.diagnostics(for: session)?.items.first?.message == "named")
+    #expect(rig.services.diagnostics(for: session)?.isVerified == true && rig.services.diagnostics(for: session)?.items
+        .first?.message == "named")
     #expect(told == 2)
 
     rig.services.unsubscribeFromDiagnostics(token)
@@ -367,7 +440,10 @@ func aReportForAnOlderVersionOrForADocumentAheadOfTheServerIsNotShown() async th
     var told = 0
     rig.services.subscribeToDiagnostics(for: session) { told += 1 }
 
-    try session.apply([DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// c\n")], expectedVersion: session.version)
+    try session.apply(
+        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// c\n")],
+        expectedVersion: session.version
+    )
     service.received("textDocument/publishDiagnostics", report(uri, version: 0), from: 1)
     #expect(rig.services.diagnostics(for: session) == nil && told == 0, "it names version 0; the text is at 1")
 
@@ -402,7 +478,8 @@ func hoverAndDefinitionGoToTheServerOfTheDocument() async throws {
     #expect(await rig.services.hover(for: session, offset: { 4 }) == .nothing)
     #expect(await rig.services.definition(for: session, offset: { 4 }) == .nothing)
     let server = rig.servers.made[0]
-    #expect(server.messages(named: "textDocument/hover").count == 1 && server.messages(named: "textDocument/definition").count == 1)
+    #expect(server.messages(named: "textDocument/hover").count == 1 && server.messages(named: "textDocument/definition")
+        .count == 1)
 
     rig.services.detach(session)
     #expect(await rig.services.hover(for: session, offset: { 4 }) == .failed(.unavailable(.notRunning)))
@@ -423,9 +500,14 @@ func aDocumentOfAPackageHasItsServersReadinessAndAnObserverHearsOfChanges() asyn
     #expect(rig.services.readiness(for: a)?.settings == .unknown)
 
     let before = heard
-    rig.servers.made[0].notify("$/progress", ["token": "indexing.A", "value": ["kind": "begin", "title": "Indexing", "message": "1 / 2"]])
+    rig.servers.made[0].notify(
+        "$/progress",
+        ["token": "indexing.A", "value": ["kind": "begin", "title": "Indexing", "message": "1 / 2"]]
+    )
     let deadline = ContinuousClock.now + .seconds(10)
-    while rig.services.readiness(for: a)?.reason == nil, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+    while rig.services.readiness(for: a)?.reason == nil, ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(5))
+    }
     #expect(rig.services.readiness(for: a)?.reason == "Preparing package · 1 / 2")
     #expect(heard > before)
 
@@ -588,7 +670,10 @@ func anOpenedFolderWithAPackageBelowItIsNotCalledFallbackBecauseTheServerFindsTh
     await rig.services.attach(session)
 
     #expect(await rig.waitForServers(1))
-    #expect(rig.services.readiness(for: session)?.settings == .unknown, "a claim of fallback settings would be false (ADR-028)")
+    #expect(
+        rig.services.readiness(for: session)?.settings == .unknown,
+        "a claim of fallback settings would be false (ADR-028)"
+    )
 }
 
 // MARK: The target of a file (TK-018)
@@ -598,7 +683,12 @@ private final class FakeDescriber: PackageDescribing, @unchecked Sendable {
     private var asked: [String] = []
     private var toolchainsAsked: [Toolchain?] = []
     var layout: @Sendable (String) -> PackageLayout? = { root in
-        PackageLayout(targets: [PackageTarget(name: "App", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])])
+        PackageLayout(targets: [PackageTarget(
+            name: "App",
+            kind: .executable,
+            directory: root + "/Sources/App",
+            sources: ["main.swift"]
+        )])
     }
 
     /// Called with the number of the call (from 1) before it answers; may hold the answer back.
@@ -627,10 +717,14 @@ private final class FakeConfigurationFiles: ConfigurationFileReading, @unchecked
     private var project: [String: ConfigurationFile] = [:]
     private var user: [ConfigurationFile] = []
 
-    func setProject(_ file: ConfigurationFile, root: String) { lock.withLock { project[DocumentPath.canonical(root)] = file } }
+    func setProject(_ file: ConfigurationFile, root: String) {
+        lock.withLock { project[DocumentPath.canonical(root)] = file }
+    }
     func setUser(_ files: [ConfigurationFile]) { lock.withLock { user = files } }
 
-    func projectFile(root: String) -> ConfigurationFile { lock.withLock { project[DocumentPath.canonical(root)] ?? .absent } }
+    func projectFile(root: String) -> ConfigurationFile {
+        lock.withLock { project[DocumentPath.canonical(root)] ?? .absent }
+    }
     func userFiles() -> [ConfigurationFile] { lock.withLock { user } }
 }
 
@@ -696,7 +790,10 @@ func aSecondDocumentOfThePackageDoesNotDescribeItAgain() async throws {
     try await Task.sleep(for: .milliseconds(100))
 
     #expect(describer.calls.count == 1)
-    #expect(rig.services.targetNames(for: second) == ["App"], "an unlisted file of the target's folder belongs to it by its place")
+    #expect(
+        rig.services.targetNames(for: second) == ["App"],
+        "an unlisted file of the target's folder belongs to it by its place"
+    )
 }
 
 @Test @MainActor
@@ -711,7 +808,10 @@ func aDescriberThatFailsLeavesTheTargetUnknownAndRecordsWhy() async throws {
     try await Task.sleep(for: .milliseconds(100))
 
     #expect(rig.services.targetNames(for: session).isEmpty)
-    #expect(rig.services.layoutLog.contains { $0.contains("failed") && $0.contains("no layout") }, "\(rig.services.layoutLog)")
+    #expect(
+        rig.services.layoutLog.contains { $0.contains("failed") && $0.contains("no layout") },
+        "\(rig.services.layoutLog)"
+    )
 }
 
 @Test @MainActor
@@ -775,7 +875,12 @@ func savingThePackageManifestDescribesThePackageAgain() async throws {
     #expect(await waitUntil { describer.calls.count == 1 })
 
     describer.layout = { root in
-        PackageLayout(targets: [PackageTarget(name: "Renamed", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])])
+        PackageLayout(targets: [PackageTarget(
+            name: "Renamed",
+            kind: .executable,
+            directory: root + "/Sources/App",
+            sources: ["main.swift"]
+        )])
     }
     try manifest.replaceText("// package, edited\n", expectedVersion: manifest.version)
     _ = try await SaveDocumentUseCase(store: files).execute(document: manifest)
@@ -859,11 +964,21 @@ func aFailedDescriptionAfterASuccessfulOneDoesNotKeepTheOldTarget() async throws
     try await saveManifest()
 
     #expect(await waitUntil { describer.calls.count == 2 })
-    #expect(await waitUntil { rig.services.targetNames(for: source).isEmpty }, "the target of the earlier manifest is not the target now")
+    #expect(
+        await waitUntil { rig.services.targetNames(for: source).isEmpty },
+        "the target of the earlier manifest is not the target now"
+    )
     #expect(rig.services.projectContext(for: source)?.targetBasis == nil)
     #expect(rig.services.layoutLog.contains { $0.contains("failed") })
 
-    describer.layout = { root in PackageLayout(targets: [PackageTarget(name: "App", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])]) }
+    describer.layout = { root in
+        PackageLayout(targets: [PackageTarget(
+            name: "App",
+            kind: .executable,
+            directory: root + "/Sources/App",
+            sources: ["main.swift"]
+        )])
+    }
     try await saveManifest()
     #expect(await waitUntil { rig.services.targetNames(for: source) == ["App"] }, "mended: known again")
 }
@@ -881,7 +996,14 @@ func aFailureOfAnOlderQuestionDoesNotEraseTheAnswerToANewerOne() async throws {
     let (source, saveManifest) = try await openedPackageWithManifest(rig)
     #expect(await waitUntil { describer.calls.count == 1 })
 
-    describer.layout = { root in PackageLayout(targets: [PackageTarget(name: "New", kind: .executable, directory: root + "/Sources/App", sources: ["main.swift"])]) }
+    describer.layout = { root in
+        PackageLayout(targets: [PackageTarget(
+            name: "New",
+            kind: .executable,
+            directory: root + "/Sources/App",
+            sources: ["main.swift"]
+        )])
+    }
     try await saveManifest()
     #expect(await waitUntil { rig.services.targetNames(for: source) == ["New"] })
     try await Task.sleep(for: .milliseconds(500))
@@ -950,12 +1072,17 @@ func theConfigurationIsTheServersDefaultWhenNoFileSaysOtherwise() async throws {
 @Test @MainActor
 func aTrustedProjectsFileSelectsTheConfigurationAndARefusedOnesDoesNot() async throws {
     let granted = MemoryProjectTrustStore(), refused = MemoryProjectTrustStore()
-    for (store, decision, expected) in [(granted, TrustDecision.granted, BuildConfigurationSetting.selected("release")),
-                                        (refused, .refused, .inherited("debug"))] {
+    for (store, decision, expected) in [
+        (granted, TrustDecision.granted, BuildConfigurationSetting.selected("release")),
+        (refused, .refused, .inherited("debug"))
+    ] {
         let rig = try Rig(store: store)
         let session = rig.session(try rig.package("A"))
         store.record(decision, forRoot: DocumentPath.canonical(rig.base.appendingPathComponent("A").path))
-        rig.configuration.setProject(.present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)), root: rig.base.appendingPathComponent("A").path)
+        rig.configuration.setProject(
+            .present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)),
+            root: rig.base.appendingPathComponent("A").path
+        )
         await rig.services.attach(session)
 
         #expect(environment(rig)?.configuration == expected, "\(decision)")
@@ -967,7 +1094,10 @@ func untilTheUserAnswersWhatTheServerWillObeyIsUnknownAndThenItIsSelected() asyn
     let store = MemoryProjectTrustStore()
     let rig = try Rig(store: store)
     rig.services.trustPrompt = { _, _ in .granted }
-    rig.configuration.setProject(.present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)), root: rig.base.appendingPathComponent("A").path)
+    rig.configuration.setProject(
+        .present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)),
+        root: rig.base.appendingPathComponent("A").path
+    )
     await rig.services.attach(rig.session(try rig.package("A")))
     #expect(await rig.waitForServers(1))
     #expect(environment(rig)?.configuration == .unknown, "nobody has decided")
@@ -976,7 +1106,11 @@ func untilTheUserAnswersWhatTheServerWillObeyIsUnknownAndThenItIsSelected() asyn
         "jsonrpc": "2.0",
         "id": .int(77),
         "method": "window/showMessageRequest",
-        "params": ["message": "Do you trust the authors of the files in \"A\"?", "actions": [["title": "Trust Workspace"], ["title": "Don't Trust"]], "type": 2],
+        "params": [
+            "message": "Do you trust the authors of the files in \"A\"?",
+            "actions": [["title": "Trust Workspace"], ["title": "Don't Trust"]],
+            "type": 2
+        ],
     ])
 
     #expect(await waitUntil { environment(rig)?.configuration == .selected("release") })
@@ -998,7 +1132,9 @@ func aMissingOrCancelledApplicationPromptDoesNotStoreARefusal(cancelled: Bool) a
         "method": "window/showMessageRequest",
         "params": ["actions": [["title": "Trust Workspace"], ["title": "Don't Trust"]]],
     ])
-    #expect(await server.waitUntil { server.received.contains { $0["id"] == .int(78) && $0["result"] == ["title": "Don't Trust"] } })
+    #expect(await server.waitUntil {
+        server.received.contains { $0["id"] == .int(78) && $0["result"] == ["title": "Don't Trust"] }
+    })
     #expect(store.decision(forRoot: DocumentPath.canonical(rig.base.appendingPathComponent("A").path)) == nil)
     rig.services.detach(session)
     rig.services.terminateAll()
@@ -1051,12 +1187,16 @@ func aFileThatIsNotTheProjectsConfigurationChangesNothingWhenSaved() async throw
     await rig.services.attach(json)
     #expect(await waitUntil { describer.calls.count == 1 })
 
-    rig.configuration.setProject(.present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)), root: rig.base.appendingPathComponent("A").path)
+    rig.configuration.setProject(
+        .present(Data(#"{"swiftPM": {"configuration": "release"}}"#.utf8)),
+        root: rig.base.appendingPathComponent("A").path
+    )
     try json.replaceText("{\"a\": 1}\n", expectedVersion: json.version)
     _ = try await SaveDocumentUseCase(store: files).execute(document: json)
     try await Task.sleep(for: .milliseconds(150))
 
-    #expect(rig.servers.count == 1 && describer.calls.count == 1 && environment(rig)?.configuration == .inherited("debug"))
+    #expect(rig.servers.count == 1 && describer.calls.count == 1 && environment(rig)?
+        .configuration == .inherited("debug"))
 }
 
 @Test @MainActor
@@ -1129,9 +1269,15 @@ func aManifestChangedBehindTheApplicationsBackIsDescribedAgainWhenLookingAgain()
     #expect(describer.calls.count == 1, "the manifest is as it was")
 
     let manifest = rig.base.appendingPathComponent("A/Package.swift")
-    try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(60)], ofItemAtPath: manifest.path)
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date().addingTimeInterval(60)],
+        ofItemAtPath: manifest.path
+    )
     await rig.services.refreshEnvironment()
-    #expect(await waitUntil { describer.calls.count == 2 }, "a changed manifest does not leave the layout of the old one")
+    #expect(
+        await waitUntil { describer.calls.count == 2 },
+        "a changed manifest does not leave the layout of the old one"
+    )
 
     await rig.services.refreshEnvironment()
     try await Task.sleep(for: .milliseconds(100))
@@ -1143,13 +1289,15 @@ func changingOtherUserOptionsInvalidatesTheContextWithoutChangingDebugToRelease(
     let rig = try Rig()
     let describer = FakeDescriber()
     rig.services.describer = describer
-    rig.configuration.setUser([.present(Data(#"{"swiftPM":{"configuration":"debug","extraArguments":["-DOLD"]}}"#.utf8))])
+    rig.configuration
+        .setUser([.present(Data(#"{"swiftPM":{"configuration":"debug","extraArguments":["-DOLD"]}}"#.utf8))])
     let session = rig.session(try rig.package("A"))
     await rig.services.attach(session)
     #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
     let revision = rig.contexts.revision
 
-    rig.configuration.setUser([.present(Data(#"{"swiftPM":{"configuration":"debug","extraArguments":["-DNEW"]}}"#.utf8))])
+    rig.configuration
+        .setUser([.present(Data(#"{"swiftPM":{"configuration":"debug","extraArguments":["-DNEW"]}}"#.utf8))])
     await rig.services.refreshEnvironment()
 
     #expect(environment(rig)?.configuration == .inherited("debug"))
@@ -1219,10 +1367,16 @@ func aNewPendingProjectConfigurationIsNoticedByItsFingerprint() async throws {
     #expect(await waitUntil { rig.services.targetNames(for: session) == ["App"] })
     let revision = rig.contexts.revision
 
-    rig.configuration.setProject(.present(Data(#"{"swiftPM":{"swiftSDK":"sdk"}}"#.utf8)), root: rig.base.appendingPathComponent("A").path)
+    rig.configuration.setProject(
+        .present(Data(#"{"swiftPM":{"swiftSDK":"sdk"}}"#.utf8)),
+        root: rig.base.appendingPathComponent("A").path
+    )
     await rig.services.refreshEnvironment()
 
-    try #require(rig.contexts.revision > revision, "a new config must allow the server to ask for trust, even without a debug/release key")
+    try #require(
+        rig.contexts.revision > revision,
+        "a new config must allow the server to ask for trust, even without a debug/release key"
+    )
     #expect(await rig.waitForServers(2))
     let service = try #require(rig.services.service(for: session))
     #expect(service.configurationTrust == .undecided, "noticing the file grants no permission")
@@ -1230,7 +1384,11 @@ func aNewPendingProjectConfigurationIsNoticedByItsFingerprint() async throws {
         "jsonrpc": "2.0",
         "id": .int(77),
         "method": "window/showMessageRequest",
-        "params": ["message": "Do you trust the authors of the files in \"A\"?", "actions": [["title": "Trust Workspace"], ["title": "Don't Trust"]], "type": 2],
+        "params": [
+            "message": "Do you trust the authors of the files in \"A\"?",
+            "actions": [["title": "Trust Workspace"], ["title": "Don't Trust"]],
+            "type": 2
+        ],
     ])
     #expect(await waitUntil { service.configurationTrust == .refused }, "with nobody to ask, the service refuses")
     #expect(rig.servers.count == 2, "answering the running server does not start another one")

@@ -6,7 +6,11 @@ public struct GitCloneRequest: Equatable, Sendable {
     public let name: String
     public var destination: String { URL(fileURLWithPath: parent, isDirectory: true).appendingPathComponent(name).path }
 
-    public init(source: String, parent: String, name: String) { self.source = source; self.parent = parent; self.name = name }
+    public init(source: String, parent: String, name: String) {
+        self.source = source
+        self.parent = parent
+        self.name = name
+    }
 
     public func validate() throws {
         try Self.validateSource(source)
@@ -25,9 +29,11 @@ public struct GitCloneRequest: Equatable, Sendable {
         if source.hasPrefix("/") { return }
         if source.contains("://") {
             guard let url = URLComponents(string: source), let scheme = url.scheme,
-                  ["https", "http", "ssh", "git", "file"].contains(scheme), url.password == nil, url.query == nil, url.fragment == nil,
+                  ["https", "http", "ssh", "git", "file"].contains(scheme), url.password == nil, url.query == nil,
+                  url.fragment == nil,
                   !["http", "https"].contains(scheme) || url.user == nil else {
-                throw GitInspectionError.failed("Use a supported URL without embedded credentials; configure Git credentials separately")
+                throw GitInspectionError
+                    .failed("Use a supported URL without embedded credentials; configure Git credentials separately")
             }
 
             return
@@ -81,7 +87,9 @@ public final class GitClone {
             } catch {
                 guard let self, !stopped, generation == token else { return }
 
-                state = error is CancellationError || Task.isCancelled ? .cancelled : .failed(error.localizedDescription)
+                state = error is CancellationError || Task.isCancelled
+                    ? .cancelled
+                    : .failed(error.localizedDescription)
                 task = nil; changed()
             }
         }

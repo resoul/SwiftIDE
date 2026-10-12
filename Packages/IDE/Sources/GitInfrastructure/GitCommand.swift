@@ -20,7 +20,16 @@ enum GitCommand {
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 DispatchQueue.global(qos: .userInitiated).async {
-                    execution.start(executable: executable, root: root, arguments: arguments, input: input, timeout: timeout, onOutput: onOutput, network: network, continuation: continuation)
+                    execution.start(
+                        executable: executable,
+                        root: root,
+                        arguments: arguments,
+                        input: input,
+                        timeout: timeout,
+                        onOutput: onOutput,
+                        network: network,
+                        continuation: continuation
+                    )
                 }
             }
         } onCancel: { execution.cancel() }
@@ -72,7 +81,8 @@ enum GitCommand {
             process.standardOutput = stdout; process.standardError = stderr
             do {
                 if let input {
-                    let url = FileManager.default.temporaryDirectory.appendingPathComponent("swiftide-git-input-\(UUID())")
+                    let url = FileManager.default.temporaryDirectory
+                        .appendingPathComponent("swiftide-git-input-\(UUID())")
                     inputURL = url
                     try input.write(to: url)
                     try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
@@ -87,7 +97,9 @@ enum GitCommand {
                     if getpgid(pid) == pid { processGroup = pid }
                 }
             } catch {
-                continuation.resume(throwing: error is CancellationError ? error : GitInspectionError.unavailable("Git could not start: \(error.localizedDescription)"))
+                continuation.resume(throwing: error is CancellationError
+                    ? error
+                    : GitInspectionError.unavailable("Git could not start: \(error.localizedDescription)"))
 
                 return
             }
@@ -121,7 +133,9 @@ enum GitCommand {
                             }
                             if let preview {
                                 onOutput(String(decoding: preview, as: UTF8.self))
-                                if lock.withLock({ streamedBytes == 128_000 }) { onOutput("\n[Git output preview limited]\n") }
+                                if lock.withLock({ streamedBytes == 128_000 }) {
+                                    onOutput("\n[Git output preview limited]\n")
+                                }
                             }
                         }
 
@@ -143,9 +157,11 @@ enum GitCommand {
                 if overflow { return .failure(GitInspectionError.failed("Git output exceeds the preview limit")) }
                 if expired { return .failure(GitInspectionError.failed("Git request timed out")) }
 
-                return .success(GitCommandResult(output: output,
-                                                 status: process.terminationStatus,
-                                                 error: String(decoding: errors, as: UTF8.self)))
+                return .success(GitCommandResult(
+                    output: output,
+                    status: process.terminationStatus,
+                    error: String(decoding: errors, as: UTF8.self)
+                ))
             }
             continuation.resume(with: value)
         }

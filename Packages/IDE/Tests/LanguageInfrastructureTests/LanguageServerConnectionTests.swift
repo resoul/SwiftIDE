@@ -13,7 +13,11 @@ final class Locked<Value: Sendable>: @unchecked Sendable {
     func withLock<R>(_ body: (inout Value) -> R) -> R { lock.withLock { body(&value) } }
 }
 
-private func makeConnection(_ server: ScriptedServer, notifications: Locked<[String]>? = nil, closed: Locked<Int>? = nil) -> LanguageServerConnection {
+private func makeConnection(
+    _ server: ScriptedServer,
+    notifications: Locked<[String]>? = nil,
+    closed: Locked<Int>? = nil
+) -> LanguageServerConnection {
     LanguageServerConnection(
         channel: server,
         onNotification: { method, _ in notifications?.withLock { $0.append(method) } },
@@ -196,7 +200,10 @@ func aSlowAnswerToTheServerDoesNotHoldUpWhatElseArrives() async throws {
     )
     server.send(["jsonrpc": "2.0", "id": 1, "method": "window/showMessageRequest", "params": [:]])
     server.notify("test/after", [:])
-    #expect(await server.waitUntil { notifications.withLock { $0 } == ["test/after"] }, "a question waiting for the user holds nothing up")
+    #expect(
+        await server.waitUntil { notifications.withLock { $0 } == ["test/after"] },
+        "a question waiting for the user holds nothing up"
+    )
 
     #expect(await server.waitUntil { gate.withLock { $0 != nil } })
     gate.withLock { $0 }?.resume()

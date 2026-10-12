@@ -23,7 +23,11 @@ private struct Setup {
     ) async throws {
         files = MemoryDocumentFileStore(contents: [path: text])
         if scratch {
-            session = DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: text), isUntitled: true)
+            session = DocumentSession(
+                path: "Untitled.swift",
+                backend: StringDocumentBackend(loadedText: text),
+                isUntitled: true
+            )
             key = .scratch(session.id)
         } else {
             let open = OpenDocumentUseCase(store: files, registry: registry) { file in
@@ -149,8 +153,10 @@ func aSaveCancelsTheWaitingWrite() async throws {
     try await s.save()
     await s.settle()
     await s.advance(5)
-    #expect(await s.recovery.operations.filter { if case .write = $0 { true } else { false } }.isEmpty,
-            "the text is on disk: nothing is written for it")
+    #expect(
+        await s.recovery.operations.filter { if case .write = $0 { true } else { false } }.isEmpty,
+        "the text is on disk: nothing is written for it"
+    )
 }
 
 @Test @MainActor
@@ -363,7 +369,10 @@ func textTypedWhileSavingUnderANewNameIsKeptOnlyUnderTheNewName() async throws {
     )
     #expect(s.session.isDirty, "text typed during the write is not saved")
     await s.advance(2)
-    #expect(await s.recovery.keys == [.file(atPath: "/w/New.swift")], "the old name is gone, the new one holds the newer text")
+    #expect(
+        await s.recovery.keys == [.file(atPath: "/w/New.swift")],
+        "the old name is gone, the new one holds the newer text"
+    )
     #expect(await s.recovery.record(for: .file(atPath: "/w/New.swift"))?.text.hasPrefix("typed ") == true)
 }
 
@@ -390,7 +399,11 @@ func flushSaysNoWhenTheWriteFailed() async throws {
 
 @Test @MainActor
 func flushSaysNoWhenTheDocumentIsTooLargeToKeep() async throws {
-    let s = try await Setup(policy: RecoveryPolicy(debounce: .seconds(2), maximumDelay: .seconds(10), maximumUTF16Length: 10))
+    let s = try await Setup(policy: RecoveryPolicy(
+        debounce: .seconds(2),
+        maximumDelay: .seconds(10),
+        maximumUTF16Length: 10
+    ))
     try s.edit("// something longer than the limit\n")
     #expect(await s.coordinator.flush() == nil)
     #expect(await s.recovery.keys.isEmpty)
@@ -463,7 +476,10 @@ func theReceiptNamesTheVersionThatWasWrittenNotTheOneTypedWhileItWasBeingWritten
     await s.recovery.release()
     let receipt = await flushing.value
 
-    #expect(receipt == .written(s.key, version: written), "version \(written) is in the store, not \(s.session.version)")
+    #expect(
+        receipt == .written(s.key, version: written),
+        "version \(written) is in the store, not \(s.session.version)"
+    )
     #expect(await s.recovery.record(for: s.key)?.text == "// one\nlet a = 1\n")
     #expect(s.session.version > written)
 }

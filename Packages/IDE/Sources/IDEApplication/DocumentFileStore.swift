@@ -21,7 +21,10 @@ public protocol DocumentFileStore: Sendable {
 extension DocumentFileStore {
     /// For stores that have no cheaper way: reads the file. A store that can look at a file's
     /// metadata, or hash it without decoding, should provide its own.
-    public func currentRevision(path: String, assumingUnchangedFrom known: FileRevision?) async throws -> FileRevision? {
+    public func currentRevision(
+        path: String,
+        assumingUnchangedFrom known: FileRevision?
+    ) async throws -> FileRevision? {
         do {
             return try await read(path: path, maximumBytes: .max).revision
         } catch FileStoreError.notFound {

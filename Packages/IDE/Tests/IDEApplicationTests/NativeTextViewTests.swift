@@ -29,7 +29,11 @@ private struct Fixture {
     var replayed: String { log.replayed }
 
     func assertConsistent(sourceLocation: SourceLocation = #_sourceLocation) {
-        #expect(replayed == textView.string, "published changes do not add up to the view's text", sourceLocation: sourceLocation)
+        #expect(
+            replayed == textView.string,
+            "published changes do not add up to the view's text",
+            sourceLocation: sourceLocation
+        )
     }
 
     /// Lets the run loop close NSUndoManager's implicit per-event group, as a real event ends.
@@ -78,7 +82,10 @@ func typingAndPastingPublishOneExactRevisionEach() {
     #expect(f.session.version == 2)
     #expect(f.log.changes.map(\.origin) == [.typing, .typing])
     #expect(f.log.changes.allSatisfy { !$0.isReconciled })
-    #expect(f.log.changes[1].edits == [DocumentEdit(range: UTF16TextRange(location: 0, length: 3), replacement: "PASTED")])
+    #expect(f.log.changes[1].edits == [DocumentEdit(
+        range: UTF16TextRange(location: 0, length: 3),
+        replacement: "PASTED"
+    )])
     #expect(f.session.isDirty)
     #expect(f.editor.compatibility.isTextKit2)
 }
@@ -203,14 +210,18 @@ func attributeChangesAndSelectionCreateNoRevision() throws {
 @Test @MainActor
 func markedTextStepsPublishCompositionRevisionsAndEndNotifies() {
     let f = Fixture("ab")
-    f.textView.setMarkedText("k",
-                             selectedRange: NSRange(location: 1, length: 0),
-                             replacementRange: NSRange(location: 2, length: 0))
+    f.textView.setMarkedText(
+        "k",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: 2, length: 0)
+    )
     #expect(f.session.isComposing)
     #expect(f.session.text == "abk")
-    f.textView.setMarkedText("ka",
-                             selectedRange: NSRange(location: 2, length: 0),
-                             replacementRange: NSRange(location: NSNotFound, length: 0))
+    f.textView.setMarkedText(
+        "ka",
+        selectedRange: NSRange(location: 2, length: 0),
+        replacementRange: NSRange(location: NSNotFound, length: 0)
+    )
     #expect(f.session.text == "abka")
     // Commit by inserting the final text over the marked range.
     f.textView.insertText("か", replacementRange: NSRange(location: NSNotFound, length: 0))
@@ -228,9 +239,11 @@ func markedTextStepsPublishCompositionRevisionsAndEndNotifies() {
 @Test @MainActor
 func unmarkWithoutTextChangeEndsCompositionWithoutRevision() {
     let f = Fixture("ab")
-    f.textView.setMarkedText("k",
-                             selectedRange: NSRange(location: 1, length: 0),
-                             replacementRange: NSRange(location: 2, length: 0))
+    f.textView.setMarkedText(
+        "k",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: 2, length: 0)
+    )
     let versionDuring = f.session.version
     f.textView.unmarkText()
     #expect(!f.session.isComposing)
@@ -242,12 +255,16 @@ func unmarkWithoutTextChangeEndsCompositionWithoutRevision() {
 @Test @MainActor
 func cancellingCompositionRestoresTextWithNewRevision() {
     let f = Fixture("ab")
-    f.textView.setMarkedText("k",
-                             selectedRange: NSRange(location: 1, length: 0),
-                             replacementRange: NSRange(location: 2, length: 0))
-    f.textView.setMarkedText("",
-                             selectedRange: NSRange(location: 0, length: 0),
-                             replacementRange: NSRange(location: NSNotFound, length: 0))
+    f.textView.setMarkedText(
+        "k",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: 2, length: 0)
+    )
+    f.textView.setMarkedText(
+        "",
+        selectedRange: NSRange(location: 0, length: 0),
+        replacementRange: NSRange(location: NSNotFound, length: 0)
+    )
     #expect(f.textView.string == "ab")
     #expect(f.session.text == "ab")
     #expect(f.session.version == 2)
@@ -258,9 +275,11 @@ func cancellingCompositionRestoresTextWithNewRevision() {
 @Test @MainActor
 func programmaticEditIsRejectedInsideMarkedTextAndAllowedAfter() throws {
     let f = Fixture("ab")
-    f.textView.setMarkedText("k",
-                             selectedRange: NSRange(location: 1, length: 0),
-                             replacementRange: NSRange(location: 2, length: 0))
+    f.textView.setMarkedText(
+        "k",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: 2, length: 0)
+    )
     #expect(throws: DocumentError.compositionInProgress) {
         try f.session.replaceText("zzz", expectedVersion: f.session.version)
     }
@@ -275,9 +294,11 @@ func saveDuringCompositionFinishesItAndWritesFinalText() async throws {
     let f = Fixture("ab")
     let store = SpyStore()
     let save = SaveDocumentUseCase(store: store)
-    f.textView.setMarkedText("k",
-                             selectedRange: NSRange(location: 1, length: 0),
-                             replacementRange: NSRange(location: 2, length: 0))
+    f.textView.setMarkedText(
+        "k",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: 2, length: 0)
+    )
     let receipt = try await save.execute(document: f.session)
     #expect(!f.session.isComposing)
     #expect(await store.texts == ["abk"])
@@ -429,7 +450,10 @@ func unmatchedPreflightLeaksNoBridgeStateAndKeepsSessionInSync() throws {
     // The stale preflight must not be mistaken for the next real edit.
     f.type("!", at: 3)
     #expect(f.log.changes.last?.isReconciled == false)
-    #expect(f.log.changes.last?.edits == [DocumentEdit(range: UTF16TextRange(location: 3, length: 0), replacement: "!")])
+    #expect(f.log.changes.last?.edits == [DocumentEdit(
+        range: UTF16TextRange(location: 3, length: 0),
+        replacement: "!"
+    )])
     while manager.canUndo { manager.undo(); f.endEvent() }
     #expect(f.session.text == f.textView.string)
     #expect(manager.groupingLevel == 0)
@@ -496,16 +520,22 @@ func noEditingOperationOnTheRealViewCopiesTheWholeText() throws {
     manager.undo(); f.endEvent()                           // undo of the programmatic edit
     manager.undo(); f.endEvent()                           // undo of typing (storage's own report)
     manager.redo(); f.endEvent()
-    f.textView.setMarkedText("k",
-                             selectedRange: NSRange(location: 1, length: 0),
-                             replacementRange: NSRange(location: 20, length: 0))
-    f.textView.setMarkedText("ka",
-                             selectedRange: NSRange(location: 2, length: 0),
-                             replacementRange: NSRange(location: NSNotFound, length: 0))
+    f.textView.setMarkedText(
+        "k",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: 20, length: 0)
+    )
+    f.textView.setMarkedText(
+        "ka",
+        selectedRange: NSRange(location: 2, length: 0),
+        replacementRange: NSRange(location: NSNotFound, length: 0)
+    )
     f.textView.insertText("か", replacementRange: NSRange(location: NSNotFound, length: 0))
-    f.textView.setMarkedText("z",
-                             selectedRange: NSRange(location: 1, length: 0),
-                             replacementRange: NSRange(location: 30, length: 0))
+    f.textView.setMarkedText(
+        "z",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: 30, length: 0)
+    )
     f.textView.unmarkText()
     f.endEvent()
 
@@ -537,9 +567,11 @@ func theViewsOwnUndoIsDescribedByItsEditedRangeNotByComparingTexts() throws {
 @Test @MainActor
 func compositionEndIsAnnouncedOnlyWhenTheOperationIsAccountedFor() {
     let f = Fixture("ab")
-    f.textView.setMarkedText("k",
-                             selectedRange: NSRange(location: 1, length: 0),
-                             replacementRange: NSRange(location: 2, length: 0))
+    f.textView.setMarkedText(
+        "k",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: 2, length: 0)
+    )
     let versionBefore = f.session.version
     var seen: [(text: String, version: UInt64, reconciliations: Int)] = []
     f.session.subscribeToComposition { event in
@@ -562,9 +594,11 @@ func compositionEndIsAnnouncedOnlyWhenTheOperationIsAccountedFor() {
 @Test @MainActor
 func compositionEndedByCommittingTextSeesTheFinishedText() {
     let f = Fixture("ab")
-    f.textView.setMarkedText("ka",
-                             selectedRange: NSRange(location: 2, length: 0),
-                             replacementRange: NSRange(location: 2, length: 0))
+    f.textView.setMarkedText(
+        "ka",
+        selectedRange: NSRange(location: 2, length: 0),
+        replacementRange: NSRange(location: 2, length: 0)
+    )
     var atEnd: DocumentSnapshot?
     f.session.subscribeToComposition { if $0 == .ended { atEnd = f.session.snapshot() } }
     f.textView.insertText("か", replacementRange: NSRange(location: NSNotFound, length: 0))

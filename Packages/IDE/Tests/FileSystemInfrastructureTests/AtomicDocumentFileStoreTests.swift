@@ -108,8 +108,12 @@ func oversizedMissingAndNonRegularFilesAreRefused() async throws {
     await #expect(throws: FileStoreError.tooLarge(size: 2_000, limit: 1_000)) {
         try await store.read(path: big, maximumBytes: 1_000)
     }
-    await #expect(throws: FileStoreError.notFound) { try await store.read(path: box.path("Nope.swift"), maximumBytes: 10) }
-    await #expect(throws: FileStoreError.notRegularFile) { try await store.read(path: box.directory.path, maximumBytes: 10) }
+    await #expect(throws: FileStoreError.notFound) {
+        try await store.read(path: box.path("Nope.swift"), maximumBytes: 10)
+    }
+    await #expect(throws: FileStoreError.notRegularFile) {
+        try await store.read(path: box.directory.path, maximumBytes: 10)
+    }
 }
 
 // MARK: Writing and revisions
@@ -199,7 +203,9 @@ func newFileMustNotExistAndDeletedFileIsAConflict() async throws {
 func missingDirectoryIsReportedAndNoFileAppears() async throws {
     let box = try Sandbox()
     let path = box.path("no-such-dir/Main.swift")
-    await #expect(throws: FileStoreError.notFound) { try await store.write(snapshot(path, "x"), expecting: .revision(nil)) }
+    await #expect(throws: FileStoreError.notFound) {
+        try await store.write(snapshot(path, "x"), expecting: .revision(nil))
+    }
     #expect(box.entries.isEmpty)
 }
 
@@ -370,7 +376,9 @@ func currentRevisionDescribesTheFileAsItIsNow() async throws {
     let revision = try #require(try AtomicDocumentFileStore.currentRevision(atPath: path))
     #expect(revision == (try await store.read(path: path, maximumBytes: 100)).revision)
     #expect(try AtomicDocumentFileStore.currentRevision(atPath: box.path("Nope.swift")) == nil)
-    #expect(throws: FileStoreError.notRegularFile) { try AtomicDocumentFileStore.currentRevision(atPath: box.directory.path) }
+    #expect(throws: FileStoreError.notRegularFile) {
+        try AtomicDocumentFileStore.currentRevision(atPath: box.directory.path)
+    }
     // Binary content is still a revision: it must be comparable even if it cannot be opened.
     let binary = try box.create("Blob.bin", bytes: [0, 1, 2])
     #expect(try AtomicDocumentFileStore.currentRevision(atPath: binary)?.size == 3)

@@ -10,7 +10,8 @@ struct GitCLITests {
         try repo.write("tracked.txt", "first\n"); try repo.write("old name.txt", "rename\n")
         try repo.write(".gitignore", "generated/\n!keep.txt\n")
         try repo.git(["add", "."]); try repo.git(["commit", "-m", "Initial"])
-        let head = String(decoding: try repo.git(["rev-parse", "HEAD"]), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        let head = String(decoding: try repo.git(["rev-parse", "HEAD"]), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         try repo.git(["update-ref", "refs/remotes/origin/main", head])
         try repo.git(["config", "remote.origin.url", repo.root])
         try repo.git(["config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"])
@@ -67,7 +68,10 @@ struct GitCLITests {
         let second = try await service.history(in: snapshot.repository, revision: head, offset: 2, count: 2)
         #expect(second.commits.count == 2 && !second.hasMore)
         #expect(Set(first.commits.map(\.oid)).isDisjoint(with: second.commits.map(\.oid)))
-        let root = try #require(second.commits.last), files = try await service.files(in: snapshot.repository, commit: root)
+        let root = try #require(second.commits.last), files = try await service.files(
+            in: snapshot.repository,
+            commit: root
+        )
         #expect(root.parents.isEmpty && files.map(\.path) == ["a.txt"])
         let diff = try await service.diff(in: snapshot.repository, comparison: .commit(root, try #require(files.first)))
         #expect(diff.contains("+0"))
@@ -92,7 +96,8 @@ struct GitCLITests {
         #expect(!FileManager.default.fileExists(atPath: marker))
         try repo.write("binary.bin", String(repeating: "\0", count: 100))
         let binary = GitChange(path: "binary.bin", decoration: .init(isUntracked: true))
-        #expect(try await GitCLI().diff(in: snapshot.repository, comparison: .untracked(binary)).contains("Binary files"))
+        #expect(try await GitCLI().diff(in: snapshot.repository, comparison: .untracked(binary))
+            .contains("Binary files"))
     }
 
     @Test func conflictsRemainDistinctFromUntrackedAndRenameCommitKeepsBothPaths() async throws {
@@ -104,11 +109,18 @@ struct GitCLITests {
         try repo.write("a.txt", "main\n"); try repo.git(["commit", "-am", "Main"])
         try repo.git(["merge", "other"], accepted: [1])
         let snapshot = try await GitCLI().snapshot(at: repo.root)
-        #expect(snapshot.changes.contains { $0.path == "a.txt" && $0.decoration.isConflict && !$0.decoration.isUntracked })
+        #expect(snapshot.changes.contains {
+            $0.path == "a.txt" && $0.decoration.isConflict && !$0.decoration.isUntracked
+        })
         try repo.git(["merge", "--abort"])
         try repo.git(["mv", "a.txt", "renamed.txt"]); try repo.git(["commit", "-m", "Rename"])
         let newer = try await GitCLI().snapshot(at: repo.root)
-        let page = try await GitCLI().history(in: newer.repository, revision: try #require(newer.head), offset: 0, count: 1)
+        let page = try await GitCLI().history(
+            in: newer.repository,
+            revision: try #require(newer.head),
+            offset: 0,
+            count: 1
+        )
         let commit = try #require(page.commits.first)
         let files = try await GitCLI().files(in: newer.repository, commit: commit)
         #expect(files.contains { $0.path == "renamed.txt" && $0.previousPath == "a.txt" && $0.status.hasPrefix("R") })
@@ -121,28 +133,56 @@ struct GitCLITests {
         let outside = repo.root + "-outside"
         try FileManager.default.createDirectory(atPath: outside, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: outside) }
-        await #expect(throws: GitInspectionError.unavailable("This folder is not in a Git repository")) { try await GitCLI().snapshot(at: outside) }
+        await #expect(throws: GitInspectionError.unavailable("This folder is not in a Git repository")) {
+            try await GitCLI().snapshot(at: outside)
+        }
         await #expect(throws: GitInspectionError.self) {
-            try await GitCommand.run(executable: URL(fileURLWithPath: "/usr/bin/git"), root: repo.root, arguments: ["--version"], limit: 1)
+            try await GitCommand.run(
+                executable: URL(fileURLWithPath: "/usr/bin/git"),
+                root: repo.root,
+                arguments: ["--version"],
+                limit: 1
+            )
         }
         let hang = "trap '' TERM; while :; do :; done"
         await #expect(throws: GitInspectionError.self) {
-            try await GitCommand.run(executable: URL(fileURLWithPath: "/bin/sh"), root: repo.root, arguments: ["-c", hang], timeout: 0.05)
+            try await GitCommand.run(
+                executable: URL(fileURLWithPath: "/bin/sh"),
+                root: repo.root,
+                arguments: ["-c", hang],
+                timeout: 0.05
+            )
         }
-        let task = Task { try await GitCommand.run(executable: URL(fileURLWithPath: "/bin/sh"), root: repo.root, arguments: ["-c", hang], timeout: 10) }
+        let task = Task {
+            try await GitCommand.run(
+                executable: URL(fileURLWithPath: "/bin/sh"),
+                root: repo.root,
+                arguments: ["-c", hang],
+                timeout: 10
+            )
+        }
         try await Task.sleep(for: .milliseconds(30)); task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
     }
 
-    @Test(arguments: [false, true]) func timedOutSubprocessCannotLeaveAChildHoldingTheOutputPipe(parentExits: Bool) async throws {
+    @Test(arguments: [
+        false,
+        true
+    ]) func timedOutSubprocessCannotLeaveAChildHoldingTheOutputPipe(parentExits: Bool) async throws {
         let repo = try RepositoryFixture(); defer { repo.remove() }
         let spawn = "/bin/sleep 20 &\necho $! > '\(repo.root)/child.pid'\n" + (parentExits ? "exit 0\n" : "wait\n")
         let started = ContinuousClock.now
         await #expect(throws: GitInspectionError.failed("Git request timed out")) {
-            try await GitCommand.run(executable: URL(fileURLWithPath: "/bin/sh"), root: repo.root, arguments: ["-c", spawn], timeout: 0.5)
+            try await GitCommand.run(
+                executable: URL(fileURLWithPath: "/bin/sh"),
+                root: repo.root,
+                arguments: ["-c", spawn],
+                timeout: 0.5
+            )
         }
         #expect(started.duration(to: .now) < .seconds(3))
-        let pidText = try String(contentsOfFile: repo.root + "/child.pid", encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+        let pidText = try String(contentsOfFile: repo.root + "/child.pid", encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         let pid = try #require(Int32(pidText))
         let end = ContinuousClock.now + .seconds(2)
         while kill(pid, 0) == 0, ContinuousClock.now < end { try await Task.sleep(for: .milliseconds(10)) }
@@ -175,7 +215,9 @@ final class RepositoryFixture: @unchecked Sendable {
         try process.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
-        guard accepted.contains(process.terminationStatus) else { throw GitInspectionError.failed("Fixture command failed: \(arguments)") }
+        guard accepted.contains(process.terminationStatus) else {
+            throw GitInspectionError.failed("Fixture command failed: \(arguments)")
+        }
 
         return data
     }

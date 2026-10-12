@@ -6,7 +6,10 @@ public enum PackageRootLocator {
     public static func root(forFile path: String, fileManager: FileManager = .default) -> URL? {
         var directory = URL(fileURLWithPath: path).deletingLastPathComponent().standardizedFileURL
         while true {
-            if fileManager.fileExists(atPath: directory.appendingPathComponent("Package.swift").path) { return directory }
+            if fileManager.fileExists(atPath: directory.appendingPathComponent("Package.swift").path) {
+                return directory
+            }
+
             let parent = directory.deletingLastPathComponent().standardizedFileURL
             if parent.path == directory.path { return nil }
             directory = parent

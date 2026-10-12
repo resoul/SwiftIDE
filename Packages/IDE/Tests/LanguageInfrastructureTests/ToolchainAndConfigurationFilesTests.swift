@@ -17,7 +17,11 @@ private func resolver(_ answers: [String: String], failing: Set<String> = []) ->
 private let found = [
     "/usr/bin/xcrun --find swift": "/X/usr/bin/swift\n",
     "/usr/bin/xcrun --find sourcekit-lsp": "/X/usr/bin/sourcekit-lsp\n",
-    "/X/usr/bin/swift --version": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0\n",
+    "/X/usr/bin/swift --version": """
+    Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)
+    Target: arm64-apple-macosx27.0.0
+
+    """,
 ]
 
 @Test
@@ -49,21 +53,28 @@ func theRealXcodeToolchainIsFoundAndItsServerIsTheOneXcrunFinds() async throws {
         return
     }
 
-    #expect(FileManager.default.isExecutableFile(atPath: toolchain.swift) && FileManager.default.isExecutableFile(atPath: toolchain.sourceKitLSP))
+    #expect(FileManager.default.isExecutableFile(atPath: toolchain.swift) && FileManager.default
+        .isExecutableFile(atPath: toolchain.sourceKitLSP))
     #expect(toolchain.version.contains("Swift"), Comment(rawValue: toolchain.version))
 }
 
 // MARK: The configuration files
 
 private func temporaryHome() throws -> URL {
-    let home = FileManager.default.temporaryDirectory.appendingPathComponent("config-home-\(UUID().uuidString)", isDirectory: true)
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "config-home-\(UUID().uuidString)",
+        isDirectory: true
+    )
     try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
 
     return home
 }
 
 private func write(_ text: String, to path: String) throws {
-    try FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        atPath: (path as NSString).deletingLastPathComponent,
+        withIntermediateDirectories: true
+    )
     try text.write(toFile: path, atomically: true, encoding: .utf8)
 }
 
@@ -76,14 +87,21 @@ func theUsersFilesAreReadInTheDocumentedOrderFromLowestPriorityToHighest() throw
     try write("{\"c\":1}", to: home.path + "/xdg/sourcekit-lsp/config.json")
 
     let files = SourceKitConfigurationFiles(home: home.path, xdgConfigHome: home.path + "/xdg").userFiles()
-    #expect(files == [.present(Data("{\"a\":1}".utf8)), .present(Data("{\"b\":1}".utf8)), .present(Data("{\"c\":1}".utf8))])
+    #expect(files == [
+        .present(Data("{\"a\":1}".utf8)),
+        .present(Data("{\"b\":1}".utf8)),
+        .present(Data("{\"c\":1}".utf8))
+    ])
 }
 
 @Test
 func aFileThatIsNotThereIsAbsentAndOneThatCannotBeReadIsSaidToBeUnreadable() throws {
     let home = try temporaryHome()
     defer { try? FileManager.default.removeItem(at: home) }
-    #expect(SourceKitConfigurationFiles(home: home.path, xdgConfigHome: nil).userFiles() == [.absent, .absent], "no XDG place when none is set")
+    #expect(
+        SourceKitConfigurationFiles(home: home.path, xdgConfigHome: nil).userFiles() == [.absent, .absent],
+        "no XDG place when none is set"
+    )
 
     let path = home.path + "/.sourcekit-lsp/config.json"
     try write("{}", to: path)
@@ -109,6 +127,12 @@ func aConfigurationFileIsKnownByItsNameAndItsFolderAndAProjectsFileByItsRootToo(
     #expect(!SourceKitConfigurationFiles.isConfigurationFile("/w/pkg/config.json"))
     #expect(!SourceKitConfigurationFiles.isConfigurationFile("/w/pkg/.sourcekit-lsp/other.json"))
     #expect(SourceKitConfigurationFiles.isProjectFile("/w/pkg/.sourcekit-lsp/config.json", root: "/w/pkg"))
-    #expect(!SourceKitConfigurationFiles.isProjectFile("/w/other/.sourcekit-lsp/config.json", root: "/w/pkg"), "another project's file")
-    #expect(!SourceKitConfigurationFiles.isProjectFile("/w/pkg/Sources/.sourcekit-lsp/config.json", root: "/w/pkg"), "only the root's own")
+    #expect(
+        !SourceKitConfigurationFiles.isProjectFile("/w/other/.sourcekit-lsp/config.json", root: "/w/pkg"),
+        "another project's file"
+    )
+    #expect(
+        !SourceKitConfigurationFiles.isProjectFile("/w/pkg/Sources/.sourcekit-lsp/config.json", root: "/w/pkg"),
+        "only the root's own"
+    )
 }

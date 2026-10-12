@@ -8,9 +8,18 @@ private let describeJSON = """
   "name": "Fixture",
   "path": "/w/pkg",
   "targets": [
-    { "name": "LibTests", "type": "test", "module_type": "SwiftTarget", "path": "Tests/LibTests", "sources": ["GreeterTests.swift"] },
-    { "name": "Lib", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Lib", "sources": ["Greeter.swift"] },
-    { "name": "App", "type": "executable", "module_type": "SwiftTarget", "path": "Sources/App", "sources": ["main.swift"] },
+    {
+      "name": "LibTests", "type": "test", "module_type": "SwiftTarget",
+      "path": "Tests/LibTests", "sources": ["GreeterTests.swift"]
+    },
+    {
+      "name": "Lib", "type": "library", "module_type": "SwiftTarget",
+      "path": "Sources/Lib", "sources": ["Greeter.swift"]
+    },
+    {
+      "name": "App", "type": "executable", "module_type": "SwiftTarget",
+      "path": "Sources/App", "sources": ["main.swift"]
+    },
     { "name": "CLib", "type": "library", "module_type": "ClangTarget", "path": "Sources/CLib", "sources": ["clib.c"] }
   ]
 }
@@ -63,8 +72,14 @@ func aFolderThatMerelyStartsWithTheSameLettersIsNotTheTargets() throws {
 func theInnermostTargetFolderWinsForAnUnlistedFile() throws {
     let nested = try layout("""
     { "targets": [
-      { "name": "Outer", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Outer", "sources": ["a.swift"] },
-      { "name": "Inner", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Outer/Inner", "sources": ["b.swift"] }
+      {
+        "name": "Outer", "type": "library", "module_type": "SwiftTarget",
+        "path": "Sources/Outer", "sources": ["a.swift"]
+      },
+      {
+        "name": "Inner", "type": "library", "module_type": "SwiftTarget",
+        "path": "Sources/Outer/Inner", "sources": ["b.swift"]
+      }
     ] }
     """)
     #expect(nested.membership(of: "/w/pkg/Sources/Outer/Inner/new.swift") == .one(nested.targets[1], .inferred))
@@ -76,7 +91,10 @@ func theInnermostTargetFolderWinsForAnUnlistedFile() throws {
 func aFileListedInTwoTargetsIsAmbiguousAndSaysWhichTwo() throws {
     let two = try layout("""
     { "targets": [
-      { "name": "A", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Shared", "sources": ["x.swift"] },
+      {
+        "name": "A", "type": "library", "module_type": "SwiftTarget",
+        "path": "Sources/Shared", "sources": ["x.swift"]
+      },
       { "name": "B", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Shared", "sources": ["x.swift"] }
     ] }
     """)
@@ -93,7 +111,10 @@ func aFileListedInTwoTargetsIsAmbiguousAndSaysWhichTwo() throws {
 func twoTargetsWithTheSameFolderAreAmbiguousForAnUnlistedFileToo() throws {
     let two = try layout("""
     { "targets": [
-      { "name": "A", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Shared", "sources": ["a.swift"] },
+      {
+        "name": "A", "type": "library", "module_type": "SwiftTarget",
+        "path": "Sources/Shared", "sources": ["a.swift"]
+      },
       { "name": "B", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Shared", "sources": ["b.swift"] }
     ] }
     """)
@@ -103,7 +124,10 @@ func twoTargetsWithTheSameFolderAreAmbiguousForAnUnlistedFileToo() throws {
         return
     }
 
-    #expect(two.membership(of: "/w/pkg/Sources/Shared/a.swift") == .one(two.targets[0], .listed), "a listed file settles it")
+    #expect(
+        two.membership(of: "/w/pkg/Sources/Shared/a.swift") == .one(two.targets[0], .listed),
+        "a listed file settles it"
+    )
 }
 
 @Test
@@ -118,8 +142,12 @@ func aTargetWithNoSourcesListStillHoldsItsFolder() throws {
 @Test
 func outputThatIsNotDescribeJSONIsRefusedNotGuessedAt() {
     #expect(throws: PackageLayout.ParseError.self) { try PackageLayout.parse(Data("not json".utf8), root: "/w") }
-    #expect(throws: PackageLayout.ParseError.self) { try PackageLayout.parse(Data("{\"name\": \"x\"}".utf8), root: "/w") }
-    #expect(throws: PackageLayout.ParseError.self) { try PackageLayout.parse(Data("{\"targets\": [{\"name\": \"x\"}]}".utf8), root: "/w") }
+    #expect(throws: PackageLayout.ParseError.self) {
+        try PackageLayout.parse(Data("{\"name\": \"x\"}".utf8), root: "/w")
+    }
+    #expect(throws: PackageLayout.ParseError.self) {
+        try PackageLayout.parse(Data("{\"targets\": [{\"name\": \"x\"}]}".utf8), root: "/w")
+    }
 }
 
 @Test
@@ -142,7 +170,10 @@ func aFileThePackageListsIsListedAndOneItDoesNotIsInferred() throws {
 func twoTargetsSharingAFolderWithExplicitSourcesAreAmbiguousForAFileNeitherLists() throws {
     let shared = try layout("""
     { "targets": [
-      { "name": "A", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Shared", "sources": ["A.swift"] },
+      {
+        "name": "A", "type": "library", "module_type": "SwiftTarget",
+        "path": "Sources/Shared", "sources": ["A.swift"]
+      },
       { "name": "B", "type": "library", "module_type": "SwiftTarget", "path": "Sources/Shared", "sources": ["B.swift"] }
     ] }
     """)
@@ -157,7 +188,10 @@ func twoTargetsSharingAFolderWithExplicitSourcesAreAmbiguousForAFileNeitherLists
 @Test
 func aFileTheManifestExcludesIsStillOnlyInferredToBeInTheTargetsFolder() throws {
     let l = try layout("""
-    { "targets": [ { "name": "App", "type": "executable", "module_type": "SwiftTarget", "path": "Sources/App", "sources": ["main.swift"] } ] }
+    { "targets": [
+      { "name": "App", "type": "executable", "module_type": "SwiftTarget",
+        "path": "Sources/App", "sources": ["main.swift"] }
+    ] }
     """)
     #expect(l.membership(of: "/w/pkg/Sources/App/Skip/S.swift") == .one(l.targets[0], .inferred))
 }

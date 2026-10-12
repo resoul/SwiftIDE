@@ -23,7 +23,13 @@ public enum TextKitEditorFactory {
         let compatibility = TextKitCompatibilityMonitor(textView: textView)
         precondition(compatibility.isTextKit2, "NSTextView must start on TextKit 2")
 
-        return TextKitEditor(backend: backend, textView: textView, compatibility: compatibility, undo: undo, input: input)
+        return TextKitEditor(
+            backend: backend,
+            textView: textView,
+            compatibility: compatibility,
+            undo: undo,
+            input: input
+        )
     }
 
     /// Plain text only; substitutions that rewrite source code are disabled explicitly.

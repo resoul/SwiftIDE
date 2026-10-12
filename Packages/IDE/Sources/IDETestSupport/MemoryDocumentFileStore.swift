@@ -45,7 +45,10 @@ public actor MemoryDocumentFileStore: DocumentFileStore {
         return revision
     }
 
-    public func currentRevision(path: String, assumingUnchangedFrom known: FileRevision?) async throws -> FileRevision? {
+    public func currentRevision(
+        path: String,
+        assumingUnchangedFrom known: FileRevision?
+    ) async throws -> FileRevision? {
         entries[path]?.revision
     }
 

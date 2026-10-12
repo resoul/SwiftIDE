@@ -234,7 +234,13 @@ extension DocumentSession {
         let text = await Task.detached(priority: .userInitiated) { TextCopier.string(from: chunks) }.value
 
         return DocumentCapture(
-            snapshot: DocumentSnapshot(documentID: documentID, path: capturedPath, version: version, text: text, encoding: encoding),
+            snapshot: DocumentSnapshot(
+                documentID: documentID,
+                path: capturedPath,
+                version: version,
+                text: text,
+                encoding: encoding
+            ),
             diskRevision: revision
         )
     }

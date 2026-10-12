@@ -8,14 +8,19 @@ public struct GitPushPlan: Equatable, Sendable {
     public let url: String
 
     public init(repository: GitRepository, branch: GitBranch, remote: String, destination: String, url: String) {
-        self.repository = repository; self.branch = branch; self.remote = remote; self.destination = destination; self.url = url
+        self.repository = repository
+        self.branch = branch
+        self.remote = remote
+        self.destination = destination
+        self.url = url
     }
 
     public var title: String { "Push " + branch.name + " → " + remote + "/" + destination }
 }
 
 public protocol GitPushPlanning: Sendable {
-    func planPush(in snapshot: GitSnapshot, branch: GitBranch, remote: String, destination: String) async throws -> GitPushPlan
+    func planPush(in snapshot: GitSnapshot, branch: GitBranch, remote: String, destination: String) async throws
+        -> GitPushPlan
 }
 
 /// Reviewing a destination is read-only. Only the explicit Push button starts a workspace action.
@@ -43,13 +48,21 @@ public final class GitPushReview {
         task?.cancel(); generation = UUID(); plan = nil; state = .idle; changed()
     }
     public func review(branch: GitBranch, remote: String, destination: String) {
-        guard !stopped, workspace.canMutate, let snapshot = workspace.snapshot, let planner = workspace.pushPlanner else { return }
+        guard !stopped, workspace.canMutate, let snapshot = workspace.snapshot,
+              let planner = workspace.pushPlanner else {
+            return
+        }
 
         invalidate(); state = .loading; changed()
         let token = generation
         task = Task { [weak self] in
             do {
-                let value = try await planner.planPush(in: snapshot, branch: branch, remote: remote, destination: destination)
+                let value = try await planner.planPush(
+                    in: snapshot,
+                    branch: branch,
+                    remote: remote,
+                    destination: destination
+                )
                 try Task.checkCancellation()
                 guard let self, !stopped, generation == token else { return }
 
@@ -78,7 +91,9 @@ public final class GitPushReview {
     }
     private func workspaceChanged() {
         if activePush, !workspace.operationState.isBusy { activePush = false }
-        if let plan, workspace.snapshot?.repository != plan.repository || workspace.snapshot?.branches.contains(plan.branch) != true || workspace.snapshot?.remotes.contains(plan.remote) != true {
+        if let plan,
+           workspace.snapshot?.repository != plan.repository || workspace.snapshot?.branches
+           .contains(plan.branch) != true || workspace.snapshot?.remotes.contains(plan.remote) != true {
             invalidate()
         }
 

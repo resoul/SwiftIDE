@@ -47,14 +47,20 @@ final class AppCompositionRoot {
         recentProjects = RecentProjects(store: recentStore ?? UserDefaultsRecentProjectsStore(), checker: folderChecker)
     }
 
-    func makeWorkspaceLayout(root: String) -> WorkspaceLayoutState { layoutSettings.makeState(root: root, available: [.files, .sourceControl, .gitLog]) }
+    func makeWorkspaceLayout(root: String) -> WorkspaceLayoutState {
+        layoutSettings.makeState(root: root, available: [.files, .sourceControl, .gitLog])
+    }
 
     func makeGitClone() -> GitClone { GitClone(service: GitCLI()) }
 
     func makeGitWorkspace(root: String) -> GitWorkspace { GitWorkspace(root: root, service: GitCLI()) }
 
     func makeProjectFiles(root: String) -> ProjectFiles {
-        let files = ProjectFiles(root: root, reader: ProjectDirectoryReader(), exclusions: filesSettings.load(root: root))
+        let files = ProjectFiles(
+            root: root,
+            reader: ProjectDirectoryReader(),
+            exclusions: filesSettings.load(root: root)
+        )
         files.onExclusionsChange = { [filesSettings] in filesSettings.save($0, root: root) }
 
         return files
@@ -64,7 +70,11 @@ final class AppCompositionRoot {
     private let projectTrust = UserDefaultsProjectTrustStore()
     private lazy var trustCoordinator = ProjectTrustCoordinator { [unowned self] in languageServices.root(for: $0) }
     lazy var languageServices: LanguageServices = {
-        let services = LanguageServices(scratchRoot: AppCompositionRoot.languageScratchDirectory, languages: languages, trustStore: projectTrust)
+        let services = LanguageServices(
+            scratchRoot: AppCompositionRoot.languageScratchDirectory,
+            languages: languages,
+            trustStore: projectTrust
+        )
         services.trustPrompt = { [weak self] name, root in
             await self?.trustCoordinator.ask(projectName: name, root: root)
         }
@@ -88,7 +98,10 @@ final class AppCompositionRoot {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
 
-        return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent("LanguageScratch", isDirectory: true)
+        return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent(
+            "LanguageScratch",
+            isDirectory: true
+        )
     }
 
     /// Where SwiftPM keeps what it makes to describe a package, so that nothing lands in the project.
@@ -96,17 +109,27 @@ final class AppCompositionRoot {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
 
-        return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent("PackageLayouts", isDirectory: true)
+        return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent(
+            "PackageLayouts",
+            isDirectory: true
+        )
     }
 
     private static var recoveryDirectory: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
 
-        return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent("Recovery", isDirectory: true)
+        return support.appendingPathComponent("SwiftIDE", isDirectory: true).appendingPathComponent(
+            "Recovery",
+            isDirectory: true
+        )
     }
 
-    private lazy var restorer = RecoveryRestorer(store: recoveryStore, files: store, open: openDocument) { [unowned self] _ in
+    private lazy var restorer = RecoveryRestorer(
+        store: recoveryStore,
+        files: store,
+        open: openDocument
+    ) { [unowned self] _ in
         let editor = TextKitEditorFactory.makeEditor(loadedText: "")
         let session = DocumentSession(path: "Untitled.swift", backend: editor.backend, isUntitled: true)
         pendingEditors[session.id] = editor

@@ -3,7 +3,11 @@ import EditorPlatformTextKit
 import Testing
 
 @MainActor
-private func keyEvent(_ characters: String, modifiers: NSEvent.ModifierFlags = [], keyCode: UInt16 = 0) throws -> NSEvent {
+private func keyEvent(
+    _ characters: String,
+    modifiers: NSEvent.ModifierFlags = [],
+    keyCode: UInt16 = 0
+) throws -> NSEvent {
     try #require(NSEvent.keyEvent(
         with: .keyDown,
         location: .zero,
@@ -55,12 +59,20 @@ func whileAnInputMethodHoldsMarkedTextNoKeyGoesToTheHooks() throws {
     var intercepted = 0, asked = 0
     editor.input.interceptKey = { _ in intercepted += 1; return true }
     editor.input.requestCompletion = { asked += 1 }
-    editor.textView.setMarkedText("に", selectedRange: NSRange(location: 1, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+    editor.textView.setMarkedText(
+        "に",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: NSNotFound, length: 0)
+    )
     try #require(editor.textView.hasMarkedText())
     editor.textView.keyDown(with: try keyEvent("\r", keyCode: 36))
     #expect(intercepted == 0 && asked == 0, "Return belongs to the input method")
     // Return committed the text; compose again for the next key.
-    editor.textView.setMarkedText("に", selectedRange: NSRange(location: 1, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+    editor.textView.setMarkedText(
+        "に",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: NSNotFound, length: 0)
+    )
     try #require(editor.textView.hasMarkedText())
     editor.textView.keyDown(with: try keyEvent(" ", modifiers: .control))
     #expect(intercepted == 0 && asked == 0, "Control-Space belongs to the input method")

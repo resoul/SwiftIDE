@@ -114,11 +114,18 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
 
         // A change of the document's language moves it: out of the server that had it under the
         // old language, into the one that serves the new, if there is one.
-        let subscription = languages.selector(for: session).subscribe { [weak self] _ in self?.languageChanged(session) }
+        let subscription = languages.selector(for: session).subscribe { [weak self] _ in
+            self?.languageChanged(session)
+        }
         // A configuration file is no code for the server, yet its being saved matters to the server.
         let configurationSave = !session.isUntitled && SourceKitConfigurationFiles.isConfigurationFile(session.path)
-            ? session.subscribeToSaves { [weak self] in self?.configurationFileSaved(session) } : nil
-        managed[session.id] = Managed(session: session, languageSubscription: subscription, configurationSaveSubscription: configurationSave)
+            ? session.subscribeToSaves { [weak self] in self?.configurationFileSaved(session) }
+            : nil
+        managed[session.id] = Managed(
+            session: session,
+            languageSubscription: subscription,
+            configurationSaveSubscription: configurationSave
+        )
         await giveToServer(session)
     }
 
@@ -210,7 +217,9 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     public func detach(_ session: DocumentSession) {
         if let entry = managed.removeValue(forKey: session.id) {
             languages.selector(for: session).unsubscribe(entry.languageSubscription)
-            if let configurationSave = entry.configurationSaveSubscription { session.unsubscribeFromSaves(configurationSave) }
+            if let configurationSave = entry.configurationSaveSubscription {
+                session.unsubscribeFromSaves(configurationSave)
+            }
         }
 
         release(session)
@@ -235,7 +244,9 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         guard let home = homes[session.id] else { return }
 
         // The manifest decides what the targets are: describe the package again.
-        if (session.path as NSString).lastPathComponent == "Package.swift", home.root != scratchRoot { loadLayout(ofPackageAt: home.root, replacing: true) }
+        if (session.path as NSString).lastPathComponent == "Package.swift", home.root != scratchRoot {
+            loadLayout(ofPackageAt: home.root, replacing: true)
+        }
 
         guard root(for: session) != home.root else { return }
 
@@ -284,7 +295,10 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     /// The server reads its configuration when it starts: a saved configuration file is for a new start
     /// of the server of the project it belongs to.
     private func configurationFileSaved(_ session: DocumentSession) {
-        for root in Array(services.keys) where root != scratchRoot && SourceKitConfigurationFiles.isProjectFile(session.path, root: root.path) {
+        for root in Array(services.keys) where root != scratchRoot && SourceKitConfigurationFiles.isProjectFile(
+            session.path,
+            root: root.path
+        ) {
             applyEnvironment(ofRoot: root, restart: true)
         }
     }
@@ -309,7 +323,10 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
         guard let describer else { return }
 
         let path = DocumentPath.canonical(root.path)
-        if replacing { layoutLoads[path]?.cancel() } else if layoutLoads[path] != nil || contexts.layout(forRoot: path) != nil { return }
+        if replacing { layoutLoads[path]?.cancel() }
+            else if layoutLoads[path] != nil || contexts.layout(forRoot: path) != nil {
+            return
+        }
 
         let generation = layoutGenerations[path, default: 0] + 1
         layoutGenerations[path] = generation
@@ -349,7 +366,8 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     }
 
     private static func manifestDate(inPackageAt path: String) -> Date? {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: (path as NSString).appendingPathComponent("Package.swift"))
+        let attributes = try? FileManager.default
+            .attributesOfItem(atPath: (path as NSString).appendingPathComponent("Package.swift"))
 
         return attributes?[.modificationDate] as? Date
     }
@@ -421,7 +439,8 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
 
             applyEnvironment(ofRoot: root, restart: true)
             let key = DocumentPath.canonical(root.path)
-            if contexts.buildSystem(forRoot: key) == .swiftPM, manifestStamps[key] != Self.manifestDate(inPackageAt: key) {
+            if contexts.buildSystem(forRoot: key) == .swiftPM,
+               manifestStamps[key] != Self.manifestDate(inPackageAt: key) {
                 loadLayout(ofPackageAt: root, replacing: true)
             }
         }
@@ -433,7 +452,10 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     public func readiness(for session: DocumentSession) -> ProjectReadiness? { homes[session.id]?.service.readiness }
 
     @discardableResult
-    public func subscribeToReadiness(for session: DocumentSession, _ observer: @escaping @MainActor () -> Void) -> UUID {
+    public func subscribeToReadiness(
+        for session: DocumentSession,
+        _ observer: @escaping @MainActor () -> Void
+    ) -> UUID {
         let id = UUID()
         readinessObservers[id] = (session.id, observer)
 
@@ -445,7 +467,9 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     }
 
     private func readinessChanged(of service: SourceKitLanguageService) {
-        for entry in Array(readinessObservers.values) where homes[entry.document]?.service === service { entry.observer() }
+        for entry in Array(readinessObservers.values) where homes[entry.document]?.service === service {
+            entry.observer()
+        }
     }
 
     private func notifyReadinessObservers(of document: DocumentID) {
@@ -481,7 +505,10 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
     public func diagnostics(for session: DocumentSession) -> DocumentDiagnostics? { latestDiagnostics[session.id] }
 
     @discardableResult
-    public func subscribeToDiagnostics(for session: DocumentSession, _ observer: @escaping @MainActor () -> Void) -> UUID {
+    public func subscribeToDiagnostics(
+        for session: DocumentSession,
+        _ observer: @escaping @MainActor () -> Void
+    ) -> UUID {
         let id = UUID()
         diagnosticsObservers[id] = (session.id, observer)
 

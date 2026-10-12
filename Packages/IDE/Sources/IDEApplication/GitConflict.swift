@@ -10,7 +10,14 @@ public struct GitIntegrationStatus: Equatable, Sendable {
     public let stoppedCommit: String?
     public let detail: String
 
-    public init(kind: GitIntegrationKind, token: String, originalHead: String?, onto: String? = nil, stoppedCommit: String? = nil, detail: String) {
+    public init(
+        kind: GitIntegrationKind,
+        token: String,
+        originalHead: String?,
+        onto: String? = nil,
+        stoppedCommit: String? = nil,
+        detail: String
+    ) {
         self.kind = kind
         self.token = token
         self.originalHead = originalHead

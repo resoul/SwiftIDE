@@ -11,7 +11,12 @@ public struct XcodeToolchainResolver: ToolchainResolving {
 
     public init(ask: Ask? = nil) {
         self.ask = ask ?? { executable, arguments in
-            let data = try await BoundedProcess.run(executable: executable, arguments: arguments, timeout: .seconds(10), outputLimit: 64_000)
+            let data = try await BoundedProcess.run(
+                executable: executable,
+                arguments: arguments,
+                timeout: .seconds(10),
+                outputLimit: 64_000
+            )
 
             return String(decoding: data, as: UTF8.self)
         }
@@ -21,12 +26,14 @@ public struct XcodeToolchainResolver: ToolchainResolving {
         let xcrun = URL(fileURLWithPath: "/usr/bin/xcrun")
         do {
             let swift = try await ask(xcrun, ["--find", "swift"]).trimmingCharacters(in: .whitespacesAndNewlines)
-            let server = try await ask(xcrun, ["--find", "sourcekit-lsp"]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let server = try await ask(xcrun, ["--find", "sourcekit-lsp"])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !swift.isEmpty, !server.isEmpty else { return nil }
 
             // The first line names the compiler; the target line after it is the same for every run.
             let report = try await ask(URL(fileURLWithPath: swift), ["--version"])
-            let version = report.split(whereSeparator: \.isNewline).first.map { String($0).trimmingCharacters(in: .whitespaces) } ?? ""
+            let version = report.split(whereSeparator: \.isNewline).first
+                .map { String($0).trimmingCharacters(in: .whitespaces) } ?? ""
             guard !version.isEmpty else { return nil }
 
             return Toolchain(swift: swift, sourceKitLSP: server, version: version)

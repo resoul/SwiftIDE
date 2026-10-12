@@ -15,28 +15,41 @@ public final class GitRepositoryEvents: @unchecked Sendable {
 
     public init(repository: GitRepository, onChange: @escaping @Sendable () -> Void) {
         let callback = Callback(onChange)
-        var context = FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(callback).toOpaque(), retain: { info in
+        var context = FSEventStreamContext(
+            version: 0,
+            info: Unmanaged.passUnretained(callback).toOpaque(),
+            retain: { info in
             guard let info else { return nil }
 
             return UnsafeRawPointer(Unmanaged<Callback>.fromOpaque(info).retain().toOpaque())
-        }, release: { info in
+        },
+            release: { info in
             if let info { Unmanaged<Callback>.fromOpaque(info).release() }
-        }, copyDescription: nil)
+        },
+            copyDescription: nil
+        )
         let paths = Array(Set([repository.root, repository.gitDirectory, repository.commonDirectory]))
-        stream = FSEventStreamCreate(nil,
-                                     { _, info, _, _, _, _ in
+        stream = FSEventStreamCreate(
+            nil,
+            { _, info, _, _, _, _ in
             guard let info else { return }
 
             Unmanaged<Callback>.fromOpaque(info).takeUnretainedValue().invoke()
         },
-                                     &context,
-                                     paths as CFArray,
-                                     FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-                                     0.3,
-                                     FSEventStreamCreateFlags(kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagWatchRoot))
+            &context,
+            paths as CFArray,
+            FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+            0.3,
+            FSEventStreamCreateFlags(kFSEventStreamCreateFlagNoDefer |
+                                     kFSEventStreamCreateFlagWatchRoot)
+        )
         if let stream {
             FSEventStreamSetDispatchQueue(stream, DispatchQueue.main)
-            if !FSEventStreamStart(stream) { FSEventStreamInvalidate(stream); FSEventStreamRelease(stream); self.stream = nil }
+            if !FSEventStreamStart(stream) {
+                FSEventStreamInvalidate(stream)
+                FSEventStreamRelease(stream)
+                self.stream = nil
+            }
         }
     }
 

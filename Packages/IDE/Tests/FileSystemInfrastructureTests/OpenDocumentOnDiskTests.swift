@@ -119,7 +119,11 @@ func saveAsToAFileThatAppearedIsAConflictOnDiskAndReplacingIsExplicit() async th
 
     let workspace = Workspace()
     let save = SaveDocumentUseCase(store: workspace.store)
-    let session = DocumentSession(path: "Untitled.swift", backend: StringDocumentBackend(loadedText: "mine"), isUntitled: true)
+    let session = DocumentSession(
+        path: "Untitled.swift",
+        backend: StringDocumentBackend(loadedText: "mine"),
+        isUntitled: true
+    )
 
     do {
         _ = try await save.saveAs(document: session, to: target, target: .newFile, registry: workspace.registry)
@@ -131,7 +135,12 @@ func saveAsToAFileThatAppearedIsAConflictOnDiskAndReplacingIsExplicit() async th
     #expect(try FileManager.default.contentsOfDirectory(atPath: dir.path) == ["Taken.swift"], "no temporary file left")
 
     let confirmed = try #require(try AtomicDocumentFileStore.currentRevision(atPath: target))
-    _ = try await save.saveAs(document: session, to: target, target: .replacing(confirmed), registry: workspace.registry)
+    _ = try await save.saveAs(
+        document: session,
+        to: target,
+        target: .replacing(confirmed),
+        registry: workspace.registry
+    )
     #expect(try Data(contentsOf: URL(fileURLWithPath: target)) == Data("mine".utf8))
     #expect(session.path == DocumentPath.canonical(target) && !session.isUntitled)
 }

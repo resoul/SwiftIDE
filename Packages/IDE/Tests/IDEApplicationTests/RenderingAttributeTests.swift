@@ -112,10 +112,17 @@ func renderingAttributesFollowEditsAndTypedTextStartsPlain() {
     func redRuns() -> [NSRange] {
         var runs: [NSRange] = []
         let content = s.layoutManager.textContentManager!
-        s.layoutManager.enumerateRenderingAttributes(from: s.layoutManager.documentRange.location, reverse: false) { _, attributes, range in
+        s.layoutManager
+            .enumerateRenderingAttributes(
+                from: s.layoutManager.documentRange.location,
+                reverse: false
+            ) { _, attributes, range in
             if attributes[.foregroundColor] as? NSColor == .red {
                 let start = content.offset(from: content.documentRange.location, to: range.location)
-                runs.append(NSRange(location: start, length: content.offset(from: range.location, to: range.endLocation)))
+                runs.append(NSRange(
+                    location: start,
+                    length: content.offset(from: range.location, to: range.endLocation)
+                ))
             }
 
             return true
@@ -128,8 +135,10 @@ func renderingAttributesFollowEditsAndTypedTextStartsPlain() {
     #expect(redRuns() == [NSRange(location: 2, length: 3)], "the colour moved with its text")
 
     s.editor.textView.insertText("Q", replacementRange: NSRange(location: 3, length: 0))     // inside
-    #expect(redRuns() == [NSRange(location: 2, length: 1), NSRange(location: 4, length: 2)],
-            "typed text inside a coloured word is plain and splits it")
+    #expect(
+        redRuns() == [NSRange(location: 2, length: 1), NSRange(location: 4, length: 2)],
+        "typed text inside a coloured word is plain and splits it"
+    )
 }
 
 @Test @MainActor

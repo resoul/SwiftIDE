@@ -10,7 +10,12 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
     init(model: RecentProjects) {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Development build"
         content = WelcomeProjectsViewController(model: model, version: version)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 640), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.title = "Welcome to SwiftIDE"
         window.minSize = NSSize(width: 760, height: 480)
         window.isReleasedWhenClosed = false

@@ -7,12 +7,17 @@ final class CodeTextView: NSTextView {
     override func keyDown(with event: NSEvent) {
         // Marked text belongs to the input method, whatever the key is.
         if let hooks, !hasMarkedText() {
-            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
+            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([
+                .capsLock,
+                .numericPad,
+                .function
+            ])
             if modifiers == .control, event.charactersIgnoringModifiers == " ", let request = hooks.requestCompletion {
                 return request()
             }
 
-            if modifiers == [.control, .shift], event.charactersIgnoringModifiers == " ", let request = hooks.requestHover {
+            if modifiers == [.control, .shift], event.charactersIgnoringModifiers == " ",
+               let request = hooks.requestHover {
                 return request()
             }
 
@@ -28,7 +33,9 @@ final class CodeTextView: NSTextView {
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
-        for area in trackingAreas where area.owner === self && area.userInfo?["code"] != nil { removeTrackingArea(area) }
+        for area in trackingAreas where area.owner === self && area.userInfo?["code"] != nil {
+            removeTrackingArea(area)
+        }
         addTrackingArea(NSTrackingArea(
             rect: .zero,
             options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
@@ -60,7 +67,9 @@ final class CodeTextView: NSTextView {
         hooks?.interactionBegan?()
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard modifiers == .command, !hasMarkedText(),
-              let offset = characterOffset(atViewPoint: convert(event.locationInWindow, from: nil)) else { return false }
+              let offset = characterOffset(atViewPoint: convert(event.locationInWindow, from: nil)) else {
+                  return false
+              }
 
         return hooks?.commandClick?(offset) == true
     }

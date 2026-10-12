@@ -2,7 +2,13 @@ import Foundation
 @testable import IDEApplication
 import Testing
 
-private func begin(_ tracker: inout ProgressTracker, _ token: String, _ title: String, message: String? = nil, percentage: Int? = nil) {
+private func begin(
+    _ tracker: inout ProgressTracker,
+    _ token: String,
+    _ title: String,
+    message: String? = nil,
+    percentage: Int? = nil
+) {
     tracker.apply(token: token, .begin(title: title, message: message, percentage: percentage))
 }
 
@@ -37,7 +43,10 @@ func aReportOrAnEndForAnOperationThatNeverBeganIsIgnored() {
     var tracker = ProgressTracker()
     tracker.apply(token: "indexing.X", .report(message: "1 / 2", percentage: 50))
     tracker.apply(token: "indexing.X", .end)
-    #expect(tracker.operations.isEmpty && !tracker.hasCompletedInitialPreparation, "an end nobody began does not count as a finished preparation")
+    #expect(
+        tracker.operations.isEmpty && !tracker.hasCompletedInitialPreparation,
+        "an end nobody began does not count as a finished preparation"
+    )
 }
 
 @Test
@@ -107,7 +116,13 @@ private func readiness(
     trust: ConfigurationTrust = .undecided,
     pendingQuestion: Bool = false
 ) -> ProjectReadiness {
-    ProjectReadiness.make(server: server, isFallbackRoot: fallback, progress: tracker, trust: trust, isAskingForTrust: pendingQuestion)
+    ProjectReadiness.make(
+        server: server,
+        isFallbackRoot: fallback,
+        progress: tracker,
+        trust: trust,
+        isAskingForTrust: pendingQuestion
+    )
 }
 
 @Test

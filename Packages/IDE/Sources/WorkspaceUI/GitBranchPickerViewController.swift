@@ -55,10 +55,17 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
         network.isHidden = !model.supportsLocalActions
         let mutations = gitStack([switchBranch, gitStack([branchName, createBranch], vertical: false)])
         mutations.isHidden = !model.supportsLocalActions
-        let note = NSTextField(wrappingLabelWithString: "Inspect locally known references. Remote data reflects previous fetches.")
+        let note =
+            NSTextField(
+                wrappingLabelWithString: "Inspect locally known references. Remote data reflects previous fetches."
+            )
         note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
         let content = NSViewController(); content.view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 520))
-        gitPin(gitStack([search, list, note, network, gitStack([merge, rebase], vertical: false), history, mutations]), to: content.view, inset: 12)
+        gitPin(
+            gitStack([search, list, note, network, gitStack([merge, rebase], vertical: false), history, mutations]),
+            to: content.view,
+            inset: 12
+        )
         popover.contentViewController = content; popover.behavior = .transient
         popover.contentSize = NSSize(width: 420, height: 520)
         list.onSelect = { [weak self] _ in self?.updateActions() }
@@ -73,7 +80,11 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
     }
     @objc private func filterChanged(_ sender: Any?) { render() }
     @objc func viewHistory(_ sender: Any?) {
-        guard let reference = list.selectedKey, let branch = model.snapshot?.branches.first(where: { $0.reference == reference }), model.state == .ready else { return }
+        guard let reference = list.selectedKey,
+              let branch = model.snapshot?.branches.first(where: { $0.reference == reference }),
+              model.state == .ready else {
+            return
+        }
 
         model.viewHistory(of: branch)
         onViewHistory?(); popover.close()
@@ -94,34 +105,45 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
 
         popover.close(); onActionStarted?(); model.perform(.fetch(name))
     }
-    @objc func mergeSelected(_ sender: Any?) { if merge.isEnabled { popover.close(); onIntegrateRequested?(.merge, selectedBranch) } }
-    @objc func rebaseSelected(_ sender: Any?) { if rebase.isEnabled { popover.close(); onIntegrateRequested?(.rebase, selectedBranch) } }
+    @objc func mergeSelected(_ sender: Any?) {
+        if merge.isEnabled { popover.close(); onIntegrateRequested?(.merge, selectedBranch) }
+    }
+    @objc func rebaseSelected(_ sender: Any?) {
+        if rebase.isEnabled { popover.close(); onIntegrateRequested?(.rebase, selectedBranch) }
+    }
     @objc func pullSelected(_ sender: Any?) {
         guard pull.isEnabled else { return }
 
         let name = remote.titleOfSelectedItem
         let prefix = "refs/remotes/" + (name ?? "") + "/"
-        let source = selectedBranch.flatMap { $0.reference.hasPrefix(prefix) ? String($0.reference.dropFirst(prefix.count)) : nil }
+        let source = selectedBranch.flatMap {
+            $0.reference.hasPrefix(prefix) ? String($0.reference.dropFirst(prefix.count)) : nil
+        }
         popover.close(); onPullRequested?(name, source)
     }
     @objc func pushSelected(_ sender: Any?) {
         guard push.isEnabled else { return }
 
-        popover.close(); onPushRequested?(selectedBranch?.isRemote == false ? selectedBranch : nil, remote.titleOfSelectedItem)
+        popover.close()
+        onPushRequested?(selectedBranch?.isRemote == false ? selectedBranch : nil, remote.titleOfSelectedItem)
     }
     @objc private func remoteChanged(_ sender: Any?) { updateActions() }
     private var selectedBranch: GitBranch? { model.snapshot?.branches.first { $0.reference == list.selectedKey } }
     private func updateActions() {
-        merge.isEnabled = model.canMutate && model.conflictReader != nil && model.snapshot?.integration == nil && model.snapshot?.branch != nil && selectedBranch != nil && selectedBranch?.name != model.snapshot?.branch
+        merge.isEnabled = model.canMutate && model.conflictReader != nil && model.snapshot?.integration == nil && model
+            .snapshot?.branch != nil && selectedBranch != nil && selectedBranch?.name != model.snapshot?.branch
         rebase.isEnabled = merge.isEnabled
         pull.isHidden = model.pullPlanner == nil
-        pull.isEnabled = model.canMutate && model.pullPlanner != nil && remote.titleOfSelectedItem != nil && model.snapshot?.branch != nil && model.snapshot?.head != nil
+        pull.isEnabled = model.canMutate && model.pullPlanner != nil && remote.titleOfSelectedItem != nil && model
+            .snapshot?.branch != nil && model.snapshot?.head != nil
         push.isHidden = model.pushPlanner == nil
-        push.isEnabled = model.canMutate && model.pushPlanner != nil && remote.titleOfSelectedItem != nil && model.snapshot?.branches.contains(where: { !$0.isRemote }) == true
+        push.isEnabled = model.canMutate && model.pushPlanner != nil && remote.titleOfSelectedItem != nil && model
+            .snapshot?.branches.contains(where: { !$0.isRemote }) == true
         fetch.isEnabled = model.canMutate && remote.titleOfSelectedItem != nil
         remote.isEnabled = model.canMutate
         history.isEnabled = model.state == .ready && list.selectedKey != nil && !model.operationState.isBusy
-        switchBranch.isEnabled = model.canMutate && selectedBranch?.isRemote == false && selectedBranch?.name != model.snapshot?.branch
+        switchBranch.isEnabled = model.canMutate && selectedBranch?.isRemote == false && selectedBranch?.name != model
+            .snapshot?.branch
         createBranch.isEnabled = model.canMutate && model.snapshot?.head != nil && !branchName.stringValue.isEmpty
         branchName.isEnabled = model.canMutate
     }
@@ -138,7 +160,11 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
 
             return "Tracks " + upstream + " · " + counts + " · locally known refs"
         }
-        let fetched = model.lastFetch.map { "Fetched " + $0.remote + " at " + $0.date.formatted(date: .omitted, time: .standard) + " in this window; refs may change again" }
+        let fetched = model.lastFetch.map {
+            let time = $0.date.formatted(date: .omitted, time: .standard)
+
+            return "Fetched " + $0.remote + " at " + time + " in this window; refs may change again"
+        }
         button.toolTip = [model.explanation, tracking, fetched].compactMap { $0 }.joined(separator: "\n")
         button.setAccessibilityLabel("Git: " + button.title + ". Inspect branches and history")
         let selectedRemote = remote.titleOfSelectedItem
@@ -149,10 +175,18 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
         }
 
         let query = search.stringValue
-        list.present((model.snapshot?.branches ?? []).filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }.map {
-            .init(key: $0.reference, title: $0.name, detail: ($0.isRemote ? "Remote" : "Local") + ($0.upstream.isEmpty ? "" : " · tracks " + $0.upstream), selectable: true)
+        list
+            .present((model.snapshot?.branches ?? [])
+            .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }.map {
+            .init(key: $0.reference, title: $0.name, detail: ($0.isRemote ? "Remote" : "Local") + ($0.upstream.isEmpty
+                ? ""
+                : " · tracks " + $0.upstream), selectable: true)
         })
         updateActions()
     }
-    public func disconnect() { if let subscription { model.unsubscribe(subscription) }; subscription = nil; popover.close() }
+    public func disconnect() {
+        if let subscription { model.unsubscribe(subscription) }
+        subscription = nil
+        popover.close()
+    }
 }

@@ -50,14 +50,18 @@ func offsetsAndPositionsRoundTripOverRandomText() {
     var generator = SystemRandomNumberGenerator()
     let pieces = ["a", "bb", "😀", "λ", "\n", "\r\n", "\r", "  ", "é"]
     for _ in 0..<200 {
-        let text = (0..<Int.random(in: 0...40, using: &generator)).map { _ in pieces.randomElement(using: &generator)! }.joined()
+        let text = (0..<Int.random(in: 0...40, using: &generator)).map { _ in pieces.randomElement(using: &generator)! }
+            .joined()
         let index = LineIndex(text)
         let units = Array(text.utf16)
         for offset in 0...units.count {
             // An offset between the halves of a CR LF has no position of its own.
             if offset > 0, offset < units.count, units[offset - 1] == 0x0D, units[offset] == 0x0A { continue }
             let position = LSPPositionMapper.position(of: offset, in: index)
-            #expect(LSPPositionMapper.offset(of: position, in: index) == offset, "offset \(offset) in \(text.debugDescription)")
+            #expect(
+                LSPPositionMapper.offset(of: position, in: index) == offset,
+                "offset \(offset) in \(text.debugDescription)"
+            )
         }
     }
 }

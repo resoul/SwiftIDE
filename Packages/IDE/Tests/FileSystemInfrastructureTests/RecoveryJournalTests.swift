@@ -124,7 +124,8 @@ func removingDeletesTheRecordAndRemovingNothingIsFine() async throws {
     try await journal.remove(.file(atPath: "/w/Main.swift"))
     #expect(try await journal.pending().records.isEmpty)
     try await journal.remove(.file(atPath: "/w/Main.swift"))
-    try await RecoveryJournal(directory: sandbox.directory.appendingPathComponent("nothing-here")).remove(.file(atPath: "/x"))
+    try await RecoveryJournal(directory: sandbox.directory.appendingPathComponent("nothing-here"))
+        .remove(.file(atPath: "/x"))
 }
 
 @Test
@@ -174,7 +175,11 @@ func aTruncatedRecordIsReportedAndTheOthersAreStillRead() async throws {
     let sandbox = try Sandbox()
     let journal = RecoveryJournal(directory: sandbox.journalDirectory)
     try await journal.write(record(.file(atPath: "/w/Good.swift"), text: "good", path: "/w/Good.swift"))
-    try await journal.write(record(.file(atPath: "/w/Cut.swift"), text: String(repeating: "x", count: 5_000), path: "/w/Cut.swift"))
+    try await journal.write(record(
+        .file(atPath: "/w/Cut.swift"),
+        text: String(repeating: "x", count: 5_000),
+        path: "/w/Cut.swift"
+    ))
     // Cut the second one short, as a full disk or a crash in the middle of a copy would.
     for name in sandbox.files {
         let url = sandbox.journalDirectory.appendingPathComponent(name)
@@ -247,7 +252,11 @@ func writesToDifferentKeysAtTheSameTimeAreAllKept() async throws {
     await withTaskGroup(of: Void.self) { group in
         for index in 0..<20 {
             group.addTask {
-                try? await journal.write(record(.file(atPath: "/w/F\(index).swift"), text: "text \(index)", path: "/w/F\(index).swift"))
+                try? await journal.write(record(
+                    .file(atPath: "/w/F\(index).swift"),
+                    text: "text \(index)",
+                    path: "/w/F\(index).swift"
+                ))
             }
         }
     }

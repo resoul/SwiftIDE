@@ -115,8 +115,13 @@ func manyRandomEditsWhileCopyingNeverMakeTheCaptureDisagreeWithItsVersion() asyn
             for _ in 0..<40 {
                 let length = session.utf16Length
                 let location = Int.random(in: 0...length, using: &generator)
-                let removed = Bool.random(using: &generator) ? 0 : Int.random(in: 0...min(30, length - location), using: &generator)
-                let inserted = ["x", "αβγ", "\n", "😀", "", "long text inserted here "][Int.random(in: 0..<6, using: &generator)]
+                let removed = Bool.random(using: &generator)
+                    ? 0
+                    : Int.random(in: 0...min(30, length - location), using: &generator)
+                let inserted = ["x", "αβγ", "\n", "😀", "", "long text inserted here "][Int.random(
+                    in: 0..<6,
+                    using: &generator
+                )]
                 // Keep clear of the middle of a surrogate pair.
                 let ns = session.text as NSString
                 var range = NSRange(location: location, length: removed)
@@ -127,7 +132,10 @@ func manyRandomEditsWhileCopyingNeverMakeTheCaptureDisagreeWithItsVersion() asyn
         }
         let result = try await capture.value
         await editor.value
-        #expect(result.snapshot.text == textAtVersion[result.snapshot.version], "round \(round): version \(result.snapshot.version)")
+        #expect(
+            result.snapshot.text == textAtVersion[result.snapshot.version],
+            "round \(round): version \(result.snapshot.version)"
+        )
     }
 }
 

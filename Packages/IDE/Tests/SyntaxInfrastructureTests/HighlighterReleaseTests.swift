@@ -83,7 +83,10 @@ func aBurstOfRequestsQueuedBehindBusyWorkIsAnsweredOnceForTheNewest() async thro
     #expect(received.versions.last == 50, "the newest request is always answered")
     #expect(statistics.parses <= 3, "parsed \(statistics.parses) times for 51 requests")
     #expect(statistics.skipped >= 48)
-    #expect(received.versions.allSatisfy { $0 == 0 || $0 >= 40 || $0 == received.versions.first }, "answers are for the first request or the newest ones")
+    #expect(
+        received.versions.allSatisfy { $0 == 0 || $0 >= 40 || $0 == received.versions.first },
+        "answers are for the first request or the newest ones"
+    )
 }
 
 extension Received {

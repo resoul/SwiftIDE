@@ -12,7 +12,11 @@ private final class Harness {
 
     init(files: [String: String], store: MemoryDocumentFileStore? = nil, maximumBytes: Int = 1_000_000) {
         self.store = store ?? MemoryDocumentFileStore(contents: files)
-        open = OpenDocumentUseCase(store: self.store, registry: registry, maximumBytes: maximumBytes) { [unowned self] file in
+        open = OpenDocumentUseCase(
+            store: self.store,
+            registry: registry,
+            maximumBytes: maximumBytes
+        ) { [unowned self] file in
             created += 1
 
             return DocumentSession(loaded: file, backend: StringDocumentBackend(loadedText: file.text))

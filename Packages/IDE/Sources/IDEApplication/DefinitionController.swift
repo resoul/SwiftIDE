@@ -11,7 +11,11 @@ public protocol DefinitionNavigating: AnyObject {
     /// Nothing to jump to, or why not.
     func tell(_ message: String, at offset: Int)
     /// Several places: let the user choose one, near `offset`; `pick` goes there.
-    func choose(among places: [DefinitionLocation], near offset: Int, pick: @escaping @MainActor (DefinitionLocation) -> Void)
+    func choose(
+        among places: [DefinitionLocation],
+        near offset: Int,
+        pick: @escaping @MainActor (DefinitionLocation) -> Void
+    )
 }
 
 /// Asks where the symbol at an offset is defined and goes there.
@@ -27,7 +31,11 @@ public final class DefinitionController {
     public weak var navigator: (any DefinitionNavigating)?
     private var latest: UInt64 = 0
 
-    public init(session: DocumentSession, provider: any DefinitionProviding, navigator: (any DefinitionNavigating)? = nil) {
+    public init(
+        session: DocumentSession,
+        provider: any DefinitionProviding,
+        navigator: (any DefinitionNavigating)? = nil
+    ) {
         self.session = session
         self.provider = provider
         self.navigator = navigator

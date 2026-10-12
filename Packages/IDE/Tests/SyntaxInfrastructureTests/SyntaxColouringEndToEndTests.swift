@@ -20,7 +20,11 @@ final class Screen {
     init(_ text: String, policy: SyntaxPolicy = .standard) throws {
         editor = TextKitEditorFactory.makeEditor(loadedText: text)
         session = DocumentSession(path: "Main.swift", backend: editor.backend)
-        coordinator = SyntaxCoordinator(session: session, source: editor.backend, highlighter: try TreeSitterHighlighter())
+        coordinator = SyntaxCoordinator(
+            session: session,
+            source: editor.backend,
+            highlighter: try TreeSitterHighlighter()
+        )
         presenter = SyntaxPresenter(textView: editor.textView, coordinator: coordinator, policy: policy)
         scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 600, height: 300))
         scroll.documentView = editor.textView
@@ -55,8 +59,12 @@ final class Screen {
             _ = render()
             try? await Task.sleep(for: .milliseconds(10))
             let window = coordinator.state.window
-            let covered = viewportCharacters().map { window.lowerBound <= $0.lowerBound && $0.upperBound <= window.upperBound } ?? false
-            if !coordinator.state.spans.isEmpty, covered, coordinator.lastResultVersion == session.version, condition() { break }
+            let covered = viewportCharacters()
+                .map { window.lowerBound <= $0.lowerBound && $0.upperBound <= window.upperBound } ?? false
+            if !coordinator.state.spans.isEmpty, covered, coordinator.lastResultVersion == session.version,
+               condition() {
+                break
+            }
         }
         for _ in 0..<8 {
             _ = render()
@@ -88,7 +96,12 @@ func colourful(_ bitmap: NSBitmapImageRep) -> Int {
 
 func identical(_ a: NSBitmapImageRep, _ b: NSBitmapImageRep) -> Bool {
     guard a.pixelsWide == b.pixelsWide, a.pixelsHigh == b.pixelsHigh,
-          let da = a.representation(using: .png, properties: [:]), let db = b.representation(using: .png, properties: [:]) else { return false }
+          let da = a.representation(using: .png, properties: [:]), let db = b.representation(
+              using: .png,
+              properties: [:]
+          ) else {
+              return false
+          }
 
     return da == db
 }
@@ -184,7 +197,9 @@ extension Screen {
 }
 
 /// A long comment that opens on the first line and closes on the last: everything between is grey.
-private let commentedLines = "/* start\n" + (1...400).map { "let value\($0) = \($0) + 1" }.joined(separator: "\n") + "\n*/\n"
+private let commentedLines = "/* start\n"
+    + (1...400).map { "let value\($0) = \($0) + 1" }.joined(separator: "\n")
+    + "\n*/\n"
 
 @Test @MainActor
 func textSeenBeforeAnEditIsRecolouredWhenScrolledBackToAfterIt() async throws {
@@ -203,9 +218,13 @@ func textSeenBeforeAnEditIsRecolouredWhenScrolledBackToAfterIt() async throws {
     await fresh.settle()
     await fresh.scroll(toFraction: 1)
     do {
-        let dir = "/private/tmp/claude-501/-Users-resoul-projects-SwiftIDE/7a8f9a0f-b2dd-4965-bc7b-069a874909c0/scratchpad/"
-        try edited.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir + "stale-edited.png"))
-        try fresh.render().representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir + "stale-fresh.png"))
+        let dir = """
+        /private/tmp/claude-501/-Users-resoul-projects-SwiftIDE/7a8f9a0f-b2dd-4965-bc7b-069a874909c0/scratchpad/
+        """
+        try edited.representation(using: .png, properties: [:])!
+            .write(to: URL(fileURLWithPath: dir + "stale-edited.png"))
+        try fresh.render().representation(using: .png, properties: [:])!
+            .write(to: URL(fileURLWithPath: dir + "stale-fresh.png"))
     } catch {}
     #expect(colourful(edited) > before + 100, "code colours appear where there was only comment grey")
     #expect(identical(edited, fresh.render()), "the bottom shows what a view coloured from scratch shows")
@@ -217,7 +236,10 @@ func aDocumentCutDownWhileScrolledFarDownKeepsWorking() async throws {
     await screen.settle()
     await screen.scroll(toFraction: 1)
     // Most of the text goes, including all that was on screen.
-    screen.editor.textView.insertText("", replacementRange: NSRange(location: 200, length: screen.editor.textView.string.utf16.count - 400))
+    screen.editor.textView.insertText(
+        "",
+        replacementRange: NSRange(location: 200, length: screen.editor.textView.string.utf16.count - 400)
+    )
     await screen.settle()
     await screen.scroll(toFraction: 0)
     #expect(colourful(screen.render()) > 0, "what is left is coloured")
