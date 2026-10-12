@@ -13,8 +13,15 @@ public final class EditorHostView: NSScrollView {
         super.init(frame: .zero)
         hasVerticalScroller = true
         hasHorizontalScroller = false
+        // Stop at the ends of the text instead of stretching past them and springing back.
+        verticalScrollElasticity = .none
+        horizontalScrollElasticity = .none
         drawsBackground = true
         borderType = .noBorder
+        // Since macOS 14 a view draws outside its bounds unless told to clip. Line numbers and text that
+        // have scrolled out of view would otherwise show over the tab strip above the editor.
+        clipsToBounds = true
+        contentView.clipsToBounds = true
         documentView = textView
         if let lineIndex {
             verticalRulerView = LineNumberRulerView(scrollView: self, textView: textView, lineIndex: lineIndex)

@@ -22,7 +22,7 @@ public final class GitDiffViewController: NSViewController {
         text.setAccessibilityLabel("Read-only Git diff")
         text.isVerticallyResizable = true; text.autoresizingMask = [.width]
         text.textContainer?.widthTracksTextView = true
-        let scroll = NSScrollView(); scroll.hasVerticalScroller = true; scroll.documentView = text
+        let scroll = NSScrollView.nonElastic(); scroll.hasVerticalScroller = true; scroll.documentView = text
         heading.font = .systemFont(ofSize: 12); heading.setContentHuggingPriority(.required, for: .vertical)
         gitPin(gitStack([heading, scroll]), to: view, inset: 10)
         subscription = model.subscribe { [weak self] in self?.render() }

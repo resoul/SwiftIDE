@@ -36,6 +36,8 @@ public final class LineNumberRulerView: NSRulerView {
         self.lineIndex = lineIndex
         super.init(scrollView: scrollView, orientation: .verticalRuler)
         clientView = textView
+        // The numbers of lines scrolled partly out of view must not be drawn above the margin.
+        clipsToBounds = true
         reservedThicknessForMarkers = 0
         updateThickness()
 

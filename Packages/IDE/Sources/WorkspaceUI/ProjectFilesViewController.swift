@@ -15,7 +15,7 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
     /// AppKit must see the same child objects/counts until the next complete reload.
     private var displayedChildren: [String: [FileRow]] = [:]
     private let status = NSTextField(wrappingLabelWithString: "")
-    private var scroll = NSScrollView()
+    private var scroll = NSScrollView.nonElastic()
 
     public init(model: ProjectFiles) {
         self.model = model

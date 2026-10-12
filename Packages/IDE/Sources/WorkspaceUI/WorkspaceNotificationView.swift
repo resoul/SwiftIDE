@@ -4,7 +4,7 @@ import AppKit
 @MainActor
 final class WorkspaceNotificationOverlay: NSView {
     let notifications: WorkspaceNotifications
-    let scroll = NSScrollView()
+    let scroll = NSScrollView.nonElastic()
     private let stack = NSStackView()
     private(set) var cards: [WorkspaceNotificationCard] = []
     private var subscription: UUID?

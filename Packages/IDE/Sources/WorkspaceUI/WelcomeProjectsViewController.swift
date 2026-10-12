@@ -16,7 +16,7 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
     private let version: String
     private let empty = NSTextField(wrappingLabelWithString: "")
     private let storage = NSTextField(wrappingLabelWithString: "")
-    private let scroll = NSScrollView()
+    private let scroll = NSScrollView.nonElastic()
     private var rows: [RecentProject] = []
     private var subscription: UUID?
     private var rendering = false

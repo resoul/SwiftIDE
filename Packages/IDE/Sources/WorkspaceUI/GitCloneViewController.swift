@@ -46,7 +46,7 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
         cancel.target = self; cancel.action = #selector(cancelClone(_:)); cancel.keyEquivalent = "\u{1b}"
         output.isEditable = false; output.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         output.setAccessibilityLabel("Clone output")
-        let scroll = NSScrollView(); scroll.documentView = output; scroll.hasVerticalScroller = true
+        let scroll = NSScrollView.nonElastic(); scroll.documentView = output; scroll.hasVerticalScroller = true
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
         let note =
             NSTextField(

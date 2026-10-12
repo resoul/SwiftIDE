@@ -7,7 +7,7 @@ final class GitOperationView: NSView {
     private let label = NSTextField(wrappingLabelWithString: "")
     private let cancel = NSButton(title: "Cancel", target: nil, action: nil)
     private let output = NSTextView()
-    private let scroll = NSScrollView()
+    private let scroll = NSScrollView.nonElastic()
     private let model: GitWorkspace
 
     init(model: GitWorkspace) {

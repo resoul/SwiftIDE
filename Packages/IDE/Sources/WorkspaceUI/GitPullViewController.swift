@@ -51,7 +51,7 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
         output.isEditable = false
         output.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         output.setAccessibilityLabel("Pull output")
-        let scroll = NSScrollView(); scroll.documentView = output; scroll.hasVerticalScroller = true
+        let scroll = NSScrollView.nonElastic(); scroll.documentView = output; scroll.hasVerticalScroller = true
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 90).isActive = true
         gitPin(gitStack([
             title,

@@ -37,6 +37,8 @@ public final class EditorAreaViewController: NSViewController {
 
     public override func loadView() {
         view = NSView()
+        view.clipsToBounds = true
+        content.clipsToBounds = true
         addChild(tabs)
         for subview in [tabs.view, content] {
             subview.translatesAutoresizingMaskIntoConstraints = false
@@ -94,7 +96,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
     public var onMove: ((DocumentID, Int) -> Void)?
     public private(set) var items: [DocumentTabPresentation] = []
     public private(set) var selected: DocumentID?
-    private let scroll = NSScrollView()
+    private let scroll = NSScrollView.nonElastic()
     private let owner = UUID().uuidString
     private let dragType = NSPasteboard.PasteboardType("org.swiftide.document-tab")
     private var renderPending = false
@@ -109,6 +111,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
 
     public override func loadView() {
         view = NSView()
+        view.clipsToBounds = true
         let layout = NSCollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
         layout.minimumInteritemSpacing = 4
@@ -310,6 +313,12 @@ private final class DocumentTabCell: NSCollectionViewItem {
 
     override func loadView() {
         view = surface
+        surface.onHover = { [weak self] hovering in
+            guard let self else { return }
+
+            hovered = hovering
+            showSelection(active)
+        }
         label.font = .systemFont(ofSize: 12)
         label.lineBreakMode = .byTruncatingMiddle
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -331,7 +340,21 @@ private final class DocumentTabCell: NSCollectionViewItem {
             stack.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
     }
-    override var isSelected: Bool { didSet { surface.selected = isSelected; surface.needsDisplay = true } }
+    override var isSelected: Bool { didSet { showSelection(isSelected) } }
+    private var hovered = false
+    private var active = false
+    /// The active tab always has a close button; another one shows it while the pointer is over the tab.
+    private func showSelection(_ selected: Bool) {
+        active = selected
+        surface.selected = selected
+        surface.hovered = hovered
+        surface.needsDisplay = true
+        closeButton.isHidden = !(selected || hovered)
+    }
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        hovered = false
+    }
     func present(_ item: DocumentTabPresentation, selected: Bool) {
         _ = view
         label.stringValue = item.name + (item.decoration.badges.isEmpty ? "" : "  " + item.decoration.badges)
@@ -344,8 +367,7 @@ private final class DocumentTabCell: NSCollectionViewItem {
         view.toolTip = [item.path, item.decoration.explanation].filter { !$0.isEmpty }.joined(separator: "\n")
         view.setAccessibilityLabel(label.stringValue)
         closeButton.setAccessibilityLabel("Close " + item.name)
-        surface.selected = selected
-        surface.needsDisplay = true
+        showSelection(selected)
     }
     @objc private func closeTab(_ sender: Any?) { close?() }
 }
@@ -353,10 +375,40 @@ private final class DocumentTabCell: NSCollectionViewItem {
 @MainActor
 private final class TabSurface: NSView {
     var selected = false
-    override func draw(_ dirtyRect: NSRect) {
-        guard selected else { return }
+    var hovered = false
+    var onHover: ((Bool) -> Void)?
+    private var trackingArea: NSTrackingArea?
 
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea { removeTrackingArea(trackingArea) }
+
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHover?(true) }
+
+    override func mouseExited(with event: NSEvent) { onHover?(false) }
+
+    override func draw(_ dirtyRect: NSRect) {
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 6, yRadius: 6)
+        if !selected {
+            // The pointer is over an inactive tab: a faint pill, in the text colour of the appearance.
+            guard hovered else { return }
+
+            NSColor.labelColor.withAlphaComponent(0.08).setFill()
+            path.fill()
+
+            return
+        }
+
         NSColor.controlAccentColor.withAlphaComponent(0.18).setFill()
         path.fill()
         NSColor.controlAccentColor.withAlphaComponent(0.5).setStroke()

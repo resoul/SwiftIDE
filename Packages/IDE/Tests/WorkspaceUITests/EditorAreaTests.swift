@@ -51,6 +51,54 @@ struct EditorAreaTests {
         let cell = try #require(area.tabs.collection.item(at: IndexPath(item: 0, section: 0)))
         #expect(cell.view.toolTip?.contains("Unsaved editor changes") == true)
         #expect(cell.view.toolTip?.contains("Excluded") == true)
+        // Only the active tab has a close button.
+        func closeButton(_ index: Int) throws -> NSButton {
+            let cell = try #require(area.tabs.collection.item(at: IndexPath(item: index, section: 0)))
+
+            return try #require(cell.view.subviews.compactMap { $0 as? NSStackView }.first?.arrangedSubviews
+                .last as? NSButton)
+        }
+        #expect(try !closeButton(0).isHidden)
+        #expect(try closeButton(1).isHidden && closeButton(2).isHidden)
+        area.tabs.collectionView(area.tabs.collection, didSelectItemsAt: [IndexPath(item: 1, section: 0)])
+        try await settle()
+        #expect(try closeButton(0).isHidden && !closeButton(1).isHidden && closeButton(2).isHidden)
+        // An inactive tab shows its close button while the pointer is over it.
+        func pointer(_ type: NSEvent.EventType, over index: Int) throws {
+            let cell = try #require(area.tabs.collection.item(at: IndexPath(item: index, section: 0)))
+            let event = try #require(NSEvent.enterExitEvent(
+                with: type,
+                location: .zero,
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                trackingNumber: 0,
+                userData: nil
+            ))
+            if type == .mouseEntered { cell.view.mouseEntered(with: event) } else { cell.view.mouseExited(with: event) }
+        }
+        try pointer(.mouseEntered, over: 2)
+        #expect(try closeButton(0).isHidden && !closeButton(1).isHidden && !closeButton(2).isHidden)
+        func pixels(_ index: Int) throws -> Data {
+            let view = try #require(area.tabs.collection.item(at: IndexPath(item: index, section: 0))).view
+            let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+
+            return try #require(bitmap.representation(using: .png, properties: [:]))
+        }
+        // The hovered inactive tab has a background; the others, and the tab once left, do not.
+        let hoveredPixels = try pixels(2)
+        try pointer(.mouseExited, over: 2)
+        let leftPixels = try pixels(2)
+        #expect(hoveredPixels != leftPixels, "the hover background is drawn and goes away")
+        #expect(try closeButton(0).isHidden && !closeButton(1).isHidden && closeButton(2).isHidden)
+        try pointer(.mouseEntered, over: 1)
+        try pointer(.mouseExited, over: 1)
+        #expect(try !closeButton(1).isHidden, "the active tab keeps its button")
+        area.tabs.collectionView(area.tabs.collection, didSelectItemsAt: [IndexPath(item: 0, section: 0)])
+        try await settle()
         let pasteboard = NSPasteboard(name: .init("SwiftIDE-tabs-test-\(UUID())"))
         defer { pasteboard.releaseGlobally() }
         let writer = try #require(area.tabs.collectionView(
@@ -172,5 +220,14 @@ struct EditorAreaTests {
         #expect(try String(decoding: JSONEncoder().encode(WorkspaceTool.files), as: UTF8.self) == "0")
         let removed = WorkspaceLayoutState(layout: decoded, available: [.files])
         #expect(removed.layout.right == nil)
+    }
+}
+
+@Suite(.serialized) @MainActor
+struct ScrollElasticityTests {
+    @Test func panelScrollViewsStopAtTheirEnds() {
+        _ = NSApplication.shared
+        let scroll = NSScrollView.nonElastic()
+        #expect(scroll.verticalScrollElasticity == .none && scroll.horizontalScrollElasticity == .none)
     }
 }

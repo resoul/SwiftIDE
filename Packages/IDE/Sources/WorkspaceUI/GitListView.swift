@@ -25,7 +25,7 @@ final class GitListView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         table.doubleAction = #selector(openSelected(_:))
         table.openSelection = { [weak self] in self?.openSelected(nil) }
         table.setAccessibilityLabel(label)
-        let scroll = NSScrollView(); scroll.hasVerticalScroller = true; scroll.documentView = table
+        let scroll = NSScrollView.nonElastic(); scroll.hasVerticalScroller = true; scroll.documentView = table
         gitPin(scroll, to: self)
     }
 

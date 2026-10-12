@@ -71,6 +71,7 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
         scroll.documentView = table
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
+        scroll.verticalScrollElasticity = .none
         scroll.autohidesScrollers = true
         scroll.translatesAutoresizingMaskIntoConstraints = false
         effect.addSubview(scroll)

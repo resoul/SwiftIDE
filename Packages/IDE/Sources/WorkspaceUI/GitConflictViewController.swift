@@ -63,7 +63,7 @@ public final class GitConflictViewController: NSViewController {
             text.string = side.map { $0.text ?? "Binary or unsupported text · \($0.bytes) bytes · mode \($0.mode)" }
                 ?? "Absent in this stage (addition/deletion)"
             text.setAccessibilityLabel(title + ": " + conflict.path)
-            let scroll = NSScrollView(); scroll.documentView = text; scroll.hasVerticalScroller = true
+            let scroll = NSScrollView.nonElastic(); scroll.documentView = text; scroll.hasVerticalScroller = true
             scroll.heightAnchor.constraint(equalToConstant: 150).isActive = true
             let use = NSButton(
                 title: "Use " + (stage == 1 ? "Base" : stage == 2 ? "Ours" : "Theirs"),

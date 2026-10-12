@@ -141,3 +141,22 @@ func aLongFileCanBeScrolled() {
     let g = Gutter((1...5_000).map { "line \($0)" }.joined(separator: "\n"), height: 300)
     #expect(g.editor.textView.frame.height > 10 * g.host.contentView.bounds.height)
 }
+
+/// Since macOS 14 a view draws outside its bounds unless it clips; line numbers scrolled partly out of
+/// view then showed over the tab strip above the editor.
+@Test @MainActor
+func theEditorAndItsMarginClipTheirDrawingToTheirBounds() {
+    _ = NSApplication.shared
+    let gutter = Gutter("a\nb\nc\n")
+    #expect(gutter.host.clipsToBounds)
+    #expect(gutter.host.contentView.clipsToBounds)
+    #expect(gutter.ruler.clipsToBounds)
+}
+
+@Test @MainActor
+func theEditorStopsAtTheEndsOfTheTextInsteadOfStretchingPastThem() {
+    _ = NSApplication.shared
+    let gutter = Gutter("a\nb\nc\n")
+    #expect(gutter.host.verticalScrollElasticity == .none)
+    #expect(gutter.host.horizontalScrollElasticity == .none)
+}

@@ -47,7 +47,7 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         message.isRichText = false; message.font = .systemFont(ofSize: 12)
         message.delegate = self
         message.setAccessibilityLabel("Commit message")
-        let messageScroll = NSScrollView()
+        let messageScroll = NSScrollView.nonElastic()
         messageScroll.documentView = message
         messageScroll.hasVerticalScroller = true
         messageScroll.heightAnchor.constraint(equalToConstant: 70).isActive = true
