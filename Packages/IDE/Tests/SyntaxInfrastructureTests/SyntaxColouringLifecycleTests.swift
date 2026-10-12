@@ -127,12 +127,22 @@ func savingATextFileAsSwiftColoursItOnScreen() async throws {
 
 @Test @MainActor
 func aFileThatShrinksBackUnderTheLimitIsColouredAgain() async throws {
-    let screen = ManagedScreen(code + String(repeating: "padding padding padding\n", count: 40), path: "Main.swift", policy: smallLimit)
+    let screen = ManagedScreen(
+        code + String(repeating: "padding padding padding\n", count: 40),
+        path: "Main.swift",
+        policy: smallLimit
+    )
     #expect(screen.controller.state == .off(.tooLarge), "it opened too large")
     await screen.settle(frames: 30) { _ in false }
     #expect(colourful(screen.render()) == 0)
 
-    screen.editor.textView.insertText("", replacementRange: NSRange(location: code.utf16.count, length: screen.editor.textView.string.utf16.count - code.utf16.count))
+    screen.editor.textView.insertText(
+        "",
+        replacementRange: NSRange(
+            location: code.utf16.count,
+            length: screen.editor.textView.string.utf16.count - code.utf16.count
+        )
+    )
     #expect(screen.controller.state == .on)
     await screen.settle { colourful($0) > 200 }
     #expect(colourful(screen.render()) > 200)

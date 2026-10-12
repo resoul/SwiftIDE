@@ -20,7 +20,10 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
             panels[tool] = WorkspacePanel(view: view, focusTarget: samples.focusTargets[tool])
         }
         let editor = NSTextView()
-        editor.string = "Workspace Preview\n\nThis window uses sample content.\nOpen Folder… opens the same shell with real Files and editor tabs."
+        editor.string = """
+        Workspace Preview\n\nThis window uses sample content.\nOpen Folder… opens the same shell with real Files and \
+        editor tabs.
+        """
         editor.isEditable = false
         editor.isRichText = false
         editor.font = .systemFont(ofSize: 16)
@@ -34,7 +37,14 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
         scroll.documentView = editor
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
-        shell = WorkspaceShellViewController(state: state, editor: scroll, editorFocus: editor, panels: panels, project: "SwiftIDE · Preview", path: "Sample workspace")
+        shell = WorkspaceShellViewController(
+            state: state,
+            editor: scroll,
+            editorFocus: editor,
+            panels: panels,
+            project: "SwiftIDE · Preview",
+            path: "Sample workspace"
+        )
         shell.present(detail: "⑂ main · sample", status: "Sample data · no tools connected")
         shell.notifications.post(WorkspaceNotification(
             id: "preview.warning",
@@ -47,9 +57,16 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
             id: "preview.info",
             title: "Notification cards",
             message: "Actions run only when selected. Cards keep the editor's keyboard focus.",
-            actions: [.init(title: "Dismiss sample", perform: { [weak shell] in shell?.notifications.dismiss("preview.info") })]
+            actions: [.init(title: "Dismiss sample", perform: { [weak shell] in
+                shell?.notifications.dismiss("preview.info")
+            })]
         ))
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.title = "SwiftIDE — Workspace Preview"
         window.subtitle = "Layout prototype"
         window.minSize = NSSize(width: 900, height: 560)
@@ -93,7 +110,10 @@ private final class PreviewPanels {
         switch tool {
         case .files:
             let list = NSTextView()
-            list.string = "▾ SwiftIDE  ·  sample\n\n   ▾ Apps\n       ▾ SwiftIDE\n           AppDelegate.swift\n           MainMenu.swift\n\n   ▸ Packages\n   ▸ docs\n   ▸ Tools\n\n     Package.swift\n     README.md"
+            list.string = """
+            ▾ SwiftIDE  ·  sample\n\n   ▾ Apps\n       ▾ SwiftIDE\n           AppDelegate.swift\n           \
+            MainMenu.swift\n\n   ▸ Packages\n   ▸ docs\n   ▸ Tools\n\n     Package.swift\n     README.md
+            """
             list.isEditable = false
             list.font = .systemFont(ofSize: 13)
             list.textColor = .labelColor
@@ -107,24 +127,43 @@ private final class PreviewPanels {
             field.placeholderString = tool == .search ? "Search sample workspace…" : "Draft a message…"
             field.setAccessibilityLabel(tool == .search ? "Search query" : "Assistant draft")
             focusTargets[tool] = field
-            let note = label(tool == .search ? "Search is not connected yet." : "Assistant is not connected yet.\nYour draft stays here while the panel is hidden.", secondary: true)
+            let note = label(
+                tool == .search
+                ? "Search is not connected yet."
+                : "Assistant is not connected yet.\nYour draft stays here while the panel is hidden.",
+                secondary: true
+            )
             note.maximumNumberOfLines = 0
-            let body = stack([note, field, NSView()], vertical: true, spacing: 14, insets: NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16))
+            let body = stack(
+                [note, field, NSView()],
+                vertical: true,
+                spacing: 14,
+                insets: NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+            )
 
             return body
         default:
             let text = NSTextView()
             text.isEditable = tool == .terminal
             text.isRichText = false
-            text.font = tool == .terminal ? .monospacedSystemFont(ofSize: 13, weight: .regular) : .systemFont(ofSize: 13)
+            text.font = tool == .terminal
+                ? .monospacedSystemFont(ofSize: 13, weight: .regular)
+                : .systemFont(ofSize: 13)
             text.textColor = .secondaryLabelColor
             text.drawsBackground = false
             text.textContainerInset = NSSize(width: 16, height: 16)
             switch tool {
-            case .terminal: text.string = "Terminal preview — no commands are executed.\n\nYou can type here to test focus and panel resizing.\n"
+            case .terminal:
+                text.string = """
+                Terminal preview — no commands are executed.\n\nYou can type here to test focus and panel resizing.\n
+                """
             case .build: text.string = "Build output will appear here.\nNo build service is connected."
             case .problems: text.string = "Diagnostics will appear here.\nNo language service is connected."
-            case .sourceControl: text.string = "Source Control preview\n\nChanges\n   M  MainMenu.swift\n   A  WorkspacePreviewWindowController.swift\n\nSample data only."
+            case .sourceControl:
+                text.string = """
+                Source Control preview\n\nChanges\n   M  MainMenu.swift\n   A  \
+                WorkspacePreviewWindowController.swift\n\nSample data only.
+                """
             case .structure: text.string = "File structure will appear here.\nNo document is connected."
             case .inspector: text.string = "Document and project details will appear here."
             default: break

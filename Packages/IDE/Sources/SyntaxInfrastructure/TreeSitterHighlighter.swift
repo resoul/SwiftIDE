@@ -53,13 +53,29 @@ struct Grammar: Sendable {
         ]
         switch language {
         case .swift:
-            return Grammar(language: Language(tree_sitter_swift()), queryResource: "swift-highlights", unterminatedComment: .swiftOperator)
+            return Grammar(
+                language: Language(tree_sitter_swift()),
+                queryResource: "swift-highlights",
+                unterminatedComment: .swiftOperator
+            )
         case .c:
-            return Grammar(language: Language(tree_sitter_c()), queryResource: "c-highlights", unterminatedComment: .outsideOf(literals))
+            return Grammar(
+                language: Language(tree_sitter_c()),
+                queryResource: "c-highlights",
+                unterminatedComment: .outsideOf(literals)
+            )
         case .cpp:
-            return Grammar(language: Language(tree_sitter_cpp()), queryResource: "cpp-highlights", unterminatedComment: .outsideOf(literals))
+            return Grammar(
+                language: Language(tree_sitter_cpp()),
+                queryResource: "cpp-highlights",
+                unterminatedComment: .outsideOf(literals)
+            )
         case .objectiveC:
-            return Grammar(language: Language(tree_sitter_objc()), queryResource: "objc-highlights", unterminatedComment: .outsideOf(literals))
+            return Grammar(
+                language: Language(tree_sitter_objc()),
+                queryResource: "objc-highlights",
+                unterminatedComment: .outsideOf(literals)
+            )
         case .objectiveCPP, .plainText:
             return nil
         }
@@ -94,9 +110,15 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
     public let language: DocumentLanguage
 
     public init(language: DocumentLanguage = .swift) throws {
-        guard let grammar = Grammar.make(for: language) else { throw SyntaxInfrastructureError.unsupportedLanguage(language) }
+        guard let grammar = Grammar.make(for: language) else {
+            throw SyntaxInfrastructureError.unsupportedLanguage(language)
+        }
 
-        guard let url = Bundle.module.url(forResource: grammar.queryResource, withExtension: "scm", subdirectory: "Resources") else {
+        guard let url = Bundle.module.url(
+            forResource: grammar.queryResource,
+            withExtension: "scm",
+            subdirectory: "Resources"
+        ) else {
             throw SyntaxInfrastructureError.missingQuery
         }
 
@@ -226,7 +248,8 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             if needsParse || tree == nil {
                 let source = text
                 let began = ContinuousClock.now
-                tree = parser.parse(tree: tree, readBlock: { byteOffset, _ in source.bytes(fromUnit: byteOffset / 2) }) ?? tree
+                tree = parser
+                    .parse(tree: tree, readBlock: { byteOffset, _ in source.bytes(fromUnit: byteOffset / 2) }) ?? tree
                 statistics.parseMilliseconds += Self.milliseconds(since: began)
                 statistics.parses += 1
                 needsParse = false

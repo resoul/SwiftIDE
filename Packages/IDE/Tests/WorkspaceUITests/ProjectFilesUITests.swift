@@ -13,7 +13,8 @@ private struct NestedUITreeReader: ProjectDirectoryReading {
     func children(of path: String) async throws -> [ProjectFile] {
         switch path {
         case "/w": [.init(path: "/w/folder", isDirectory: true)]
-        case "/w/folder": [.init(path: "/w/folder/nested", isDirectory: true), .init(path: "/w/folder/other.txt", isDirectory: false)]
+        case "/w/folder":
+            [.init(path: "/w/folder/nested", isDirectory: true), .init(path: "/w/folder/other.txt", isDirectory: false)]
         default: (0..<20).map { .init(path: path + "/\($0).txt", isDirectory: false) }
         }
     }
@@ -27,7 +28,10 @@ private actor HeldUITreeReader: ProjectDirectoryReading {
         return await withCheckedContinuation { continuation = $0 }
     }
     var waiting: Bool { continuation != nil }
-    func finish() { continuation?.resume(returning: [.init(path: "/w/folder/late.txt", isDirectory: false)]); continuation = nil }
+    func finish() {
+        continuation?.resume(returning: [.init(path: "/w/folder/late.txt", isDirectory: false)])
+        continuation = nil
+    }
 }
 
 @Suite(.serialized)
@@ -42,10 +46,13 @@ struct ProjectFilesUITests {
     private func loaded(_ model: ProjectFiles, in controllers: ProjectFilesViewController...) async throws {
         try await waitFor {
             model.state(of: "/w") == .loaded && controllers.allSatisfy { controller in
-                guard let file = model.children(of: "/w").first, let item = controller.outline.item(atRow: 1) else { return false }
+                guard let file = model.children(of: "/w").first, let item = controller.outline.item(atRow: 1) else {
+                    return false
+                }
 
                 return controller.outline.numberOfRows == model.children(of: "/w").count + 1
-                    && controller.outlineView(controller.outline, viewFor: nil, item: item)?.toolTip?.hasPrefix(file.path) == true
+                    && controller.outlineView(controller.outline, viewFor: nil, item: item)?.toolTip?
+                        .hasPrefix(file.path) == true
             }
         }
     }
@@ -54,7 +61,12 @@ struct ProjectFilesUITests {
         _ = NSApplication.shared
         let model = ProjectFiles(root: "/w", reader: NestedUITreeReader())
         let controller = ProjectFilesViewController(model: model)
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 460, height: 600), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 460, height: 600),
+            styleMask: [.titled, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.contentViewController = controller
         defer { controller.disconnect(); model.stop(); window.close() }
@@ -140,7 +152,18 @@ struct ProjectFilesUITests {
         try await loaded(model, in: first, second)
         try await waitFor { first.outline.selectedRow >= 0 && second.outline.selectedRow >= 0 }
         #expect(model.selection == "/w/a.txt" && opened.isEmpty)
-        let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36))
+        let event = try #require(NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "\r",
+            charactersIgnoringModifiers: "\r",
+            isARepeat: false,
+            keyCode: 36
+        ))
         first.outline.keyDown(with: event)
         #expect(opened == ["/w/a.txt"])
     }

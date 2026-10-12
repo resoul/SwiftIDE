@@ -83,7 +83,12 @@ public final class SourceKitLanguageService: CompletionProviding {
     public var onStateChange: (@MainActor (LanguageServiceState) -> Void)?
     /// Whether the server is up, what it is busy with, whether the project's configuration may be
     /// used: kept apart, with one reason to show (TK-018, ADR-028).
-    public private(set) var readiness = ProjectReadiness.make(server: .stopped, isFallbackRoot: false, progress: ProgressTracker(), trust: .undecided)
+    public private(set) var readiness = ProjectReadiness.make(
+        server: .stopped,
+        isFallbackRoot: false,
+        progress: ProgressTracker(),
+        trust: .undecided
+    )
     public var onReadinessChange: (@MainActor (ProjectReadiness) -> Void)?
     /// The root holds no project: the server's own default settings are what documents get.
     public var isFallbackRoot = false {
@@ -102,7 +107,12 @@ public final class SourceKitLanguageService: CompletionProviding {
     /// Counts started servers; an exit report from an earlier one is ignored.
     private var serverNumber = 0
     private var restartTask: Task<Void, Never>?
-    private var diagnostics: [String: (version: Int?, items: [LanguageDiagnostic], arrivedAtVersion: UInt64?, basis: DiagnosticsBasis)] = [:]
+    private var diagnostics: [String: (
+        version: Int?,
+        items: [LanguageDiagnostic],
+        arrivedAtVersion: UInt64?,
+        basis: DiagnosticsBasis
+    )] = [:]
     private var wantsRunning = false
     /// How long a pull of diagnostics may take: a server that stays silent does not hold it forever.
     static let pullTimeout: Duration = .seconds(5)
@@ -235,7 +245,9 @@ public final class SourceKitLanguageService: CompletionProviding {
         forgetWork()
         state = attempt == 0 ? .starting : .restarting(attempt: attempt)
         do {
-            let channel = if let channelFactory { try await channelFactory() } else { try Self.sourceKitLSPChannel(path: toolchain?.sourceKitLSP) }
+            let channel = if let channelFactory { try await channelFactory() } else {
+                try Self.sourceKitLSPChannel(path: toolchain?.sourceKitLSP)
+            }
             let connection = LanguageServerConnection(
                 channel: channel,
                 onNotification: { [weak self] method, params in
@@ -348,7 +360,12 @@ public final class SourceKitLanguageService: CompletionProviding {
     /// Completions at the caret. `caret` is asked again when the answer arrives: the answer is
     /// used only if the document, the caret and the server are still the ones it was asked for.
     public func completion(for session: DocumentSession, caret: @MainActor () -> Int) async -> CompletionOutcome {
-        switch await positionRequest("textDocument/completion", extra: ["context": ["triggerKind": 1]], session: session, offset: caret) {
+        switch await positionRequest(
+            "textDocument/completion",
+            extra: ["context": ["triggerKind": 1]],
+            session: session,
+            offset: caret
+        ) {
         case .failure(let failure): return CompletionOutcome(failure)
         case .success(let answer): return Self.parseCompletion(answer, session: session, sync: sync)
         }
@@ -416,7 +433,9 @@ public final class SourceKitLanguageService: CompletionProviding {
                 case .server(let code, _) where code == -32800 || code == -32801:
                     return .failure(.stale(.cancelled))
                 case .server(let code, let message) where code == -32001 && message.contains("No language service"):
-                    guard attempt < Self.notReadyRetries else { return .failure(.unavailable(.failed(String(describing: error)))) }
+                    guard attempt < Self.notReadyRetries else {
+                        return .failure(.unavailable(.failed(String(describing: error))))
+                    }
 
                     try? await Task.sleep(for: .milliseconds(150 * (attempt + 1)))
                     // What was asked for may be gone by now; then there is nothing to ask again.
@@ -511,7 +530,11 @@ public final class SourceKitLanguageService: CompletionProviding {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    static func parseDefinition(_ answer: JSONValue, session: DocumentSession, sync: OrderedDocumentSync) -> DefinitionOutcome {
+    static func parseDefinition(
+        _ answer: JSONValue,
+        session: DocumentSession,
+        sync: OrderedDocumentSync
+    ) -> DefinitionOutcome {
         let raw: [JSONValue]
         if let list = answer.arrayValue {
             raw = list
@@ -526,7 +549,9 @@ public final class SourceKitLanguageService: CompletionProviding {
             // A `Location` has `uri` and `range`; a `LocationLink` has `targetUri` and `targetSelectionRange`.
             let uri = item["uri"]?.stringValue ?? item["targetUri"]?.stringValue
             let range = item["range"] ?? item["targetSelectionRange"] ?? item["targetRange"]
-            guard let uri, let url = URL(string: uri), url.isFileURL, let start = position(range?["start"]) else { return nil }
+            guard let uri, let url = URL(string: uri), url.isFileURL, let start = position(range?["start"]) else {
+                return nil
+            }
 
             let offset = uri == own ? sync.offset(of: start, in: session) : nil
 
@@ -536,7 +561,11 @@ public final class SourceKitLanguageService: CompletionProviding {
         return locations.isEmpty ? .nothing : .locations(locations)
     }
 
-    private static func parseCompletion(_ answer: JSONValue, session: DocumentSession, sync: OrderedDocumentSync) -> CompletionOutcome {
+    private static func parseCompletion(
+        _ answer: JSONValue,
+        session: DocumentSession,
+        sync: OrderedDocumentSync
+    ) -> CompletionOutcome {
         let list: [JSONValue]
         var incomplete = false
         if let items = answer.arrayValue {
@@ -613,16 +642,26 @@ public final class SourceKitLanguageService: CompletionProviding {
             freshness = stored.arrivedAtVersion == session.version ? .unverified : .stale
         }
 
-        return DiagnosticsReport(items: stored.items, reportedVersion: stored.version, freshness: freshness, basis: stored.basis)
+        return DiagnosticsReport(
+            items: stored.items,
+            reportedVersion: stored.version,
+            freshness: freshness,
+            basis: stored.basis
+        )
     }
 
     /// The report in the text as it is now, if the server's positions can be read against it: the
     /// document is in step with the server, and a report that names its version names this one.
     public func documentDiagnostics(for session: DocumentSession) -> DocumentDiagnostics? {
-        guard let report = diagnostics(for: session), report.freshness != .stale, sync.isSynced(session) else { return nil }
+        guard let report = diagnostics(for: session), report.freshness != .stale, sync.isSynced(session) else {
+            return nil
+        }
 
         let items = report.items.compactMap { item -> DocumentDiagnostic? in
-            guard let from = sync.offset(of: item.start, in: session), let to = sync.offset(of: item.end, in: session), to >= from else { return nil }
+            guard let from = sync.offset(of: item.start, in: session), let to = sync.offset(of: item.end, in: session),
+                  to >= from else {
+                return nil
+            }
 
             return DocumentDiagnostic(
                 range: UTF16TextRange(location: from, length: to - from),
@@ -632,7 +671,12 @@ public final class SourceKitLanguageService: CompletionProviding {
             )
         }
 
-        return DocumentDiagnostics(items: items, version: session.version, isVerified: report.freshness == .current, basis: report.basis)
+        return DocumentDiagnostics(
+            items: items,
+            version: session.version,
+            isVerified: report.freshness == .current,
+            basis: report.basis
+        )
     }
 
     func received(_ method: String, _ params: JSONValue, from number: Int) {
@@ -659,7 +703,9 @@ public final class SourceKitLanguageService: CompletionProviding {
     private static func parseDiagnostics(_ list: JSONValue?) -> [LanguageDiagnostic] {
         (list?.arrayValue ?? []).compactMap { raw -> LanguageDiagnostic? in
             guard let message = raw["message"]?.stringValue,
-                  let start = position(raw["range"]?["start"]), let end = position(raw["range"]?["end"]) else { return nil }
+                  let start = position(raw["range"]?["start"]), let end = position(raw["range"]?["end"]) else {
+                      return nil
+                  }
 
             return LanguageDiagnostic(
                 severity: LanguageDiagnostic.Severity(rawValue: raw["severity"]?.intValue ?? 1) ?? .error,
@@ -710,12 +756,26 @@ public final class SourceKitLanguageService: CompletionProviding {
                     }
                     self?.pulls[uri] = Pull(shot: shot, request: request, timer: timer)
                 }
-                self?.pullFinished(result, for: session, uri: uri, sentAtVersion: sentAt, updatesAtSend: updatesAtSend, from: number)
+                self?.pullFinished(
+                    result,
+                    for: session,
+                    uri: uri,
+                    sentAtVersion: sentAt,
+                    updatesAtSend: updatesAtSend,
+                    from: number
+                )
             }
         }
     }
 
-    private func pullFinished(_ result: PullResult, for session: DocumentSession, uri: String, sentAtVersion: UInt64, updatesAtSend: Int, from number: Int) {
+    private func pullFinished(
+        _ result: PullResult,
+        for session: DocumentSession,
+        uri: String,
+        sentAtVersion: UInt64,
+        updatesAtSend: Int,
+        from number: Int
+    ) {
         pulls.removeValue(forKey: uri)
         let name = (uri as NSString).lastPathComponent
         switch result {
@@ -728,15 +788,28 @@ public final class SourceKitLanguageService: CompletionProviding {
         case .answer(let answer):
             guard number == serverNumber else { return recordPull("pull for \(name) ignored: the server was replaced") }
 
-            guard sync.uri(of: session) == uri else { return recordPull("pull for \(name) ignored: the document closed or moved to another address") }
+            guard sync.uri(of: session) == uri else {
+                return recordPull("pull for \(name) ignored: the document closed or moved to another address")
+            }
 
-            guard session.version == sentAtVersion else { return recordPull("pull for \(name) ignored: the text changed") }
+            guard session.version == sentAtVersion else {
+                return recordPull("pull for \(name) ignored: the text changed")
+            }
 
-            guard diagnosticsUpdates[uri, default: 0] == updatesAtSend else { return recordPull("pull for \(name) ignored: a newer report came") }
+            guard diagnosticsUpdates[uri, default: 0] == updatesAtSend else {
+                return recordPull("pull for \(name) ignored: a newer report came")
+            }
 
-            guard answer["kind"]?.stringValue == "full" else { return recordPull("pull for \(name) ignored: the answer was not a full report") }
+            guard answer["kind"]?.stringValue == "full" else {
+                return recordPull("pull for \(name) ignored: the answer was not a full report")
+            }
 
-            diagnostics[uri] = (nil, Self.parseDiagnostics(answer["items"]), session.version, readiness.diagnosticsBasis)
+            diagnostics[uri] = (
+                nil,
+                Self.parseDiagnostics(answer["items"]),
+                session.version,
+                readiness.diagnosticsBasis
+            )
             diagnosticsUpdates[uri, default: 0] += 1
             onDiagnostics?(session)
         }
@@ -823,7 +896,11 @@ public final class SourceKitLanguageService: CompletionProviding {
         let percentage = value["percentage"]?.intValue
         let wasPreparing = progress.isInitialPreparation
         switch kind {
-        case "begin": progress.apply(token: token, .begin(title: value["title"]?.stringValue ?? "", message: message, percentage: percentage))
+        case "begin":
+            progress.apply(
+                token: token,
+                .begin(title: value["title"]?.stringValue ?? "", message: message, percentage: percentage)
+            )
         case "report": progress.apply(token: token, .report(message: message, percentage: percentage))
         case "end": progress.apply(token: token, .end)
         default: return

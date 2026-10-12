@@ -11,7 +11,10 @@ final class ProjectFilesSettings {
     private func key(_ root: String) -> String { "projectFiles.exclusions.v1." + DocumentPath.canonical(root) }
 
     func load(root: String) -> ProjectExclusions {
-        guard let data = defaults.data(forKey: key(root)), let value = try? JSONDecoder().decode(ProjectExclusions.self, from: data) else {
+        guard let data = defaults.data(forKey: key(root)), let value = try? JSONDecoder().decode(
+            ProjectExclusions.self,
+            from: data
+        ) else {
             return .init()
         }
 

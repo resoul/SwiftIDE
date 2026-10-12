@@ -168,7 +168,9 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
             self.onJumpFrom?(place)
         }
         // What the server is busy with (preparing the package, a decision awaited, fallback settings).
-        readinessSubscription = languageServices.subscribeToReadiness(for: document) { [weak self] in self?.refreshSubtitle() }
+        readinessSubscription = languageServices.subscribeToReadiness(for: document) { [weak self] in
+            self?.refreshSubtitle()
+        }
         Task { [weak self] in
             guard let self, !isClosed else { return }
 
@@ -204,7 +206,10 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
 
         let length = longLines.longestLength.formatted()
         banner.show(
-            message: "This file has a line of \(length) characters. Editing long lines can be slow, and syntax colours are off for them.",
+            message: """
+            This file has a line of \(length) characters. Editing long lines can be slow, and syntax colours are off \
+            for them.
+            """,
             buttons: [
                 .init(title: "Make Read-Only") { [weak self] in self?.makeReadOnly() },
                 .init(title: "Keep Editing") { [weak self] in self?.longLines.dismiss() }
@@ -228,8 +233,10 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
         case .changedWhileEdited:
             return (
                 "“\(displayName)” was changed on disk. This document has unsaved changes.",
-                [.init(title: "Reload") { [weak self] in self?.reloadFromNotice() },
-                 .init(title: "Keep Mine") { [weak self] in self?.externalChanges.keepMine() }]
+                [
+                    .init(title: "Reload") { [weak self] in self?.reloadFromNotice() },
+                    .init(title: "Keep Mine") { [weak self] in self?.externalChanges.keepMine() }
+                ]
             )
         case .removed:
             return (
@@ -241,7 +248,10 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
                 }, dismiss]
             )
         case .unreadable(let error):
-            return ("“\(displayName)” was changed on disk, but it cannot be read as text. \(Self.describe(error))", [dismiss])
+            return (
+                "“\(displayName)” was changed on disk, but it cannot be read as text. \(Self.describe(error))",
+                [dismiss]
+            )
         }
     }
 
@@ -315,9 +325,21 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
         let readiness = languageServices.readiness(for: session)?.reason
         let context = languageServices.projectContext(for: session)
         let target = TargetNote.text(names: context?.targetNames ?? [], basis: context?.targetBasis)
-        let temporary = session.isUntitled ? nil : TemporaryFolder.note(path: session.path, isCFamily: languageSelector.resolved.language.isCFamily)
+        let temporary = session.isUntitled
+            ? nil
+            : TemporaryFolder.note(path: session.path, isCFamily: languageSelector.resolved.language.isCFamily)
 
-        return [languageNote, readiness, target, temporary, features?.diagnostics.summary.text, engine, colourNote, recoveryNote, readOnly]
+        return [
+            languageNote,
+            readiness,
+            target,
+            temporary,
+            features?.diagnostics.summary.text,
+            engine,
+            colourNote,
+            recoveryNote,
+            readOnly
+        ]
             .compactMap { $0 }.joined(separator: " · ")
     }
 
@@ -333,13 +355,20 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
             item.state = chosen == languageSelector.override?.rawValue ? .on : .off
         }
 
-        if item.action == #selector(allowProjectConfiguration(_:)) || item.action == #selector(disallowProjectConfiguration(_:))
+        if item.action == #selector(allowProjectConfiguration(_:)) || item
+            .action == #selector(disallowProjectConfiguration(_:))
             || item.action == #selector(askAboutProjectConfigurationAgain(_:)) {
             let decision = languageServices.trustDecision(for: session)
-            if item.action == #selector(allowProjectConfiguration(_:)) { item.state = decision == .granted ? .on : .off }
-            if item.action == #selector(disallowProjectConfiguration(_:)) { item.state = decision == .refused ? .on : .off }
+            if item.action == #selector(allowProjectConfiguration(_:)) {
+                item.state = decision == .granted ? .on : .off
+            }
 
-            // Only a document of a project has a configuration to decide about; asking again needs a decision to forget.
+            if item.action == #selector(disallowProjectConfiguration(_:)) {
+                item.state = decision == .refused ? .on : .off
+            }
+
+            // Only a document of a project has a configuration to decide about; asking again needs a decision to
+            // forget.
             if item.action == #selector(askAboutProjectConfigurationAgain(_:)) { return decision != nil }
 
             return languageServices.isInProject(session)
@@ -553,7 +582,8 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
         if let save = error as? SaveError {
             switch save {
             case .targetOpenElsewhere: return "That file is already open. Close its document or choose another name."
-            case .targetBeingSaved: return "Another document is being saved under that name right now. Choose another name."
+            case .targetBeingSaved:
+                return "Another document is being saved under that name right now. Choose another name."
             case .saveInProgress: return "A save of this document is already in progress."
             case .untitled: return "This document has no file yet. Choose a name first."
             }
@@ -563,14 +593,22 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
         case .notFound?: return "The file or its folder no longer exists."
         case .permissionDenied?: return "You do not have permission to change this file."
         case .notRegularFile?: return "This is not a regular file."
-        case .tooLarge(let size, let limit)?: return "The file is \(size / 1_048_576) MB; the limit is \(limit / 1_048_576) MB."
+        case .tooLarge(let size, let limit)?:
+            return "The file is \(size / 1_048_576) MB; the limit is \(limit / 1_048_576) MB."
         case .binary?: return "The file contains binary data, not text."
         case .notUTF8?: return "The file is not valid UTF-8. It was not opened, so it cannot be damaged."
         case .unsupportedEncoding?: return "Only UTF-8 text is supported for now."
         case .changedWhileReading?: return "The file changed while it was being read. Try again."
-        case .cannotPreserveMetadata?: return "The file’s permissions, owner, access list or extended attributes cannot be carried over to the saved copy, so nothing was written."
+        case .cannotPreserveMetadata?:
+            return """
+            The file’s permissions, owner, access list or extended attributes cannot be carried over to the saved \
+            copy, so nothing was written.
+            """
         case .io(let code)?: return "System error \(code)."
-        case .conflict?: return "A file with this name appeared after you chose it, or the file was changed on disk. Nothing was written."
+        case .conflict?:
+            return """
+            A file with this name appeared after you chose it, or the file was changed on disk. Nothing was written.
+            """
         case nil: return error.localizedDescription
         }
     }

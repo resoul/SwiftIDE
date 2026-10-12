@@ -17,7 +17,10 @@ public enum GitAction: Equatable, Sendable {
         case .continueIntegration(let status, _): "Continue " + status.kind.rawValue
         case .abortIntegration(let status): "Abort " + status.kind.rawValue
         case .skipRebase: "Skip current rebase commit"
-        case .resolveConflict(_, let resolution): resolution == .workingFile ? "Mark saved result resolved" : resolution == .delete ? "Resolve as deleted" : "Restore conflict side on disk"
+        case .resolveConflict(_, let resolution):
+            resolution == .workingFile
+                ? "Mark saved result resolved"
+                : resolution == .delete ? "Resolve as deleted" : "Restore conflict side on disk"
         case .pull(let plan): plan.title
         case .push(let plan): plan.title
         case .fetch(let remote): "Fetch " + remote
@@ -29,7 +32,12 @@ public enum GitAction: Equatable, Sendable {
         }
     }
     public var changesCheckout: Bool {
-        switch self { case .switchBranch, .pull, .integrate, .continueIntegration, .abortIntegration, .skipRebase, .resolveConflict: true; default: false }
+        switch self {
+        case .switchBranch, .pull, .integrate, .continueIntegration, .abortIntegration, .skipRebase, .resolveConflict:
+            true
+        default:
+            false
+        }
     }
 }
 
@@ -54,7 +62,11 @@ public enum GitOperationState: Equatable, Sendable {
 }
 
 public protocol GitMutating: Sendable {
-    func perform(_ action: GitLocalAction, expected: GitSnapshot, output: @escaping @Sendable (String) -> Void) async throws
+    func perform(
+        _ action: GitLocalAction,
+        expected: GitSnapshot,
+        output: @escaping @Sendable (String) -> Void
+    ) async throws
 }
 
 /// Save or cancel only: checkout never implicitly discards an editor buffer.
@@ -65,7 +77,11 @@ public final class GitCheckoutDocuments {
     private let prompt: (DocumentSession) async -> Decision
     private let save: (DocumentSession) async -> Bool
 
-    public init(documents: @escaping () -> [DocumentSession], prompt: @escaping (DocumentSession) async -> Decision, save: @escaping (DocumentSession) async -> Bool) {
+    public init(
+        documents: @escaping () -> [DocumentSession],
+        prompt: @escaping (DocumentSession) async -> Decision,
+        save: @escaping (DocumentSession) async -> Bool
+    ) {
         self.documents = documents; self.prompt = prompt; self.save = save
     }
 
@@ -83,6 +99,8 @@ public final class GitCheckoutDocuments {
             }
         }
 
-        return !Task.isCancelled && documents().filter { Self.contains($0, root: root) }.allSatisfy { !$0.isDirty && !$0.isComposing }
+        return !Task.isCancelled && documents().filter { Self.contains($0, root: root) }.allSatisfy {
+            !$0.isDirty && !$0.isComposing
+        }
     }
 }

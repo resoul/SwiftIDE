@@ -44,35 +44,43 @@ public struct FileDecoration: Equatable, Sendable {
     }
 
     public var badges: String {
-        [isConflict ? "⚠︎" : nil,
-         index.isEmpty ? nil : index,
-         worktree.isEmpty ? nil : worktree,
-         isUntracked && ignoredReason == nil ? "?" : nil,
-         isUnsaved ? "●" : nil].compactMap { $0 }.joined(separator: " ")
+        [
+            isConflict ? "⚠︎" : nil,
+            index.isEmpty ? nil : index,
+            worktree.isEmpty ? nil : worktree,
+            isUntracked && ignoredReason == nil ? "?" : nil,
+            isUnsaved ? "●" : nil
+        ].compactMap { $0 }.joined(separator: " ")
     }
 
     public var explanation: String {
-        [exclusionReason,
-         ignoredReason.map { "Ignored by Git: \($0)" },
-         isConflict ? "Conflict" : nil,
-         index.isEmpty ? nil : "Index: \(index)",
-         worktree.isEmpty ? nil : "Working tree: \(worktree)",
-         isUntracked && ignoredReason == nil ? "Untracked" : nil,
-         isMixed ? "Mixed changes" : nil,
-         isUnsaved ? "Unsaved editor changes" : nil].compactMap { $0 }.joined(separator: " · ")
+        [
+            exclusionReason,
+            ignoredReason.map { "Ignored by Git: \($0)" },
+            isConflict ? "Conflict" : nil,
+            index.isEmpty ? nil : "Index: \(index)",
+            worktree.isEmpty ? nil : "Working tree: \(worktree)",
+            isUntracked && ignoredReason == nil ? "Untracked" : nil,
+            isMixed ? "Mixed changes" : nil,
+            isUnsaved ? "Unsaved editor changes" : nil
+        ].compactMap { $0 }.joined(separator: " · ")
     }
 
     /// An exclusion/ignore alone does not colour the parent. Tracked changes remain independent of exclusions.
     public static func aggregate(_ descendants: [Self]) -> Self {
         let conflict = descendants.contains { $0.isConflict }
-        let modified = descendants.contains { !$0.worktree.isEmpty || (!$0.index.isEmpty && $0.index != "A") || $0.isMixed }
+        let modified = descendants.contains {
+            !$0.worktree.isEmpty || (!$0.index.isEmpty && $0.index != "A") || $0.isMixed
+        }
         let added = descendants.contains { $0.index == "A" }
         let untracked = descendants.contains { $0.isUntracked && $0.ignoredReason == nil && $0.exclusionReason == nil }
 
-        return Self(index: added ? "A" : "",
-                    worktree: modified ? "M" : "",
-                    isUntracked: untracked,
-                    isConflict: conflict,
-                    isMixed: added && untracked)
+        return Self(
+            index: added ? "A" : "",
+            worktree: modified ? "M" : "",
+            isUntracked: untracked,
+            isConflict: conflict,
+            isMixed: added && untracked
+        )
     }
 }

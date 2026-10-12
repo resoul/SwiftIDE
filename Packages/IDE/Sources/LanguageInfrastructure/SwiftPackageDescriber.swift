@@ -13,7 +13,10 @@ public struct SwiftPackageDescriber: PackageDescribing {
     public typealias Failure = BoundedProcess.Failure
 
     /// What to run for a package: the `swift` of the toolchain when there is one.
-    public typealias Command = @Sendable (_ root: String, _ scratch: URL, _ swift: String?) -> (executable: URL, arguments: [String])
+    public typealias Command = @Sendable (_ root: String, _ scratch: URL, _ swift: String?) -> (
+        executable: URL,
+        arguments: [String]
+    )
 
     private let scratchDirectory: URL
     private let timeout: Duration
@@ -42,7 +45,12 @@ public struct SwiftPackageDescriber: PackageDescribing {
     public func describe(root: String, toolchain: Toolchain?) async throws -> PackageLayout {
         let scratch = scratchDirectory.appendingPathComponent(Self.stableName(of: root), isDirectory: true)
         let (executable, arguments) = command(root, scratch, toolchain?.swift)
-        let output = try await BoundedProcess.run(executable: executable, arguments: arguments, timeout: timeout, outputLimit: outputLimit)
+        let output = try await BoundedProcess.run(
+            executable: executable,
+            arguments: arguments,
+            timeout: timeout,
+            outputLimit: outputLimit
+        )
 
         do {
             return try PackageLayout.parse(output, root: root)

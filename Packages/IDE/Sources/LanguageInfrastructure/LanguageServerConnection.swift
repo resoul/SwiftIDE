@@ -108,7 +108,12 @@ public final class LanguageServerConnection: Sendable {
             let id = state.nextID
             state.nextID += 1
             state.pending[id] = slot
-            state.outbox.append(.message(["jsonrpc": "2.0", "id": .int(id), "method": .string(method), "params": params]))
+            state.outbox.append(.message([
+                "jsonrpc": "2.0",
+                "id": .int(id),
+                "method": .string(method),
+                "params": params
+            ]))
 
             return id
         }
@@ -221,7 +226,10 @@ public final class LanguageServerConnection: Sendable {
 
             let slot = state.withLock { $0.pending.removeValue(forKey: number) }
             if let error = message["error"] {
-                slot?.fulfil(.failure(LSPError.server(code: error["code"]?.intValue ?? 0, message: error["message"]?.stringValue ?? "")))
+                slot?.fulfil(.failure(LSPError.server(
+                    code: error["code"]?.intValue ?? 0,
+                    message: error["message"]?.stringValue ?? ""
+                )))
             } else {
                 slot?.fulfil(.success(message["result"] ?? .null))
             }

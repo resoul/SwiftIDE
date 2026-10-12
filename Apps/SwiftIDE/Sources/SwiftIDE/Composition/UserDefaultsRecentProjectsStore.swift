@@ -38,5 +38,7 @@ final class UserDefaultsRecentProjectsStore: RecentProjectsStore {
 
 private enum ArchiveError: LocalizedError {
     case unreadable
-    var errorDescription: String? { "The existing project list is unreadable or from a newer version. It has been kept." }
+    var errorDescription: String? {
+        "The existing project list is unreadable or from a newer version. It has been kept."
+    }
 }

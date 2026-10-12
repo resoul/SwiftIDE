@@ -123,7 +123,9 @@ public final class DiagnosticsController {
     /// The problems at a place in the text, worst first: what a tooltip there says.
     public func marks(at offset: Int) -> [DiagnosticMark] {
         marks
-            .filter { $0.range.location <= offset && offset < max($0.range.location + $0.range.length, $0.range.location + 1) }
+            .filter {
+                $0.range.location <= offset && offset < max($0.range.location + $0.range.length, $0.range.location + 1)
+            }
             .sorted { $0.severity < $1.severity }
     }
 
@@ -208,8 +210,18 @@ public final class DiagnosticsController {
 
     private func publish() {
         // Edited since: stale, whatever the report was. Not edited: as sure as the report was.
-        let freshness: DiagnosticMark.Freshness = trackedVersion != reportVersion ? .stale : (reportIsVerified ? .verified : .unverified)
-        marks = items.map { DiagnosticMark(range: shown($0.range), severity: $0.severity, message: $0.message, freshness: freshness, basis: reportBasis) }
+        let freshness: DiagnosticMark.Freshness = trackedVersion != reportVersion
+            ? .stale
+            : (reportIsVerified ? .verified : .unverified)
+        marks = items.map {
+            DiagnosticMark(
+                range: shown($0.range),
+                severity: $0.severity,
+                message: $0.message,
+                freshness: freshness,
+                basis: reportBasis
+            )
+        }
         summary = Summary(
             errors: items.filter { $0.severity == .error }.count,
             warnings: items.filter { $0.severity == .warning }.count
@@ -225,13 +237,19 @@ public enum DiagnosticPlacement {
     /// ends, else the line's text without its indentation and trailing blanks. Left as it is where
     /// there is nothing to show (an empty line), and for every range that has an extent.
     @MainActor
-    public static func widened(_ range: UTF16TextRange, in index: LineIndex, text: (UTF16TextRange) -> String) -> UTF16TextRange {
+    public static func widened(
+        _ range: UTF16TextRange,
+        in index: LineIndex,
+        text: (UTF16TextRange) -> String
+    ) -> UTF16TextRange {
         let length = index.utf16Length
         guard range.length == 0, length > 0, range.location >= 0, range.location <= length else { return range }
 
         if let word = WordRange.around(range.location, length: length, text: text) { return word }
 
-        if range.location > 0, let word = WordRange.around(range.location - 1, length: length, text: text) { return word }
+        if range.location > 0, let word = WordRange.around(range.location - 1, length: length, text: text) {
+            return word
+        }
 
         let line = index.line(containing: range.location)
         let start = index.startOffset(ofLine: line)

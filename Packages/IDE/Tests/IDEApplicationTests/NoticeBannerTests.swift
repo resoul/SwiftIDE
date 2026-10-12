@@ -12,7 +12,12 @@ private struct Layout {
     init() {
         let editor = TextKitEditorFactory.makeEditor(loadedText: "let a = 1\nlet b = 2\n")
         container = EditorContainerView(host: EditorHostView(editor: editor))
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 300),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
         window.appearance = NSAppearance(named: .aqua)
         window.contentView = container
         settle()

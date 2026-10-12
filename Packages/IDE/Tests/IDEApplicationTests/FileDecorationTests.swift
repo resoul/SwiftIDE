@@ -3,7 +3,13 @@ import Testing
 
 struct FileDecorationTests {
     @Test func precedencePreservesIndependentBadgesAndReasons() {
-        let combined = FileDecoration(index: "A", worktree: "M", isConflict: true, exclusionReason: "project setting", isUnsaved: true)
+        let combined = FileDecoration(
+            index: "A",
+            worktree: "M",
+            isConflict: true,
+            exclusionReason: "project setting",
+            isUnsaved: true
+        )
         #expect(combined.tone == .orange)
         #expect(combined.badges == "⚠︎ A M ●")
         #expect(combined.explanation.contains("Conflict") && combined.explanation.contains("Unsaved"))
@@ -18,7 +24,8 @@ struct FileDecorationTests {
     }
 
     @Test func foldersAggregateChangesWithoutInheritingExclusionAlone() {
-        #expect(FileDecoration.aggregate([.init(exclusionReason: "build"), .init(ignoredReason: "rule")]).tone == .normal)
+        #expect(FileDecoration.aggregate([.init(exclusionReason: "build"), .init(ignoredReason: "rule")])
+            .tone == .normal)
         #expect(FileDecoration.aggregate([.init(isUntracked: true, exclusionReason: "build")]).tone == .normal)
         #expect(FileDecoration.aggregate([.init(index: "A")]).tone == .green)
         #expect(FileDecoration.aggregate([.init(isUntracked: true)]).tone == .red)

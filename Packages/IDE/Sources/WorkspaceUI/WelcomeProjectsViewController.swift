@@ -3,7 +3,8 @@ import IDEApplication
 
 /// Welcome presentation only: callbacks connect opening/locating to the owning application.
 @MainActor
-public final class WelcomeProjectsViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate, NSMenuDelegate {
+public final class WelcomeProjectsViewController: NSViewController, NSTableViewDataSource, NSTableViewDelegate,
+    NSSearchFieldDelegate, NSMenuDelegate {
     public let model: RecentProjects
     public var cloneRepository: (() -> Void)?
     let clone = NSButton(title: "Clone Repository…", target: nil, action: nil)
@@ -62,7 +63,11 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
         let build = NSTextField(labelWithString: version)
         build.font = .systemFont(ofSize: 11)
         build.textColor = .secondaryLabelColor
-        let branding = welcomeStack([icon, welcomeStack([title, build], vertical: true, spacing: 4)], vertical: false, spacing: 12)
+        let branding = welcomeStack(
+            [icon, welcomeStack([title, build], vertical: true, spacing: 4)],
+            vertical: false,
+            spacing: 12
+        )
         let projects = NSButton(title: "Projects", target: self, action: #selector(focusProjects(_:)))
         projects.bezelStyle = .recessed
         projects.setButtonType(.pushOnPushOff)
@@ -127,7 +132,9 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
         storage.font = .systemFont(ofSize: 11)
         storage.textColor = .systemOrange
         let content = welcomeStack([header, body, storage], vertical: true, spacing: 18)
-        for child in [header, body, storage] { child.widthAnchor.constraint(equalTo: content.widthAnchor).isActive = true }
+        for child in [header, body, storage] {
+            child.widthAnchor.constraint(equalTo: content.widthAnchor).isActive = true
+        }
         let outer = NSView()
         welcomePin(content, to: outer, inset: 24)
 
@@ -168,7 +175,11 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
 
         let entry = rows[row]
         let cell = WelcomeProjectCell()
-        cell.configure(entry, open: model.openRoots.contains(entry.path), availability: model.availability[entry.path] ?? .checking)
+        cell.configure(
+            entry,
+            open: model.openRoots.contains(entry.path),
+            availability: model.availability[entry.path] ?? .checking
+        )
 
         return cell
     }
@@ -202,24 +213,35 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
         guard rows.indices.contains(index) else { return }
 
         let entry = rows[index]
-        for (title, action) in [("Open", #selector(openFromMenu(_:))),
-                                (entry.isPinned ? "Unpin" : "Pin", #selector(pinFromMenu(_:))),
-                                ("Locate Folder…", #selector(locateFromMenu(_:))),
-                                ("Remove from Recent", #selector(removeFromMenu(_:)))] {
+        for (title, action) in [
+            ("Open", #selector(openFromMenu(_:))),
+            (entry.isPinned ? "Unpin" : "Pin", #selector(pinFromMenu(_:))),
+            ("Locate Folder…", #selector(locateFromMenu(_:))),
+            ("Remove from Recent", #selector(removeFromMenu(_:)))
+        ] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
             item.target = self
             item.representedObject = entry.path
             menu.addItem(item)
         }
     }
-    @objc private func openFromMenu(_ sender: NSMenuItem) { if let path = sender.representedObject as? String { openProject?(path) } }
+    @objc private func openFromMenu(_ sender: NSMenuItem) {
+        if let path = sender.representedObject as? String { openProject?(path) }
+    }
     @objc private func pinFromMenu(_ sender: NSMenuItem) {
-        guard let path = sender.representedObject as? String, let entry = model.projects.first(where: { $0.path == path }) else { return }
+        guard let path = sender.representedObject as? String,
+              let entry = model.projects.first(where: { $0.path == path }) else {
+            return
+        }
 
         model.pin(path, pinned: !entry.isPinned)
     }
-    @objc private func locateFromMenu(_ sender: NSMenuItem) { if let path = sender.representedObject as? String { locateProject?(path) } }
-    @objc private func removeFromMenu(_ sender: NSMenuItem) { if let path = sender.representedObject as? String { model.remove(path) } }
+    @objc private func locateFromMenu(_ sender: NSMenuItem) {
+        if let path = sender.representedObject as? String { locateProject?(path) }
+    }
+    @objc private func removeFromMenu(_ sender: NSMenuItem) {
+        if let path = sender.representedObject as? String { model.remove(path) }
+    }
 }
 
 @MainActor
@@ -285,7 +307,8 @@ final class WelcomeProjectCell: NSTableCellView {
 
     private static let warningColour = NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? .systemOrange : NSColor(calibratedRed: 0.63, green: 0.33, blue: 0.06, alpha: 1)
+            ? .systemOrange
+            : NSColor(calibratedRed: 0.63, green: 0.33, blue: 0.06, alpha: 1)
     }
 }
 

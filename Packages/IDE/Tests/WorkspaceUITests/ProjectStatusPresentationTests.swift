@@ -13,7 +13,13 @@ private func readiness(
     trust: ConfigurationTrust = .undecided,
     pendingQuestion: Bool = false
 ) -> ProjectReadiness {
-    ProjectReadiness.make(server: server, isFallbackRoot: fallback, progress: tracker, trust: trust, isAskingForTrust: pendingQuestion)
+    ProjectReadiness.make(
+        server: server,
+        isFallbackRoot: fallback,
+        progress: tracker,
+        trust: trust,
+        isAskingForTrust: pendingQuestion
+    )
 }
 
 @Test
@@ -96,8 +102,10 @@ func whileTheUserIsAskedTheDecisionIsAwaitedNotAssumed() {
 func thePriorityIsServerThenQuestionThenWorkThenRefusalThenFallback() {
     var tracker = ProgressTracker()
     begin(&tracker, "indexing.A", "Indexing", message: "2 / 5")
-    #expect(readiness(server: .failed, fallback: true, tracker: tracker, trust: .refused, pendingQuestion: true).reason == "Language server failed")
-    #expect(readiness(fallback: true, tracker: tracker, trust: .refused, pendingQuestion: true).reason == "Waiting for your decision on the project configuration")
+    #expect(readiness(server: .failed, fallback: true, tracker: tracker, trust: .refused, pendingQuestion: true)
+        .reason == "Language server failed")
+    #expect(readiness(fallback: true, tracker: tracker, trust: .refused, pendingQuestion: true)
+        .reason == "Waiting for your decision on the project configuration")
     #expect(readiness(fallback: true, tracker: tracker, trust: .refused).reason == "Preparing package · 2 / 5")
     #expect(readiness(fallback: true, trust: .refused).reason == "Project configuration disabled")
     #expect(readiness(fallback: true, trust: .granted).reason == "Using fallback settings")
@@ -125,12 +133,16 @@ func theSubtitleNamesTheTargetAndSaysWhenItIsAmbiguous() {
 @Test
 func aTargetGuessedFromTheFilesPlaceIsSaidToBeInferred() {
     #expect(TargetNote.text(names: ["App"], basis: .inferred) == "Target: App (inferred)")
-    #expect(TargetNote.text(names: ["App"], basis: .listed) == "Target: App", "a listed file is a fact and carries no qualifier")
+    #expect(
+        TargetNote.text(names: ["App"], basis: .listed) == "Target: App",
+        "a listed file is a fact and carries no qualifier"
+    )
 }
 
 @Test
 func theNoteIsForTheCFamilyOnlyBecauseThatIsWhatLosesItsFlags() {
-    #expect(TemporaryFolder.note(path: "/tmp/p/a.c", isCFamily: true) == "temporary folder: C-family flags may be missing")
+    #expect(TemporaryFolder
+        .note(path: "/tmp/p/a.c", isCFamily: true) == "temporary folder: C-family flags may be missing")
     #expect(TemporaryFolder.note(path: "/tmp/p/a.swift", isCFamily: false) == nil)
     #expect(TemporaryFolder.note(path: "/Users/me/p/a.c", isCFamily: true) == nil)
 }

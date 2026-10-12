@@ -287,7 +287,10 @@ private func applying(_ edits: [DocumentEdit], to text: String) -> String {
 @Test @MainActor
 func inverseEditsRestoreSourceInPostChangeCoordinates() throws {
     let source = "a😀bcd"
-    let plan = try #require(try DocumentEditPlanner.prepare([edit(0, 1, "AAA"), edit(4, 1, "")], in: StringTextSource(source)))
+    let plan = try #require(try DocumentEditPlanner.prepare(
+        [edit(0, 1, "AAA"), edit(4, 1, "")],
+        in: StringTextSource(source)
+    ))
     let after = applying(plan.edits, to: source)
     #expect(after == "AAA😀bd")
     #expect(applying(plan.inverseEdits, to: after) == source)
@@ -362,7 +365,10 @@ func regionAccumulatorCoversEveryChangeOfRandomPassSequences() {
 @Test @MainActor
 func inverseOfTouchingEditsIsNormalizedAndAlwaysApplicable() throws {
     let source = "abcd"
-    let plan = try #require(try DocumentEditPlanner.prepare([edit(1, 1, ""), edit(2, 1, "")], in: StringTextSource(source)))
+    let plan = try #require(try DocumentEditPlanner.prepare(
+        [edit(1, 1, ""), edit(2, 1, "")],
+        in: StringTextSource(source)
+    ))
     let after = applying(plan.edits, to: source)
     #expect(after == "ad")
     let inverse = plan.inverseEdits
@@ -489,14 +495,20 @@ func aCancellingPairBesideARealEditKeepsOnlyTheRealEdit() throws {
 @Test @MainActor
 func aClusterThatChangesTextKeepsAllItsEdits() throws {
     // Remove "b" and insert "X" next to it: touching, but not cancelling.
-    let plan = try #require(try DocumentEditPlanner.prepare([edit(1, 1, ""), edit(2, 0, "X")], in: StringTextSource("abcd")))
+    let plan = try #require(try DocumentEditPlanner.prepare(
+        [edit(1, 1, ""), edit(2, 0, "X")],
+        in: StringTextSource("abcd")
+    ))
     #expect(plan.edits.count == 2)
     #expect(applying(plan.edits, to: "abcd") == "aXcd")
 }
 
 @Test @MainActor
 func independentEditsAreUntouchedByTheCancellationCheck() throws {
-    let plan = try #require(try DocumentEditPlanner.prepare([edit(0, 1, "A"), edit(3, 1, "D")], in: StringTextSource("abcd")))
+    let plan = try #require(try DocumentEditPlanner.prepare(
+        [edit(0, 1, "A"), edit(3, 1, "D")],
+        in: StringTextSource("abcd")
+    ))
     #expect(plan.edits.count == 2)
 }
 
@@ -505,9 +517,15 @@ func editsApartButWithinReachCancelAndEditsBeyondItAreTakenAsReal() throws {
     // "aaaa": the first two units become "a" and an "a" is inserted before the last: same text.
     #expect(try DocumentEditPlanner.prepare([edit(0, 2, "a"), edit(3, 0, "a")], in: StringTextSource("aaaa")) == nil)
     // The same pair, but so far apart that judging them would mean reading everything between.
-    let far = String(repeating: "a", count: 4) + String(repeating: "x", count: DocumentEditPlanner.cancellationReach + 10) + "aaaa"
+    let far = String(repeating: "a", count: 4) + String(
+        repeating: "x",
+        count: DocumentEditPlanner.cancellationReach + 10
+    ) + "aaaa"
     let secondStart = 4 + DocumentEditPlanner.cancellationReach + 10
-    let plan = try DocumentEditPlanner.prepare([edit(0, 2, "a"), edit(secondStart + 3, 0, "a")], in: StringTextSource(far))
+    let plan = try DocumentEditPlanner.prepare(
+        [edit(0, 2, "a"), edit(secondStart + 3, 0, "a")],
+        in: StringTextSource(far)
+    )
     #expect(plan?.edits.count == 2, "beyond the reach the edits are published, never silently dropped")
 }
 
@@ -540,7 +558,10 @@ func aBatchIsNothingExactlyWhenApplyingItLeavesTheTextAsItWas() throws {
         }
         let result = applying(edits, to: source)
         let same = result.utf8.elementsEqual(source.utf8)
-        #expect((planned == nil) == same, "seed 0xFEEDFACE iteration \(iteration): \(edits) on \(source.debugDescription)")
+        #expect(
+            (planned == nil) == same,
+            "seed 0xFEEDFACE iteration \(iteration): \(edits) on \(source.debugDescription)"
+        )
         if let planned {
             something += 1
             #expect(applying(planned.edits, to: source) == result, "seed 0xFEEDFACE iteration \(iteration)")

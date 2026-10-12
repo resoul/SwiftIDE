@@ -22,7 +22,9 @@ final class ProjectTrustCoordinator {
 
     func register(_ session: DocumentSession, window: NSWindow) {
         if let old = owners[session.id]?.window, old !== window {
-            for presentation in presentations.values where presentation.owner == session.id { presenter.cancel(for: presentation.parent) }
+            for presentation in presentations.values where presentation.owner == session.id {
+                presenter.cancel(for: presentation.parent)
+            }
         }
 
         owners[session.id] = Owner(session: session, window: window)

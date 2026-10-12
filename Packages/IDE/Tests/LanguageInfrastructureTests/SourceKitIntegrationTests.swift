@@ -67,7 +67,10 @@ private final class Real {
 
     func type(_ text: String) throws {
         let end = session.utf16Length
-        try session.apply([DocumentEdit(range: UTF16TextRange(location: end, length: 0), replacement: text)], expectedVersion: session.version)
+        try session.apply(
+            [DocumentEdit(range: UTF16TextRange(location: end, length: 0), replacement: text)],
+            expectedVersion: session.version
+        )
         caret = session.utf16Length
     }
 
@@ -123,7 +126,10 @@ func aKilledServerComesBackAndAnswersAboutTheCurrentText() async throws {
     let real = try Real()
     try await real.startAndOpen()
     defer { Task { await real.service.stop() } }
-    #expect(await real.completionLabels().contains { $0.hasPrefix("greeting") } == false, "nothing typed yet: no member list at the end of the file")
+    #expect(
+        await real.completionLabels().contains { $0.hasPrefix("greeting") } == false,
+        "nothing typed yet: no member list at the end of the file"
+    )
 
     try real.type("let m = 7\nm.")
     #expect(await real.completionLabels().contains("bitWidth"))
@@ -149,7 +155,8 @@ func diagnosticsOfTheRealServerAreUnversionedSoTheyAreOnlyAsFreshAsTheLastEdit()
     try real.type("let number: Int = greeter.greeting()\n")
     var report: DiagnosticsReport?
     for _ in 0..<300 {
-        if let current = real.service.diagnostics(for: real.session), current.items.contains(where: { $0.message.lowercased().contains("cannot convert") }) {
+        if let current = real.service.diagnostics(for: real.session),
+           current.items.contains(where: { $0.message.lowercased().contains("cannot convert") }) {
             report = current
             break
         }

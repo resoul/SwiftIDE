@@ -46,7 +46,12 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     private var filesSubscription: UUID?
     private var tabSubscription: UUID?
 
-    init(files: ProjectFiles, layout: WorkspaceLayoutState = .init(), panels: [WorkspaceTool: WorkspacePanel] = [:], git: GitWorkspace? = nil) {
+    init(
+        files: ProjectFiles,
+        layout: WorkspaceLayoutState = .init(),
+        panels: [WorkspaceTool: WorkspacePanel] = [:],
+        git: GitWorkspace? = nil
+    ) {
         self.files = files
         self.layout = layout
         self.git = git
@@ -55,13 +60,18 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         gitBranches = git.map { GitBranchPickerViewController(model: $0) }
         gitDiff = git.map { GitDiffViewController(model: $0) }
         var providers = panels
-        if let gitChanges { providers[.sourceControl] = WorkspacePanel(view: gitChanges.view, focusTarget: gitChanges.focusTarget) }
+        if let gitChanges {
+            providers[.sourceControl] = WorkspacePanel(view: gitChanges.view, focusTarget: gitChanges.focusTarget)
+        }
+
         if let gitLog { providers[.gitLog] = WorkspacePanel(view: gitLog.view, focusTarget: gitLog.focusTarget) }
         browser = ProjectFilesContainer(model: files, editor: area.view, layout: layout, panels: providers)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                              backing: .buffered,
-                              defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         window.title = (files.root as NSString).lastPathComponent
         window.representedURL = URL(fileURLWithPath: files.root)
         window.contentViewController = browser
@@ -84,14 +94,24 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         tabSubscription = tabs.subscribe { [weak self] in self?.renderSelection() }
         filesSubscription = files.subscribe { [weak self] in self?.presentTabs() }
         if let git {
-            if let gitChanges { browser.addChild(gitChanges); gitChanges.openFile = { [weak self] in self?.openFile?($0) } }
+            if let gitChanges {
+                browser.addChild(gitChanges)
+                gitChanges.openFile = { [weak self] in self?.openFile?($0) }
+            }
+
             if let gitLog { browser.addChild(gitLog) }
             if let gitBranches { browser.addChild(gitBranches); shell.installProjectAccessory(gitBranches.view) }
             gitChanges?.resolveConflict = { [weak self] in self?.showConflict($0) }
             gitChanges?.confirmAction = { [weak self] in self?.confirmGitAction($0) }
-            gitBranches?.onIntegrateRequested = { [weak self] kind, branch in self?.showIntegration(kind, target: branch) }
-            gitBranches?.onPullRequested = { [weak self] remote, source in self?.showPull(remote: remote, source: source) }
-            gitBranches?.onPushRequested = { [weak self] branch, remote in self?.showPush(branch: branch, remote: remote) }
+            gitBranches?.onIntegrateRequested = { [weak self] kind, branch in
+                self?.showIntegration(kind, target: branch)
+            }
+            gitBranches?.onPullRequested = { [weak self] remote, source in
+                self?.showPull(remote: remote, source: source)
+            }
+            gitBranches?.onPushRequested = { [weak self] branch, remote in
+                self?.showPush(branch: branch, remote: remote)
+            }
             gitBranches?.onActionStarted = { [weak self] in self?.shell.select(.sourceControl) }
             gitBranches?.onViewHistory = { [weak self] in self?.shell.select(.gitLog) }
             git.onInspect = { [weak self] in
@@ -143,7 +163,11 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     private func renderSelection() {
         let active = activeDocument
         let inspection = tabs.selected == diffTabID
-        let conflict = tabs.selected == conflictTabID ? standaloneConflict : active.flatMap { conflictEditors[$0.session.id] }
+        let conflict = tabs.selected == conflictTabID
+            ? standaloneConflict
+            : active.flatMap {
+            conflictEditors[$0.session.id]
+        }
         let content: NSViewController? = conflict ?? (inspection ? gitDiff : active)
         let focus = inspection ? gitDiff?.text : active?.focusTarget
         let switching = area.active !== content
@@ -167,18 +191,33 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         if files.unsavedPaths != unsaved { files.unsavedPaths = unsaved }
         window?.isDocumentEdited = documents.contains { $0.session.isDirty }
         window?.subtitle = activeDocument?.status ?? ""
-        shell.present(detail: tabs.selected == diffTabID ? "Read-only Git diff" : activeDocument?.detail,
-                      status: activeDocument?.status ?? (tabs.selected == diffTabID ? git?.diffState.explanation : "Open a file to begin editing") ?? "")
+        shell.present(
+            detail: tabs.selected == diffTabID ? "Read-only Git diff" : activeDocument?.detail,
+            status: activeDocument?.status ?? (tabs.selected == diffTabID
+                          ? git?.diffState.explanation
+                          : "Open a file to begin editing") ?? ""
+        )
         presentTabs()
     }
 
     private func presentTabs() {
         let presentations = tabs.order.compactMap { id -> DocumentTabPresentation? in
-            if id == conflictTabID { return DocumentTabPresentation(id: id, name: "Resolve · " + ((standaloneConflict?.context.conflict.path ?? "Conflict") as NSString).lastPathComponent, path: standaloneConflict?.context.conflict.path ?? "Git conflict") }
+            if id == conflictTabID {
+                return DocumentTabPresentation(
+                    id: id,
+                    name: "Resolve · " + ((standaloneConflict?.context.conflict.path ?? "Conflict") as NSString)
+                    .lastPathComponent,
+                    path: standaloneConflict?.context.conflict.path ?? "Git conflict"
+                )
+            }
+
             if id == diffTabID {
-                return DocumentTabPresentation(id: id,
-                                               name: "Diff · " + ((git?.comparison?.path ?? "Changes") as NSString).lastPathComponent,
-                                               path: git?.comparison?.title ?? "Git diff")
+                return DocumentTabPresentation(
+                    id: id,
+                    name: "Diff · " + ((git?.comparison?.path ?? "Changes") as NSString)
+                                               .lastPathComponent,
+                    path: git?.comparison?.title ?? "Git diff"
+                )
             }
 
             guard let document = editors[id] else { return nil }
@@ -186,7 +225,12 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             var decoration = files.decoration(for: document.session.path)
             decoration.isUnsaved = document.session.isDirty
 
-            return DocumentTabPresentation(id: document.session.id, name: document.displayName, path: document.session.path, decoration: decoration)
+            return DocumentTabPresentation(
+                id: document.session.id,
+                name: document.displayName,
+                path: document.session.path,
+                decoration: decoration
+            )
         }
         area.tabs.present(presentations, selected: tabs.selected)
     }
@@ -292,7 +336,14 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     }
 
     @objc func closeDocument(_ sender: Any?) {
-        if tabs.selected == conflictTabID { standaloneConflict?.stop(); standaloneConflict = nil; tabs.remove(conflictTabID); return }
+        if tabs.selected == conflictTabID {
+            standaloneConflict?.stop()
+            standaloneConflict = nil
+            tabs.remove(conflictTabID)
+
+            return
+        }
+
         if tabs.selected == diffTabID { tabs.remove(diffTabID); return }
         if let activeDocument { activeDocument.requestClose() } else { window?.performClose(sender) }
     }
@@ -303,7 +354,9 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func jumpToDefinition(_ sender: Any?) { activeDocument?.jumpToDefinition(sender) }
     @objc func allowProjectConfiguration(_ sender: Any?) { activeDocument?.allowProjectConfiguration(sender) }
     @objc func disallowProjectConfiguration(_ sender: Any?) { activeDocument?.disallowProjectConfiguration(sender) }
-    @objc func askAboutProjectConfigurationAgain(_ sender: Any?) { activeDocument?.askAboutProjectConfigurationAgain(sender) }
+    @objc func askAboutProjectConfigurationAgain(_ sender: Any?) {
+        activeDocument?.askAboutProjectConfigurationAgain(sender)
+    }
     @objc func showPreviewFiles(_ sender: Any?) { shell.select(.files) }
     @objc func toggleFocusEditor(_ sender: Any?) { shell.toggleFocusEditor(sender) }
     @objc func resetWorkspaceLayout(_ sender: Any?) { shell.resetWorkspaceLayout(sender) }
@@ -322,26 +375,42 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
                 try Task.checkCancellation()
                 guard let self, conflictID == token, !closing, window?.isVisible == true else { return }
 
-                let document = data.workingText != nil && data.supportsResolution ? await openConflictResult?(data.repository.absolutePath(data.path)) : nil
+                let document = data.workingText != nil && data.supportsResolution
+                    ? await openConflictResult?(data.repository.absolutePath(data.path))
+                    : nil
                 try Task.checkCancellation()
                 guard conflictID == token, !closing else { return }
 
                 let controller = GitConflictEditorController(workspace: git, conflict: data, document: document)
                 controller.reportError = { [weak self] in self?.showGitError($0) }
-                controller.context.restoreStage = { [weak self] stage in self?.confirmGitAction(.resolveConflict(data, .restoreStage(stage))) }
-                controller.context.resolveDeleted = { [weak self] in self?.confirmGitAction(.resolveConflict(data, .delete)) }
-                controller.context.reopen = { [weak self] in
-                    if let current = git.snapshot?.changes.first(where: { $0.path == data.path && $0.decoration.isConflict }) { self?.showConflict(current) }
+                controller.context.restoreStage = { [weak self] stage in
+                    self?.confirmGitAction(.resolveConflict(data, .restoreStage(stage)))
                 }
-                controller.context.openResult = { [weak self] in self?.openFile?(data.repository.absolutePath(data.path)) }
+                controller.context.resolveDeleted = { [weak self] in
+                    self?.confirmGitAction(.resolveConflict(data, .delete))
+                }
+                controller.context.reopen = { [weak self] in
+                    if let current = git.snapshot?.changes
+                        .first(where: { $0.path == data.path && $0.decoration.isConflict }) {
+                        self?.showConflict(current)
+                    }
+                }
+                controller.context.openResult = { [weak self] in
+                    self?.openFile?(data.repository.absolutePath(data.path))
+                }
                 controller.context.closePreview = { [weak self, weak controller, weak document] in
                     guard let self else { return }
 
-                    if let document { conflictEditors[document.session.id] = nil; controller?.stop(); renderSelection() }
+                    if let document {
+                        conflictEditors[document.session.id] = nil
+                        controller?.stop()
+                        renderSelection()
+                    }
                     else { standaloneConflict?.stop(); standaloneConflict = nil; tabs.remove(conflictTabID) }
                 }
                 if let document {
-                    if standaloneConflict?.context.conflict.path == data.path, standaloneConflict?.context.conflict.repository == data.repository {
+                    if standaloneConflict?.context.conflict.path == data.path,
+                       standaloneConflict?.context.conflict.repository == data.repository {
                         if area.active === standaloneConflict { area.show(nil) }
                         standaloneConflict?.stop(); standaloneConflict = nil; tabs.remove(conflictTabID)
                     }
@@ -355,7 +424,10 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
                     tabs.open(document.session.id); renderSelection()
                 } else {
                     if area.active === standaloneConflict { area.show(nil) }
-                    standaloneConflict?.stop(); standaloneConflict = controller; tabs.open(conflictTabID); renderSelection()
+                    standaloneConflict?.stop()
+                    standaloneConflict = controller
+                    tabs.open(conflictTabID)
+                    renderSelection()
                 }
             } catch { if !Task.isCancelled { self?.showGitError(error.localizedDescription) } }
         }
@@ -372,20 +444,36 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         let alert = NSAlert(); alert.messageText = action.title + "?"
         switch action {
         case .abortIntegration(let status):
-            alert.informativeText = "Restores the original Git state (" + (status.originalHead.map { String($0.prefix(12)) } ?? "unknown") + "). On-disk resolution edits made after the operation began may be discarded. Unsaved documents still require Save or Cancel."
+            let head = status.originalHead.map { String($0.prefix(12)) } ?? "unknown"
+            alert.informativeText = """
+            Restores the original Git state (\(head)). On-disk resolution edits made after the operation began may be \
+            discarded. Unsaved documents still require Save or Cancel.
+            """
         case .skipRebase(let status):
-            alert.informativeText = "Drops the current replayed commit (" + (status.stoppedCommit.map { String($0.prefix(12)) } ?? "current step") + ") from the rewritten branch. Staged resolution edits for this step may be discarded; remaining commits still replay. Unsaved documents require Save or Cancel."
+            let commit = status.stoppedCommit.map { String($0.prefix(12)) } ?? "current step"
+            alert.informativeText = """
+            Drops the current replayed commit (\(commit)) from the rewritten branch. Staged resolution edits for this \
+            step may be discarded; remaining commits still replay. Unsaved documents require Save or Cancel.
+            """
         case .resolveConflict(let conflict, .delete):
-            alert.informativeText = "Deletes “" + conflict.path + "” from disk and stages its deletion as the resolution. Unsaved documents require Save or Cancel; a changed working file must be reviewed again."
+            alert.informativeText = """
+            Deletes “\(conflict.path)” from disk and stages its deletion as the resolution. Unsaved documents require \
+            Save or Cancel; a changed working file must be reviewed again.
+            """
         case .resolveConflict(let conflict, .restoreStage(let stage)):
-            alert.informativeText = "Replaces “" + conflict.path + "” on disk with the reviewed stage \(stage) blob and executable mode. It does not mark the file resolved. Save and reload the preview first if the working file has changed."
+            alert.informativeText = """
+            Replaces “\(conflict.path)” on disk with the reviewed stage \(stage) blob and executable mode. It does \
+            not mark the file resolved. Save and reload the preview first if the working file has changed.
+            """
         default: return
         }
         alert.addButton(withTitle: "Cancel"); alert.addButton(withTitle: action.title)
         confirmationTask?.cancel()
         confirmationTask = Task { [weak self] in
             let answer = await withTaskCancellationHandler { await alert.beginSheetModal(for: window) } onCancel: {
-                Task { @MainActor in if alert.window.sheetParent === window { window.endSheet(alert.window, returnCode: .abort) } }
+                Task { @MainActor in
+                    if alert.window.sheetParent === window { window.endSheet(alert.window, returnCode: .abort) }
+                }
             }
             guard let self, !closing, !Task.isCancelled, answer == .alertSecondButtonReturn else { return }
 
@@ -393,7 +481,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         }
     }
     func showIntegration(_ kind: GitIntegrationKind, target: GitBranch? = nil) {
-        guard integrationWindow == nil, let git, git.canMutate, git.conflictReader != nil, git.snapshot?.integration == nil,
+        guard integrationWindow == nil, let git, git.canMutate, git.conflictReader != nil,
+              git.snapshot?.integration == nil,
               let window, window.attachedSheet == nil else { return }
 
         let controller = GitIntegrationWindowController(workspace: git, kind: kind)
@@ -403,8 +492,12 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func mergeGit(_ sender: Any?) { showIntegration(.merge) }
     @objc func rebaseGit(_ sender: Any?) { showIntegration(.rebase) }
     @objc func continueGit(_ sender: Any?) { shell.select(.sourceControl); gitChanges?.continueOperation() }
-    @objc func abortGit(_ sender: Any?) { if let status = git?.snapshot?.integration { confirmGitAction(.abortIntegration(status)) } }
-    @objc func skipGit(_ sender: Any?) { if let status = git?.snapshot?.integration { confirmGitAction(.skipRebase(status)) } }
+    @objc func abortGit(_ sender: Any?) {
+        if let status = git?.snapshot?.integration { confirmGitAction(.abortIntegration(status)) }
+    }
+    @objc func skipGit(_ sender: Any?) {
+        if let status = git?.snapshot?.integration { confirmGitAction(.skipRebase(status)) }
+    }
     func showPull(remote: String? = nil, source: String? = nil) {
         guard pullWindow == nil, let git, git.canMutate, git.pullPlanner != nil,
               let window, window.attachedSheet == nil else { return }
@@ -433,20 +526,61 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func showPreviewTerminal(_ sender: Any?) {}
     @objc func showPreviewAssistant(_ sender: Any?) {}
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        if item.action == #selector(mergeGit(_:)) || item.action == #selector(rebaseGit(_:)) { return git?.canMutate == true && git?.conflictReader != nil && git?.snapshot?.integration == nil && git?.snapshot?.branch != nil && git?.snapshot?.head != nil }
-        if item.action == #selector(continueGit(_:)) { return git?.canMutate == true && git?.snapshot?.integration != nil && git?.snapshot?.integration?.kind != .other && git?.snapshot?.changes.contains(where: { $0.decoration.isConflict }) == false && (git?.snapshot?.integration?.kind != .rebase || git?.snapshot?.integration?.stoppedCommit == nil || git?.snapshot?.changes.contains(where: { !$0.decoration.index.isEmpty && !$0.decoration.isConflict }) == true) }
-        if item.action == #selector(abortGit(_:)) { return git?.canMutate == true && git?.snapshot?.integration != nil && git?.snapshot?.integration?.kind != .other }
-        if item.action == #selector(skipGit(_:)) { return git?.canMutate == true && git?.snapshot?.integration?.kind == .rebase }
-        if item.action == #selector(pullGit(_:)) { return git?.canMutate == true && git?.pullPlanner != nil && git?.snapshot?.remotes.isEmpty == false && git?.snapshot?.branch != nil && git?.snapshot?.head != nil }
-        if item.action == #selector(pushGit(_:)) { return git?.canMutate == true && git?.pushPlanner != nil && git?.snapshot?.remotes.isEmpty == false && git?.snapshot?.branches.contains(where: { !$0.isRemote }) == true }
-        if item.action == #selector(fetchGit(_:)) { return git?.canMutate == true && git?.snapshot?.remotes.isEmpty == false }
+        if item.action == #selector(mergeGit(_:)) || item.action == #selector(rebaseGit(_:)) {
+            return git?.canMutate == true && git?.conflictReader != nil && git?.snapshot?.integration == nil && git?
+                .snapshot?.branch != nil && git?.snapshot?.head != nil
+        }
+
+        if item.action == #selector(continueGit(_:)) {
+            return git?.canMutate == true && git?.snapshot?.integration != nil && git?.snapshot?.integration?
+                .kind != .other && git?.snapshot?.changes
+                .contains(where: { $0.decoration.isConflict }) == false &&
+                (git?.snapshot?.integration?.kind != .rebase || git?.snapshot?.integration?.stoppedCommit == nil || git?
+                .snapshot?.changes
+                .contains(where: { !$0.decoration.index.isEmpty && !$0.decoration.isConflict }) == true)
+        }
+
+        if item.action == #selector(abortGit(_:)) {
+            return git?.canMutate == true && git?.snapshot?.integration != nil && git?.snapshot?.integration?
+                .kind != .other
+        }
+
+        if item.action == #selector(skipGit(_:)) {
+            return git?.canMutate == true && git?.snapshot?.integration?.kind == .rebase
+        }
+
+        if item.action == #selector(pullGit(_:)) {
+            return git?.canMutate == true && git?.pullPlanner != nil && git?.snapshot?.remotes.isEmpty == false && git?
+                .snapshot?.branch != nil && git?.snapshot?.head != nil
+        }
+
+        if item.action == #selector(pushGit(_:)) {
+            return git?.canMutate == true && git?.pushPlanner != nil && git?.snapshot?.remotes.isEmpty == false && git?
+                .snapshot?.branches.contains(where: { !$0.isRemote }) == true
+        }
+
+        if item.action == #selector(fetchGit(_:)) {
+            return git?.canMutate == true && git?.snapshot?.remotes.isEmpty == false
+        }
+
         if item.action == #selector(commitGit(_:)) { return git?.canMutate == true }
         if item.action == #selector(cancelGit(_:)) { return git?.operationState.isBusy == true }
         if item.action == #selector(refreshGit(_:)) { return git != nil && git?.operationState.isBusy == false }
         if item.action == #selector(showPreviewSourceControl(_:)) { return git != nil }
         if item.action == #selector(showGitLog(_:)) || item.action == #selector(refreshGit(_:)) { return git != nil }
-        if [#selector(showPreviewSearch(_:)), #selector(showPreviewTerminal(_:)), #selector(showPreviewAssistant(_:))].contains(item.action) { return false }
-        if [#selector(showPreviewFiles(_:)), #selector(toggleFocusEditor(_:)), #selector(resetWorkspaceLayout(_:)), #selector(closeDocument(_:))].contains(item.action) { return true }
+        if [#selector(showPreviewSearch(_:)), #selector(showPreviewTerminal(_:)), #selector(showPreviewAssistant(_:))]
+            .contains(item.action) {
+            return false
+        }
+
+        if [
+            #selector(showPreviewFiles(_:)),
+            #selector(toggleFocusEditor(_:)),
+            #selector(resetWorkspaceLayout(_:)),
+            #selector(closeDocument(_:))
+        ].contains(item.action) {
+            return true
+        }
 
         return activeDocument?.validateMenuItem(item) ?? false
     }

@@ -64,7 +64,10 @@ func aWrappedLineCarriesItsNumberOnTheFirstRowOnly() {
     let g = Gutter("\(long)\nshort\n", width: 300)
     #expect(g.labels.map(\.number) == [1, 2, 3])
     let baselines = g.labels.map(\.baseline)
-    #expect(baselines[1] - baselines[0] > 3 * (baselines[2] - baselines[1]), "the second line starts below several rows")
+    #expect(
+        baselines[1] - baselines[0] > 3 * (baselines[2] - baselines[1]),
+        "the second line starts below several rows"
+    )
 }
 
 @Test @MainActor
@@ -94,7 +97,10 @@ extension Gutter {
         let point = ruler.convert(NSPoint(x: 0, y: label.baseline - 3), to: editor.textView)
         let origin = editor.textView.textContainerOrigin
         guard let layoutManager = editor.textView.textLayoutManager,
-              let fragment = layoutManager.textLayoutFragment(for: NSPoint(x: point.x - origin.x, y: point.y - origin.y)),
+              let fragment = layoutManager.textLayoutFragment(for: NSPoint(
+                  x: point.x - origin.x,
+                  y: point.y - origin.y
+              )),
               let paragraph = fragment.textElement as? NSTextParagraph else { return nil }
 
         return paragraph.attributedString.string.trimmingCharacters(in: .newlines)

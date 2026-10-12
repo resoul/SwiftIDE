@@ -15,7 +15,8 @@ extension NativeAppTests {
         }
         @Test func actualRepositoryDecoratesFilesAndDiffTabRetainsOriginalDirtyEditor() async throws {
             _ = NSApplication.shared
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-git-app-\(UUID())").resolvingSymlinksInPath()
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-git-app-\(UUID())")
+                .resolvingSymlinksInPath()
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
             try git(["init", "-b", "main"], root: root)
@@ -26,7 +27,10 @@ extension NativeAppTests {
             try "before\n".write(to: path, atomically: true, encoding: .utf8)
             try git(["add", "."], root: root); try git(["commit", "-m", "Initial"], root: root)
             try "on disk\n".write(to: path, atomically: true, encoding: .utf8)
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
+            let app = AppDelegate(composition: AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                recentStore: MemoryRecentProjectsStore()
+            ))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil; project.files.onExclusionsChange = nil
             defer { project.closeProject(); app.welcome?.close() }
@@ -67,13 +71,15 @@ extension NativeAppTests {
                 view.layoutSubtreeIfNeeded()
                 let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
                 view.cacheDisplay(in: view.bounds, to: bitmap)
-                try #require(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: "/private/tmp/swiftide-git-project-\(name).png"))
+                try #require(bitmap.representation(using: .png, properties: [:]))
+                    .write(to: URL(fileURLWithPath: "/private/tmp/swiftide-git-project-\(name).png"))
             }
         }
 
         private func git(_ arguments: [String], root: URL) throws {
             let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/git"); process.arguments = ["-C", root.path] + arguments
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = ["-C", root.path] + arguments
             process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
             try process.run(); process.waitUntilExit()
             try #require(process.terminationStatus == 0)

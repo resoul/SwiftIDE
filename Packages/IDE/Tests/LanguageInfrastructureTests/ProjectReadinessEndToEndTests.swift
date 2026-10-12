@@ -17,7 +17,9 @@ private let repository = URL(fileURLWithPath: #filePath)
 private let fixture = repository.appendingPathComponent("Fixtures/SwiftPMPackage")
 
 private let toolAvailable: Bool = {
-    guard FileManager.default.fileExists(atPath: fixture.appendingPathComponent("Package.swift").path) else { return false }
+    guard FileManager.default.fileExists(atPath: fixture.appendingPathComponent("Package.swift").path) else {
+        return false
+    }
 
     let finder = Process()
     finder.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
@@ -54,14 +56,21 @@ private final class Project {
 
     init(answer: TrustDecision, withConfiguration: Bool = true) throws {
         asked = Asked(answer)
-        root = repository.appendingPathComponent("Packages/IDE/.build/e2e-readiness-\(UUID().uuidString)", isDirectory: true)
+        root = repository.appendingPathComponent(
+            "Packages/IDE/.build/e2e-readiness-\(UUID().uuidString)",
+            isDirectory: true
+        )
         try FileManager.default.createDirectory(at: root.deletingLastPathComponent(), withIntermediateDirectories: true)
         try FileManager.default.copyItem(at: fixture, to: root)
         try? FileManager.default.removeItem(at: root.appendingPathComponent(".build"))
         if withConfiguration {
             let folder = root.appendingPathComponent(".sourcekit-lsp", isDirectory: true)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            try #"{"backgroundIndexing": false}"#.write(to: folder.appendingPathComponent("config.json"), atomically: true, encoding: .utf8)
+            try #"{"backgroundIndexing": false}"#.write(
+                to: folder.appendingPathComponent("config.json"),
+                atomically: true,
+                encoding: .utf8
+            )
         }
 
         let file = root.appendingPathComponent("Sources/App/main.swift")
@@ -111,11 +120,17 @@ func aRefusedConfigurationIsIgnoredByTheRealServerAndThePackageIsStillPrepared()
     let project = try Project(answer: .refused)
     try await project.start()
 
-    #expect(await project.hasMemberOfTheOtherModule(within: .seconds(90)), "indexing ran although the configuration asked for none: it was ignored, the preparation was not stopped")
+    #expect(
+        await project.hasMemberOfTheOtherModule(within: .seconds(90)),
+        "indexing ran although the configuration asked for none: it was ignored, the preparation was not stopped"
+    )
     #expect(project.asked.count == 1, "the server asked once")
     #expect(project.service.readiness.trust == .refused)
     #expect(project.reasons.contains("Project configuration disabled"), "\(project.reasons)")
-    #expect(project.reasons.contains { $0.hasPrefix("Preparing package") || $0.hasPrefix("Reloading package") }, "progress of the real server was read: \(project.reasons)")
+    #expect(
+        project.reasons.contains { $0.hasPrefix("Preparing package") || $0.hasPrefix("Reloading package") },
+        "progress of the real server was read: \(project.reasons)"
+    )
     #expect(project.store.decision(forRoot: DocumentPath.canonical(project.root.path)) == .refused)
     await project.finish()
 }
@@ -143,7 +158,10 @@ func aPackageWithoutConfigurationIsNeverAskedAbout() async throws {
 
 @Test(.enabled(if: toolAvailable)) @MainActor
 func aFileOfAPackageBelowAnOpenedFolderIsServedFromTheFolderAndStillSeesItsModules() async throws {
-    let base = repository.appendingPathComponent("Packages/IDE/.build/e2e-folder-\(UUID().uuidString)", isDirectory: true)
+    let base = repository.appendingPathComponent(
+        "Packages/IDE/.build/e2e-folder-\(UUID().uuidString)",
+        isDirectory: true
+    )
     let repo = base.appendingPathComponent("repo", isDirectory: true)
     try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
     try FileManager.default.copyItem(at: fixture, to: repo.appendingPathComponent("pkg"))
@@ -156,7 +174,10 @@ func aFileOfAPackageBelowAnOpenedFolderIsServedFromTheFolderAndStillSeesItsModul
     let text = try String(contentsOf: file, encoding: .utf8) + "\ngreeter."
     let session = DocumentSession(path: file.path, backend: StringDocumentBackend(loadedText: text))
     await services.attach(session)
-    #expect(services.root(for: session).path == DocumentPath.canonical(repo.path), "the opened folder, not the nested package")
+    #expect(
+        services.root(for: session).path == DocumentPath.canonical(repo.path),
+        "the opened folder, not the nested package"
+    )
 
     var found = false
     let deadline = ContinuousClock.now + .seconds(90)

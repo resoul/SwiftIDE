@@ -26,9 +26,14 @@ extension NativeAppTests {
             let language = try #require(edit.items.first { $0.title == "Language" }?.submenu)
             let titles = language.items.filter { !$0.isSeparatorItem }.map(\.title)
             #expect(titles == ["Automatic", "Swift", "C", "C++", "Objective-C", "Objective-C++", "Plain Text"])
-            #expect(language.items.filter { !$0.isSeparatorItem }.allSatisfy { $0.action == #selector(WorkspaceWindowController.selectLanguage(_:)) })
+            #expect(language.items.filter { !$0.isSeparatorItem }.allSatisfy {
+                $0.action == #selector(WorkspaceWindowController.selectLanguage(_:))
+            })
             let chosen = language.items.compactMap { $0.representedObject as? String }
-            #expect(chosen == DocumentLanguage.allCases.map(\.rawValue), "each item names its language; Automatic names none")
+            #expect(
+                chosen == DocumentLanguage.allCases.map(\.rawValue),
+                "each item names its language; Automatic names none"
+            )
         }
     }
 }

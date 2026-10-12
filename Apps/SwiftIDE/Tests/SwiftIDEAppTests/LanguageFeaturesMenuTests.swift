@@ -24,9 +24,15 @@ extension NativeAppTests {
 
         @Test @MainActor func filesOfTheToolchainAndTheSDKAreToBeReadAndProjectsAreNot() {
             for path in [
-                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/stdio.h",
+                """
+                /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/inc\
+                lude/stdio.h
+                """,
                 "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/swift/x.h",
-                "/Applications/Xcode-beta.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/x.h",
+                """
+                /Applications/Xcode-beta.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sd\
+                k/x.h
+                """,
                 "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/stdio.h",
                 "/usr/include/c++/v1/vector",
                 "/System/Library/Frameworks/Foundation.framework/Headers/NSObject.h",

@@ -23,7 +23,11 @@ func aTrustedProjectsFileSelectsTheConfiguration() {
 @Test
 func aRefusedProjectsFileIsIgnoredAsTheServerIgnoresIt() {
     #expect(BuildConfigurationSetting.resolve(project: release, user: [], trust: .refused) == .inherited("debug"))
-    #expect(BuildConfigurationSetting.resolve(project: release, user: [debug, release], trust: .refused) == .inherited("release"), "what the user's own files say still holds")
+    #expect(
+        BuildConfigurationSetting
+            .resolve(project: release, user: [debug, release], trust: .refused) == .inherited("release"),
+        "what the user's own files say still holds"
+    )
 }
 
 @Test
@@ -34,24 +38,39 @@ func whileTheDecisionIsAwaitedWhatTheServerWillDoIsUnknown() {
 @Test
 func aProjectFileThatSaysNothingOfTheConfigurationDoesNotDependOnTrust() {
     for trust in [ConfigurationTrust.undecided, .granted, .refused] {
-        #expect(BuildConfigurationSetting.resolve(project: other, user: [release], trust: trust) == .inherited("release"))
+        #expect(BuildConfigurationSetting
+            .resolve(project: other, user: [release], trust: trust) == .inherited("release"))
     }
 }
 
 @Test
 func theUsersFilesComeInTheServersOrderAndTheProjectsFileOverridesThem() {
-    #expect(BuildConfigurationSetting.resolve(project: .absent, user: [release, .absent, debug], trust: .undecided) == .inherited("debug"), "a later file overrides an earlier")
+    #expect(
+        BuildConfigurationSetting
+            .resolve(project: .absent, user: [release, .absent, debug], trust: .undecided) == .inherited("debug"),
+        "a later file overrides an earlier"
+    )
     #expect(BuildConfigurationSetting.resolve(project: debug, user: [release], trust: .granted) == .selected("debug"))
 }
 
 @Test
 func aFileThatCannotBeConfirmedMakesTheValueUnknownNotTheDefault() {
-    #expect(BuildConfigurationSetting.resolve(project: .absent, user: [file("{ not json")], trust: .granted) == .unknown)
+    #expect(BuildConfigurationSetting
+        .resolve(project: .absent, user: [file("{ not json")], trust: .granted) == .unknown)
     #expect(BuildConfigurationSetting.resolve(project: .absent, user: [.unreadable], trust: .granted) == .unknown)
     #expect(BuildConfigurationSetting.resolve(project: file("{ not json"), user: [], trust: .granted) == .unknown)
-    #expect(BuildConfigurationSetting.resolve(project: file(#"{"swiftPM": {"configuration": "fast"}}"#), user: [], trust: .granted) == .unknown, "a value the server has no meaning for")
-    #expect(BuildConfigurationSetting.resolve(project: file(#"{"swiftPM": {"configuration": 3}}"#), user: [], trust: .granted) == .unknown)
-    #expect(BuildConfigurationSetting.resolve(project: file(#"{"swiftPM": []}"#), user: [], trust: .granted) == .unknown)
+    #expect(
+        BuildConfigurationSetting
+            .resolve(project: file(#"{"swiftPM": {"configuration": "fast"}}"#), user: [], trust: .granted) == .unknown,
+        "a value the server has no meaning for"
+    )
+    #expect(BuildConfigurationSetting.resolve(
+        project: file(#"{"swiftPM": {"configuration": 3}}"#),
+        user: [],
+        trust: .granted
+    ) == .unknown)
+    #expect(BuildConfigurationSetting
+        .resolve(project: file(#"{"swiftPM": []}"#), user: [], trust: .granted) == .unknown)
 }
 
 @Test

@@ -15,7 +15,12 @@ struct GitWorkspaceTests {
         defer { model.stop() }
         model.refresh(); try await service.waitForSnapshots(1)
         model.refresh(); try await service.waitForSnapshots(2)
-        let current = GitSnapshot(repository: repository, branch: "current", head: nil, changes: [.init(path: "file", decoration: .init(index: "A"))])
+        let current = GitSnapshot(
+            repository: repository,
+            branch: "current",
+            head: nil,
+            changes: [.init(path: "file", decoration: .init(index: "A"))]
+        )
         await service.replySnapshot(1, .success(current)); try await settle { model.state == .ready }
         await service.replySnapshot(0, .success(.init(repository: repository, branch: "old", head: nil, changes: [])))
         try await Task.sleep(for: .milliseconds(20))
@@ -113,9 +118,19 @@ private actor ControlledGit: GitInspecting {
         while diffs.count < count, ContinuousClock.now < deadline { await Task.yield() }
         try #require(diffs.count >= count)
     }
-    func replySnapshot(_ index: Int, _ value: Result<GitSnapshot, any Error>) { snapshots[index]?.resume(with: value); snapshots[index] = nil }
+    func replySnapshot(_ index: Int, _ value: Result<GitSnapshot, any Error>) {
+        snapshots[index]?.resume(with: value)
+        snapshots[index] = nil
+    }
     func replyDiff(_ index: Int, _ value: String) { diffs[index]?.resume(returning: value); diffs[index] = nil }
-    func history(in repository: GitRepository, revision: String, offset: Int, count: Int) async throws -> GitHistoryPage { .init(commits: [], hasMore: false) }
+    func history(
+        in repository: GitRepository,
+        revision: String,
+        offset: Int,
+        count: Int
+    ) async throws -> GitHistoryPage {
+        .init(commits: [], hasMore: false)
+    }
     func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] {
         try await withCheckedThrowingContinuation { fileRequests.append($0) }
     }
@@ -124,5 +139,8 @@ private actor ControlledGit: GitInspecting {
         while fileRequests.count < count, ContinuousClock.now < deadline { await Task.yield() }
         try #require(fileRequests.count >= count)
     }
-    func replyFiles(_ index: Int, _ value: [GitCommitFile]) { fileRequests[index]?.resume(returning: value); fileRequests[index] = nil }
+    func replyFiles(_ index: Int, _ value: [GitCommitFile]) {
+        fileRequests[index]?.resume(returning: value)
+        fileRequests[index] = nil
+    }
 }

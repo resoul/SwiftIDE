@@ -9,7 +9,12 @@ final class GitPushWindowController: NSWindowController, NSWindowDelegate {
 
     init(workspace: GitWorkspace) {
         content = GitPushViewController(model: GitPushReview(workspace: workspace))
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 660, height: 490), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 660, height: 490),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
         window.title = "Push Branch"; window.isReleasedWhenClosed = false; window.tabbingMode = .disallowed
         window.contentViewController = content
         super.init(window: window); window.delegate = self

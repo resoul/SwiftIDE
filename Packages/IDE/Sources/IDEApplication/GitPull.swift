@@ -43,7 +43,10 @@ public final class GitPullReview {
         task?.cancel(); generation = UUID(); plan = nil; state = .idle; changed()
     }
     public func review(remote: String, source: String) {
-        guard !stopped, workspace.canMutate, let snapshot = workspace.snapshot, let planner = workspace.pullPlanner else { return }
+        guard !stopped, workspace.canMutate, let snapshot = workspace.snapshot,
+              let planner = workspace.pullPlanner else {
+            return
+        }
 
         invalidate(); state = .loading; changed()
         let token = generation
@@ -79,7 +82,10 @@ public final class GitPullReview {
     }
     private func workspaceChanged() {
         if activePull, !workspace.operationState.isBusy { activePull = false }
-        if let plan, workspace.snapshot?.branch != plan.branch.name || workspace.snapshot?.repository != plan.repository || workspace.snapshot?.branches.contains(plan.branch) != true || workspace.snapshot?.remotes.contains(plan.remote) != true {
+        if let plan,
+           workspace.snapshot?.branch != plan.branch.name || workspace.snapshot?.repository != plan
+           .repository || workspace.snapshot?.branches.contains(plan.branch) != true || workspace.snapshot?.remotes
+           .contains(plan.remote) != true {
             invalidate()
         }
 

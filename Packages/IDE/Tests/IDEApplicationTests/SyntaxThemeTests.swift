@@ -25,8 +25,12 @@ struct SyntaxThemeTests {
         for i in colours.indices {
             for j in colours.indices where j > i {
                 let (a, b) = (colours[i], colours[j])
-                let distance = ((a.0 - b.0) * (a.0 - b.0) + (a.1 - b.1) * (a.1 - b.1) + (a.2 - b.2) * (a.2 - b.2)).squareRoot()
-                #expect(distance >= 0.2, "\(kinds[i]) and \(kinds[j]) are too alike in \(appearance.rawValue): \(distance)")
+                let distance = ((a.0 - b.0) * (a.0 - b.0) + (a.1 - b.1) * (a.1 - b.1) + (a.2 - b.2) * (a.2 - b.2))
+                    .squareRoot()
+                #expect(
+                    distance >= 0.2,
+                    "\(kinds[i]) and \(kinds[j]) are too alike in \(appearance.rawValue): \(distance)"
+                )
             }
         }
     }

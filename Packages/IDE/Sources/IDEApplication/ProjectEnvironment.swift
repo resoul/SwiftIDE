@@ -61,7 +61,11 @@ public enum BuildConfigurationSetting: Equatable, Sendable {
     /// the project's file. The project's file is obeyed only when the user trusts the project's
     /// configuration; refused, it is ignored (ADR-028), and undecided, what the server does is not
     /// yet known.
-    public static func resolve(project: ConfigurationFile, user: [ConfigurationFile], trust: ConfigurationTrust) -> Self {
+    public static func resolve(
+        project: ConfigurationFile,
+        user: [ConfigurationFile],
+        trust: ConfigurationTrust
+    ) -> Self {
         var inherited = serverDefault
         for file in user {
             switch read(file) {

@@ -96,7 +96,10 @@ func coloursFollowEditsUntilTheNextResult() async throws {
     ))
     await s.settle()
     try s.insert("ZZ", at: 0)
-    #expect(s.coordinator.state.spans == [HighlightSpan(location: 12, length: 4, kind: .keyword)], "moved with its text")
+    #expect(
+        s.coordinator.state.spans == [HighlightSpan(location: 12, length: 4, kind: .keyword)],
+        "moved with its text"
+    )
 }
 
 @Test @MainActor
@@ -247,7 +250,9 @@ func anAreaSeenBeforeAnEditIsAskedForAgainWhenItComesBackIntoView() async throws
     // Back to the top: the text there was coloured before the edit and nobody has looked since.
     s.coordinator.setVisible(20..<60)
     #expect(s.highlighter.calls.contains { call in
-        if case .request(let window, let version) = call { return version == 1 && window.contains(20) && window.contains(59) }
+        if case .request(let window, let version) = call {
+            return version == 1 && window.contains(20) && window.contains(59)
+        }
 
         return false
     }, "the answer for version 1 covers only the area in view when it was asked")
@@ -277,7 +282,9 @@ func anOldWindowIsNotKnownColoursOfTheNewVersionUntilItsAnswerComes() async thro
 
     s.coordinator.setVisible(170..<200)           // inside the old window, outside the new request
     let asked = s.highlighter.calls.contains { call in
-        if case .request(let window, let version) = call { return version == 1 && window.contains(170) } else { return false }
+        if case .request(let window, let version) = call { return version == 1 && window.contains(170) } else {
+            return false
+        }
     }
     #expect(asked, "no answer for version 1 covers this part yet")
 }

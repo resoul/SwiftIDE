@@ -105,7 +105,8 @@ func sourceIsColouredByKind() async throws {
     #expect(spans.contains { $0.hasSuffix(" documentation") && $0.hasPrefix("/// A greeting.") })
     #expect(spans.contains("String type"))
     #expect(spans.contains("\\n escape"))
-    #expect(spans.contains("@MainActor attribute") || spans.contains("MainActor attribute") || spans.contains("@ attribute"))
+    #expect(spans.contains("@MainActor attribute") || spans.contains("MainActor attribute") || spans
+        .contains("@ attribute"))
     #expect(result.documentLength == units.count)
     #expect(result.window == 0..<units.count)
     // Spans are sorted, separate, and inside the window.
@@ -171,7 +172,28 @@ private func apply(_ changes: DocumentChangeSet, to units: inout [UInt16]) {
     }
 }
 
-private let fragments = ["x", " ", "\n", "let ", "\"", "//", "{", "}", "(", ")", "😀", "\r\n", "1", ".", "func ", "\\(", "/*", "*/", "@", "if "]
+private let fragments = [
+    "x",
+    " ",
+    "\n",
+    "let ",
+    "\"",
+    "//",
+    "{",
+    "}",
+    "(",
+    ")",
+    "😀",
+    "\r\n",
+    "1",
+    ".",
+    "func ",
+    "\\(",
+    "/*",
+    "*/",
+    "@",
+    "if "
+]
 
 @Test
 func incrementalColoursEqualThoseOfAFreshParseAfterEveryEdit() async throws {
@@ -185,8 +207,12 @@ func incrementalColoursEqualThoseOfAFreshParseAfterEveryEdit() async throws {
     var mismatches: [String] = []
     for step in 0..<150 {
         let location = Int.random(in: 0...units.count, using: &generator)
-        let length = Bool.random(using: &generator) ? 0 : Int.random(in: 0...min(6, units.count - location), using: &generator)
-        let replacement = Bool.random(using: &generator) && length > 0 ? "" : fragments.randomElement(using: &generator)!
+        let length = Bool.random(using: &generator)
+            ? 0
+            : Int.random(in: 0...min(6, units.count - location), using: &generator)
+        let replacement = Bool.random(using: &generator) && length > 0
+            ? ""
+            : fragments.randomElement(using: &generator)!
         let changes = DocumentChangeSet(
             documentID: DocumentID(),
             oldVersion: version,
@@ -201,7 +227,9 @@ func incrementalColoursEqualThoseOfAFreshParseAfterEveryEdit() async throws {
         let a = try #require(await incremental.next())
         let b = try #require(await fresh.highlights(of: units, version: version))
         #expect(a.version == version && a.documentLength == units.count)
-        if a.spans != b.spans { mismatches.append("step \(step): edit \(location)+\(length) -> \(replacement.debugDescription)") }
+        if a.spans != b.spans {
+            mismatches.append("step \(step): edit \(location)+\(length) -> \(replacement.debugDescription)")
+        }
     }
     #expect(mismatches.isEmpty, "\(mismatches.count) of 150 steps differ from a fresh parse: \(mismatches.prefix(5))")
 }
@@ -395,7 +423,9 @@ func incrementalColoursStayEqualToAFreshParseWhenEditsAreAboutComments() async t
     var mismatches: [String] = []
     for step in 0..<120 {
         let location = Int.random(in: 0...units.count, using: &generator)
-        let length = Bool.random(using: &generator) ? 0 : Int.random(in: 0...min(4, units.count - location), using: &generator)
+        let length = Bool.random(using: &generator)
+            ? 0
+            : Int.random(in: 0...min(4, units.count - location), using: &generator)
         let replacement = pieces.randomElement(using: &generator)!
         let changes = DocumentChangeSet(
             documentID: DocumentID(),

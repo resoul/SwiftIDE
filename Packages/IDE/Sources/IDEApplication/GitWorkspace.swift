@@ -98,7 +98,9 @@ public final class GitWorkspace {
 
                 if case .untracked(let change) = comparison,
                    !value.changes.contains(where: { $0.path == change.path && $0.decoration.isUntracked }) {
-                    comparison = nil; diffState = .idle; diffText = "This file is no longer untracked; select its current change."
+                    comparison = nil
+                    diffState = .idle
+                    diffText = "This file is no longer untracked; select its current change."
                 }
 
                 changed()
@@ -129,7 +131,8 @@ public final class GitWorkspace {
     }
 
     public var explanation: String {
-        (state == .ready ? "Git · disk and index" : state.explanation) + (snapshot.map { " · " + $0.repository.root } ?? "")
+        (state == .ready ? "Git · disk and index" : state.explanation) +
+            (snapshot.map { " · " + $0.repository.root } ?? "")
             + (snapshot != nil && state != .ready ? " · previous snapshot" : "")
             + (liveUpdatesAvailable == false ? " · live updates unavailable; use Refresh" : "")
     }
@@ -145,7 +148,10 @@ public final class GitWorkspace {
     }
 
     public func loadMoreHistory() {
-        guard !stopped, state == .ready, historyState != .loading, let repository = snapshot?.repository, let revision else { return }
+        guard !stopped, state == .ready, historyState != .loading, let repository = snapshot?.repository,
+              let revision else {
+            return
+        }
 
         let token = epoch, start = history.count
         historyState = .loading
@@ -241,7 +247,8 @@ public final class GitWorkspace {
                     prepared = true
                     try Task.checkCancellation()
                     reviewed = try await service.snapshot(at: expected.repository.root)
-                    guard reviewed.repository == expected.repository, reviewed.head == expected.head, reviewed.branch == expected.branch else {
+                    guard reviewed.repository == expected.repository, reviewed.head == expected.head,
+                          reviewed.branch == expected.branch else {
                         throw GitInspectionError.failed("Checkout changed while saving documents; review and retry")
                     }
                 }
@@ -265,7 +272,9 @@ public final class GitWorkspace {
             } catch {
                 guard let self, !stopped, operationID == token else { return }
 
-                operationState = error is CancellationError || Task.isCancelled ? .cancelled : .failed(error.localizedDescription)
+                operationState = error is CancellationError || Task.isCancelled
+                    ? .cancelled
+                    : .failed(error.localizedDescription)
             }
             guard let self, !stopped, operationID == token else { return }
 

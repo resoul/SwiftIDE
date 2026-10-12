@@ -20,7 +20,9 @@ private struct ImmediateFolderChecker: ProjectFolderChecking {
 @MainActor
 struct RecentProjectsTests {
     @Test func recentListDeduplicatesOrdersPinsBoundsHistoryAndSearchesPaths() throws {
-        var entries = (0..<70).map { RecentProject(path: "/w/Project\($0)", lastOpened: Date(timeIntervalSince1970: Double($0))) }
+        var entries = (0..<70).map {
+            RecentProject(path: "/w/Project\($0)", lastOpened: Date(timeIntervalSince1970: Double($0)))
+        }
         entries.append(.init(path: "/w/Project0/.", lastOpened: Date(timeIntervalSince1970: 80), isPinned: true))
         entries.append(.init(path: "relative", lastOpened: .now))
         let store = MemoryRecentProjectsStore(projects: entries)
@@ -38,7 +40,10 @@ struct RecentProjectsTests {
     }
 
     @Test func locateMergesDuplicatesAndRemovalChangesOnlyRecentMetadata() {
-        let store = MemoryRecentProjectsStore(projects: [.init(path: "/old", lastOpened: .distantPast, isPinned: true), .init(path: "/new", lastOpened: .now)])
+        let store = MemoryRecentProjectsStore(projects: [
+            .init(path: "/old", lastOpened: .distantPast, isPinned: true),
+            .init(path: "/new", lastOpened: .now)
+        ])
         let model = RecentProjects(store: store, checker: ImmediateFolderChecker())
         model.setOpenRoots(["/old", "/new"])
         model.opened(canonicalPath: "/new", replacing: "/old")
@@ -50,7 +55,10 @@ struct RecentProjectsTests {
 
     @Test func focusingAnOpenProjectDoesNotClaimItsMissingFolderIsAvailable() async throws {
         let checker = DelayedFolderChecker()
-        let model = RecentProjects(store: MemoryRecentProjectsStore(projects: [.init(path: "/w", lastOpened: .distantPast)]), checker: checker)
+        let model = RecentProjects(
+            store: MemoryRecentProjectsStore(projects: [.init(path: "/w", lastOpened: .distantPast)]),
+            checker: checker
+        )
         model.refreshAvailability()
         try await waitFor(checker, 1)
         model.checked("/w", state: .unavailable("permission denied"))
@@ -65,7 +73,10 @@ struct RecentProjectsTests {
 
     @Test func lateChecksCannotOverwriteAnExplicitOpenOrAReplacedRefresh() async throws {
         let checker = DelayedFolderChecker()
-        let model = RecentProjects(store: MemoryRecentProjectsStore(projects: [.init(path: "/w", lastOpened: .now)]), checker: checker)
+        let model = RecentProjects(
+            store: MemoryRecentProjectsStore(projects: [.init(path: "/w", lastOpened: .now)]),
+            checker: checker
+        )
         #expect(await checker.count == 0, "loading history is passive")
         model.refreshAvailability()
         try await waitFor(checker, 1)
@@ -87,7 +98,9 @@ struct RecentProjectsTests {
 
     @Test func availabilityChecksAreBoundedAndMissingIsNotADeletion() async throws {
         let checker = DelayedFolderChecker()
-        let entries = (0..<6).map { RecentProject(path: "/w/\($0)", lastOpened: Date(timeIntervalSince1970: Double($0))) }
+        let entries = (0..<6).map {
+            RecentProject(path: "/w/\($0)", lastOpened: Date(timeIntervalSince1970: Double($0)))
+        }
         let model = RecentProjects(store: MemoryRecentProjectsStore(projects: entries), checker: checker)
         model.refreshAvailability()
         try await waitFor(checker, 4)

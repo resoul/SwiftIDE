@@ -37,7 +37,10 @@ public struct AtomicDocumentFileStore: DocumentFileStore {
         }.value
     }
 
-    public func currentRevision(path: String, assumingUnchangedFrom known: FileRevision?) async throws -> FileRevision? {
+    public func currentRevision(
+        path: String,
+        assumingUnchangedFrom known: FileRevision?
+    ) async throws -> FileRevision? {
         try Task.checkCancellation()
 
         return try await Task.detached(priority: .utility) {
@@ -49,9 +52,10 @@ public struct AtomicDocumentFileStore: DocumentFileStore {
 
             guard POSIX.isRegular(info) else { throw FileStoreError.notRegularFile }
 
+            let modificationTime = Int64(info.st_mtimespec.tv_sec) * 1_000_000_000 + Int64(info.st_mtimespec.tv_nsec)
             if let known, known.fileID == FileIdentity(device: UInt64(info.st_dev), inode: UInt64(info.st_ino)),
                known.size == UInt64(info.st_size),
-               known.modificationTime == Int64(info.st_mtimespec.tv_sec) * 1_000_000_000 + Int64(info.st_mtimespec.tv_nsec) {
+               known.modificationTime == modificationTime {
                 return known
             }
 
@@ -76,7 +80,8 @@ public struct MetadataTransfer: Sendable {
     /// `source` is the file being replaced, `descriptor`/`destination` the open temporary file.
     public let transfer: @Sendable (_ source: String, _ descriptor: Int32, _ destination: String) throws -> Void
 
-    public init(_ transfer: @escaping @Sendable (_ source: String, _ descriptor: Int32, _ destination: String) throws -> Void) {
+    public init(_ transfer: @escaping @Sendable (_ source: String, _ descriptor: Int32, _ destination: String) throws
+        -> Void) {
         self.transfer = transfer
     }
 

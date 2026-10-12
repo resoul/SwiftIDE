@@ -7,7 +7,9 @@ import IDEApplication
 struct GitEventsTests {
     @Test func nestedDiskEditsAreObservedAndStopIsIdempotent() async throws {
         let fixture = try RepositoryFixture(); defer { fixture.remove() }
-        try fixture.write("nested/a.txt", "one"); try fixture.git(["add", "."]); try fixture.git(["commit", "-m", "One"])
+        try fixture.write("nested/a.txt", "one")
+        try fixture.git(["add", "."])
+        try fixture.git(["commit", "-m", "One"])
         let repository = try await GitCLI().snapshot(at: fixture.root).repository
         let events = EventCounter()
         let watcher = GitRepositoryEvents(repository: repository) { events.increment() }

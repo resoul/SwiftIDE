@@ -10,7 +10,12 @@ public enum BoundedProcess {
         case outputTooLarge
     }
 
-    public static func run(executable: URL, arguments: [String], timeout: Duration, outputLimit: Int) async throws -> Data {
+    public static func run(
+        executable: URL,
+        arguments: [String],
+        timeout: Duration,
+        outputLimit: Int
+    ) async throws -> Data {
         let run = Run(limit: outputLimit)
 
         return try await withTaskCancellationHandler {
@@ -36,7 +41,12 @@ public enum BoundedProcess {
 
         init(limit: Int) { self.limit = limit }
 
-        func start(executable: URL, arguments: [String], timeout: Duration, continuation: CheckedContinuation<Data, any Error>) {
+        func start(
+            executable: URL,
+            arguments: [String],
+            timeout: Duration,
+            continuation: CheckedContinuation<Data, any Error>
+        ) {
             let stdout = Pipe(), stderr = Pipe()
             process.executableURL = executable
             process.arguments = arguments
@@ -49,7 +59,12 @@ public enum BoundedProcess {
             }
             stderr.fileHandleForReading.readabilityHandler = { [weak self] handle in
                 let chunk = handle.availableData
-                self?.lock.withLock { if let self { self.err.append(chunk); if self.err.count > 8_192 { self.err.removeFirst(self.err.count - 8_192) } } }
+                self?.lock.withLock {
+                    if let self {
+                        self.err.append(chunk)
+                        if self.err.count > 8_192 { self.err.removeFirst(self.err.count - 8_192) }
+                    }
+                }
             }
             process.terminationHandler = { [weak self] process in
                 stdout.fileHandleForReading.readabilityHandler = nil
@@ -118,7 +133,11 @@ public enum BoundedProcess {
         }
 
         private func finish(status: Int32, continuation: CheckedContinuation<Data, any Error>) {
-            let (data, stderr, flags) = lock.withLock { () -> (Data, Data, (timedOut: Bool, tooLarge: Bool, cancelled: Bool)) in
+            let (data, stderr, flags) = lock.withLock { () -> (
+                Data,
+                Data,
+                (timedOut: Bool, tooLarge: Bool, cancelled: Bool)
+            ) in
                 finished = true
 
                 return (out, err, (timedOut, tooLarge, cancelled))

@@ -111,7 +111,9 @@ public struct ProgressTracker: Equatable, Sendable {
             guard let index = operations.firstIndex(where: { $0.token == token }) else { return }
 
             operations.remove(at: index)
-            if hasSeenPreparation, !operations.contains(where: \.isPreparation) { hasCompletedInitialPreparation = true }
+            if hasSeenPreparation, !operations.contains(where: \.isPreparation) {
+                hasCompletedInitialPreparation = true
+            }
         }
     }
 

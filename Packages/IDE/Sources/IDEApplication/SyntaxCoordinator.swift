@@ -39,7 +39,12 @@ public final class SyntaxCoordinator {
 
     /// `margin` is how far beyond the visible text colours are computed, so that scrolling a little
     /// shows coloured text at once.
-    public init(session: DocumentSession, source: any TextSource, highlighter: any SyntaxHighlighter, margin: Int = 6_000) {
+    public init(
+        session: DocumentSession,
+        source: any TextSource,
+        highlighter: any SyntaxHighlighter,
+        margin: Int = 6_000
+    ) {
         self.session = session
         self.source = source
         self.highlighter = highlighter
@@ -148,7 +153,11 @@ public final class SyntaxCoordinator {
         let around = clamped.isEmpty ? 0..<min(length, margin) : clamped
         let window = max(0, around.lowerBound - margin)..<min(length, around.upperBound + margin)
         if !force, !clamped.isEmpty {
-            if windowVersion == version, state.window.lowerBound <= clamped.lowerBound, clamped.upperBound <= state.window.upperBound { return }
+            if windowVersion == version, state.window.lowerBound <= clamped.lowerBound,
+               clamped.upperBound <= state.window.upperBound {
+                return
+            }
+
             if let requested, requested.version == version, requested.window.lowerBound <= clamped.lowerBound,
                clamped.upperBound <= requested.window.upperBound { return }
         }

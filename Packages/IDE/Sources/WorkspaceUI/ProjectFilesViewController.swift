@@ -3,7 +3,8 @@ import IDEApplication
 import UniformTypeIdentifiers
 
 @MainActor
-public final class ProjectFilesViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate, NSMenuDelegate {
+public final class ProjectFilesViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate,
+    NSMenuDelegate {
     public let model: ProjectFiles
     public var openFile: ((String) -> Void)?
     private(set) var outline = FilesOutlineView()
@@ -198,8 +199,13 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         let icon = NSImageView()
         if row.message == nil {
             // Generic extension icons avoid synchronous inspection of every path/network mount.
-            icon.image = row.file.isDirectory ? WorkspaceIcon.image(row.file.isSymbolicLink ? "folder.badge.questionmark" : "folder", description: "Folder")
-                : NSWorkspace.shared.icon(for: UTType(filenameExtension: (row.file.name as NSString).pathExtension) ?? .data)
+            icon.image = row.file.isDirectory
+                ? WorkspaceIcon.image(
+                    row.file.isSymbolicLink ? "folder.badge.questionmark" : "folder",
+                    description: "Folder"
+                )
+                : NSWorkspace.shared
+                    .icon(for: UTType(filenameExtension: (row.file.name as NSString).pathExtension) ?? .data)
         }
 
         if row.file.isDirectory { icon.contentTintColor = .secondaryLabelColor }
@@ -217,10 +223,15 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         ])
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
         icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
-        let linkNote = row.file.isSymbolicLink ? "Symbolic link; linked folders are revealed in Finder, not expanded" : ""
-        cell.toolTip = [row.file.path, row.message ?? decoration.explanation, linkNote].filter { !$0.isEmpty }.joined(separator: "\n")
+        let linkNote = row.file.isSymbolicLink
+            ? "Symbolic link; linked folders are revealed in Finder, not expanded"
+            : ""
+        cell.toolTip = [row.file.path, row.message ?? decoration.explanation, linkNote].filter { !$0.isEmpty }
+            .joined(separator: "\n")
         cell.setAccessibilityElement(true)
-        cell.setAccessibilityLabel([row.message ?? row.file.name, decoration.explanation, linkNote].filter { !$0.isEmpty }.joined(separator: ", "))
+        cell
+            .setAccessibilityLabel([row.message ?? row.file.name, decoration.explanation, linkNote]
+            .filter { !$0.isEmpty }.joined(separator: ", "))
 
         return cell
     }
@@ -240,11 +251,14 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
             add(menu, "Reveal in Finder", #selector(revealInFinder(_:)), path: row.file.path)
             if row.file.path != model.root {
                 let excluded = model.exclusionRoot(for: row.file.path)
-                let title = excluded.map { "Include \(($0 as NSString).lastPathComponent) in Project" } ?? "Exclude from Project"
-                add(menu,
+                let title = excluded.map { "Include \(($0 as NSString).lastPathComponent) in Project" }
+                    ?? "Exclude from Project"
+                add(
+                    menu,
                     title,
                     excluded == nil ? #selector(exclude(_:)) : #selector(include(_:)),
-                    path: row.file.path)
+                    path: row.file.path
+                )
             }
 
             menu.addItem(.separator())

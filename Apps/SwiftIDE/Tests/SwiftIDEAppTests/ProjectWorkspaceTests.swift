@@ -31,14 +31,21 @@ extension NativeAppTests {
 
         @Test func realFilesReuseEditorsUndoSelectionScrollAndSaveAcrossTabs() async throws {
             _ = NSApplication.shared
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-workspace-\(UUID())").resolvingSymlinksInPath()
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-workspace-\(UUID())")
+                .resolvingSymlinksInPath()
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
             let original = String(repeating: "Some text on a line\n", count: 300)
             try original.write(to: root.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
             try "second".write(to: root.appendingPathComponent("b.txt"), atomically: true, encoding: .utf8)
-            try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("alias.txt"), withDestinationURL: root.appendingPathComponent("a.txt"))
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
+            try FileManager.default.createSymbolicLink(
+                at: root.appendingPathComponent("alias.txt"),
+                withDestinationURL: root.appendingPathComponent("a.txt")
+            )
+            let app = AppDelegate(composition: AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                recentStore: MemoryRecentProjectsStore()
+            ))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil // disposable roots must not persist layout preferences
             defer { project.closeProject(); app.welcome?.close() }
@@ -72,14 +79,22 @@ extension NativeAppTests {
             #expect(project.layout.isFocused && project.layout.layout.left == nil)
             project.toggleFocusEditor(nil)
             #expect(!project.layout.isFocused && project.layout.layout.left == .files)
-            let sourceControl = NSMenuItem(title: "Source Control", action: #selector(ProjectWorkspaceController.showPreviewSourceControl(_:)), keyEquivalent: "")
+            let sourceControl = NSMenuItem(
+                title: "Source Control",
+                action: #selector(ProjectWorkspaceController.showPreviewSourceControl(_:)),
+                keyEquivalent: ""
+            )
             #expect(project.validateMenuItem(sourceControl))
             project.showPreviewSourceControl(nil)
             #expect(project.layout.layout.left == .sourceControl)
             try await waitFor { project.git?.state == .unavailable("This folder is not in a Git repository") }
             #expect(project.files.statusExplanation.contains("not in a Git repository"))
             project.showPreviewFiles(nil)
-            let reset = NSMenuItem(title: "Reset Layout", action: #selector(ProjectWorkspaceController.resetWorkspaceLayout(_:)), keyEquivalent: "")
+            let reset = NSMenuItem(
+                title: "Reset Layout",
+                action: #selector(ProjectWorkspaceController.resetWorkspaceLayout(_:)),
+                keyEquivalent: ""
+            )
             #expect(project.validateMenuItem(reset))
             project.resetWorkspaceLayout(nil)
             await app.open(path: root.appendingPathComponent("alias.txt").path)
@@ -102,21 +117,29 @@ extension NativeAppTests {
             #expect(a.session.path == root.appendingPathComponent("renamed.txt").path)
             #expect(project.area.tabs.items.first { $0.id == a.session.id }?.name == "renamed.txt")
             let end = ContinuousClock.now + .seconds(10)
-            while !project.files.children(of: root.path).contains(where: { $0.name == "renamed.txt" }), ContinuousClock.now < end {
+            while !project.files.children(of: root.path).contains(where: { $0.name == "renamed.txt" }),
+                  ContinuousClock.now < end {
                 try await Task.sleep(for: .milliseconds(5))
             }
-            #expect(project.files.children(of: root.path).contains { $0.name == "renamed.txt" }, "state: \(project.files.state(of: root.path)); expanded: \(project.files.expanded)")
+            #expect(
+                project.files.children(of: root.path).contains { $0.name == "renamed.txt" },
+                "state: \(project.files.state(of: root.path)); expanded: \(project.files.expanded)"
+            )
             await app.open(path: a.session.path)
             #expect(project.documents.count == 2 && project.documents.first === a)
         }
 
         @Test func cancelledTabCloseKeepsTheDocumentAndLastClosedTabReturnsToFiles() async throws {
             _ = NSApplication.shared
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-close-tab-\(UUID())").resolvingSymlinksInPath()
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-close-tab-\(UUID())")
+                .resolvingSymlinksInPath()
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
             try "original".write(to: root.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
+            let app = AppDelegate(composition: AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                recentStore: MemoryRecentProjectsStore()
+            ))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil // disposable roots must not persist layout preferences
             defer { project.closeProject(); app.welcome?.close() }
@@ -146,17 +169,23 @@ extension NativeAppTests {
 
         @Test func reorderedTabsKeepTheSingleShellAndCommandsSaveTheirCapturedDocument() async throws {
             _ = NSApplication.shared
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-central-tabs-\(UUID())").resolvingSymlinksInPath()
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-central-tabs-\(UUID())")
+                .resolvingSymlinksInPath()
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
             for name in ["README.md", "notes.txt", "third.txt"] {
                 try "original \(name)\n".write(to: root.appendingPathComponent(name), atomically: true, encoding: .utf8)
             }
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
+            let app = AppDelegate(composition: AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                recentStore: MemoryRecentProjectsStore()
+            ))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil
             defer { project.closeProject(); app.welcome?.close() }
-            for name in ["README.md", "notes.txt", "third.txt"] { await app.open(path: root.appendingPathComponent(name).path) }
+            for name in ["README.md", "notes.txt", "third.txt"] {
+                await app.open(path: root.appendingPathComponent(name).path)
+            }
             let a = try #require(project.documents.first), b = project.documents[1], c = project.documents[2]
             let window = try #require(project.window)
             let shell = project.shell
@@ -179,7 +208,8 @@ extension NativeAppTests {
             try await waitFor { !b.session.isDirty }
             #expect(a.session.isDirty)
             #expect(try String(contentsOf: root.appendingPathComponent("notes.txt"), encoding: .utf8) == "save B")
-            #expect(try String(contentsOf: root.appendingPathComponent("README.md"), encoding: .utf8).hasPrefix("original"))
+            #expect(try String(contentsOf: root.appendingPathComponent("README.md"), encoding: .utf8)
+                .hasPrefix("original"))
             project.select(c.session.id)
             project.closeDocument(nil)
             try await waitFor { project.documents.count == 2 }
@@ -206,14 +236,21 @@ extension NativeAppTests {
 
         @Test func definitionAndOutsideFilesUseTheOriginatingProjectContent() async throws {
             _ = NSApplication.shared
-            let base = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-definition-tabs-\(UUID())").resolvingSymlinksInPath()
+            let base = FileManager.default.temporaryDirectory
+                .appendingPathComponent("SwiftIDE-definition-tabs-\(UUID())").resolvingSymlinksInPath()
             let root = base.appendingPathComponent("project"), sdk = base.appendingPathComponent("Mock.sdk")
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             try FileManager.default.createDirectory(at: sdk, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: base) }
-            let source = root.appendingPathComponent("a.txt"), definition = sdk.appendingPathComponent("symbol.txt"), outside = base.appendingPathComponent("outside.txt")
-            for url in [source, definition, outside] { try "line one\nline two\n".write(to: url, atomically: true, encoding: .utf8) }
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
+            let source = root.appendingPathComponent("a.txt"), definition = sdk.appendingPathComponent("symbol.txt"),
+                outside = base.appendingPathComponent("outside.txt")
+            for url in [source, definition, outside] {
+                try "line one\nline two\n".write(to: url, atomically: true, encoding: .utf8)
+            }
+            let app = AppDelegate(composition: AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                recentStore: MemoryRecentProjectsStore()
+            ))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil
             defer { project.closeProject(); app.welcome?.close() }
@@ -227,13 +264,17 @@ extension NativeAppTests {
             #expect(!text.isEditable && text.selectedRange().location == 11)
             await app.open(path: outside.path, in: project)
             #expect(project.documents.count == 3 && project.activeDocument?.window === project.window)
-            #expect(!NSApp.windows.contains { $0.windowController is WorkspaceWindowController && $0.representedURL?.path == outside.path })
+            #expect(!NSApp.windows.contains {
+                $0.windowController is WorkspaceWindowController && $0.representedURL?.path == outside.path
+            })
             project.closeProject()
             // A late opening for a closed project must not resurrect its window or retain a registry entry.
             await app.open(path: outside.path, in: project)
             #expect(project.documents.isEmpty)
             await app.open(path: outside.path)
-            let standalone = try #require(NSApp.windows.first { $0.isVisible && $0.representedURL?.path == outside.path })
+            let standalone = try #require(NSApp.windows.first {
+                $0.isVisible && $0.representedURL?.path == outside.path
+            })
             defer { standalone.close() }
             #expect(standalone.windowController is WorkspaceWindowController)
         }
@@ -244,13 +285,20 @@ extension NativeAppTests {
             defer { try? FileManager.default.removeItem(at: root) }
             let file = root.appendingPathComponent("a.swift")
             try "let x = 1".write(to: file, atomically: true, encoding: .utf8)
-            let composition = AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore())
+            let composition = AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                recentStore: MemoryRecentProjectsStore()
+            )
             var starts = 0
-            let services = LanguageServices(scratchRoot: root.appendingPathComponent("scratch"), languages: composition.languages, makeService: { url, _ in
+            let services = LanguageServices(
+                scratchRoot: root.appendingPathComponent("scratch"),
+                languages: composition.languages,
+                makeService: { url, _ in
                 starts += 1
 
                 return SourceKitLanguageService(workspaceRoot: url, channelFactory: { throw LSPError.notRunning })
-            })
+            }
+            )
             composition.languageServices = services
             let opened = try await composition.open(path: file.path)
             let document = composition.makeDocument(for: opened.session)
@@ -266,7 +314,10 @@ extension NativeAppTests {
             defer { defaults.removePersistentDomain(forName: suite) }
             let settings = ProjectFilesSettings(defaults: defaults)
             settings.save(.init(explicit: ["Sources/Generated"], includedDefaults: [".build"]), root: "/w")
-            #expect(ProjectFilesSettings(defaults: defaults).load(root: "/w/.") == .init(explicit: ["Sources/Generated"], includedDefaults: [".build"]))
+            #expect(ProjectFilesSettings(defaults: defaults).load(root: "/w/.") == .init(
+                explicit: ["Sources/Generated"],
+                includedDefaults: [".build"]
+            ))
             #expect(settings.load(root: "/other") == .init())
             let layouts = WorkspaceLayoutSettings(defaults: defaults)
             let first = layouts.makeState(root: "/w")
@@ -282,14 +333,20 @@ extension NativeAppTests {
 
         @Test func openingAndReleasingAFolderKeepsAnAlreadyOpenEditorAndItsUndo() async throws {
             _ = NSApplication.shared
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-adopt-editor-\(UUID())").resolvingSymlinksInPath()
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-adopt-editor-\(UUID())")
+                .resolvingSymlinksInPath()
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
             let file = root.appendingPathComponent("existing.txt")
             try "original".write(to: file, atomically: true, encoding: .utf8)
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
+            let app = AppDelegate(composition: AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                recentStore: MemoryRecentProjectsStore()
+            ))
             await app.open(path: file.path)
-            let window = try #require(NSApp.windows.first { $0.representedURL?.path == DocumentPath.canonical(file.path) })
+            let window = try #require(NSApp.windows.first {
+                $0.representedURL?.path == DocumentPath.canonical(file.path)
+            })
             defer { window.close(); app.welcome?.close() }
             let initialContent = try #require(window.contentView)
             let editor = try #require(textView(in: initialContent))

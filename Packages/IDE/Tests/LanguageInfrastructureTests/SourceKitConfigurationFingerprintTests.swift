@@ -31,7 +31,9 @@ struct SourceKitConfigurationFingerprintTests {
     @Test
     func missingUnreadableAndEmptyFilesAreDifferent() {
         let inputs: [ConfigurationFile] = [.absent, .unreadable, .present(Data())]
-        let fingerprints = inputs.map { SourceKitConfigurationFingerprint.make(user: [$0], project: .absent, trust: .granted) }
+        let fingerprints = inputs.map {
+            SourceKitConfigurationFingerprint.make(user: [$0], project: .absent, trust: .granted)
+        }
 
         #expect(Set(fingerprints).count == inputs.count)
         let projects = inputs.map { SourceKitConfigurationFingerprint.make(user: [], project: $0, trust: .granted) }
@@ -42,9 +44,17 @@ struct SourceKitConfigurationFingerprintTests {
     func refusedProjectFilesAreExcludedButUserFilesStillMatter() {
         let digest = SourceKitConfigurationFingerprint.make(user: [file("user")], project: .absent, trust: .refused)
         for project in [file("project"), file("changed"), .unreadable] {
-            #expect(digest == SourceKitConfigurationFingerprint.make(user: [file("user")], project: project, trust: .refused))
+            #expect(digest == SourceKitConfigurationFingerprint.make(
+                user: [file("user")],
+                project: project,
+                trust: .refused
+            ))
         }
-        #expect(digest != SourceKitConfigurationFingerprint.make(user: [file("changed user")], project: file("project"), trust: .refused))
+        #expect(digest != SourceKitConfigurationFingerprint.make(
+            user: [file("changed user")],
+            project: file("project"),
+            trust: .refused
+        ))
     }
 
     @Test
@@ -53,7 +63,11 @@ struct SourceKitConfigurationFingerprintTests {
         let pending = SourceKitConfigurationFingerprint.make(user: [], project: project, trust: .undecided)
 
         #expect(pending != SourceKitConfigurationFingerprint.make(user: [], project: .absent, trust: .undecided))
-        #expect(pending != SourceKitConfigurationFingerprint.make(user: [], project: file("changed"), trust: .undecided))
+        #expect(pending != SourceKitConfigurationFingerprint.make(
+            user: [],
+            project: file("changed"),
+            trust: .undecided
+        ))
         #expect(pending != SourceKitConfigurationFingerprint.make(user: [], project: project, trust: .granted))
         #expect(pending != SourceKitConfigurationFingerprint.make(user: [], project: project, trust: .refused))
         #expect(SourceKitConfigurationFingerprint.make(user: [], project: .absent, trust: .undecided)

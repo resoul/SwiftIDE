@@ -45,7 +45,9 @@ final class GitListView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         rendering = false
     }
     func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
-    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool { rows.indices.contains(row) && rows[row].selectable }
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        rows.indices.contains(row) && rows[row].selectable
+    }
     func tableViewSelectionDidChange(_ notification: Notification) {
         guard !rendering, let key = selectedKey else { return }
 
@@ -104,7 +106,9 @@ private final class GitStatusCell: NSTableCellView {
     override var backgroundStyle: NSView.BackgroundStyle {
         didSet {
             name.textColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : colour
-            detail.textColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : .secondaryLabelColor
+            detail.textColor = backgroundStyle == .emphasized
+                ? .alternateSelectedControlTextColor
+                : .secondaryLabelColor
         }
     }
 }

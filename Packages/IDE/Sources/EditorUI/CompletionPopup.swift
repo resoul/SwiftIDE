@@ -108,7 +108,12 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
         select(selected)
 
         let visibleRows = min(rows.count, Self.maximumVisibleRows)
-        place(size: NSSize(width: preferredWidth(), height: CGFloat(visibleRows) * Self.rowHeight + 6), anchorOffset: anchorOffset, textView: textView, window: window)
+        place(
+            size: NSSize(width: preferredWidth(), height: CGFloat(visibleRows) * Self.rowHeight + 6),
+            anchorOffset: anchorOffset,
+            textView: textView,
+            window: window
+        )
     }
 
     public func showStatus(_ status: CompletionStatus, anchorOffset: Int) {
@@ -120,7 +125,12 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
         statusLabel.stringValue = Self.text(for: status)
         statusLabel.isHidden = false
         let width = ceil(statusLabel.intrinsicContentSize.width) + 24
-        place(size: NSSize(width: min(max(width, 160), 420), height: Self.rowHeight + 10), anchorOffset: anchorOffset, textView: textView, window: window)
+        place(
+            size: NSSize(width: min(max(width, 160), 420), height: Self.rowHeight + 10),
+            anchorOffset: anchorOffset,
+            textView: textView,
+            window: window
+        )
     }
 
     static func text(for status: CompletionStatus) -> String {
@@ -184,7 +194,8 @@ public final class CompletionPopup: NSObject, CompletionPresenting, NSTableViewD
         let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         let widest = rows.prefix(200).map { row -> CGFloat in
             let label = (row.label as NSString).size(withAttributes: [.font: font]).width
-            let detail = ((row.detail ?? "") as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 11)]).width
+            let detail = ((row.detail ?? "") as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 11)])
+                .width
 
             return 26 + label + 16 + detail + 12
         }.max() ?? 280

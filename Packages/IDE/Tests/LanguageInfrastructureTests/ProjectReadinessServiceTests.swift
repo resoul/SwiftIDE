@@ -126,7 +126,10 @@ private func trustQuestion(_ server: ScriptedServer, id: Int) {
         "id": .int(id),
         "method": "window/showMessageRequest",
         "params": [
-            "message": "Do you trust the authors of the files in \"w\"? SourceKit-LSP found workspace-scoped configuration (.sourcekit-lsp/ or .bsp/) that may launch external processes or alter how subprocesses are sandboxed.",
+            "message": """
+            Do you trust the authors of the files in \"w\"? SourceKit-LSP found workspace-scoped configuration \
+            (.sourcekit-lsp/ or .bsp/) that may launch external processes or alter how subprocesses are sandboxed.
+            """,
             "actions": [["title": "Trust Workspace"], ["title": "Don't Trust"]],
             "type": 2,
         ],
@@ -140,9 +143,11 @@ private func answer(_ server: ScriptedServer, to id: Int) -> JSONValue? {
 private func publishDiagnostic(_ server: ScriptedServer, message: String = "No such module 'Lib'") {
     server.notify("textDocument/publishDiagnostics", [
         "uri": "file:///w/Main.swift",
-        "diagnostics": [["severity": 1,
-                         "message": .string(message),
-                         "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 3]]]],
+        "diagnostics": [[
+            "severity": 1,
+            "message": .string(message),
+            "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 3]]
+        ]],
     ])
 }
 
@@ -153,14 +158,20 @@ func progressFromTheServerShowsAsWorkInTheReadiness() async throws {
     let server = ScriptedServer()
     let rig = Rig(servers: [server])
     try await rig.started()
-    #expect(rig.service.readiness.reason == nil && rig.service.readiness.settings == .unknown, "no event proves anything")
+    #expect(
+        rig.service.readiness.reason == nil && rig.service.readiness.settings == .unknown,
+        "no event proves anything"
+    )
 
     begin(server, "indexing.A", "Indexing", message: "0 / 3")
     #expect(await rig.waitFor { rig.service.readiness.reason == "Preparing package · 0 / 3" })
     progress(server, "indexing.A", ["kind": "report", "message": "2 / 3"])
     #expect(await rig.waitFor { rig.service.readiness.reason == "Preparing package · 2 / 3" })
     progress(server, "indexing.A", ["kind": "end"])
-    #expect(await rig.waitFor { rig.service.readiness.reason == nil }, "the end of the work is not announced as readiness")
+    #expect(
+        await rig.waitFor { rig.service.readiness.reason == nil },
+        "the end of the work is not announced as readiness"
+    )
 }
 
 @Test @MainActor
@@ -182,7 +193,12 @@ func theServerAnswersTheRequestThatRegistersAProgressToken() async throws {
     let server = ScriptedServer()
     let rig = Rig(servers: [server])
     try await rig.started()
-    server.send(["jsonrpc": "2.0", "id": 41, "method": "window/workDoneProgress/create", "params": ["token": "indexing.A"]])
+    server.send([
+        "jsonrpc": "2.0",
+        "id": 41,
+        "method": "window/workDoneProgress/create",
+        "params": ["token": "indexing.A"]
+    ])
     #expect(await server.waitUntil { answer(server, to: 41) != nil })
     #expect(answer(server, to: 41) == .null)
 }
@@ -240,10 +256,15 @@ func aReportThatArrivesDuringTheInitialPreparationIsMarkedAndStaysMarked() async
 
     progress(server, "indexing.A", ["kind": "end"])
     #expect(await rig.waitFor { !rig.service.readiness.isInitialPreparation })
-    #expect(rig.service.documentDiagnostics(for: rig.session)?.basis == .preparing, "finishing the preparation does not make the stored report reliable")
+    #expect(
+        rig.service.documentDiagnostics(for: rig.session)?.basis == .preparing,
+        "finishing the preparation does not make the stored report reliable"
+    )
 
     publishDiagnostic(server, message: "a later report")
-    #expect(await rig.waitFor { rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a later report" })
+    #expect(await rig.waitFor {
+        rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a later report"
+    })
     #expect(rig.service.documentDiagnostics(for: rig.session)?.basis == .unconfirmed)
 }
 
@@ -311,7 +332,10 @@ func whileTheUserDecidesTheReadinessSaysSoAndNothingElseWaits() async throws {
     #expect(answer(server, to: 52) == nil, "not answered before the user has")
 
     begin(server, "indexing.A", "Indexing")
-    #expect(await rig.waitFor { rig.service.readiness.operations.count == 1 }, "progress is still read while the question is open")
+    #expect(
+        await rig.waitFor { rig.service.readiness.operations.count == 1 },
+        "progress is still read while the question is open"
+    )
 
     rig.asked.answer = .granted
     rig.asked.release()
@@ -335,7 +359,10 @@ func aKeptDecisionIsUsedWithoutAskingAndAfterARestartToo() async throws {
     #expect(await rig.waitFor { rig.service.readiness.server == .running && rig.servers.made.count == 2 })
     trustQuestion(second, id: 54)
     #expect(await second.waitUntil { answer(second, to: 54) != nil })
-    #expect(answer(second, to: 54) == ["title": "Trust Workspace"] && rig.asked.count == 0, "a restart raises no new dialog")
+    #expect(
+        answer(second, to: 54) == ["title": "Trust Workspace"] && rig.asked.count == 0,
+        "a restart raises no new dialog"
+    )
 }
 
 @Test @MainActor
@@ -410,10 +437,12 @@ func aQuestionThatIsNotTheTrustQuestionIsAnsweredWithNull() async throws {
     let server = ScriptedServer()
     let rig = Rig(servers: [server])
     try await rig.started()
-    server.send(["jsonrpc": "2.0",
-                 "id": 56,
-                 "method": "window/showMessageRequest",
-                 "params": ["message": "Something else", "actions": [["title": "OK"]], "type": 3]])
+    server.send([
+        "jsonrpc": "2.0",
+        "id": 56,
+        "method": "window/showMessageRequest",
+        "params": ["message": "Something else", "actions": [["title": "OK"]], "type": 3]
+    ])
     #expect(await server.waitUntil { answer(server, to: 56) != nil })
     #expect(answer(server, to: 56) == .null)
     #expect(rig.asked.count == 0)
@@ -447,7 +476,9 @@ private func pulling(_ answerWith: @escaping @Sendable (JSONValue) -> JSONValue?
         switch method {
         case "initialize": server.reply(id, ["capabilities": [:]])
         case "textDocument/diagnostic":
-            if let result = answerWith(message) { server.reply(id, result) } else { server.fail(id, code: -32601, message: "no such method") }
+            if let result = answerWith(message) { server.reply(id, result) } else {
+                server.fail(id, code: -32601, message: "no such method")
+            }
         default: server.reply(id, .null)
         }
     })
@@ -455,9 +486,11 @@ private func pulling(_ answerWith: @escaping @Sendable (JSONValue) -> JSONValue?
 
 private let pulledReport: JSONValue = [
     "kind": "full",
-    "items": [["severity": 1,
-               "message": "after the preparation",
-               "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 3]]]],
+    "items": [[
+        "severity": 1,
+        "message": "after the preparation",
+        "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 3]]
+    ]],
 ]
 
 @Test @MainActor
@@ -470,13 +503,19 @@ func whenTheInitialPreparationEndsAFreshReportIsAskedForAndIsNotMarkedAsMadeDuri
     publishDiagnostic(server)
     #expect(await rig.waitFor { rig.service.documentDiagnostics(for: rig.session) != nil })
     #expect(rig.service.documentDiagnostics(for: rig.session)?.basis == .preparing)
-    #expect(server.messages(named: "textDocument/diagnostic").isEmpty, "nothing is asked for while the preparation goes on")
+    #expect(
+        server.messages(named: "textDocument/diagnostic").isEmpty,
+        "nothing is asked for while the preparation goes on"
+    )
 
     progress(server, "indexing.A", ["kind": "end"])
     #expect(await server.waitForMethod("textDocument/diagnostic"))
-    #expect(await rig.waitFor { rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "after the preparation" })
+    #expect(await rig.waitFor {
+        rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "after the preparation"
+    })
     #expect(rig.service.documentDiagnostics(for: rig.session)?.basis == .unconfirmed)
-    #expect(server.messages(named: "textDocument/diagnostic").first?["params"]?["textDocument"]?["uri"]?.stringValue == "file:///w/Main.swift")
+    #expect(server.messages(named: "textDocument/diagnostic").first?["params"]?["textDocument"]?["uri"]?
+        .stringValue == "file:///w/Main.swift")
 }
 
 @Test @MainActor
@@ -492,7 +531,10 @@ func aServerThatCannotAnswerAPullLeavesTheWithheldReportWithheld() async throws 
     #expect(await server.waitForMethod("textDocument/diagnostic"))
     try await Task.sleep(for: .milliseconds(100))
 
-    #expect(rig.service.documentDiagnostics(for: rig.session)?.basis == .preparing, "the old report does not turn reliable by itself")
+    #expect(
+        rig.service.documentDiagnostics(for: rig.session)?.basis == .preparing,
+        "the old report does not turn reliable by itself"
+    )
 }
 
 @Test @MainActor
@@ -516,7 +558,10 @@ func aPulledReportForTextThatHasChangedSinceIsDropped() async throws {
     progress(slow, "indexing.A", ["kind": "end"])
     #expect(await slow.waitForMethod("textDocument/diagnostic"))
 
-    try rig.session.apply([DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// edited\n")], expectedVersion: rig.session.version)
+    try rig.session.apply(
+        [DocumentEdit(range: UTF16TextRange(location: 0, length: 0), replacement: "// edited\n")],
+        expectedVersion: rig.session.version
+    )
     let id = try #require(slow.messages(named: "textDocument/diagnostic").first?["id"])
     slow.reply(id, pulledReport)
     try await Task.sleep(for: .milliseconds(100))
@@ -544,7 +589,9 @@ func aReportThatAlreadyCameAfterThePreparationIsNotAskedForAgain() async throws 
     progress(server, "indexing.A", ["kind": "end"])
     #expect(await rig.waitFor { !rig.service.readiness.isInitialPreparation })
     publishDiagnostic(server, message: "a push after the preparation")
-    #expect(await rig.waitFor { rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a push after the preparation" })
+    #expect(await rig.waitFor {
+        rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a push after the preparation"
+    })
     begin(server, "indexing.B", "Indexing")
     progress(server, "indexing.B", ["kind": "end"])
     try await Task.sleep(for: .milliseconds(100))
@@ -560,7 +607,9 @@ func aDocumentWhoseReportWasNotWithheldIsNotPulledWhenThePreparationEnds() async
     #expect(await rig.waitFor { rig.service.documentDiagnostics(for: rig.session) != nil })
     begin(server, "indexing.A", "Indexing")
     progress(server, "indexing.A", ["kind": "end"])
-    #expect(await rig.waitFor { rig.service.readiness.operations.isEmpty && !rig.service.readiness.isInitialPreparation })
+    #expect(await rig.waitFor {
+        rig.service.readiness.operations.isEmpty && !rig.service.readiness.isInitialPreparation
+    })
     try await Task.sleep(for: .milliseconds(100))
 
     #expect(server.messages(named: "textDocument/diagnostic").isEmpty, "only what was withheld is asked for again")
@@ -603,11 +652,19 @@ func aPushThatCameAfterThePullWasSentIsNotOverwrittenByItsLateAnswer() async thr
     let id = try await pullAskedFor(server, rig)
 
     publishDiagnostic(server, message: "a newer push")
-    #expect(await rig.waitFor { rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a newer push" })
+    #expect(await rig.waitFor {
+        rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a newer push"
+    })
     server.reply(id, pulledReport)
-    #expect(await rig.waitFor { rig.service.diagnosticsPullLog.contains { $0.contains("newer report") } }, "\(rig.service.diagnosticsPullLog)")
+    #expect(
+        await rig.waitFor { rig.service.diagnosticsPullLog.contains { $0.contains("newer report") } },
+        "\(rig.service.diagnosticsPullLog)"
+    )
 
-    #expect(rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a newer push", "the old answer does not replace it")
+    #expect(
+        rig.service.documentDiagnostics(for: rig.session)?.items.first?.message == "a newer push",
+        "the old answer does not replace it"
+    )
 }
 
 @Test @MainActor
@@ -627,7 +684,10 @@ func aPullThatIsNotAnsweredInFiveSecondsIsGivenUpAndCancelled() async throws {
 
     server.reply(id, pulledReport)
     try await Task.sleep(for: .milliseconds(100))
-    #expect(rig.service.documentDiagnostics(for: rig.session)?.basis == .preparing, "the withheld report stays withheld")
+    #expect(
+        rig.service.documentDiagnostics(for: rig.session)?.basis == .preparing,
+        "the withheld report stays withheld"
+    )
 }
 
 @Test @MainActor
@@ -670,7 +730,12 @@ func aFailedPullIsRecordedWithItsReason() async throws {
     #expect(await rig.waitFor { rig.service.documentDiagnostics(for: rig.session) != nil })
     progress(server, "indexing.A", ["kind": "end"])
 
-    #expect(await rig.waitFor { rig.service.diagnosticsPullLog.contains { $0.contains("failed") && $0.contains("no such method") } }, "\(rig.service.diagnosticsPullLog)")
+    #expect(
+        await rig
+            .waitFor {
+            rig.service.diagnosticsPullLog.contains { $0.contains("failed") && $0.contains("no such method") } },
+        "\(rig.service.diagnosticsPullLog)"
+    )
 }
 
 @Test @MainActor
@@ -694,12 +759,28 @@ func aPullAnsweredAfterTheDocumentMovedToAnotherAddressIsNotUsed() async throws 
     #expect(await rig.waitFor { arrivals > 0 })
     progress(server, "indexing.A", ["kind": "end"])
     #expect(await server.waitUntil { server.messages(named: "textDocument/diagnostic").count == 2 })
-    let oldPull = try #require(server.messages(named: "textDocument/diagnostic").first { $0["params"]?["textDocument"]?["uri"]?.stringValue == "file:///w/Old.swift" }?["id"])
+    let oldPull = try #require(server.messages(named: "textDocument/diagnostic")
+        .first { $0["params"]?["textDocument"]?["uri"]?.stringValue == "file:///w/Old.swift" }?["id"])
 
-    _ = try await SaveDocumentUseCase(store: files).saveAs(document: moving, to: "/w/New.swift", target: .newFile, registry: registry)
-    #expect(await server.waitUntil { server.messages(named: "textDocument/didOpen").contains { $0["params"]?["textDocument"]?["uri"]?.stringValue == "file:///w/New.swift" } })
+    _ = try await SaveDocumentUseCase(store: files).saveAs(
+        document: moving,
+        to: "/w/New.swift",
+        target: .newFile,
+        registry: registry
+    )
+    #expect(await server.waitUntil {
+        server.messages(named: "textDocument/didOpen").contains {
+            $0["params"]?["textDocument"]?["uri"]?.stringValue == "file:///w/New.swift"
+        }
+    })
     let before = arrivals
     server.reply(oldPull, pulledReport)
-    #expect(await rig.waitFor { rig.service.diagnosticsPullLog.contains { $0.contains("Old.swift") && $0.contains("moved to another address") } }, "\(rig.service.diagnosticsPullLog)")
+    #expect(
+        await rig
+            .waitFor {
+            rig.service.diagnosticsPullLog
+            .contains { $0.contains("Old.swift") && $0.contains("moved to another address") } },
+        "\(rig.service.diagnosticsPullLog)"
+    )
     #expect(arrivals == before, "the answer about the old address is not taken for a report of the document")
 }

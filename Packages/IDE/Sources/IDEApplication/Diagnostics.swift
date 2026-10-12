@@ -35,7 +35,12 @@ public struct DocumentDiagnostics: Equatable, Sendable {
     /// or the server's defaults. It is fixed when the report arrives and never improves by itself.
     public let basis: DiagnosticsBasis
 
-    public init(items: [DocumentDiagnostic], version: UInt64, isVerified: Bool, basis: DiagnosticsBasis = .unconfirmed) {
+    public init(
+        items: [DocumentDiagnostic],
+        version: UInt64,
+        isVerified: Bool,
+        basis: DiagnosticsBasis = .unconfirmed
+    ) {
         self.items = items
         self.version = version
         self.isVerified = isVerified

@@ -38,12 +38,14 @@ public struct SourceKitConfigurationFiles: ConfigurationFileReading {
     public static func isConfigurationFile(_ path: String) -> Bool {
         let url = URL(fileURLWithPath: path)
 
-        return url.lastPathComponent == "config.json" && url.deletingLastPathComponent().lastPathComponent == ".sourcekit-lsp"
+        return url.lastPathComponent == "config.json"
+            && url.deletingLastPathComponent().lastPathComponent == ".sourcekit-lsp"
     }
 
     /// Whether `path` is the project's configuration file of the project at `root`.
     public static func isProjectFile(_ path: String, root: String) -> Bool {
-        DocumentPath.canonical(path) == DocumentPath.canonical((root as NSString).appendingPathComponent(".sourcekit-lsp/config.json"))
+        DocumentPath.canonical(path) == DocumentPath
+            .canonical((root as NSString).appendingPathComponent(".sourcekit-lsp/config.json"))
     }
 
     static func read(_ path: String) -> ConfigurationFile {

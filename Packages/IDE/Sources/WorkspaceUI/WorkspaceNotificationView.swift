@@ -100,7 +100,9 @@ final class WorkspaceNotificationOverlay: NSView {
             if let card = cards.first(where: { $0.id == item.id }) {
                 card.present(item)
             } else {
-                let card = WorkspaceNotificationCard(item: item) { [weak notifications] in notifications?.dismiss(item.id) }
+                let card = WorkspaceNotificationCard(item: item) { [weak notifications] in
+                    notifications?.dismiss(item.id)
+                }
                 cards.append(card)
                 revealNewest = true
                 stack.addArrangedSubview(card)

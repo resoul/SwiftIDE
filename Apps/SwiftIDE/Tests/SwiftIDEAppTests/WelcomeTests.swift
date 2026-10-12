@@ -10,13 +10,18 @@ extension NativeAppTests {
     struct WelcomeTests {
         @Test func startupShowsWelcomeWithoutCreatingAnEditorAndDockReopenReusesIt() async throws {
             _ = NSApplication.shared
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()))
+            let app = AppDelegate(composition: AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                recentStore: MemoryRecentProjectsStore()
+            ))
             await app.start()
             let welcome = try #require(app.welcome)
             defer { welcome.close() }
             #expect(welcome.window?.isVisible == true)
             #expect(app.projectSwitcherMenu().items.map(\.title) == ["Open Folder…", "Welcome"])
-            #expect(NSApp.windows.filter(\.isVisible).allSatisfy { !($0.windowController is WorkspaceWindowController) })
+            #expect(NSApp.windows.filter(\.isVisible).allSatisfy {
+                !($0.windowController is WorkspaceWindowController)
+            })
             welcome.close()
             #expect(welcome.window?.isVisible == false)
             #expect(!app.applicationShouldTerminateAfterLastWindowClosed(NSApp))
@@ -36,7 +41,11 @@ extension NativeAppTests {
             let defaults = try #require(UserDefaults(suiteName: suite))
             defer { defaults.removePersistentDomain(forName: suite) }
             let recent = MemoryRecentProjectsStore()
-            let composition = AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), layoutDefaults: defaults, recentStore: recent)
+            let composition = AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                layoutDefaults: defaults,
+                recentStore: recent
+            )
             let app = AppDelegate(composition: composition)
             await app.start()
             let project = try #require(await app.openProjectFolder(path: folder.path))
@@ -45,7 +54,8 @@ extension NativeAppTests {
             #expect(await app.openProjectFolder(path: alias.path) === project)
             #expect(recent.projects.map(\.path) == [folder.path])
             #expect(composition.recentProjects.openRoots == [folder.path])
-            #expect(app.projectSwitcherMenu().items.filter { $0.representedObject as? String == folder.path }.count == 1)
+            #expect(app.projectSwitcherMenu().items.filter { $0.representedObject as? String == folder.path }
+                .count == 1)
             app.showWelcome(nil)
             #expect(await app.openProjectFolder(path: folder.path) === project)
             #expect(app.welcome?.window?.isVisible == false)
@@ -63,11 +73,19 @@ extension NativeAppTests {
             let missing = root.appendingPathComponent("Moved")
             let destination = root.appendingPathComponent("Located")
             try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-            let recent = MemoryRecentProjectsStore(projects: [.init(path: missing.path, lastOpened: .distantPast, isPinned: true)])
+            let recent = MemoryRecentProjectsStore(projects: [.init(
+                path: missing.path,
+                lastOpened: .distantPast,
+                isPinned: true
+            )])
             let suite = "SwiftIDE.welcome.locate.tests.\(UUID())"
             let defaults = try #require(UserDefaults(suiteName: suite))
             defer { defaults.removePersistentDomain(forName: suite) }
-            let composition = AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), layoutDefaults: defaults, recentStore: recent)
+            let composition = AppCompositionRoot(
+                recoveryStore: MemoryRecoveryStore(),
+                layoutDefaults: defaults,
+                recentStore: recent
+            )
             let app = AppDelegate(composition: composition)
             await app.start()
             defer { app.welcome?.close() }
@@ -81,7 +99,8 @@ extension NativeAppTests {
             #expect(recent.projects.first?.path == missing.path)
             let project = try #require(await app.openProjectFolder(path: destination.path, replacing: missing.path))
             defer { project.closeProject() }
-            #expect(recent.projects.count == 1 && recent.projects.first?.path == destination.path && recent.projects.first?.isPinned == true)
+            #expect(recent.projects.count == 1 && recent.projects.first?.path == destination.path && recent.projects
+                .first?.isPinned == true)
             #expect(!FileManager.default.fileExists(atPath: missing.path))
             #expect(FileManager.default.fileExists(atPath: destination.path))
         }
@@ -91,12 +110,18 @@ extension NativeAppTests {
             let defaults = try #require(UserDefaults(suiteName: suite))
             defer { defaults.removePersistentDomain(forName: suite) }
             let store = UserDefaultsRecentProjectsStore(defaults: defaults)
-            let records = [RecentProject(path: "/work/Pinned", lastOpened: .distantPast, isPinned: true), .init(path: "/work/Recent", lastOpened: .now)]
+            let records = [
+                RecentProject(path: "/work/Pinned", lastOpened: .distantPast, isPinned: true),
+                .init(path: "/work/Recent", lastOpened: .now)
+            ]
             try store.save(records)
             #expect(try UserDefaultsRecentProjectsStore(defaults: defaults).load() == records)
             for bytes in [Data("not JSON".utf8), Data(#"{"version":2,"projects":[]}"#.utf8)] {
                 defaults.set(bytes, forKey: "recentProjects.v1")
-                let model = RecentProjects(store: UserDefaultsRecentProjectsStore(defaults: defaults), checker: NoFolderChecker())
+                let model = RecentProjects(
+                    store: UserDefaultsRecentProjectsStore(defaults: defaults),
+                    checker: NoFolderChecker()
+                )
                 #expect(model.projects.isEmpty && model.storageIssue != nil)
                 model.opened(canonicalPath: "/work/Session")
                 #expect(model.projects.map(\.path) == ["/work/Session"] && model.storageIssue != nil)
@@ -111,7 +136,15 @@ extension NativeAppTests {
             let file = root.appendingPathComponent("recovered.txt")
             try "disk text".write(to: file, atomically: true, encoding: .utf8)
             let recovery = MemoryRecoveryStore()
-            let record = RecoveryRecord(key: .file(atPath: file.path), path: file.path, title: "recovered.txt", text: "unsaved recovery", encoding: .utf8, baseRevision: nil, savedAt: .now)
+            let record = RecoveryRecord(
+                key: .file(atPath: file.path),
+                path: file.path,
+                title: "recovered.txt",
+                text: "unsaved recovery",
+                encoding: .utf8,
+                baseRevision: nil,
+                savedAt: .now
+            )
             await recovery.seed(record)
             let recent = MemoryRecentProjectsStore()
             let composition = AppCompositionRoot(recoveryStore: recovery, recentStore: recent)
@@ -133,7 +166,8 @@ extension NativeAppTests {
         }
 
         private func temporaryFolder() throws -> URL {
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-welcome-\(UUID())").resolvingSymlinksInPath()
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-welcome-\(UUID())")
+                .resolvingSymlinksInPath()
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
 
             return url

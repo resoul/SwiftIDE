@@ -6,12 +6,16 @@ import Testing
 struct ProjectDirectoryReaderTests {
     @Test func listingIncludesHiddenEntriesAndLinksButDoesNotWalkThem() async throws {
         let manager = FileManager.default
-        let root = manager.temporaryDirectory.appendingPathComponent("SwiftIDE-tree-\(UUID())").resolvingSymlinksInPath()
+        let root = manager.temporaryDirectory.appendingPathComponent("SwiftIDE-tree-\(UUID())")
+            .resolvingSymlinksInPath()
         try manager.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? manager.removeItem(at: root) }
         try manager.createDirectory(at: root.appendingPathComponent(".build/deeper"), withIntermediateDirectories: true)
         try "text".write(to: root.appendingPathComponent("a name\nwith newline.txt"), atomically: true, encoding: .utf8)
-        try manager.createSymbolicLink(atPath: root.appendingPathComponent("cycle").path, withDestinationPath: root.path)
+        try manager.createSymbolicLink(
+            atPath: root.appendingPathComponent("cycle").path,
+            withDestinationPath: root.path
+        )
         let entries = try await ProjectDirectoryReader().children(of: root.path)
         #expect(Set(entries.map(\.name)) == [".build", "cycle", "a name\nwith newline.txt"])
         #expect(entries.allSatisfy { ($0.path as NSString).deletingLastPathComponent == root.path })

@@ -33,13 +33,21 @@ public final class GitDiffViewController: NSViewController {
         guard presentedText != model.diffText else { return }
 
         presentedText = model.diffText
-        let value = NSMutableAttributedString(string: model.diffText, attributes: [.font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular), .foregroundColor: NSColor.labelColor])
+        let value = NSMutableAttributedString(
+            string: model.diffText,
+            attributes: [
+                .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+                .foregroundColor: NSColor.labelColor
+            ]
+        )
         let ns = model.diffText as NSString
         var position = 0
         while position < ns.length {
             let range = ns.lineRange(for: NSRange(location: position, length: 0))
             let line = ns.substring(with: range)
-            let colour: NSColor? = line.hasPrefix("+") ? .systemGreen : line.hasPrefix("-") ? .systemRed : line.hasPrefix("@@") ? .systemBlue : nil
+            let colour: NSColor? = line.hasPrefix("+")
+                ? .systemGreen
+                : line.hasPrefix("-") ? .systemRed : line.hasPrefix("@@") ? .systemBlue : nil
             if let colour { value.addAttribute(.foregroundColor, value: colour, range: range) }
             position = NSMaxRange(range)
         }

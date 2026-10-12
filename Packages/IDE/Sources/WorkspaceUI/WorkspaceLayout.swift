@@ -10,14 +10,34 @@ public struct WorkspaceTool: RawRepresentable, Codable, Hashable, Sendable, Case
 
     public static let files = Self(builtin: 0, title: "Files", symbol: "folder", zone: .left)
     public static let search = Self(builtin: 1, title: "Search", symbol: "magnifyingglass", zone: .left)
-    public static let sourceControl = Self(builtin: 2, title: "Source Control", symbol: "arrow.triangle.branch", zone: .left)
+    public static let sourceControl = Self(
+        builtin: 2,
+        title: "Source Control",
+        symbol: "arrow.triangle.branch",
+        zone: .left
+    )
     public static let terminal = Self(builtin: 3, title: "Terminal", symbol: "terminal", zone: .bottom)
     public static let build = Self(builtin: 4, title: "Build Output", symbol: "hammer", zone: .bottom)
     public static let problems = Self(builtin: 5, title: "Problems", symbol: "exclamationmark.circle", zone: .bottom)
-    public static let assistant = Self(builtin: 6, title: "Assistant", symbol: "bubble.left.and.bubble.right", zone: .right)
+    public static let assistant = Self(
+        builtin: 6,
+        title: "Assistant",
+        symbol: "bubble.left.and.bubble.right",
+        zone: .right
+    )
     public static let structure = Self(builtin: 7, title: "Structure", symbol: "list.bullet.indent", zone: .right)
     public static let inspector = Self(builtin: 8, title: "Inspector", symbol: "slider.horizontal.3", zone: .right)
-    public static let allCases: [Self] = [.files, .search, .sourceControl, .terminal, .build, .problems, .assistant, .structure, .inspector]
+    public static let allCases: [Self] = [
+        .files,
+        .search,
+        .sourceControl,
+        .terminal,
+        .build,
+        .problems,
+        .assistant,
+        .structure,
+        .inspector
+    ]
 
     /// IDs >= 100 are reserved for caller-supplied tools, independent of their panel contents.
     public init(id: Int, title: String, symbol: String, zone: Zone) {
@@ -49,9 +69,16 @@ public struct WorkspaceTool: RawRepresentable, Codable, Hashable, Sendable, Case
 
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let id = try c.decode(Int.self, forKey: .id)
-        guard id >= 100 else { throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "Invalid custom tool ID") }
+        guard id >= 100 else {
+            throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "Invalid custom tool ID")
+        }
 
-        self.init(builtin: id, title: try c.decode(String.self, forKey: .title), symbol: try c.decode(String.self, forKey: .symbol), zone: try c.decode(Zone.self, forKey: .zone))
+        self.init(
+            builtin: id,
+            title: try c.decode(String.self, forKey: .title),
+            symbol: try c.decode(String.self, forKey: .symbol),
+            zone: try c.decode(Zone.self, forKey: .zone)
+        )
     }
 
     public func encode(to encoder: any Encoder) throws {

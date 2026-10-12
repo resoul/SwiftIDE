@@ -41,7 +41,10 @@ private func awaitRequests(_ reader: SuspendedDirectories, _ count: Int) async t
 @MainActor
 struct ProjectFilesTests {
     @Test func expansionIsLazyAndRefreshReadsOnlyExpandedFolders() async throws {
-        let reader = DirectoryScript(["/w": [.init(path: "/w/Package.swift", isDirectory: false), .init(path: "/w/.build", isDirectory: true)]])
+        let reader = DirectoryScript(["/w": [
+            .init(path: "/w/Package.swift", isDirectory: false),
+            .init(path: "/w/.build", isDirectory: true)
+        ]])
         let model = ProjectFiles(root: "/w", reader: reader)
         model.expand("/w")
         try await awaitDirectory(model, "/w")
@@ -60,12 +63,19 @@ struct ProjectFilesTests {
     }
 
     @Test func ordinaryBuildAndBackupAreNotExcluded() async throws {
-        let reader = DirectoryScript(["/w": [.init(path: "/w/build", isDirectory: true), .init(path: "/w/.build", isDirectory: true), .init(path: "/w/x.bak", isDirectory: false)]])
+        let reader = DirectoryScript(["/w": [
+            .init(path: "/w/build", isDirectory: true),
+            .init(path: "/w/.build", isDirectory: true),
+            .init(path: "/w/x.bak", isDirectory: false)
+        ]])
         let model = ProjectFiles(root: "/w", reader: reader)
         model.expand("/w")
         try await awaitDirectory(model, "/w")
         #expect(model.children(of: "/w").allSatisfy { model.exclusionReason(for: $0.path) == nil })
-        await reader.set([.init(path: "/w/Package.swift", isDirectory: false), .init(path: "/w/.build", isDirectory: true)], for: "/w")
+        await reader.set(
+            [.init(path: "/w/Package.swift", isDirectory: false), .init(path: "/w/.build", isDirectory: true)],
+            for: "/w"
+        )
         model.refresh()
         try await awaitDirectory(model, "/w")
         model.include("/w/.build/child")
@@ -77,7 +87,10 @@ struct ProjectFilesTests {
     }
 
     @Test func nestedPackageDefaultsFollowTheirActualFolderAndDisappearWithTheMarker() async throws {
-        let reader = DirectoryScript(["/w/P": [.init(path: "/w/P/Package.swift", isDirectory: false), .init(path: "/w/P/.build", isDirectory: true)]])
+        let reader = DirectoryScript(["/w/P": [
+            .init(path: "/w/P/Package.swift", isDirectory: false),
+            .init(path: "/w/P/.build", isDirectory: true)
+        ]])
         let model = ProjectFiles(root: "/w", reader: reader)
         model.expand("/w/P")
         try await awaitDirectory(model, "/w/P")
@@ -90,7 +103,9 @@ struct ProjectFilesTests {
     }
 
     @Test func projectAndIgnoreFiltersAreIndependentAndSelectionSurvives() async throws {
-        let reader = DirectoryScript(["/w": ["excluded", "ignored", "plain"].map { .init(path: "/w/" + $0, isDirectory: false) }])
+        let reader = DirectoryScript(["/w": ["excluded", "ignored", "plain"].map {
+            .init(path: "/w/" + $0, isDirectory: false)
+        }])
         let model = ProjectFiles(root: "/w", reader: reader)
         model.expand("/w")
         try await awaitDirectory(model, "/w")
@@ -123,7 +138,15 @@ struct ProjectFilesTests {
     }
 
     @Test func aliasDirtyStateUsesResolvedIdentityWithoutAFileSystemReadInPresentation() async throws {
-        let model = ProjectFiles(root: "/w", reader: DirectoryScript(["/w": [.init(path: "/w/link.txt", isDirectory: false, isSymbolicLink: true, resolvedPath: "/other/a.txt")]]))
+        let model = ProjectFiles(
+            root: "/w",
+            reader: DirectoryScript(["/w": [.init(
+                path: "/w/link.txt",
+                isDirectory: false,
+                isSymbolicLink: true,
+                resolvedPath: "/other/a.txt"
+            )]])
+        )
         model.expand("/w")
         try await awaitDirectory(model, "/w")
         model.unsavedPaths = ["/other/a.txt"]
@@ -132,7 +155,15 @@ struct ProjectFilesTests {
 
     @Test func duplicateAndNonDirectChildrenFromAnAdapterAreRefused() async throws {
         let file = ProjectFile(path: "/w/a", isDirectory: false)
-        let model = ProjectFiles(root: "/w", reader: DirectoryScript(["/w": [file, file, .init(path: "/outside/a", isDirectory: false), .init(path: "/w/d/deep", isDirectory: false)]]))
+        let model = ProjectFiles(
+            root: "/w",
+            reader: DirectoryScript(["/w": [
+                file,
+                file,
+                .init(path: "/outside/a", isDirectory: false),
+                .init(path: "/w/d/deep", isDirectory: false)
+            ]])
+        )
         model.expand("/outside")
         #expect(model.expanded.isEmpty)
         model.expand("/w")
@@ -161,7 +192,11 @@ struct ProjectFilesTests {
         await reader.finish(2, with: .failure(CocoaError(.fileReadNoPermission)))
         let end = ContinuousClock.now + .seconds(5)
         while model.state(of: "/w") == .loading, ContinuousClock.now < end { await Task.yield() }
-        guard case .failed = model.state(of: "/w") else { Issue.record("failure must not look like an empty loaded folder"); return }
+        guard case .failed = model.state(of: "/w") else {
+            Issue.record("failure must not look like an empty loaded folder")
+
+            return
+        }
 
         #expect(model.state(of: "/w").message?.contains("Could not read folder") == true)
         model.stop()

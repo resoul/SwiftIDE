@@ -62,11 +62,19 @@ public final class RecentProjects {
     public var visible: [RecentProject] {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        return projects.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.path.localizedCaseInsensitiveContains(search) }
+        return projects.filter {
+            search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.path
+                .localizedCaseInsensitiveContains(search)
+        }
     }
 
     /// Called only after App has successfully opened/focused the checked canonical root.
-    public func opened(canonicalPath path: String, at date: Date = .now, replacing oldPath: String? = nil, checked: Bool = true) {
+    public func opened(
+        canonicalPath path: String,
+        at date: Date = .now,
+        replacing oldPath: String? = nil,
+        checked: Bool = true
+    ) {
         let pinned = projects.contains { ($0.path == path || $0.path == oldPath) && $0.isPinned }
         projects.removeAll { $0.path == path || $0.path == oldPath }
         projects.append(.init(path: path, lastOpened: date, isPinned: pinned))
@@ -174,7 +182,11 @@ public final class RecentProjects {
             // Lexical normalization only: loading history must never touch the filesystem.
             let path = URL(fileURLWithPath: entry.path).standardizedFileURL.path
             let previous = unique[path]
-            unique[path] = .init(path: path, lastOpened: max(entry.lastOpened, previous?.lastOpened ?? .distantPast), isPinned: entry.isPinned || previous?.isPinned == true)
+            unique[path] = .init(
+                path: path,
+                lastOpened: max(entry.lastOpened, previous?.lastOpened ?? .distantPast),
+                isPinned: entry.isPinned || previous?.isPinned == true
+            )
         }
         let ordered = unique.values.sorted {
             if $0.isPinned != $1.isPinned { return $0.isPinned }

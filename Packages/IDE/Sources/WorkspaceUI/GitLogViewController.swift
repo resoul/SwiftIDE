@@ -13,7 +13,10 @@ public final class GitLogViewController: NSViewController {
     let files = GitListView(label: "Files changed by selected commit")
     let search = NSSearchField()
     private let status = NSTextField(labelWithString: "")
-    private let details = NSTextField(wrappingLabelWithString: "Select a commit to see files. Merge commits compare against their first parent.")
+    private let details =
+        NSTextField(
+            wrappingLabelWithString: "Select a commit to see files. Merge commits compare against their first parent."
+        )
     private let more = NSButton(title: "Load more", target: nil, action: nil)
     private var subscription: UUID?
 
@@ -43,7 +46,10 @@ public final class GitLogViewController: NSViewController {
             model.select(commit)
         }
         files.onSelect = { [weak self] path in
-            guard let self, let commit = model.selectedCommit, let file = model.commitFiles.first(where: { $0.path == path }) else { return }
+            guard let self, let commit = model.selectedCommit,
+                  let file = model.commitFiles.first(where: { $0.path == path }) else {
+                return
+            }
 
             model.inspect(.commit(commit, file))
         }
@@ -57,24 +63,32 @@ public final class GitLogViewController: NSViewController {
         commits.present(model.history.filter {
             query.isEmpty || [$0.oid, $0.author, $0.subject].contains { $0.localizedCaseInsensitiveContains(query) }
         }.map {
-            .init(key: $0.oid,
-                  title: String($0.oid.prefix(8)) + " · " + $0.subject,
-                  detail: $0.author + " · " + $0.date.formatted(date: .abbreviated, time: .shortened),
-                  selectable: true)
+            .init(
+                key: $0.oid,
+                title: String($0.oid.prefix(8)) + " · " + $0.subject,
+                detail: $0.author + " · " + $0.date.formatted(date: .abbreviated, time: .shortened),
+                selectable: true
+            )
         })
         files.present(model.commitFiles.map {
-            .init(key: $0.path,
-                  title: $0.status + " · " + $0.path,
-                  detail: $0.previousPath.map { "from " + $0 } ?? "",
-                  selectable: true)
+            .init(
+                key: $0.path,
+                title: $0.status + " · " + $0.path,
+                detail: $0.previousPath.map { "from " + $0 } ?? "",
+                selectable: true
+            )
         })
         if let commit = model.selectedCommit {
-            details.stringValue = String(commit.oid.prefix(8)) + " · " + commit.subject + "\n" + model.filesState.explanation
-        } else { details.stringValue = "Select a commit to see files. Merge commits compare against their first parent." }
+            details.stringValue = String(commit.oid.prefix(8)) + " · " + commit.subject + "\n" + model.filesState
+                .explanation
+        } else {
+            details.stringValue = "Select a commit to see files. Merge commits compare against their first parent."
+        }
 
         more.isEnabled = model.state == .ready && model.hasMoreHistory && model.historyState != .loading
         let explanation = model.state == .ready ? model.historyState.explanation : model.explanation
-        status.stringValue = model.historyTitle + " · " + explanation + " · \(model.history.count) loaded · locally known refs"
+        status.stringValue = model.historyTitle + " · " + explanation
+            + " · \(model.history.count) loaded · locally known refs"
         status.toolTip = status.stringValue
     }
     public func disconnect() { if let subscription { model.unsubscribe(subscription) }; subscription = nil }

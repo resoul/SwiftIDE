@@ -21,8 +21,20 @@ private final class ScriptedProvider: CompletionProviding {
     }
 }
 
-private func item(_ label: String, insert: String? = nil, filter: String? = nil, kind: CompletionKind = .method) -> CompletionItem {
-    CompletionItem(label: label, detail: "T", insertText: insert ?? label, sortText: label, filterText: filter ?? label, kind: kind)
+private func item(
+    _ label: String,
+    insert: String? = nil,
+    filter: String? = nil,
+    kind: CompletionKind = .method
+) -> CompletionItem {
+    CompletionItem(
+        label: label,
+        detail: "T",
+        insertText: insert ?? label,
+        sortText: label,
+        filterText: filter ?? label,
+        kind: kind
+    )
 }
 
 /// A real text view in a real window, a session over its storage, and the coordinator between them.
@@ -43,7 +55,12 @@ private struct Fixture {
             item("count", kind: .property),
             item("uppercased()"),
         ])
-        window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 600, height: 400), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        window = NSWindow(
+            contentRect: NSRect(x: 100, y: 100, width: 600, height: 400),
+            styleMask: [.titled, .resizable],
+            backing: .buffered,
+            defer: false
+        )
         let host = EditorHostView(editor: editor)
         window.contentView = host
         window.makeFirstResponder(editor.textView)
@@ -107,14 +124,23 @@ func theArrowKeysAndReturnWorkOnAShowingListAndReturnIsANewlineOtherwise() async
     let f = Fixture()
     // No list: none of these is the list's.
     for code: UInt16 in [36, 48, 125, 126, 53] {
-        #expect(CompletionCoordinator.handle(f.key(code), controller: f.controller) == false, "key \(code) with no list")
+        #expect(
+            CompletionCoordinator.handle(f.key(code), controller: f.controller) == false,
+            "key \(code) with no list"
+        )
     }
     f.type(".")
     await f.settle()
     #expect(CompletionCoordinator.handle(f.key(125), controller: f.controller), "Down")
     #expect(CompletionCoordinator.handle(f.key(126), controller: f.controller), "Up")
-    #expect(CompletionCoordinator.handle(f.key(125, modifiers: .command), controller: f.controller) == false, "Command-Down is the editor's")
-    #expect(CompletionCoordinator.handle(f.key(125, modifiers: .shift), controller: f.controller) == false, "Shift-Down extends a selection")
+    #expect(
+        CompletionCoordinator.handle(f.key(125, modifiers: .command), controller: f.controller) == false,
+        "Command-Down is the editor's"
+    )
+    #expect(
+        CompletionCoordinator.handle(f.key(125, modifiers: .shift), controller: f.controller) == false,
+        "Shift-Down extends a selection"
+    )
     #expect(CompletionCoordinator.handle(f.key(53), controller: f.controller), "Escape closes")
     #expect(!f.controller.isActive && !f.coordinator.popup.isVisible)
 }
@@ -143,7 +169,10 @@ func acceptingIsOneUndoStep() async throws {
     #expect(f.session.text.hasSuffix("s.count"))
     f.endEvent()
     f.editor.undo.undoManager.undo()
-    #expect(f.session.text.hasSuffix("s.cou"), "back to what was typed, in one step: \(f.session.text.debugDescription)")
+    #expect(
+        f.session.text.hasSuffix("s.cou"),
+        "back to what was typed, in one step: \(f.session.text.debugDescription)"
+    )
 }
 
 @Test @MainActor
@@ -171,7 +200,11 @@ func aSpaceWithoutControlIsJustASpace() async throws {
 @Test @MainActor
 func marked_textKeepsEveryKeyForTheInputMethod() async throws {
     let f = Fixture(NSString(string: "s.") as String)
-    f.textView.setMarkedText("に", selectedRange: NSRange(location: 1, length: 0), replacementRange: NSRange(location: 2, length: 0))
+    f.textView.setMarkedText(
+        "に",
+        selectedRange: NSRange(location: 1, length: 0),
+        replacementRange: NSRange(location: 2, length: 0)
+    )
     f.textView.keyDown(with: f.key(49, characters: " ", modifiers: .control))
     await f.settle()
     #expect(f.provider.carets.isEmpty, "not while the input method holds marked text")
@@ -202,11 +235,23 @@ func movingTheCaretWithTheMouseClosesTheList() async throws {
 func thePopupSitsBelowTheCharacterAndAboveItWhenThereIsNoRoom() {
     let screen = NSRect(x: 0, y: 0, width: 1000, height: 800)
     let size = NSSize(width: 300, height: 200)
-    let low = CompletionPopup.frame(size: size, below: NSRect(x: 100, y: 500, width: 8, height: 16), visibleScreen: screen)
+    let low = CompletionPopup.frame(
+        size: size,
+        below: NSRect(x: 100, y: 500, width: 8, height: 16),
+        visibleScreen: screen
+    )
     #expect(low.maxY < 500 && low.minX < 100, "under the line")
-    let cramped = CompletionPopup.frame(size: size, below: NSRect(x: 100, y: 120, width: 8, height: 16), visibleScreen: screen)
+    let cramped = CompletionPopup.frame(
+        size: size,
+        below: NSRect(x: 100, y: 120, width: 8, height: 16),
+        visibleScreen: screen
+    )
     #expect(cramped.minY >= 136, "above the line when it would leave the screen")
-    let right = CompletionPopup.frame(size: size, below: NSRect(x: 990, y: 500, width: 8, height: 16), visibleScreen: screen)
+    let right = CompletionPopup.frame(
+        size: size,
+        below: NSRect(x: 990, y: 500, width: 8, height: 16),
+        visibleScreen: screen
+    )
     #expect(right.maxX <= 1000, "inside the screen on the right")
 }
 
@@ -227,7 +272,15 @@ func theStatusLineShowsInTheSamePanelAndIsReplacedByTheList() async throws {
 
 @Test @MainActor
 func everyStatusHasItsOwnText() {
-    let all: [CompletionStatus] = [.waiting, .starting, .restarting, .notReady, .noSuggestions, .unavailable, .notResponding]
+    let all: [CompletionStatus] = [
+        .waiting,
+        .starting,
+        .restarting,
+        .notReady,
+        .noSuggestions,
+        .unavailable,
+        .notResponding
+    ]
     let texts = all.map(CompletionPopup.text(for:))
     #expect(Set(texts).count == all.count && texts.allSatisfy { !$0.isEmpty })
 }

@@ -25,7 +25,10 @@ let package = Package(
                 .product(name: "LanguageInfrastructure", package: "IDE")
             ]
         ),
-        .testTarget(name: "SwiftIDEAppTests", dependencies: ["SwiftIDE", .product(name: "IDETestSupport", package: "IDE")])
+        .testTarget(
+            name: "SwiftIDEAppTests",
+            dependencies: ["SwiftIDE", .product(name: "IDETestSupport", package: "IDE")]
+        )
     ],
     swiftLanguageModes: [.v6]
 )

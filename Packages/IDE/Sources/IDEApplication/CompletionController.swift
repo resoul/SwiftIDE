@@ -134,7 +134,9 @@ public final class CompletionController {
 
     /// Completion at the caret, asked for by the user.
     public func requestManually() {
-        guard !session.isComposing, let caret = environment.caret(), caret >= 0, caret <= session.utf16Length else { return }
+        guard !session.isComposing, let caret = environment.caret(), caret >= 0, caret <= session.utf16Length else {
+            return
+        }
 
         let window = UTF16TextRange(location: max(0, caret - 128), length: caret - max(0, caret - 128))
         let before = Array(environment.text(window).utf16)
@@ -165,7 +167,8 @@ public final class CompletionController {
         guard edit.range.length == 0, edit.replacement == ".", edit.range.location > 0 else { return }
 
         let lookBack = min(edit.range.location, 64)
-        let before = Array(environment.text(UTF16TextRange(location: edit.range.location - lookBack, length: lookBack)).utf16)
+        let before = Array(environment.text(UTF16TextRange(location: edit.range.location - lookBack, length: lookBack))
+            .utf16)
         guard Self.endsMemberBase(before) else { return }
 
         begin(anchor: edit.range.location + 1, caret: edit.range.location + 1)
@@ -247,7 +250,11 @@ public final class CompletionController {
 
         dismiss()   // before the edit: it is the controller's own, not the user's typing
         do {
-            try session.apply([DocumentEdit(range: range, replacement: text)], expectedVersion: session.version, origin: .languageAction)
+            try session.apply(
+                [DocumentEdit(range: range, replacement: text)],
+                expectedVersion: session.version,
+                origin: .languageAction
+            )
         } catch {
             return false
         }

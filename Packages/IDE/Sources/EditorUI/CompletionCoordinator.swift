@@ -24,7 +24,9 @@ public final class CompletionCoordinator {
             provider: provider,
             environment: CompletionEnvironment(
                 caret: { [weak textView] in
-                    guard let range = textView?.selectedRange(), range.length == 0, range.location != NSNotFound else { return nil }
+                    guard let range = textView?.selectedRange(), range.length == 0, range.location != NSNotFound else {
+                        return nil
+                    }
 
                     return range.location
                 },
@@ -60,7 +62,11 @@ public final class CompletionCoordinator {
     static func handle(_ event: NSEvent, controller: CompletionController) -> Bool {
         guard event.type == .keyDown else { return false }
 
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([
+            .capsLock,
+            .numericPad,
+            .function
+        ])
         guard modifiers.isEmpty else { return false }
 
         switch event.keyCode {

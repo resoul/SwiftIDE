@@ -18,13 +18,15 @@ extension NativeAppTests {
         }
         @Test func checkoutReconcilesOtherWindowsAndLocalActionsPreserveBuffersAndUndo() async throws {
             _ = NSApplication.shared
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-git-local-\(UUID())").resolvingSymlinksInPath()
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-git-local-\(UUID())")
+                .resolvingSymlinksInPath()
             let sub = root.appendingPathComponent("Sub")
             try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: root) }
             let aPath = root.appendingPathComponent("a.txt"), bPath = sub.appendingPathComponent("b.txt")
             try git(["init", "-b", "main"], root)
-            try git(["config", "user.name", "Test Author"], root); try git(["config", "user.email", "author@example.test"], root)
+            try git(["config", "user.name", "Test Author"], root)
+            try git(["config", "user.email", "author@example.test"], root)
             try git(["config", "commit.gpgsign", "false"], root)
             try "base a\n".write(to: aPath, atomically: true, encoding: .utf8)
             try "base b\n".write(to: bPath, atomically: true, encoding: .utf8)
@@ -34,11 +36,17 @@ extension NativeAppTests {
             try "other b\n".write(to: bPath, atomically: true, encoding: .utf8)
             try git(["commit", "-am", "Other"], root); try git(["switch", "main"], root)
             var saveAll = false, asked: [String] = []
-            let app = AppDelegate(composition: AppCompositionRoot(recoveryStore: MemoryRecoveryStore(), recentStore: MemoryRecentProjectsStore()), gitCheckoutPrompt: { document in
+            let app = AppDelegate(
+                composition: AppCompositionRoot(
+                    recoveryStore: MemoryRecoveryStore(),
+                    recentStore: MemoryRecentProjectsStore()
+                ),
+                gitCheckoutPrompt: { document in
                 asked.append(document.path)
 
                 return saveAll || document.path == aPath.path ? .save : .cancel
-            })
+            }
+            )
             let project = app.openProject(path: root.path), second = app.openProject(path: sub.path)
             project.layout.onSave = nil; second.layout.onSave = nil
             project.files.onExclusionsChange = nil; second.files.onExclusionsChange = nil
@@ -47,7 +55,8 @@ extension NativeAppTests {
             try await wait { model.state == .ready && second.git?.state == .ready }
             await app.open(path: aPath.path, in: project); await app.open(path: bPath.path, in: second)
             let a = try #require(project.activeDocument), b = try #require(second.activeDocument)
-            let aEditor = try #require(a.focusTarget as? NSTextView), bEditor = try #require(b.focusTarget as? NSTextView)
+            let aEditor = try #require(a.focusTarget as? NSTextView),
+                bEditor = try #require(b.focusTarget as? NSTextView)
             aEditor.insertText("saved ", replacementRange: NSRange(location: 0, length: 0))
             bEditor.insertText("saved ", replacementRange: NSRange(location: 0, length: 0))
             let aText = a.session.text, bText = b.session.text
@@ -59,7 +68,10 @@ extension NativeAppTests {
             #expect(a.session.text == aText && b.session.text == bText)
             saveAll = true
             model.perform(.switchBranch(branch)); try await completed(model)
-            if case .failed = model.operationState {} else { Issue.record("Git must refuse overwriting conflicting saved disk edits") }
+            if case .failed = model.operationState {} else {
+                Issue.record("Git must refuse overwriting conflicting saved disk edits")
+            }
+
             #expect(project.shell.notifications.items.first?.kind == .error)
             #expect(model.snapshot?.branch == "main" && aEditor.isEditable && bEditor.isEditable)
             #expect(a.session.text == aText && b.session.text == bText && bEditor.undoManager?.canUndo == true)
@@ -76,13 +88,17 @@ extension NativeAppTests {
             #expect(second.shell.notifications.items.isEmpty, "another project did not run this operation")
             project.shell.notifications.dismiss(notification.id)
             model.refresh(); try await wait { model.state == .ready }
-            #expect(project.shell.notifications.items.isEmpty, "status refresh does not replay an old operation notification")
+            #expect(
+                project.shell.notifications.items.isEmpty,
+                "status refresh does not replay an old operation notification"
+            )
             let prepare = try #require(model.prepareCheckout)
             var sawLocks = false
             model.prepareCheckout = { repository in
                 let prepared = await prepare(repository)
                 if prepared {
-                    sawLocks = !aEditor.isEditable && !bEditor.isEditable && aEditor.undoManager?.canUndo == false && bEditor.undoManager?.canUndo == false
+                    sawLocks = !aEditor.isEditable && !bEditor.isEditable && aEditor.undoManager?
+                        .canUndo == false && bEditor.undoManager?.canUndo == false
                     aEditor.undoManager?.undo()
                     #expect(a.session.text == aText, "checkout lock must preserve Undo history without executing it")
                     #expect(await a.save() == false)
@@ -110,13 +126,15 @@ extension NativeAppTests {
                 view.layoutSubtreeIfNeeded()
                 let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
                 view.cacheDisplay(in: view.bounds, to: bitmap)
-                try #require(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: "/private/tmp/swiftide-git-local-project-\(name).png"))
+                try #require(bitmap.representation(using: .png, properties: [:]))
+                    .write(to: URL(fileURLWithPath: "/private/tmp/swiftide-git-local-project-\(name).png"))
             }
 
         }
         private func git(_ arguments: [String], _ root: URL) throws {
             let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/git"); process.arguments = ["-C", root.path] + arguments
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = ["-C", root.path] + arguments
             process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
             try process.run(); process.waitUntilExit()
             try #require(process.terminationStatus == 0)

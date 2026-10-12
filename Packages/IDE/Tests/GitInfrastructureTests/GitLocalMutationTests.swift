@@ -35,7 +35,8 @@ struct GitLocalMutationTests {
         #expect(snapshot.changes.first { $0.path == "other.txt" }?.decoration.isUntracked == true)
         let content = try repo.git(["show", "HEAD:" + path])
         #expect(String(decoding: content, as: UTF8.self) == "disk bytes after stage\n")
-        #expect(String(decoding: try repo.git(["log", "-1", "--format=%B"]), as: UTF8.self).contains("Message with $ and ` literals"))
+        #expect(String(decoding: try repo.git(["log", "-1", "--format=%B"]), as: UTF8.self)
+            .contains("Message with $ and ` literals"))
     }
 
     @Test func unstageModificationRenameAndDeletionNeverRewritesWorktree() async throws {
@@ -71,16 +72,22 @@ struct GitLocalMutationTests {
         try repo.write("a.txt", "local disk edit\n")
         snapshot = try await git.snapshot(at: repo.root)
         let newFeature = try #require(snapshot.branches.first { $0.name == "feature/local" })
-        await #expect(throws: GitInspectionError.self) { try await git.perform(.switchBranch(newFeature), expected: snapshot, output: { _ in }) }
+        await #expect(throws: GitInspectionError.self) {
+            try await git.perform(.switchBranch(newFeature), expected: snapshot, output: { _ in })
+        }
         #expect(try String(contentsOfFile: repo.root + "/a.txt", encoding: .utf8) == "local disk edit\n")
         #expect(try await git.snapshot(at: repo.root).branch == "main")
         try repo.write("a.txt", "base\n")
         let link = repo.root + "-linked"; defer { try? FileManager.default.removeItem(atPath: link) }
         try repo.git(["worktree", "add", link, "feature/local"])
         snapshot = try await git.snapshot(at: repo.root)
-        await #expect(throws: GitInspectionError.self) { try await git.perform(.switchBranch(newFeature), expected: snapshot, output: { _ in }) }
+        await #expect(throws: GitInspectionError.self) {
+            try await git.perform(.switchBranch(newFeature), expected: snapshot, output: { _ in })
+        }
         await #expect(throws: GitInspectionError.self) { try await perform(.createBranch("-bad"), repo: repo) }
-        await #expect(throws: GitInspectionError.failed("Invalid branch name")) { try await perform(.createBranch("bad name"), repo: repo) }
+        await #expect(throws: GitInspectionError.failed("Invalid branch name")) {
+            try await perform(.createBranch("bad name"), repo: repo)
+        }
         await #expect(throws: GitInspectionError.self) { try await perform(.createBranch("feature/local"), repo: repo) }
     }
 
@@ -89,12 +96,15 @@ struct GitLocalMutationTests {
         try repo.write("a.txt", "first\n"); try repo.git(["add", "."])
         let old = try await git.snapshot(at: repo.root)
         try repo.write("a.txt", "other staged\n"); try repo.git(["add", "."])
-        await #expect(throws: GitInspectionError.failed("Repository changed since review; refresh and retry the action")) {
+        await #expect(throws: GitInspectionError
+            .failed("Repository changed since review; refresh and retry the action")) {
             try await git.perform(.commit("Stale commit"), expected: old, output: { _ in })
         }
         #expect(try await git.snapshot(at: repo.root).head == nil)
         try await perform(.commit("Current"), repo: repo)
-        await #expect(throws: GitInspectionError.self) { try await git.perform(.unstage(try #require(old.changes.first)), expected: old, output: { _ in }) }
+        await #expect(throws: GitInspectionError.self) {
+            try await git.perform(.unstage(try #require(old.changes.first)), expected: old, output: { _ in })
+        }
         await #expect(throws: GitInspectionError.self) { try await perform(.commit(" \n"), repo: repo) }
     }
 
@@ -102,11 +112,17 @@ struct GitLocalMutationTests {
         let repo = try RepositoryFixture(); defer { repo.remove() }
         try repo.write("a.txt", "one\n"); try repo.git(["add", "."])
         let hook = repo.root + "/.git/hooks/pre-commit"
-        try "#!/bin/sh\necho 'hook explains failure' >&2\nexit 1\n".write(toFile: hook, atomically: true, encoding: .utf8)
+        try "#!/bin/sh\necho 'hook explains failure' >&2\nexit 1\n".write(
+            toFile: hook,
+            atomically: true,
+            encoding: .utf8
+        )
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook)
         let output = CollectedOutput()
         let snapshot = try await git.snapshot(at: repo.root)
-        await #expect(throws: GitInspectionError.self) { try await git.perform(.commit("Blocked"), expected: snapshot, output: { output.append($0) }) }
+        await #expect(throws: GitInspectionError.self) {
+            try await git.perform(.commit("Blocked"), expected: snapshot, output: { output.append($0) })
+        }
         #expect(output.text.contains("hook explains failure"))
         let after = try await git.snapshot(at: repo.root)
         #expect(after.head == nil && after.changes.first?.decoration.index == "A")
@@ -116,17 +132,25 @@ struct GitLocalMutationTests {
         let repo = try RepositoryFixture(); defer { repo.remove() }
         try repo.write("a.txt", "one\n"); try repo.git(["add", "."])
         let hook = repo.root + "/.git/hooks/pre-commit", marker = repo.root + "/.git/hook-running"
-        try "#!/bin/sh\necho running\necho $$ > '\(marker)'\n/bin/sleep 30\n".write(toFile: hook, atomically: true, encoding: .utf8)
+        try "#!/bin/sh\necho running\necho $$ > '\(marker)'\n/bin/sleep 30\n".write(
+            toFile: hook,
+            atomically: true,
+            encoding: .utf8
+        )
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook)
         let snapshot = try await git.snapshot(at: repo.root)
         let task = Task { try await git.perform(.commit("Cancelled"), expected: snapshot, output: { _ in }) }
         let deadline = ContinuousClock.now + .seconds(5)
-        while !FileManager.default.fileExists(atPath: marker), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+        while !FileManager.default.fileExists(atPath: marker), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         try #require(FileManager.default.fileExists(atPath: marker))
         await #expect(throws: GitInspectionError.failed("Another Git action is running for this repository")) {
             try await git.perform(.commit("Concurrent"), expected: snapshot, output: { _ in })
         }
-        let pid = try #require(Int32(String(contentsOfFile: marker, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)))
+        let pid =
+            try #require(Int32(String(contentsOfFile: marker, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)))
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
         #expect(kill(pid, 0) != 0)

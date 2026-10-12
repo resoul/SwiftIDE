@@ -14,15 +14,32 @@ struct EditorAreaTests {
         let tabs = DocumentTabs()
         let a = DocumentID(), b = DocumentID(), c = DocumentID()
         for id in [a, b, c] { tabs.open(id) }
-        let presentations = [DocumentTabPresentation(id: a, name: "a.swift", path: "/w/a.swift", decoration: .init(exclusionReason: "Excluded", isUnsaved: true)),
-                             DocumentTabPresentation(id: b, name: "b.swift", path: "/w/b.swift"),
-                             DocumentTabPresentation(id: c, name: "c.swift", path: "/w/c.swift")]
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 700, height: 450), styleMask: [.titled], backing: .buffered, defer: false)
+        let presentations = [
+            DocumentTabPresentation(
+                id: a,
+                name: "a.swift",
+                path: "/w/a.swift",
+                decoration: .init(exclusionReason: "Excluded", isUnsaved: true)
+            ),
+            DocumentTabPresentation(id: b, name: "b.swift", path: "/w/b.swift"),
+            DocumentTabPresentation(id: c, name: "c.swift", path: "/w/c.swift")
+        ]
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 700, height: 450),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.contentViewController = area
         window.setContentSize(NSSize(width: 700, height: 450))
         defer { window.close() }
-        func render() { area.tabs.present(tabs.order.compactMap { id in presentations.first { $0.id == id } }, selected: tabs.selected) }
+        func render() {
+            area.tabs.present(
+                tabs.order.compactMap { id in presentations.first { $0.id == id } },
+                selected: tabs.selected
+            )
+        }
         area.tabs.onSelect = { tabs.select($0); render() }
         area.tabs.onClose = { tabs.remove($0); render() }
         area.tabs.onMove = { tabs.move($0, to: $1); render() }
@@ -36,7 +53,10 @@ struct EditorAreaTests {
         #expect(cell.view.toolTip?.contains("Excluded") == true)
         let pasteboard = NSPasteboard(name: .init("SwiftIDE-tabs-test-\(UUID())"))
         defer { pasteboard.releaseGlobally() }
-        let writer = try #require(area.tabs.collectionView(area.tabs.collection, pasteboardWriterForItemAt: IndexPath(item: 0, section: 0)))
+        let writer = try #require(area.tabs.collectionView(
+            area.tabs.collection,
+            pasteboardWriterForItemAt: IndexPath(item: 0, section: 0)
+        ))
         pasteboard.writeObjects([writer])
         #expect(area.tabs.moveTab(from: area.tabs.collection, pasteboard: pasteboard, to: 3))
         #expect(tabs.order == [b, c, a] && tabs.selected == a)
@@ -51,7 +71,8 @@ struct EditorAreaTests {
         window.contentView?.layoutSubtreeIfNeeded()
         try await settle()
         let movedCell = try #require(area.tabs.collection.item(at: IndexPath(item: 2, section: 0)))
-        let close = try #require(movedCell.view.subviews.compactMap { $0 as? NSStackView }.first?.arrangedSubviews.last as? NSButton)
+        let close = try #require(movedCell.view.subviews.compactMap { $0 as? NSStackView }.first?.arrangedSubviews
+            .last as? NSButton)
         close.performClick(nil)
         #expect(tabs.order == [b, c] && tabs.selected == c)
     }
@@ -63,14 +84,21 @@ struct EditorAreaTests {
         let text = NSTextView()
         document.view = text
         area.show(document, focusTarget: text)
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 450, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 450, height: 300),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.contentViewController = area
         window.setContentSize(NSSize(width: 450, height: 300))
         defer { window.close() }
         window.makeFirstResponder(text)
         let responder = window.firstResponder
-        let items = (0..<12).map { DocumentTabPresentation(id: DocumentID(), name: "LongDocumentName-\($0).swift", path: "/w/\($0).swift") }
+        let items = (0..<12).map {
+            DocumentTabPresentation(id: DocumentID(), name: "LongDocumentName-\($0).swift", path: "/w/\($0).swift")
+        }
         let selected = try #require(items.last?.id)
         area.tabs.present(items, selected: selected)
         window.contentView?.layoutSubtreeIfNeeded()
@@ -79,7 +107,12 @@ struct EditorAreaTests {
         #expect(area.tabs.collection.item(at: IndexPath(item: 11, section: 0)) != nil)
         #expect(window.firstResponder === responder)
         var changed = items
-        changed[11] = .init(id: selected, name: "renamed.swift", path: "/w/renamed.swift", decoration: .init(isUnsaved: true))
+        changed[11] = .init(
+            id: selected,
+            name: "renamed.swift",
+            path: "/w/renamed.swift",
+            decoration: .init(isUnsaved: true)
+        )
         area.tabs.present(changed, selected: selected)
         try await settle()
         #expect(area.tabs.selected == selected && window.firstResponder === responder)
@@ -107,8 +140,19 @@ struct EditorAreaTests {
         let tool = WorkspaceTool(id: 100, title: "Containers", symbol: "shippingbox", zone: .right)
         let draft = NSTextField(string: "container filter")
         let state = WorkspaceLayoutState(available: [.files, tool])
-        let shell = WorkspaceShellViewController(state: state, editor: NSView(), panels: [.files: .init(view: NSView()), tool: .init(view: draft, focusTarget: draft)], project: "Project", path: "/w")
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820), styleMask: [.titled], backing: .buffered, defer: false)
+        let shell = WorkspaceShellViewController(
+            state: state,
+            editor: NSView(),
+            panels: [.files: .init(view: NSView()), tool: .init(view: draft, focusTarget: draft)],
+            project: "Project",
+            path: "/w"
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.contentViewController = shell
         defer { shell.disconnect(); window.close() }

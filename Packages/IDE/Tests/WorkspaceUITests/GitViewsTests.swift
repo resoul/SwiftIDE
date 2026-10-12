@@ -15,7 +15,12 @@ struct GitViewsTests {
         _ = NSApplication.shared
         let model = GitWorkspace(root: "/repo", service: ViewsGit())
         let changes = GitChangesViewController(model: model)
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 370, height: 620), styleMask: [.titled], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 370, height: 620),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false; window.contentViewController = changes
         defer { changes.disconnect(); model.stop(); window.close() }
         model.refresh(); try await wait { model.state == .ready }
@@ -37,7 +42,12 @@ struct GitViewsTests {
         let branches = GitBranchPickerViewController(model: model), log = GitLogViewController(model: model)
         let diff = GitDiffViewController(model: model)
         _ = branches.view; _ = log.view
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 700, height: 420), styleMask: [.titled], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 700, height: 420),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false; window.contentViewController = diff
         defer { branches.disconnect(); log.disconnect(); diff.disconnect(); model.stop(); window.close() }
         model.refresh(); try await wait { model.state == .ready && model.historyState == .ready }
@@ -68,15 +78,42 @@ private struct ViewsGit: GitInspecting {
     static let both = GitChange(path: "both.txt", decoration: .init(index: "M", worktree: "M"))
     private let oid = String(repeating: "a", count: 40)
     func snapshot(at projectRoot: String) async throws -> GitSnapshot {
-        .init(repository: .init(root: "/repo", gitDirectory: "/repo/.git", commonDirectory: "/repo/.git"),
-              branch: "main",
-              head: oid,
-              changes: [Self.both, .init(path: "untracked.txt", decoration: .init(isUntracked: true)), .init(path: "ignored", decoration: .init(ignoredReason: ".gitignore:1"))],
-              branches: [.init(reference: "refs/heads/main", oid: oid), .init(reference: "refs/remotes/origin/main", oid: oid)])
+        .init(
+            repository: .init(root: "/repo", gitDirectory: "/repo/.git", commonDirectory: "/repo/.git"),
+            branch: "main",
+            head: oid,
+            changes: [
+                Self.both,
+                .init(path: "untracked.txt", decoration: .init(isUntracked: true)),
+                .init(path: "ignored", decoration: .init(ignoredReason: ".gitignore:1"))
+            ],
+            branches: [
+                .init(reference: "refs/heads/main", oid: oid),
+                .init(reference: "refs/remotes/origin/main", oid: oid)
+            ]
+        )
     }
-    func history(in repository: GitRepository, revision: String, offset: Int, count: Int) async throws -> GitHistoryPage {
-        .init(commits: [.init(oid: oid, parents: [], author: "Author", date: Date(timeIntervalSince1970: 100), subject: "Initial commit")], hasMore: false)
+    func history(
+        in repository: GitRepository,
+        revision: String,
+        offset: Int,
+        count: Int
+    ) async throws -> GitHistoryPage {
+        .init(
+            commits: [.init(
+                oid: oid,
+                parents: [],
+                author: "Author",
+                date: Date(timeIntervalSince1970: 100),
+                subject: "Initial commit"
+            )],
+            hasMore: false
+        )
     }
-    func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] { [.init(path: "both.txt", status: "A")] }
-    func diff(in repository: GitRepository, comparison: GitComparison) async throws -> String { "+new line\n-old line\n" }
+    func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] {
+        [.init(path: "both.txt", status: "A")]
+    }
+    func diff(in repository: GitRepository, comparison: GitComparison) async throws -> String {
+        "+new line\n-old line\n"
+    }
 }

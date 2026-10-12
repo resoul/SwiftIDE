@@ -35,13 +35,21 @@ private final class FakePresenter: DiagnosticsPresenting {
     var last: [DiagnosticMark] { shown.last ?? [] }
 }
 
-private func diagnostic(_ location: Int, _ length: Int, _ severity: DocumentDiagnostic.Severity = .error, _ message: String = "boom") -> DocumentDiagnostic {
+private func diagnostic(
+    _ location: Int,
+    _ length: Int,
+    _ severity: DocumentDiagnostic.Severity = .error,
+    _ message: String = "boom"
+) -> DocumentDiagnostic {
     DocumentDiagnostic(range: UTF16TextRange(location: location, length: length), severity: severity, message: message)
 }
 
 @MainActor
 private struct Rig {
-    let session = DocumentSession(path: "/w/A.swift", backend: StringDocumentBackend(loadedText: "let a = 1\nlet b = 2\nlet c = 3\n"))
+    let session = DocumentSession(
+        path: "/w/A.swift",
+        backend: StringDocumentBackend(loadedText: "let a = 1\nlet b = 2\nlet c = 3\n")
+    )
     let provider = FakeProvider()
     let presenter = FakePresenter()
     let controller: DiagnosticsController
@@ -55,7 +63,11 @@ private struct Rig {
     }
 
     func edit(_ location: Int, _ length: Int, _ text: String) throws {
-        try session.apply([DocumentEdit(range: UTF16TextRange(location: location, length: length), replacement: text)], expectedVersion: session.version, origin: .typing)
+        try session.apply(
+            [DocumentEdit(range: UTF16TextRange(location: location, length: length), replacement: text)],
+            expectedVersion: session.version,
+            origin: .typing
+        )
     }
 }
 
@@ -167,7 +179,11 @@ func aChangeThatDoesNotFollowOnTakesTheMarksOff() throws {
 @Test @MainActor
 func marksAtAPlaceAreWorstFirstAndAnEmptyMarkCoversItsOwnCharacter() {
     let rig = Rig()
-    rig.report([diagnostic(4, 3, .warning, "careful"), diagnostic(5, 1, .error, "broken"), diagnostic(10, 0, .information, "look")])
+    rig.report([
+        diagnostic(4, 3, .warning, "careful"),
+        diagnostic(5, 1, .error, "broken"),
+        diagnostic(10, 0, .information, "look")
+    ])
     #expect(rig.controller.marks(at: 5).map(\.message) == ["broken", "careful"])
     #expect(rig.controller.marks(at: 4).map(\.message) == ["careful"])
     #expect(rig.controller.marks(at: 7).isEmpty)
@@ -186,7 +202,11 @@ func theMarginGetsTheWorstSeverityOfEachLine() {
 func letGoOfTheControllerStopsListening() {
     let provider = FakeProvider()
     let session = DocumentSession(path: "/w/A.swift", backend: StringDocumentBackend(loadedText: "x"))
-    var controller: DiagnosticsController? = DiagnosticsController(session: session, provider: provider, presenter: FakePresenter())
+    var controller: DiagnosticsController? = DiagnosticsController(
+        session: session,
+        provider: provider,
+        presenter: FakePresenter()
+    )
     #expect(provider.observerCount == 1 && controller != nil)
     controller = nil
     #expect(provider.observerCount == 0)
@@ -202,17 +222,44 @@ func placementThroughSeveralEditsOfOneChangeSet() {
         DocumentEdit(range: UTF16TextRange(location: 10, length: 0), replacement: "++"),
         DocumentEdit(range: UTF16TextRange(location: 0, length: 3), replacement: ""),
     ]
-    #expect(DiagnosticPlacement.range(UTF16TextRange(location: 12, length: 4), through: edits) == UTF16TextRange(location: 11, length: 4), "-3 before, +2 insertion before")
-    #expect(DiagnosticPlacement.range(UTF16TextRange(location: 24, length: 2), through: edits) == UTF16TextRange(location: 25, length: 2), "-3 +2 +2 before")
-    #expect(DiagnosticPlacement.range(UTF16TextRange(location: 4, length: 4), through: edits) == UTF16TextRange(location: 1, length: 4))
+    #expect(
+        DiagnosticPlacement.range(UTF16TextRange(location: 12, length: 4), through: edits) == UTF16TextRange(
+            location: 11,
+            length: 4
+        ),
+        "-3 before, +2 insertion before"
+    )
+    #expect(
+        DiagnosticPlacement.range(UTF16TextRange(location: 24, length: 2), through: edits) == UTF16TextRange(
+            location: 25,
+            length: 2
+        ),
+        "-3 +2 +2 before"
+    )
+    #expect(DiagnosticPlacement.range(UTF16TextRange(location: 4, length: 4), through: edits) == UTF16TextRange(
+        location: 1,
+        length: 4
+    ))
 }
 
 @Test
 func aReplacementThatEndsWhereAMarkStartsMovesTheMarkAndOneThatEndsWhereItEndsTakesItsEndAlong() {
     let mark = UTF16TextRange(location: 4, length: 5)       // 4..<9
-    #expect(DiagnosticPlacement.range(mark, through: [DocumentEdit(range: UTF16TextRange(location: 2, length: 2), replacement: "ABCDE")]) == UTF16TextRange(location: 7, length: 5))
-    #expect(DiagnosticPlacement.range(mark, through: [DocumentEdit(range: UTF16TextRange(location: 7, length: 2), replacement: "XYZ")]) == UTF16TextRange(location: 4, length: 6))
-    #expect(DiagnosticPlacement.range(mark, through: [DocumentEdit(range: UTF16TextRange(location: 9, length: 2), replacement: "X")]) == mark, "starting where the mark ends: not part of it")
+    #expect(DiagnosticPlacement.range(
+        mark,
+        through: [DocumentEdit(range: UTF16TextRange(location: 2, length: 2), replacement: "ABCDE")]
+    ) == UTF16TextRange(location: 7, length: 5))
+    #expect(DiagnosticPlacement.range(
+        mark,
+        through: [DocumentEdit(range: UTF16TextRange(location: 7, length: 2), replacement: "XYZ")]
+    ) == UTF16TextRange(location: 4, length: 6))
+    #expect(
+        DiagnosticPlacement.range(mark, through: [DocumentEdit(
+            range: UTF16TextRange(location: 9, length: 2),
+            replacement: "X"
+        )]) == mark,
+        "starting where the mark ends: not part of it"
+    )
 }
 
 @Test @MainActor
@@ -230,7 +277,10 @@ func aReportThatNamesItsVersionIsVerifiedOneThatDoesNotIsNot() {
     rig.report([diagnostic(4, 1)], verified: true)
     #expect(rig.controller.marks.map(\.freshness) == [.verified])
     rig.report([diagnostic(4, 1)], verified: false)
-    #expect(rig.controller.marks.map(\.freshness) == [.unverified], "the lack of a version is not lost on the way to the screen")
+    #expect(
+        rig.controller.marks.map(\.freshness) == [.unverified],
+        "the lack of a version is not lost on the way to the screen"
+    )
 }
 
 @Test @MainActor
@@ -268,15 +318,29 @@ private struct TextRig {
         let backend = StringDocumentBackend(loadedText: text)
         session = DocumentSession(path: "/w/A.swift", backend: backend)
         let lineIndex = DocumentLineIndex(session: session, source: backend)
-        controller = DiagnosticsController(session: session, provider: provider, presenter: FakePresenter(), lineIndex: lineIndex, source: backend)
+        controller = DiagnosticsController(
+            session: session,
+            provider: provider,
+            presenter: FakePresenter(),
+            lineIndex: lineIndex,
+            source: backend
+        )
     }
 
     func report(at offset: Int, _ message: String = "missing argument for parameter 'test' in call") {
-        provider.publish(DocumentDiagnostics(items: [diagnostic(offset, 0, .error, message)], version: session.version, isVerified: false))
+        provider.publish(DocumentDiagnostics(
+            items: [diagnostic(offset, 0, .error, message)],
+            version: session.version,
+            isVerified: false
+        ))
     }
 
     func edit(_ location: Int, _ length: Int, _ text: String) throws {
-        try session.apply([DocumentEdit(range: UTF16TextRange(location: location, length: length), replacement: text)], expectedVersion: session.version, origin: .typing)
+        try session.apply(
+            [DocumentEdit(range: UTF16TextRange(location: location, length: length), replacement: text)],
+            expectedVersion: session.version,
+            origin: .typing
+        )
     }
 }
 
@@ -289,7 +353,10 @@ private let closingParenthesis = (callText as NSString).range(of: "\"))").locati
 func aProblemWithNoExtentInsideAWordIsShownOverTheWord() {
     let rig = TextRig(callText)
     rig.report(at: (callText as NSString).range(of: "Greeter").location + 3)
-    #expect(rig.controller.marks.first?.range == UTF16TextRange(location: (callText as NSString).range(of: "Greeter").location, length: 7))
+    #expect(rig.controller.marks.first?.range == UTF16TextRange(
+        location: (callText as NSString).range(of: "Greeter").location,
+        length: 7
+    ))
 }
 
 @Test @MainActor
@@ -319,7 +386,11 @@ func aProblemWithNoExtentOnAnEmptyLineStaysWhereItIs() {
 @Test @MainActor
 func aProblemWithAnExtentIsNeverWidened() {
     let rig = TextRig(callText)
-    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1)], version: rig.session.version, isVerified: false))
+    rig.provider.publish(DocumentDiagnostics(
+        items: [diagnostic(4, 1)],
+        version: rig.session.version,
+        isVerified: false
+    ))
     #expect(rig.controller.marks.first?.range == UTF16TextRange(location: 4, length: 1))
 }
 
@@ -329,7 +400,10 @@ func theWidenedPlaceFollowsTheLineWhileItIsTypedIn() throws {
     rig.report(at: closingParenthesis)
     let line = (callText as NSString).range(of: "print(Greeter(name: \"Swift IDE\"))")
     try rig.edit(line.location, 0, "try ")
-    #expect(rig.controller.marks.first?.range == UTF16TextRange(location: line.location, length: line.length + 4), "the whole line as it is now")
+    #expect(
+        rig.controller.marks.first?.range == UTF16TextRange(location: line.location, length: line.length + 4),
+        "the whole line as it is now"
+    )
 }
 
 @Test @MainActor
@@ -355,7 +429,12 @@ func theProblemsOfALineAreAskedForByItsNumber() {
 @Test @MainActor
 func aReportMadeDuringTheInitialPreparationIsWithheld() {
     let rig = Rig()
-    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1, .error, "No such module 'Lib'")], version: rig.session.version, isVerified: true, basis: .preparing))
+    rig.provider.publish(DocumentDiagnostics(
+        items: [diagnostic(4, 1, .error, "No such module 'Lib'")],
+        version: rig.session.version,
+        isVerified: true,
+        basis: .preparing
+    ))
 
     #expect(rig.controller.marks.isEmpty && rig.controller.summary.text == nil, "neither underlines nor a counter")
     #expect(rig.presenter.last.isEmpty)
@@ -364,18 +443,38 @@ func aReportMadeDuringTheInitialPreparationIsWithheld() {
 @Test @MainActor
 func aWithheldReportDoesNotComeBackWhenTheTextChangesOrTheViewIsRefreshed() throws {
     let rig = Rig()
-    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1)], version: rig.session.version, isVerified: true, basis: .preparing))
+    rig.provider.publish(DocumentDiagnostics(
+        items: [diagnostic(4, 1)],
+        version: rig.session.version,
+        isVerified: true,
+        basis: .preparing
+    ))
     try rig.edit(0, 0, "// typing\n")
     #expect(rig.controller.marks.isEmpty)
-    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1)], version: rig.session.version, isVerified: true, basis: .preparing))
+    rig.provider.publish(DocumentDiagnostics(
+        items: [diagnostic(4, 1)],
+        version: rig.session.version,
+        isVerified: true,
+        basis: .preparing
+    ))
     #expect(rig.controller.marks.isEmpty, "the same basis, the same answer")
 }
 
 @Test @MainActor
 func aLaterReportOnUnconfirmedSettingsIsShownAndReplacesTheWithheldOne() {
     let rig = Rig()
-    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1)], version: rig.session.version, isVerified: false, basis: .preparing))
-    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(14, 1, .error, "real")], version: rig.session.version, isVerified: false, basis: .unconfirmed))
+    rig.provider.publish(DocumentDiagnostics(
+        items: [diagnostic(4, 1)],
+        version: rig.session.version,
+        isVerified: false,
+        basis: .preparing
+    ))
+    rig.provider.publish(DocumentDiagnostics(
+        items: [diagnostic(14, 1, .error, "real")],
+        version: rig.session.version,
+        isVerified: false,
+        basis: .unconfirmed
+    ))
 
     #expect(rig.controller.marks.map(\.message) == ["real"])
     #expect(rig.controller.marks.first?.basis == .unconfirmed)
@@ -385,7 +484,12 @@ func aLaterReportOnUnconfirmedSettingsIsShownAndReplacesTheWithheldOne() {
 @Test @MainActor
 func aReportOnFallbackSettingsIsShownAndSaysWhatItWasMadeOn() {
     let rig = Rig()
-    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(4, 1, .error, "'api.h' file not found")], version: rig.session.version, isVerified: false, basis: .fallback))
+    rig.provider.publish(DocumentDiagnostics(
+        items: [diagnostic(4, 1, .error, "'api.h' file not found")],
+        version: rig.session.version,
+        isVerified: false,
+        basis: .fallback
+    ))
 
     #expect(rig.controller.marks.count == 1)
     #expect(rig.controller.marks.first?.basis == .fallback)
@@ -394,7 +498,12 @@ func aReportOnFallbackSettingsIsShownAndSaysWhatItWasMadeOn() {
 @Test @MainActor
 func theBasisOfAMarkSurvivesEditsThatMoveIt() throws {
     let rig = Rig()
-    rig.provider.publish(DocumentDiagnostics(items: [diagnostic(14, 1)], version: rig.session.version, isVerified: true, basis: .fallback))
+    rig.provider.publish(DocumentDiagnostics(
+        items: [diagnostic(14, 1)],
+        version: rig.session.version,
+        isVerified: true,
+        basis: .fallback
+    ))
     try rig.edit(0, 0, "// moved\n")
     #expect(rig.controller.marks.first?.basis == .fallback && rig.controller.marks.first?.isStale == true)
 }

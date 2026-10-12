@@ -92,10 +92,22 @@ private final class Rig {
     }
 }
 
-private func completionItem(_ label: String, newText: String? = nil, line: Int = 1, from: Int = 2, to: Int = 2) -> JSONValue {
+private func completionItem(
+    _ label: String,
+    newText: String? = nil,
+    line: Int = 1,
+    from: Int = 2,
+    to: Int = 2
+) -> JSONValue {
     var item: [String: JSONValue] = ["label": .string(label), "detail": "Int"]
     if let newText {
-        item["textEdit"] = ["range": ["start": ["line": .int(line), "character": .int(from)], "end": ["line": .int(line), "character": .int(to)]], "newText": .string(newText)]
+        item["textEdit"] = [
+            "range": [
+                "start": ["line": .int(line), "character": .int(from)],
+                "end": ["line": .int(line), "character": .int(to)]
+            ],
+            "newText": .string(newText)
+        ]
     }
 
     return .object(item)
@@ -139,14 +151,24 @@ func initialiseAsksForUTF16AndVersionedDiagnostics() async throws {
 
 @Test @MainActor
 func completionReturnsTheServersItemsWithTheirReplacementRanges() async throws {
-    let server = ScriptedServer(handler: ScriptedServer.standard(completion: [completionItem("bitWidth", newText: "bitWidth"), completionItem("magnitude")]))
+    let server = ScriptedServer(handler: ScriptedServer.standard(completion: [
+        completionItem("bitWidth", newText: "bitWidth"),
+        completionItem("magnitude")
+    ]))
     let rig = Rig(servers: [server])
     try await rig.started()
-    guard case .items(let items, let incomplete) = await rig.completion() else { Issue.record("expected items"); return }
+    guard case .items(let items, let incomplete) = await rig.completion() else {
+        Issue.record("expected items")
+
+        return
+    }
 
     #expect(!incomplete)
     #expect(items.map(\.label) == ["bitWidth", "magnitude"])
-    #expect(items[0].replacementRange == UTF16TextRange(location: 12, length: 0), "line 1, character 2 of \"let x = 1\\nx.\\n\"")
+    #expect(
+        items[0].replacementRange == UTF16TextRange(location: 12, length: 0),
+        "line 1, character 2 of \"let x = 1\\nx.\\n\""
+    )
     #expect(items[1].replacementRange == nil)
     #expect(items[0].detail == "Int")
 }
@@ -163,7 +185,10 @@ func aLabelWithClangdsLeadingSpaceIsShownWithoutItAndInsertsWithoutIt() async th
     try await rig.started()
     guard case .items(let items, _) = await rig.completion() else { Issue.record("expected items"); return }
 
-    #expect(items.map(\.label) == ["clib_add", "x", "group_req"], "the empty one is no item; the bullet marks the index")
+    #expect(
+        items.map(\.label) == ["clib_add", "x", "group_req"],
+        "the empty one is no item; the bullet marks the index"
+    )
     #expect(items[0].insertText == "clib_add", "no text edit and no insert text: the name")
     #expect(items[1].insertText == "x")
     #expect(items[0].filterText == "clib_add" && items[0].kind == .function)
@@ -174,14 +199,21 @@ func anInsertReplaceEditNamesTheReplaceRange() async throws {
     func position(_ character: Int) -> JSONValue { ["line": .int(1), "character": .int(character)] }
     let both: JSONValue = .object([
         "label": "count",
-        "textEdit": ["newText": "count", "insert": ["start": position(0), "end": position(1)], "replace": ["start": position(0), "end": position(2)]],
+        "textEdit": [
+            "newText": "count",
+            "insert": ["start": position(0), "end": position(1)],
+            "replace": ["start": position(0), "end": position(2)]
+        ],
     ])
     let server = ScriptedServer(handler: ScriptedServer.standard(completion: [both]))
     let rig = Rig(servers: [server])
     try await rig.started()
     guard case .items(let items, _) = await rig.completion() else { Issue.record("expected items"); return }
 
-    #expect(items[0].replacementRange == UTF16TextRange(location: 10, length: 2), "the replace range, not the insert one")
+    #expect(
+        items[0].replacementRange == UTF16TextRange(location: 10, length: 2),
+        "the replace range, not the insert one"
+    )
 }
 
 @Test @MainActor
@@ -218,7 +250,9 @@ func manyEditsAndACompletionArriveInTheOrderTheyWereMade() async throws {
     #expect(await server.waitUntil { server.methods.filter { $0 == "textDocument/completion" }.count == 4 })
     #expect(Array(server.methods.dropFirst(3)) == expected)   // initialize, initialized, didOpen first
     // Each request names the position of the text as it was when it was made.
-    let characters = server.messages(named: "textDocument/completion").compactMap { $0["params"]?["position"]?["character"]?.intValue }
+    let characters = server.messages(named: "textDocument/completion").compactMap {
+        $0["params"]?["position"]?["character"]?.intValue
+    }
     #expect(characters == [10, 20, 30, 40])
 }
 
@@ -392,14 +426,20 @@ func theLastWordOfADeadServerIsNotMistakenForTheNewOnes() async throws {
     rig.service.received("textDocument/publishDiagnostics", [
         "uri": "file:///w/Main.swift",
         "version": 0,
-        "diagnostics": [["message": "from the dead", "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 1]]]],
+        "diagnostics": [[
+            "message": "from the dead",
+            "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 1]]
+        ]],
     ], from: 1)
     #expect(rig.service.diagnostics(for: rig.session) == nil)
     // The current server is believed.
     rig.service.received("textDocument/publishDiagnostics", [
         "uri": "file:///w/Main.swift",
         "version": 0,
-        "diagnostics": [["message": "from the living", "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 1]]]],
+        "diagnostics": [[
+            "message": "from the living",
+            "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 1]]
+        ]],
     ], from: 2)
     #expect(rig.service.diagnostics(for: rig.session)?.items.first?.message == "from the living")
 }
@@ -440,19 +480,23 @@ func diagnosticsAreCurrentOnlyForTheVersionTheyWereMadeFor() async throws {
     server.notify("textDocument/publishDiagnostics", [
         "uri": "file:///w/Main.swift",
         "version": 0,
-        "diagnostics": [["severity": 1,
-                         "message": "oops",
-                         "source": "sourcekitd",
-                         "range": ["start": ["line": 1, "character": 0], "end": ["line": 1, "character": 1]]]],
+        "diagnostics": [[
+            "severity": 1,
+            "message": "oops",
+            "source": "sourcekitd",
+            "range": ["start": ["line": 1, "character": 0], "end": ["line": 1, "character": 1]]
+        ]],
     ])
     #expect(await rig.waitFor { rig.service.diagnostics(for: rig.session) != nil })
     var report = try #require(rig.service.diagnostics(for: rig.session))
     #expect(report.freshness == .current && report.reportedVersion == 0)
-    #expect(report.items == [LanguageDiagnostic(severity: .error,
-                                                message: "oops",
-                                                source: "sourcekitd",
-                                                start: LSPPosition(line: 1, character: 0),
-                                                end: LSPPosition(line: 1, character: 1))])
+    #expect(report.items == [LanguageDiagnostic(
+        severity: .error,
+        message: "oops",
+        source: "sourcekitd",
+        start: LSPPosition(line: 1, character: 0),
+        end: LSPPosition(line: 1, character: 1)
+    )])
     try rig.edit(0, "// newer\n")
     report = try #require(rig.service.diagnostics(for: rig.session))
     #expect(report.freshness == .stale, "for version 0; the text is version 1 now")
@@ -463,12 +507,24 @@ func diagnosticsWithoutAVersionAreNeverCalledCurrent() async throws {
     let server = ScriptedServer()
     let rig = Rig(servers: [server])
     try await rig.started()
-    server.notify("textDocument/publishDiagnostics", ["uri": "file:///w/Main.swift", "diagnostics": [["message": "no version", "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 1]]]]])
+    server.notify(
+        "textDocument/publishDiagnostics",
+        [
+            "uri": "file:///w/Main.swift",
+            "diagnostics": [[
+                "message": "no version",
+                "range": ["start": ["line": 0, "character": 0], "end": ["line": 0, "character": 1]]
+            ]]
+        ]
+    )
     #expect(await rig.waitFor { rig.service.diagnostics(for: rig.session) != nil })
     #expect(rig.service.diagnostics(for: rig.session)?.freshness == .unverified)
     #expect(rig.service.diagnostics(for: rig.session)?.reportedVersion == nil)
     try rig.edit(0, "// the text moved on\n")
-    #expect(rig.service.diagnostics(for: rig.session)?.freshness == .stale, "an edit after the report arrived: no longer the text it was about")
+    #expect(
+        rig.service.diagnostics(for: rig.session)?.freshness == .stale,
+        "an edit after the report arrived: no longer the text it was about"
+    )
 }
 
 // MARK: A server that will not stay up
@@ -538,7 +594,11 @@ func aServerThatIsNotReadyForTheDocumentYetIsAskedAgainRatherThanGivingUp() asyn
     let server = ScriptedServer(handler: notReadyYet(failures: 2))
     let rig = Rig(servers: [server])
     try await rig.started()
-    guard case .items(let items, _) = await rig.completion() else { Issue.record("expected items after the retries"); return }
+    guard case .items(let items, _) = await rig.completion() else {
+        Issue.record("expected items after the retries")
+
+        return
+    }
 
     #expect(items.map(\.label) == ["member"])
     #expect(server.messages(named: "textDocument/completion").count == 3)
@@ -591,7 +651,9 @@ private final class SecondCopyHeld {
 @Test @MainActor
 func aCompletionAskedWhileTheDocumentIsBeingGivenToTheServerWaitsForIt() async throws {
     let held = SecondCopyHeld()
-    let sync = OrderedDocumentSync(limits: .init(), capturePolicy: .standard, capture: { try await held.capture($0, $1) })
+    let sync = OrderedDocumentSync(limits: .init(), capturePolicy: .standard, capture: {
+        try await held.capture($0, $1)
+    })
     let server = ScriptedServer(handler: ScriptedServer.standard(completion: [completionItem("member")]))
     let rig = Rig(servers: [server], sync: sync)
     // The document is opened before the server is up; the server's arrival opens it again.
@@ -602,9 +664,16 @@ func aCompletionAskedWhileTheDocumentIsBeingGivenToTheServerWaitsForIt() async t
 
     let asking = Task { @MainActor in await rig.completion() }
     try await Task.sleep(for: .milliseconds(120))   // the request has been waiting for the document
-    #expect(server.messages(named: "textDocument/completion").isEmpty, "nothing is asked of a server that has not been given the text")
+    #expect(
+        server.messages(named: "textDocument/completion").isEmpty,
+        "nothing is asked of a server that has not been given the text"
+    )
     held.release()
-    guard case .items(let items, _) = await asking.value else { Issue.record("expected the answer, not a refusal"); return }
+    guard case .items(let items, _) = await asking.value else {
+        Issue.record("expected the answer, not a refusal")
+
+        return
+    }
 
     #expect(items.map(\.label) == ["member"])
 }
@@ -629,7 +698,10 @@ private func range(_ line: Int, _ from: Int, _ to: Int) -> JSONValue {
 @Test @MainActor
 func hoverReturnsPlainTextAndTheRangeItIsAbout() async throws {
     let markdown = "```swift\nlet x: Int\n```\n\n---\nThe **value** of `x`.\n"
-    let server = ScriptedServer(handler: ScriptedServer.standard(hover: ["contents": ["kind": "markdown", "value": .string(markdown)], "range": range(0, 4, 5)]))
+    let server = ScriptedServer(handler: ScriptedServer.standard(hover: [
+        "contents": ["kind": "markdown", "value": .string(markdown)],
+        "range": range(0, 4, 5)
+    ]))
     let rig = Rig(servers: [server])
     try await rig.started()
     rig.caret = 4
@@ -646,12 +718,23 @@ func hoverUnderstandsTheOtherShapesOfContents() async throws {
     let shapes: [(JSONValue, String)] = [
         (["contents": "plain words"], "plain words"),
         (["contents": ["language": "c", "value": "int f(void)"]], "int f(void)"),
-        (["contents": [.string("first"), ["language": "c", "value": "int g()"], ["kind": "plaintext", "value": "last"]]], "first\n\nint g()\n\nlast"),
+        (
+            ["contents": [
+                .string("first"),
+                ["language": "c", "value": "int g()"],
+                ["kind": "plaintext", "value": "last"]
+            ]],
+            "first\n\nint g()\n\nlast"
+        ),
     ]
     for (answer, expected) in shapes {
         let rig = Rig(servers: [ScriptedServer(handler: ScriptedServer.standard(hover: answer))])
         try await rig.started()
-        guard case .content(let content) = await rig.hover() else { Issue.record("expected content for \(answer)"); return }
+        guard case .content(let content) = await rig.hover() else {
+            Issue.record("expected content for \(answer)")
+
+            return
+        }
 
         #expect(content.text == expected)
         #expect(content.range == nil)
@@ -660,7 +743,12 @@ func hoverUnderstandsTheOtherShapesOfContents() async throws {
 
 @Test @MainActor
 func hoverWithNothingToSayIsNothing() async throws {
-    for answer: JSONValue in [.null, ["contents": ""], ["contents": ["kind": "markdown", "value": "```\n```"]], ["contents": []]] {
+    for answer: JSONValue in [
+        .null,
+        ["contents": ""],
+        ["contents": ["kind": "markdown", "value": "```\n```"]],
+        ["contents": []]
+    ] {
         let rig = Rig(servers: [ScriptedServer(handler: ScriptedServer.standard(hover: answer))])
         try await rig.started()
         #expect(await rig.hover() == .nothing, "\(answer)")
@@ -735,9 +823,16 @@ func definitionInTheSameDocumentGivesAnOffsetAndInAnotherFileAPlace() async thro
 
 @Test @MainActor
 func definitionAcceptsASingleLocationAndALocationLinkAndIgnoresWhatIsNotAFile() async throws {
-    let link: JSONValue = ["targetUri": "file:///w/Link.swift", "targetRange": range(1, 0, 20), "targetSelectionRange": range(1, 5, 9)]
+    let link: JSONValue = [
+        "targetUri": "file:///w/Link.swift",
+        "targetRange": range(1, 0, 20),
+        "targetSelectionRange": range(1, 5, 9)
+    ]
     let cases: [(JSONValue, DefinitionOutcome)] = [
-        (["uri": "file:///w/One.swift", "range": range(2, 3, 4)], .locations([DefinitionLocation(path: "/w/One.swift", line: 2, character: 3)])),
+        (
+            ["uri": "file:///w/One.swift", "range": range(2, 3, 4)],
+            .locations([DefinitionLocation(path: "/w/One.swift", line: 2, character: 3)])
+        ),
         ([link], .locations([DefinitionLocation(path: "/w/Link.swift", line: 1, character: 5)])),
         ([["uri": "sourcekit-lsp://swift-symbol/String", "range": range(0, 0, 1)]], .nothing),
         (.null, .nothing),
@@ -767,9 +862,14 @@ func theServerIsStartedFromTheSourceKitLSPOfTheToolchainItIsGiven() async throws
 
     let starting = Task { await service.start() }
     let deadline = ContinuousClock.now + .seconds(60)
-    while !FileManager.default.fileExists(atPath: marker.path), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
+    while !FileManager.default.fileExists(atPath: marker.path), ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+    }
     service.terminateNow()
     starting.cancel()
 
-    #expect(FileManager.default.fileExists(atPath: marker.path), "the server of the toolchain was run, not the one `xcrun` finds")
+    #expect(
+        FileManager.default.fileExists(atPath: marker.path),
+        "the server of the toolchain was run, not the one `xcrun` finds"
+    )
 }

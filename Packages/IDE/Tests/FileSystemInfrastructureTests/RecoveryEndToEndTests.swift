@@ -105,7 +105,9 @@ func aFileChangedBetweenTheCrashAndTheRestoreIsNotOverwrittenBySaving() async th
     let session = try #require(try await run.restorer.restore(candidate).session)
     #expect(session.text == "base\nmine\n")
 
-    await #expect(throws: FileStoreError.self) { _ = try await SaveDocumentUseCase(store: run.files).execute(document: session) }
+    await #expect(throws: FileStoreError.self) {
+        _ = try await SaveDocumentUseCase(store: run.files).execute(document: session)
+    }
     #expect(try disk.text(path) == "base\nsomeone else\n", "nothing was overwritten")
 }
 

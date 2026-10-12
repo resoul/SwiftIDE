@@ -84,7 +84,8 @@ public final class ProjectFiles {
 
     public func children(of path: String) -> [ProjectFile] {
         (listings[path] ?? []).filter {
-            (showExcluded || exclusionReason(for: $0.path) == nil) && (showIgnored || gitDecoration(for: $0.path).ignoredReason == nil)
+            (showExcluded || exclusionReason(for: $0.path) == nil) &&
+                (showIgnored || gitDecoration(for: $0.path).ignoredReason == nil)
         }
     }
 

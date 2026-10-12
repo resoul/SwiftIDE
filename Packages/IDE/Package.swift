@@ -54,11 +54,26 @@ let package = Package(
         ),
         .testTarget(
             name: "SyntaxInfrastructureTests",
-            dependencies: ["IDEDomain", "IDEApplication", "SyntaxInfrastructure", "IDETestSupport", "EditorPlatformTextKit", "EditorUI"]
+            dependencies: [
+                "IDEDomain",
+                "IDEApplication",
+                "SyntaxInfrastructure",
+                "IDETestSupport",
+                "EditorPlatformTextKit",
+                "EditorUI"
+            ]
         ),
         .testTarget(
             name: "LanguageInfrastructureTests",
-            dependencies: ["IDEDomain", "IDEApplication", "LanguageInfrastructure", "IDETestSupport", "EditorPlatformTextKit", "EditorUI", "WorkspaceUI"]
+            dependencies: [
+                "IDEDomain",
+                "IDEApplication",
+                "LanguageInfrastructure",
+                "IDETestSupport",
+                "EditorPlatformTextKit",
+                "EditorUI",
+                "WorkspaceUI"
+            ]
         ),
         .testTarget(name: "GitInfrastructureTests", dependencies: ["GitInfrastructure", "IDEApplication"]),
         .testTarget(name: "IconUITests", dependencies: ["IconUI"]),

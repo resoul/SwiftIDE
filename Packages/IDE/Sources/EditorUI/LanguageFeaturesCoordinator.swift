@@ -21,7 +21,8 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
     /// A jump is about to leave the caret's place (its offset): the window remembers it for "Go Back".
     public var willJump: (@MainActor (Int) -> Void)?
     /// Lets the user choose among several definitions. By default a pop-up menu under the place.
-    public var chooser: (@MainActor ([DefinitionLocation], Int, @escaping @MainActor (DefinitionLocation) -> Void) -> Void)?
+    public var chooser: (@MainActor ([DefinitionLocation], Int, @escaping @MainActor (DefinitionLocation) -> Void)
+        -> Void)?
 
     private let textView: NSTextView
     private let input: EditorInputHooks
@@ -60,7 +61,9 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
             presenter: popup,
             clock: clock,
             dwell: dwell,
-            wordAt: { offset in WordRange.around(offset, length: session.utf16Length, text: { source.substring(in: $0) }) },
+            wordAt: { offset in
+                WordRange.around(offset, length: session.utf16Length, text: { source.substring(in: $0) })
+            },
             localMessages: { offset in diagnostics.marks(at: offset).map(Self.line(for:)) }
         )
         definition = DefinitionController(session: session, provider: provider)
@@ -86,7 +89,9 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
             return true
         }
         diagnostics.onChange = { [weak self, weak host] in
-            host?.lineNumberRuler?.problemLines = diagnostics.severitiesByLine { lineIndex.current.line(containing: $0) }
+            host?.lineNumberRuler?.problemLines = diagnostics.severitiesByLine {
+                lineIndex.current.line(containing: $0)
+            }
             self?.dismissMarginMessage()
             self?.onDiagnosticsChange?()
         }
@@ -167,7 +172,11 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
         openLocation?(location)
     }
 
-    public func choose(among places: [DefinitionLocation], near offset: Int, pick: @escaping @MainActor (DefinitionLocation) -> Void) {
+    public func choose(
+        among places: [DefinitionLocation],
+        near offset: Int,
+        pick: @escaping @MainActor (DefinitionLocation) -> Void
+    ) {
         if let chooser { return chooser(places, offset, pick) }
 
         let menu = NSMenu(title: "Definitions")
@@ -180,7 +189,11 @@ public final class LanguageFeaturesCoordinator: DefinitionNavigating {
         }
         let screen = textView.firstRect(forCharacterRange: NSRange(location: offset, length: 0), actualRange: nil)
         let point = textView.window.map { textView.convert($0.convertFromScreen(screen).origin, from: nil) } ?? .zero
-        menu.popUp(positioning: nil, at: NSPoint(x: point.x, y: point.y + (textView.font?.pointSize ?? 12) * 1.6), in: textView)
+        menu.popUp(
+            positioning: nil,
+            at: NSPoint(x: point.x, y: point.y + (textView.font?.pointSize ?? 12) * 1.6),
+            in: textView
+        )
         withExtendedLifetime(picker) {}
     }
 

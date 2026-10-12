@@ -8,7 +8,12 @@ import Testing
 struct ProjectTrustPresenterTests {
     private func window() -> NSWindow {
         _ = NSApplication.shared
-        let window = NSWindow(contentRect: NSRect(x: -2000, y: -2000, width: 400, height: 240), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 400, height: 240),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
         window.isReleasedWhenClosed = false
         window.orderFront(nil)
 
@@ -45,7 +50,8 @@ struct ProjectTrustPresenterTests {
     }
 
     @Test(arguments: [NSApplication.ModalResponse.alertFirstButtonReturn, .alertSecondButtonReturn])
-    func theSheetIsAttachedOnlyToTheExplicitParentAndReturnsItsAnswer(response: NSApplication.ModalResponse) async throws {
+    func theSheetIsAttachedOnlyToTheExplicitParentAndReturnsItsAnswer(response: NSApplication
+        .ModalResponse) async throws {
         let parent = window(), other = window()
         other.makeKey()
         let presenter = ProjectTrustPresenter()

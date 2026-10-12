@@ -12,16 +12,18 @@ struct TablerIconTests {
             #expect(image.size == NSSize(width: 24, height: 24))
             #expect(image.representations.contains { $0 is NSPDFImageRep })
             for size in [16, 24, 48] {
-                let bitmap = try #require(NSBitmapImageRep(bitmapDataPlanes: nil,
-                                                           pixelsWide: size,
-                                                           pixelsHigh: size,
-                                                           bitsPerSample: 8,
-                                                           samplesPerPixel: 4,
-                                                           hasAlpha: true,
-                                                           isPlanar: false,
-                                                           colorSpaceName: .deviceRGB,
-                                                           bytesPerRow: 0,
-                                                           bitsPerPixel: 0))
+                let bitmap = try #require(NSBitmapImageRep(
+                    bitmapDataPlanes: nil,
+                    pixelsWide: size,
+                    pixelsHigh: size,
+                    bitsPerSample: 8,
+                    samplesPerPixel: 4,
+                    hasAlpha: true,
+                    isPlanar: false,
+                    colorSpaceName: .deviceRGB,
+                    bytesPerRow: 0,
+                    bitsPerPixel: 0
+                ))
                 let context = try #require(NSGraphicsContext(bitmapImageRep: bitmap))
                 NSGraphicsContext.saveGraphicsState()
                 NSGraphicsContext.current = context
@@ -57,7 +59,12 @@ struct TablerIconTests {
                 let x = CGFloat(index % 12) * 80
                 let y = CGFloat(index / 12) * 144
                 for (row, size) in [16, 24, 32].enumerated() {
-                    let image = NSImageView(frame: NSRect(x: x + 24, y: y + CGFloat(row * 40) + 10, width: CGFloat(size), height: CGFloat(size)))
+                    let image = NSImageView(frame: NSRect(
+                        x: x + 24,
+                        y: y + CGFloat(row * 40) + 10,
+                        width: CGFloat(size),
+                        height: CGFloat(size)
+                    ))
                     image.image = icon.image()
                     image.contentTintColor = .labelColor
                     image.imageScaling = .scaleProportionallyUpOrDown

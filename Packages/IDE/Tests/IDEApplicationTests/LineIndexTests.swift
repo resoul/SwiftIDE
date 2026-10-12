@@ -48,7 +48,11 @@ private func expectAgrees(
     guard index.lineCount == reference.lines.count else { return }
 
     // Checking every line is slow in a debug build; large documents do it on some steps only.
-    let numbers = everyLine ? Array(reference.lines.indices) : (0..<80).map { _ in Int.random(in: 0..<reference.lines.count) }
+    let numbers = everyLine
+        ? Array(reference.lines.indices)
+        : (0..<80).map { _ in
+        Int.random(in: 0..<reference.lines.count)
+    }
     for number in numbers {
         let expected = reference.lines[number]
         let extent = index.lineExtent(number)
@@ -60,8 +64,13 @@ private func expectAgrees(
         }
     }
     // The longest line, by content: the first one if several are as long.
-    let longest = reference.lines.enumerated().max { ($0.element.content, -$0.offset) < ($1.element.content, -$1.offset) }!
-    #expect(index.longestLine.length == longest.element.content, "longest line length \(note())", sourceLocation: sourceLocation)
+    let longest = reference.lines.enumerated()
+        .max { ($0.element.content, -$0.offset) < ($1.element.content, -$1.offset) }!
+    #expect(
+        index.longestLine.length == longest.element.content,
+        "longest line length \(note())",
+        sourceLocation: sourceLocation
+    )
     #expect(index.longestLine.line == longest.offset, "longest line number \(note())", sourceLocation: sourceLocation)
     // Every offset belongs to the line that contains it; a line start is recognised as one.
     let probes = units.count < 200 ? Array(0...units.count) : (0..<60).map { _ in Int.random(in: 0...units.count) }
@@ -236,7 +245,11 @@ private struct Tracked {
 
     func assertExact(_ note: String = "", sourceLocation: SourceLocation = #_sourceLocation) {
         expectAgrees(tracker.current, with: Array(editor.textView.string.utf16), note, sourceLocation: sourceLocation)
-        #expect(tracker.rebuildCount == 0, "followed the edits without rereading the text \(note)", sourceLocation: sourceLocation)
+        #expect(
+            tracker.rebuildCount == 0,
+            "followed the edits without rereading the text \(note)",
+            sourceLocation: sourceLocation
+        )
     }
 
     func type(_ string: String, at location: Int, replacing length: Int = 0) {

@@ -26,7 +26,12 @@ public final class ProcessChannel: LSPChannel, @unchecked Sendable {
     /// The last lines the server wrote to its standard error: where it explains why it died.
     public var standardErrorTail: [String] { tail.lines }
 
-    public init(executable: URL, arguments: [String] = [], currentDirectory: URL? = nil, environment: [String: String]? = nil) throws {
+    public init(
+        executable: URL,
+        arguments: [String] = [],
+        currentDirectory: URL? = nil,
+        environment: [String: String]? = nil
+    ) throws {
         let (stream, continuation) = AsyncStream<Data>.makeStream(bufferingPolicy: .unbounded)
         incoming = stream
         self.continuation = continuation

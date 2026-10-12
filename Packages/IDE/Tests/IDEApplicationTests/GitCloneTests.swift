@@ -50,7 +50,10 @@ private actor CloneFixture: GitCloning {
     func clone(_ request: GitCloneRequest, output: @escaping @Sendable (String) -> Void) async throws -> String {
         calls += 1
 
-        return try await withCheckedThrowingContinuation { continuation in self.continuation = continuation; output("started\n") }
+        return try await withCheckedThrowingContinuation { continuation in
+            self.continuation = continuation
+            output("started\n")
+        }
     }
     func complete(_ result: Result<String, any Error>) { continuation?.resume(with: result); continuation = nil }
 }
