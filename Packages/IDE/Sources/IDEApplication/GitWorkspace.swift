@@ -38,6 +38,7 @@ public final class GitWorkspace {
     public private(set) var operationOutput = ""
     public var prepareCheckout: ((GitRepository) async -> Bool)?
     public var checkoutFinished: ((GitRepository) -> Void)?
+    public var conflictReader: (any GitConflictReading)? { service as? any GitConflictReading }
     public var pullPlanner: (any GitPullPlanning)? { service as? any GitPullPlanning }
     public var pushPlanner: (any GitPushPlanning)? { service as? any GitPushPlanning }
     public var supportsLocalActions: Bool { mutations != nil }

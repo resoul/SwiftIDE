@@ -247,6 +247,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         project.git?.checkoutFinished = { [weak self] repository in self?.gitCheckout.finish(repository) }
         projects[root] = project
         project.projectMenu = { [weak self] in self?.projectSwitcherMenu() ?? NSMenu() }
+        project.openConflictResult = { [weak self, weak project] path in
+            guard let self, let project else { return nil }
+
+            await open(path: path, in: project)
+
+            return project.documents.first { $0.session.path == DocumentPath.canonical(path) }
+        }
         project.openFile = { [weak self, weak project] path in Task { await self?.open(path: path, in: project) } }
         project.onRequestClose = { [weak self, weak project] in
             if let project { Task { await self?.closeProject(project) } }

@@ -4,6 +4,13 @@ import IDEApplication
 @MainActor
 public final class GitChangesViewController: NSViewController, NSTextViewDelegate {
     public let model: GitWorkspace
+    public var resolveConflict: ((GitChange) -> Void)?
+    public var confirmAction: ((GitAction) -> Void)?
+    let resolve = NSButton(title: "Resolve conflict…", target: nil, action: nil)
+    let proceed = NSButton(title: "Continue", target: nil, action: nil)
+    let abort = NSButton(title: "Abort…", target: nil, action: nil)
+    let skip = NSButton(title: "Skip commit…", target: nil, action: nil)
+    private let integrationStatus = NSTextField(wrappingLabelWithString: "")
     public var openFile: ((String) -> Void)?
     public var focusTarget: NSView { list.table }
     let list = GitListView(label: "Git changes on disk and in the index")
@@ -28,6 +35,10 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         view = NSView()
         let refresh = NSButton(title: "Refresh", target: self, action: #selector(refreshGit(_:)))
         let header = gitStack([NSTextField(labelWithString: "Changes"), NSView(), refresh], vertical: false)
+        resolve.target = self; resolve.action = #selector(resolveSelected(_:))
+        proceed.target = self; proceed.action = #selector(continueGit(_:))
+        abort.target = self; abort.action = #selector(abortGit(_:))
+        skip.target = self; skip.action = #selector(skipGit(_:))
         stage.target = self; stage.action = #selector(stageSelected(_:))
         unstage.target = self; unstage.action = #selector(unstageSelected(_:))
         commit.target = self; commit.action = #selector(commitStaged(_:))
@@ -49,7 +60,7 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
         status.font = .systemFont(ofSize: 11)
         status.maximumNumberOfLines = 2; status.lineBreakMode = .byTruncatingMiddle
-        gitPin(gitStack([header, list, actions, operation, status, note]), to: view, inset: 10)
+        gitPin(gitStack([header, integrationStatus, gitStack([proceed, abort, skip], vertical: false), list, resolve, actions, operation, status, note]), to: view, inset: 10)
         list.onSelect = { [weak self] key in
             guard let self, let comparison = comparisons[key] else { return }
 
@@ -59,12 +70,31 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         list.onOpen = { [weak self] key in
             guard let self, let comparison = comparisons[key], let repository = model.snapshot?.repository else { return }
 
-            openFile?(repository.absolutePath(comparison.path))
+            if case .worktree(let change) = comparison, change.decoration.isConflict { resolveConflict?(change) }
+            else { openFile?(repository.absolutePath(comparison.path)) }
         }
         subscription = model.subscribe { [weak self] in self?.render() }
         render()
     }
     @objc private func refreshGit(_ sender: Any?) { model.refresh() }
+    @objc func resolveSelected(_ sender: Any?) {
+        guard resolve.isEnabled, let key = list.selectedKey, case .worktree(let change) = comparisons[key] else { return }
+
+        resolveConflict?(change)
+    }
+    public func continueOperation() { _ = view; continueGit(nil) }
+    @objc func continueGit(_ sender: Any?) {
+        guard proceed.isEnabled, let operation = model.snapshot?.integration else { return }
+
+        if operation.kind == .merge, message.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { focusCommitMessage(); return }
+        model.perform(.continueIntegration(operation, message.string))
+    }
+    @objc func abortGit(_ sender: Any?) {
+        if abort.isEnabled, let operation = model.snapshot?.integration { confirmAction?(.abortIntegration(operation)) }
+    }
+    @objc func skipGit(_ sender: Any?) {
+        if skip.isEnabled, let operation = model.snapshot?.integration { confirmAction?(.skipRebase(operation)) }
+    }
     @objc func stageSelected(_ sender: Any?) {
         guard let key = list.selectedKey, let comparison = comparisons[key], stage.isEnabled else { return }
 
@@ -91,13 +121,27 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         view.window?.makeFirstResponder(message)
     }
     private func updateActions() {
+        let operation = model.snapshot?.integration
+        integrationStatus.stringValue = operation.map { $0.detail + ". Resolve each conflict, then Continue (ALL staged content); Abort/Skip require confirmation." } ?? ""
+        integrationStatus.isHidden = operation == nil
+        for button in [proceed, abort, skip] { button.isHidden = operation == nil }
+        proceed.isEnabled = model.canMutate && operation != nil && operation?.kind != .other && model.snapshot?.changes.contains(where: { $0.decoration.isConflict }) == false
+        if operation?.kind == .rebase, operation?.stoppedCommit != nil, model.snapshot?.changes.contains(where: { !$0.decoration.index.isEmpty && !$0.decoration.isConflict }) == false {
+            proceed.isEnabled = false
+            integrationStatus.stringValue += " Empty staged replay: use explicit Skip or Abort."
+        }
+
+        abort.isEnabled = model.canMutate && operation != nil && operation?.kind != .other
+        skip.isHidden = operation?.kind != .rebase; skip.isEnabled = abort.isEnabled && operation?.kind == .rebase
+        resolve.isHidden = list.selectedKey?.hasPrefix("conflicts:") != true
+        resolve.isEnabled = model.canMutate && model.conflictReader != nil && !resolve.isHidden
         let key = list.selectedKey ?? ""
-        stage.isEnabled = model.canMutate && (key.hasPrefix("worktree:") || key.hasPrefix("untracked:") || key.hasPrefix("conflicts:"))
+        stage.isEnabled = model.canMutate && (key.hasPrefix("worktree:") || key.hasPrefix("untracked:"))
         unstage.isEnabled = model.canMutate && key.hasPrefix("index:")
         compose.title = commitForm?.isHidden == false ? "Hide message" : "Commit…"
-        compose.isEnabled = model.canMutate
+        compose.isEnabled = model.canMutate && (model.snapshot?.integration == nil || model.snapshot?.integration?.kind == .merge)
         message.isEditable = !model.operationState.isBusy
-        commit.isEnabled = model.canMutate && !(message.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        commit.isEnabled = model.snapshot?.integration == nil && model.canMutate && !(message.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             && model.snapshot?.changes.contains(where: { !$0.decoration.index.isEmpty }) == true
             && model.snapshot?.changes.contains(where: { $0.decoration.isConflict }) == false
     }

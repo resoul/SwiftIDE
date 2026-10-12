@@ -14,6 +14,9 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-033: reusable conflict stage context with original native result/Undo, checked frozen-byte resolution, missing/binary/delete/restore flows and stale stage/operation/path guards; bounds and pending manual acceptance recorded in ADR-045.
+- TK-034: reviewed local Merge/Rebase, actual persistent operation fingerprints, explicit Continue/Skip/Abort and repository-wide document reconciliation; ignored transient paths protected, empty replay cannot silently drop via Continue (ADR-046).
+
 - TK-029 fast-forward Pull: reviewed single fetch source, current local destination, repository-wide save/cancel and temporary editor locks, exact-head fetch plus ff-only/no-autostash checkout; refusal/partial cancellation and undoable disk reconciliation recorded in ADR-044.
 - TK-023 initializer spacing: syntax-aware blank lines around init declarations and their attributes/comments, verified auto-fix and checker/pipeline tests.
 

@@ -191,3 +191,8 @@ GitPushViewController is reusable package UI with local source/remote/destinatio
 ### Pull form ownership (TK-029 / ADR-044)
 
 WorkspaceUI renders source/remote/current local branch, review, bounded output and explicit Pull/Cancel. App owns the sheet and all document preparation. During preparation it detaches only this sheet to allow save dialogs, then reattaches during running/result (or waits for another owner's sheet to finish); closing its project cancels and disconnects it. Source Control also shows operation state/output. The form cannot launch Git or alter editor/window lifetime itself. Panel providers remain interchangeable.
+
+
+### Central conflict context and integration (TK-033/034)
+
+WorkspaceUI supplies readonly stage panes, an injected native result slot, explicit review/control components. App embeds/detaches the original document controller, retains Save/Undo/close routing and owns confirmations. Binary/absent data uses a central tool tab; another owner's document is activated rather than duplicated. Source Control supplies actual merge/rebase phase and Continue/Abort/Skip, and arbitrary sidebar/bottom panel providers stay interchangeable. [Contract](16_GIT_CONFLICTS_AND_INTEGRATION.md); live R75–R86 pending.

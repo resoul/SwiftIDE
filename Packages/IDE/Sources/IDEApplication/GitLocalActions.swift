@@ -1,6 +1,10 @@
 import Foundation
 
 public enum GitAction: Equatable, Sendable {
+    case integrate(GitIntegrationPlan)
+    case continueIntegration(GitIntegrationStatus, String)
+    case abortIntegration(GitIntegrationStatus), skipRebase(GitIntegrationStatus)
+    case resolveConflict(GitConflict, GitConflictResolution)
     case fetch(String)
     case push(GitPushPlan)
     case pull(GitPullPlan)
@@ -9,6 +13,11 @@ public enum GitAction: Equatable, Sendable {
 
     public var title: String {
         switch self {
+        case .integrate(let plan): plan.title
+        case .continueIntegration(let status, _): "Continue " + status.kind.rawValue
+        case .abortIntegration(let status): "Abort " + status.kind.rawValue
+        case .skipRebase: "Skip current rebase commit"
+        case .resolveConflict(_, let resolution): resolution == .workingFile ? "Mark saved result resolved" : resolution == .delete ? "Resolve as deleted" : "Restore conflict side on disk"
         case .pull(let plan): plan.title
         case .push(let plan): plan.title
         case .fetch(let remote): "Fetch " + remote
@@ -20,7 +29,7 @@ public enum GitAction: Equatable, Sendable {
         }
     }
     public var changesCheckout: Bool {
-        switch self { case .switchBranch, .pull: true; default: false }
+        switch self { case .switchBranch, .pull, .integrate, .continueIntegration, .abortIntegration, .skipRebase, .resolveConflict: true; default: false }
     }
 }
 

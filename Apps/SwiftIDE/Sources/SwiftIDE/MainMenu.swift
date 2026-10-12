@@ -44,6 +44,12 @@ enum MainMenu {
         ]))
 
         main.addItem(submenuItem(title: "Git", items: [
+            NSMenuItem(title: "Merge…", action: #selector(ProjectWorkspaceController.mergeGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Rebase…", action: #selector(ProjectWorkspaceController.rebaseGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Continue Merge/Rebase", action: #selector(ProjectWorkspaceController.continueGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Abort Merge/Rebase…", action: #selector(ProjectWorkspaceController.abortGit(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Skip Rebase Commit…", action: #selector(ProjectWorkspaceController.skipGit(_:)), keyEquivalent: ""),
+            .separator(),
             NSMenuItem(title: "Pull…", action: #selector(ProjectWorkspaceController.pullGit(_:)), keyEquivalent: ""),
             NSMenuItem(title: "Push…", action: #selector(ProjectWorkspaceController.pushGit(_:)), keyEquivalent: ""),
             NSMenuItem(title: "Fetch…", action: #selector(ProjectWorkspaceController.fetchGit(_:)), keyEquivalent: ""),

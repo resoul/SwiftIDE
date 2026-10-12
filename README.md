@@ -134,3 +134,8 @@ Push (TK-029 second slice): **Git → Push…** or the branch picker's **Push…
 
 
 Pull (TK-029 third slice): **Git → Pull…** or branch-picker **Pull…** reviews one fetch source and the current local branch. **Pull** saves or cancels open worktree documents, fetches one branch and updates only by fast-forward. Tracked/index changes and divergence stop with an error; nothing is automatically stashed/discarded/merged/rebased. Editor reloads retain Undo. Failure/cancellation may leave fetched refs or completed checkout changes. See [the Pull contract](docs/15_WORKSPACE_AND_GIT.md#tk-029-third-slice-fast-forward-pull-adr-044).
+
+
+Conflict resolution (TK-033): **Source Control → Resolve conflict…** or double-click an unmerged path. Base/Ours/Theirs appear above the original native result editor; choosing text is undoable and does not stage. **Save and mark resolved** stages only the checked saved/filtered result. Missing/binary results have a central tool tab; restore/delete require confirmation, and restoring is separate from marking. Unsupported types/limits require external Git.
+
+Local integration (TK-034): **Git → Merge… / Rebase…** reviews locally known targets without Fetch. Merge stops before commit; resolve then Continue with a message. Linear rebase rewrites the current branch and stops for conflicts/empty replay; Continue/confirmed Skip/Abort are in Source Control and Git menu. Editors participate in Save/Cancel and retain Undo. Pull remains fast-forward-only. See [the contract](docs/16_GIT_CONFLICTS_AND_INTEGRATION.md); live acceptance remains pending.

@@ -27,6 +27,14 @@ extension GitCLI: GitMutating {
             var arguments: [String]
             var input: Data?
             switch action {
+            case .integrate, .continueIntegration, .abortIntegration, .skipRebase:
+                try await integrate(action, expected: current, output: output)
+
+                return
+            case .resolveConflict(let conflict, let resolution):
+                try await resolve(conflict, as: resolution, expected: current, output: output)
+
+                return
             case .pull(let plan):
                 try await pull(plan, expected: current, output: output)
 
@@ -40,7 +48,7 @@ extension GitCLI: GitMutating {
 
                 return
             case .stage(let change), .unstage(let change):
-                guard expected.changes.contains(change), change.decoration.ignoredReason == nil else {
+                guard expected.changes.contains(change), !change.decoration.isConflict, change.decoration.ignoredReason == nil else {
                     throw GitInspectionError.failed("Select a current changed file")
                 }
 
@@ -61,6 +69,8 @@ extension GitCLI: GitMutating {
                     }
                 }
             case .commit(let message):
+                guard current.integration == nil else { throw GitInspectionError.failed("Use Continue for the current Git operation") }
+
                 guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, message.utf8.count <= 64_000, !message.contains("\0") else {
                     throw GitInspectionError.failed("Enter a nonempty commit message (up to 64 KB)")
                 }
@@ -78,6 +88,8 @@ extension GitCLI: GitMutating {
 
                 arguments = ["branch", "--no-track", name, try GitPorcelain.oid(head)]
             case .switchBranch(let branch):
+                guard current.integration == nil else { throw GitInspectionError.failed("Finish or abort the current Git operation before switching") }
+
                 guard !branch.isRemote, branch.reference.hasPrefix("refs/heads/"), current.branches.contains(branch) else {
                     throw GitInspectionError.failed("Select a current local branch; remote refs are available for inspection")
                 }
