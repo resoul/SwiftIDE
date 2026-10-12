@@ -14,7 +14,6 @@ public struct CompletionItem: Equatable, Sendable {
     public let insertText: String?
     public let sortText: String?
     public let filterText: String?
-    /// The text the item replaces, in the document the request was made against.
     public let replacementRange: UTF16TextRange?
     public let kind: CompletionKind
 

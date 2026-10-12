@@ -53,6 +53,7 @@ public struct GitSnapshot: Equatable, Sendable {
     public let branches: [GitBranch]
     public let remotes: [String]
     public let mutationToken: String?
+    public let integration: GitIntegrationStatus?
     public let capturedAt: Date
     public var headDescription: String {
         if let branch { return head == nil ? branch + " (unborn)" : branch }
@@ -71,6 +72,7 @@ public struct GitSnapshot: Equatable, Sendable {
         branches: [GitBranch] = [],
         mutationToken: String? = nil,
         remotes: [String] = [],
+        integration: GitIntegrationStatus? = nil,
         capturedAt: Date = .now
     ) {
         self.repository = repository
@@ -84,6 +86,7 @@ public struct GitSnapshot: Equatable, Sendable {
         self.mutationToken = mutationToken
         self.remotes = remotes
         self.capturedAt = capturedAt
+        self.integration = integration
     }
 
     /// Fold changed descendants without reading directories. Ignored ancestors never colour their parent.

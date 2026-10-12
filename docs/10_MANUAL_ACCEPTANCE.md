@@ -361,7 +361,7 @@ TK-024 was implemented on 2026-10-11. These checks are pending for the extracted
 
 ## R. Workspace components and Git (TK-025–TK-030, ADR-031/035/036/037)
 
-TK-025/026/027/028/030/031/032 and TK-029 Clone/Fetch/Push/fast-forward Pull are implemented and tested; their live checks are pending, not passed results. Git inspection works in real project windows; Preview remains sample content. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R2 and R25–R29 for Welcome; R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored enables after a successful Git snapshot. Run Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
+TK-025/026/027/028/030/031/032 and TK-029 Clone/Fetch/Push/fast-forward Pull and TK-033/034 conflicts/local Merge/Rebase are implemented and tested; their live checks are pending, not passed results. Git inspection works in real project windows; Preview remains sample content. Use disposable repositories, including a linked worktree and a local bare remote for mutation/network checks. The contract is [15_WORKSPACE_AND_GIT.md](15_WORKSPACE_AND_GIT.md). Run R1–R2 and R25–R29 for Welcome; R3, the project-exclusion part of R4, Files/tab appearance and keyboard checks from R13, and R17–R20 for TK-026. Show Ignored enables after a successful Git snapshot. Run Git parts of R4/R13 and R5–R12 with TK-027, R14–R15 with TK-028 and R16 with TK-029.
 
 | № | Do | Expected |
 |---|---|---|
@@ -487,7 +487,7 @@ Use disposable repositories and perform R14–R15 plus the following. These are 
 
 ### Clone and Fetch (TK-029 first slice / ADR-042)
 
-Use disposable destinations and remotes. These checks are pending. R16 is partially implemented: Clone/Fetch/Push/fast-forward Pull exist; merge/rebase policy and conflict recovery await later slices.
+Use disposable destinations and remotes. These checks are pending. R16 is partially implemented: Clone/Fetch/Push/fast-forward Pull exist, and explicit local conflict/Merge/Rebase are TK-033/034; automatic divergent Pull and advanced rebase remain later.
 
 | № | Do | Expected |
 |---|---|---|
@@ -528,3 +528,23 @@ Use disposable local/hosted repositories. R67–R74 are pending; no manual pass 
 | R72 | Change HEAD/branch/fetch address after review and during Fetch; detach HEAD or use multiple fetch URLs | Stale state/address refused, detached/unborn/multiple address explained; no checkout of another branch or use of pushurl |
 | R73 | Cancel slow Fetch or post-merge hook; linked-worktree concurrent action; close project | Child/gate cleanup, editor unlock/disk checks and stale callback rejection; fetched refs or completed fast-forward may remain, no rollback promise |
 | R74 | SSH/HTTPS failures, configured filters/hooks, actual save dialogs; light/dark/keyboard/IME/VoiceOver and slow network | Usable cancellable progress/error, retained inputs and explicit re-review; temporary editor locks are explained; no hidden terminal wait or manual auth success claim |
+
+
+### Conflicts and explicit Merge/Rebase (TK-033/034 / ADR-045/046)
+
+Use disposable repositories, including a linked worktree; R75–R86 are pending. Never use a production branch for these checks. The [contract](16_GIT_CONFLICTS_AND_INTEGRATION.md) records automatic evidence and limitations.
+
+| № | Do | Expected |
+|---|---|---|
+| R75 | Create a text conflict externally or through Merge; Source Control double-click / Resolve conflict… | Base/Ours/Theirs from real index stages, original native result below in central content; one document/tab/storage/save/Undo owner; no second editable copy |
+| R76 | Use a text side, Undo/Redo, type a combined result, switch tabs, close/reopen preview, Save and mark resolved | Side choice one undoable edit, no automatic stage; marker-bearing result refused; only inspected saved/filtered result staged; other staged files untouched; original caret/Undo survive; Undo does not undo Git index/commits |
+| R77 | Add/add, modify/delete, binary, executable/private file, symlink/submodule and rename conflicts | Missing stage differs from empty text; restore/delete requires explicit approval and stale-byte check; restore leaves unmerged index and preserves permissions; unsupported types/limits and unpaired renames explained; reopen after restore |
+| R78 | Edit result in another project/standalone window; save failure, composition, new dirty text, close the owning project while reading/writing | No duplicate result owner or lost buffer; all worktree documents participate in Save/Cancel/temporary locks; failed/cancelled preparation prevents write; stale replies rejected and locks released |
+| R79 | Change index stages, operation metadata or working bytes/mode after loading; clean filter changes worktree or introduces markers | Stale restore/delete/side choices refused; captured result bytes staged, later disk edits unstaged; filtered marker content cannot clear conflict; failure/cancel does not imply rollback |
+| R80 | Minimum project size, hidden tool panels/Focus Editor, light/dark, keyboard/VoiceOver/IME, long lines/large stages | Source panes and result/controls usable; actual native language editor retained; limitations explained without partial source falsely applied; no performance/live claim from render tests |
+| R81 | Review Merge/Rebase target/current OID; change input/HEAD/target/repository externally; try tracked/index edits | Changed review refused; only reviewed immutable target/current branch; clean tracked/index requirement after saves, no auto-stash, no implicit Fetch/Push |
+| R82 | Clean and conflicting merge, conflicting commit/ff/autostash config; Continue without/with message | Merge stops before commit even when fast-forward possible; actual phase shown; resolve all, then explicit message commits ALL staged results; up-to-date may complete with no merge state |
+| R83 | Linear rebase conflict; another branch points to original tip, rebase.updateRefs enabled; Continue resolved result | Ours is rebased upstream, Theirs replayed commit; only current branch rewritten, other refs retained, stored message used; no interactive/editor wait; range with merges refused |
+| R84 | Replay becomes empty or resolution keeps upstream unchanged; Continue, then cancel/approve Skip | Empty stopped replay cannot silently drop via Continue; Skip confirmation drops only current replay and may discard staged edits; keeping an empty commit needs external Git |
+| R85 | Abort merge/rebase after resolution edits; cancel approval/save; reopen paused workspace; active cherry-pick/revert/am/bisect | Cancel defaults and causes no abort; approved Abort restores native Git original state with post-start edit loss explained; disk reconciliation/Undo retained; real phase recovered after reopen; other operation kinds explain external completion |
+| R86 | Ignored/untracked collision, transient replay path, linked-worktree competing action, slow signing/hook/cancellation after commit | Collision refused before dangerous checkout; writes serialize; child exits and gate/locks release; actual partial/completed state reported without rollback/retry; older Git/large-history compatibility remains explicit |

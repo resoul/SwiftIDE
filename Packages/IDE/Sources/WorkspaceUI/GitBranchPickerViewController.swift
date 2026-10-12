@@ -4,6 +4,9 @@ import IDEApplication
 @MainActor
 public final class GitBranchPickerViewController: NSViewController, NSTextFieldDelegate {
     public let model: GitWorkspace
+    public var onIntegrateRequested: ((GitIntegrationKind, GitBranch?) -> Void)?
+    let merge = NSButton(title: "Merge…", target: nil, action: nil)
+    let rebase = NSButton(title: "Rebase…", target: nil, action: nil)
     public var onPullRequested: ((String?, String?) -> Void)?
     let pull = NSButton(title: "Pull…", target: nil, action: nil)
     public var onPushRequested: ((GitBranch?, String?) -> Void)?
@@ -40,6 +43,8 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
         createBranch.target = self; createBranch.action = #selector(createNamed(_:))
         branchName.placeholderString = "New branch name"
         branchName.delegate = self
+        merge.target = self; merge.action = #selector(mergeSelected(_:))
+        rebase.target = self; rebase.action = #selector(rebaseSelected(_:))
         pull.target = self; pull.action = #selector(pullSelected(_:))
         push.target = self; push.action = #selector(pushSelected(_:))
         fetch.target = self; fetch.action = #selector(fetchSelected(_:))
@@ -53,7 +58,7 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
         let note = NSTextField(wrappingLabelWithString: "Inspect locally known references. Remote data reflects previous fetches.")
         note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
         let content = NSViewController(); content.view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 520))
-        gitPin(gitStack([search, list, note, network, history, mutations]), to: content.view, inset: 12)
+        gitPin(gitStack([search, list, note, network, gitStack([merge, rebase], vertical: false), history, mutations]), to: content.view, inset: 12)
         popover.contentViewController = content; popover.behavior = .transient
         popover.contentSize = NSSize(width: 420, height: 520)
         list.onSelect = { [weak self] _ in self?.updateActions() }
@@ -89,6 +94,8 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
 
         popover.close(); onActionStarted?(); model.perform(.fetch(name))
     }
+    @objc func mergeSelected(_ sender: Any?) { if merge.isEnabled { popover.close(); onIntegrateRequested?(.merge, selectedBranch) } }
+    @objc func rebaseSelected(_ sender: Any?) { if rebase.isEnabled { popover.close(); onIntegrateRequested?(.rebase, selectedBranch) } }
     @objc func pullSelected(_ sender: Any?) {
         guard pull.isEnabled else { return }
 
@@ -105,6 +112,8 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
     @objc private func remoteChanged(_ sender: Any?) { updateActions() }
     private var selectedBranch: GitBranch? { model.snapshot?.branches.first { $0.reference == list.selectedKey } }
     private func updateActions() {
+        merge.isEnabled = model.canMutate && model.conflictReader != nil && model.snapshot?.integration == nil && model.snapshot?.branch != nil && selectedBranch != nil && selectedBranch?.name != model.snapshot?.branch
+        rebase.isEnabled = merge.isEnabled
         pull.isHidden = model.pullPlanner == nil
         pull.isEnabled = model.canMutate && model.pullPlanner != nil && remote.titleOfSelectedItem != nil && model.snapshot?.branch != nil && model.snapshot?.head != nil
         push.isHidden = model.pushPlanner == nil

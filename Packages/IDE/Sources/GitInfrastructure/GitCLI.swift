@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 import IDEApplication
 
 public struct GitCLI: GitInspecting {
@@ -25,7 +24,8 @@ public struct GitCLI: GitInspecting {
         guard accepted.contains(result.status) else {
             if result.error.contains("not a git repository") { throw GitInspectionError.unavailable("This folder is not in a Git repository") }
 
-            let reason = String(result.error.trimmingCharacters(in: .whitespacesAndNewlines).suffix(800))
+            let message = result.error.trimmingCharacters(in: .whitespacesAndNewlines)
+            let reason = message.count > 800 ? String(message.prefix(160)) + "\n…\n" + String(message.suffix(640)) : message
             throw GitInspectionError.failed(reason.isEmpty ? "Git command failed (exit \(result.status)); see action output" : "Git: " + reason)
         }
 
@@ -52,6 +52,7 @@ public struct GitCLI: GitInspecting {
         // Capture HEAD before and after multi-command inspection; do not combine different checkouts.
         for _ in 0..<3 {
             try Task.checkCancellation()
+            let operation = try integration(at: repository)
             let data = try await run(["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all", "--ignored=matching"], at: repository.root)
             let parsed = try GitPorcelain.status(data, repository: repository, branches: [], ignored: [:])
             let ignoredPaths = parsed.changes.filter { $0.decoration.ignoredReason != nil }.map(\.path)
@@ -68,7 +69,7 @@ public struct GitCLI: GitInspecting {
             let refs = try await branches(in: repository)
             let remotes = try await remoteNames(at: repository.root)
             let verification = try await run(["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all", "--ignored=matching"], at: repository.root)
-            if verification == data { return try GitPorcelain.status(data, repository: repository, branches: refs, ignored: reasons, mutationToken: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(), remotes: remotes) }
+            if verification == data, try integration(at: repository) == operation { return try GitPorcelain.status(data, repository: repository, branches: refs, ignored: reasons, mutationToken: digest(data + Data((operation?.token ?? "").utf8)), remotes: remotes, integration: operation) }
         }
 
         throw GitInspectionError.failed("Repository changed during refresh; refresh Git again")

@@ -211,3 +211,13 @@ Git normally permits overwriting ignored untracked paths during fast-forward. Pu
 
 
 **Recorded validation (2026-10-11).** First full package 941/941; final full package 940/941, with an existing nested-package SourceKit completion timeout that passed unchanged in isolation afterward. Eight final Pull package tests passed. Full App 34/34, then all three network App cases passed after the final sheet-resumption test. Build/lint passed (263 files, zero violations, four existing warnings); checker 28 tests and pipeline self-test passed; light/dark renders inspected. The final full package is not claimed green, and these automatic checks do not complete live R67–R74.
+
+
+## TK-033/034 conflicts and local integration (ADR-045/046)
+
+Index stages, operation fingerprint and working byte/mode checks prevent stale restoration/deletion; frozen saved bytes and filtered-blob marker verification prevent a later worktree read from silently changing a resolution. Native result ownership must remain single across preview/tab/window changes. Original Undo is not index/commit rollback. Missing stages are not empty text, and rebase Ours/Theirs differ from merge. Blob/working/metadata/history bounds, unsupported symlink/submodule/directory, conservative marker prefixes, raw restore conversion and older Git compatibility are explicit limitations.
+
+Merge stops before commit; rebase linear-only excludes merge topology, and empty staged replay cannot be silently dropped by Continue. Explicit Abort/Skip can discard on-disk post-start edits, so confirmation/save-or-cancel and actual phase preflight are required. Ignored/untracked transient replay paths need the same protection as ordinary checkout changes. Hooks/filters/signing/external writers can still modify state; cancellation can occur after a commit. Final unlock/disk checks, stopped-owner rejection and partial-state reporting matter as much as success. Live R75–R86/performance remain pending.
+
+
+**Recorded validation (2026-10-12).** Full package 953 passed; final focused package 17 passed and related App seven passed. Full App 35/36, with the existing inactive foreground-window probe failing unchanged; no full App green claim. Build/lint passed (275 files, zero violations, four existing warnings), equal light/dark panes inspected and disposable child cleanup checked. See ADR-045/046 for the unsupported rebase flag, empty-Continue, fixture visibility and pane-size findings. Live R75–R86/older Git/performance remain pending.
