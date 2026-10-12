@@ -103,7 +103,10 @@ private actor GatedReadStore: DocumentFileStore {
         await withCheckedContinuation { started = $0 }
     }
 
-    func release() { gate?.resume(); gate = nil }
+    func release() {
+        gate?.resume()
+        gate = nil
+    }
 }
 
 @Test @MainActor

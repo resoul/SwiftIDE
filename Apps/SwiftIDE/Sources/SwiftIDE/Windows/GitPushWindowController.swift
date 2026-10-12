@@ -15,9 +15,12 @@ final class GitPushWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Push Branch"; window.isReleasedWhenClosed = false; window.tabbingMode = .disallowed
+        window.title = "Push Branch"
+        window.isReleasedWhenClosed = false
+        window.tabbingMode = .disallowed
         window.contentViewController = content
-        super.init(window: window); window.delegate = self
+        super.init(window: window)
+        window.delegate = self
         content.close = { [weak self] in self?.dismiss() }
     }
 
@@ -27,15 +30,30 @@ final class GitPushWindowController: NSWindowController, NSWindowDelegate {
     func present(on parent: NSWindow, branch: String?, remote: String?) {
         guard let window else { return }
 
-        content.select(branch: branch, remote: remote); parent.beginSheet(window)
+        content.select(branch: branch, remote: remote)
+        parent.beginSheet(window)
     }
+
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if content.model.workspace.operationState.isBusy { content.model.workspace.cancelOperation(); return false }
-        dismiss(); return false
+        if content.model.workspace.operationState.isBusy {
+            content.model.workspace.cancelOperation()
+
+            return false
+        }
+
+        dismiss()
+
+        return false
     }
+
     func dismiss() {
-        content.model.stop(); content.disconnect()
-        if let window { window.sheetParent?.endSheet(window); window.orderOut(nil) }
+        content.model.stop()
+        content.disconnect()
+        if let window {
+            window.sheetParent?.endSheet(window)
+            window.orderOut(nil)
+        }
+
         onClosed?()
     }
 }

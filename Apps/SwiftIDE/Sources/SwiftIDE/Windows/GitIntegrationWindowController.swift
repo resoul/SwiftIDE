@@ -19,7 +19,8 @@ final class GitIntegrationWindowController: NSWindowController, NSWindowDelegate
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
         window.contentViewController = content
-        super.init(window: window); window.delegate = self
+        super.init(window: window)
+        window.delegate = self
         content.close = { [weak self] in self?.dismiss() }
         content.start = { [weak self, weak workspace] plan in
             self?.dismiss() // Release the parent before repository-wide save sheets.
@@ -34,10 +35,22 @@ final class GitIntegrationWindowController: NSWindowController, NSWindowDelegate
         content.select(target)
         if let window { parent.beginSheet(window) }
     }
-    func windowShouldClose(_ sender: NSWindow) -> Bool { dismiss(); return false }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        dismiss()
+
+        return false
+    }
+
     func dismiss() {
         content.disconnect()
-        if let window { window.sheetParent?.endSheet(window); window.orderOut(nil) }
-        let callback = onClosed; onClosed = nil; callback?()
+        if let window {
+            window.sheetParent?.endSheet(window)
+            window.orderOut(nil)
+        }
+
+        let callback = onClosed
+        onClosed = nil
+        callback?()
     }
 }

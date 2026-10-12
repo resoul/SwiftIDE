@@ -1,6 +1,6 @@
 # Remaining Git work
 
-**Recorded:** 2026-10-12, after TK-033/TK-034. This is a follow-up backlog, not a claim that these features are implemented or an instruction to start them now. The next active direction is workspace UI/UX; Git implementation resumes separately.
+**Recorded:** 2026-10-12, after TK-033/TK-034; updated after TK-036. Git work resumed at the user's request after the UI/UX and Files stability slices. Tracking branches/upstream are implemented (ADR-050), with manual acceptance pending. The next recommended Git implementation is Stash; later entries remain a backlog, not an instruction to start them automatically.
 
 Implemented baseline: status and file/tab decorations, worktree/index Changes, read-only diff, paginated history, branch inspection, whole-file Stage/Unstage, Commit, local branch creation/switching, Clone, Fetch, reviewed Push, fast-forward-only Pull, conflict resolution and reviewed local Merge/Rebase with Continue/Skip/Abort. Contracts: [workspace and Git](15_WORKSPACE_AND_GIT.md), [conflicts and integration](16_GIT_CONFLICTS_AND_INTEGRATION.md).
 
@@ -10,7 +10,7 @@ The order below is a recommendation for resuming Git work, not an approved sched
 
 | Priority | Feature | Scope and acceptance |
 |---|---|---|
-| 1 | Tracking branches and upstream | Create a local branch from a fetched remote ref; inspect, set and change upstream. Review repository, source ref/OID and destination before writes; handle missing/stale upstream and branches owned by another worktree. Push/Pull may suggest the configured upstream, while retaining explicit destination review. |
+| Done; acceptance pending | Tracking branches and upstream (TK-036) | Create a local branch at a reviewed fetched OID without switching; set/change/remove upstream, inspect actual remote/source and suggest them in Push/Pull. Config/mapping/ref/worktree checks and partial failure are covered; live R94–R98 pending. Per-worktree/inherited branch configuration and ambiguous/unsupported mappings require external Git. |
 | 2 | Stash | List and inspect entries; explicitly create, apply, pop and drop. Choose whether to include untracked files; ignored files require a separate explicit choice. Reconcile open editors, handle conflicts and cancelled/partially completed operations, and preserve an entry if application fails. No automatic stash. |
 | 3 | Stage/Unstage selected hunks or lines | Apply a patch to the intended index state without staging unrelated edits. Reject stale selections; cover independent staged/worktree changes, additions/deletions, encodings and line endings. Explain unsupported binary or oversized cases. |
 | 4 | Branch, remote and tag management | Review rename/delete branch, add/edit/remove remote and create/delete tag workflows. Explain unmerged branch history and worktree ownership; deleting a remote branch/tag is a separate explicit network action. Local configuration changes must not imply publication. |

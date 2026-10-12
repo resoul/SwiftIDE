@@ -19,29 +19,32 @@ public enum Rule: String, CaseIterable, Sendable {
     case blankLineBeforeReturn = "blank_line_before_return"
     case blankLineAfterMultilineIf = "blank_line_after_multiline_if"
     case blankLineAroundInitializer = "blank_line_around_initializer"
+    case blankLineAroundFunction = "blank_line_around_function"
+    case multipleStatementBody = "multiple_statement_body"
+    case separateStatements = "one_statement_per_line"
     case longLineBody = "long_line_body"
     case longLineStatements = "long_line_statements"
 }
 
-/// The blank-line rules of TK-023, found in the syntax tree, never in the text.
+/// The spacing and instruction-layout rules of TK-023, found in the syntax tree.
 ///
 /// - A `return` that follows other statements of the same block has a blank line before it.
 /// - A multi-line `if` (with its `else if` / `else`) that is followed by more statements of the
 ///   same block has a blank line after it.
 ///
-/// - An initializer is separated from neighboring declarations, including its attributes/comments.
+/// - Initializers and functions are separated from their neighbors, including attributes/comments.
 ///   A first/last member needs no extra blank line against the containing braces.
 ///
 /// - A block written as `{ statements }` on a line longer than `maxLineLength` has its body on lines of its
 ///   own and its `}` on a line of its own, so a formatter wraps the statement's header no more than it must,
 ///   never the header with the body left behind it. Of the blocks that close their line, the outermost one,
 ///   the last on the line, is expanded, and so on until the line fits or no such block is left.
-/// - Statements joined with `;` on a line longer than `maxLineLength` are put on lines of their own, so a
-///   formatter never has to wrap one of them in the middle of its expression.
+/// - Multiple inline instructions/declarations expand their containing body. Statements joined with
+///   `;` each get their own line, even on short lines. Required control-flow separators are preserved.
 ///
 /// A comment directly above the statement belongs to it: the blank line goes above the comment.
-/// The first statement of a block, a statement on the same line as the one before, and
-/// single-line `if`s in a row need nothing.
+/// First/last declarations need no blank line against their containing braces. Single-instruction
+/// short bodies may stay inline; adjacent short `if`s need no blank line between them.
 public enum SpacingChecker {
     /// The longest line, in characters; `--max-width` of `.swiftformat` and `line_length` of `.swiftlint.yml`.
     public static let maxLineLength = 120
@@ -54,9 +57,8 @@ public enum SpacingChecker {
         return all.map(\.violation).sorted { ($0.line, $0.column) < ($1.line, $1.column) }
     }
 
-    /// `source` with the missing blank lines added, or nil when none is missing. Throws if the
-    /// result would not be the same code: tokens and comments are compared, and the result may not
-    /// have more syntax errors than the original.
+    /// `source` with spacing and instruction layout corrected, or nil when unchanged. Before writing,
+    /// verifies tokens, comments, statement grouping, control flow and the syntax-error count.
     public static func fix(_ source: String, path: String = "<source>") throws -> String? {
         var current = source
         // Expanding a body can leave the line still too long, with another block on it.
@@ -102,6 +104,12 @@ public enum SpacingChecker {
         return finder.found
     }
 
+    private static func trimTrailingSpaces(_ trivia: Trivia) -> Trivia {
+        var pieces = Array(trivia)
+        while pieces.last?.isSpace == true { pieces.removeLast() }
+        return Trivia(pieces: pieces)
+    }
+
     /// Throws unless `fixed` is `original` with only line breaks, indentation and `;` between statements changed.
     static func verify(original originalSource: String, fixed fixedSource: String, path: String) throws {
         let original = Parser.parse(source: originalSource)
@@ -121,6 +129,14 @@ public enum SpacingChecker {
         guard before.tokens == after.tokens else { throw FixRefused(path: path, reason: "the tokens changed") }
 
         guard before.comments == after.comments else { throw FixRefused(path: path, reason: "the comments changed") }
+
+        let beforeGrouping = StatementGrouping()
+        beforeGrouping.walk(original)
+        let afterGrouping = StatementGrouping()
+        afterGrouping.walk(fixed)
+        guard beforeGrouping.shape == afterGrouping.shape else {
+            throw FixRefused(path: path, reason: "statement grouping or control flow changed")
+        }
 
         let errors = { (tree: SourceFileSyntax) in ParseDiagnosticsGenerator.diagnostics(for: tree).count }
         guard errors(fixed) <= errors(original) else { throw FixRefused(path: path, reason: "the result has more syntax errors") }
@@ -143,6 +159,8 @@ public enum SpacingChecker {
                 let item = items[index]
                 if item.item.as(InitializerDeclSyntax.self) != nil || items[index - 1].item.as(InitializerDeclSyntax.self) != nil {
                     report(.blankLineAroundInitializer, item, "put a blank line between an initializer and neighboring declarations")
+                } else if item.item.is(FunctionDeclSyntax.self) || items[index - 1].item.is(FunctionDeclSyntax.self) {
+                    report(.blankLineAroundFunction, item, "put a blank line between a function and neighboring declarations or statements")
                 } else if item.isReturn {
                     report(.blankLineBeforeReturn, item, "put a blank line before `return` when other statements come before it in the block")
                 } else if isMultilineIf(items[index - 1]) {
@@ -157,6 +175,8 @@ public enum SpacingChecker {
             for index in items.indices where index > 0 {
                 if items[index].decl.is(InitializerDeclSyntax.self) || items[index - 1].decl.is(InitializerDeclSyntax.self) {
                     report(.blankLineAroundInitializer, items[index], "put a blank line between an initializer and neighboring declarations")
+                } else if items[index].decl.is(FunctionDeclSyntax.self) || items[index - 1].decl.is(FunctionDeclSyntax.self) {
+                    report(.blankLineAroundFunction, items[index], "put a blank line between a function and neighboring declarations")
                 }
             }
             return .visitChildren
@@ -201,6 +221,7 @@ public enum SpacingChecker {
             let line: Int
             let column: Int
             let range: Range<AbsolutePosition>
+            let rule: Rule
         }
 
         let converter: SourceLocationConverter
@@ -233,20 +254,34 @@ public enum SpacingChecker {
             return .visitChildren
         }
 
+        override func visit(_ node: MemberBlockSyntax) -> SyntaxVisitorContinueKind {
+            consider(node, node.leftBrace, node.members.count, node.rightBrace)
+            return .visitChildren
+        }
+
         private func consider(_ node: some SyntaxProtocol, _ left: TokenSyntax, _ statements: Int, _ right: TokenSyntax) {
             guard statements > 0 else { return }
 
             let open = converter.location(for: left.positionAfterSkippingLeadingTrivia)
             let close = converter.location(for: right.positionAfterSkippingLeadingTrivia)
-            guard open.line == close.line, open.line <= lines.count,
-                  lines[open.line - 1].count > SpacingChecker.maxLineLength,
-                  closesItsLine(right), isPlain(node, left, right) else { return }
+            let joined = JoinedItems(converter: converter)
+            joined.walk(node)
+            let first = left.nextToken(viewMode: .sourceAccurate)
+            let last = right.previousToken(viewMode: .sourceAccurate)
+            let compactEdge = first.map { converter.location(for: $0.positionAfterSkippingLeadingTrivia).line == open.line } == true
+                || last.map { converter.location(for: $0.endPositionBeforeTrailingTrivia).line == close.line } == true
+            let multiple = joined.found && compactEdge
+            let long = open.line == close.line && open.line <= lines.count
+                && lines[open.line - 1].count > SpacingChecker.maxLineLength
+                && closesItsLine(right) && isPlain(node, left, right)
+            guard multiple || long else { return }
 
             candidates.append(Candidate(
                 id: node.id,
                 line: open.line,
                 column: open.column,
-                range: node.positionAfterSkippingLeadingTrivia..<node.endPositionBeforeTrailingTrivia
+                range: node.positionAfterSkippingLeadingTrivia..<node.endPositionBeforeTrailingTrivia,
+                rule: multiple && !long ? .multipleStatementBody : .longLineBody
             ))
         }
 
@@ -290,12 +325,41 @@ public enum SpacingChecker {
                         path: path,
                         line: $0.line,
                         column: $0.column,
-                        rule: .longLineBody,
-                        message: "the line is longer than \(SpacingChecker.maxLineLength) characters; "
-                            + "put the body of the block on lines of its own"
+                        rule: $0.rule,
+                        message: $0.rule == .multipleStatementBody
+                            ? "put a body containing multiple inline instructions or declarations on separate lines"
+                            : "the line is longer than \(SpacingChecker.maxLineLength) characters; put the body of the block on lines of its own"
                     )
                 )
             }
+        }
+    }
+
+    private final class JoinedItems: SyntaxVisitor {
+        let converter: SourceLocationConverter
+        var found = false
+
+        init(converter: SourceLocationConverter) {
+            self.converter = converter
+            super.init(viewMode: .sourceAccurate)
+        }
+
+        private func consider(_ items: [Syntax]) {
+            for index in items.indices where index > 0 {
+                let end = converter.location(for: items[index - 1].endPositionBeforeTrailingTrivia)
+                let start = converter.location(for: items[index].positionAfterSkippingLeadingTrivia)
+                if start.line == end.line { found = true }
+            }
+        }
+
+        override func visit(_ node: CodeBlockItemListSyntax) -> SyntaxVisitorContinueKind {
+            consider(node.map { Syntax($0) })
+            return .visitChildren
+        }
+
+        override func visit(_ node: MemberBlockItemListSyntax) -> SyntaxVisitorContinueKind {
+            consider(node.map { Syntax($0) })
+            return .visitChildren
         }
     }
 
@@ -346,6 +410,22 @@ public enum SpacingChecker {
             return result
         }
 
+        override func visit(_ node: MemberBlockSyntax) -> MemberBlockSyntax {
+            var result = super.visit(node)
+            guard ids.contains(node.id) else { return result }
+
+            let indent = Self.indentation(of: node)
+            result.leftBrace = Self.withoutTrailingSpaces(result.leftBrace)
+            result.members = MemberBlockItemListSyntax(result.members.map { item in
+                var item = item
+                Self.removeSemicolon(from: &item)
+                item.leadingTrivia = Self.leading(item.leadingTrivia, indent: indent + 4, node: node)
+                return item
+            })
+            result.rightBrace = Self.onItsOwnLine(result.rightBrace, indent: indent)
+            return result
+        }
+
         /// The spaces that begin the line of the node's first token, taken from the trivia before it, or,
         /// when the token follows other code on its line, from the start of that line.
         private static func indentation(of node: some SyntaxProtocol) -> Int {
@@ -366,16 +446,32 @@ public enum SpacingChecker {
 
         private static func onItsOwnLine(_ token: TokenSyntax, indent: Int) -> TokenSyntax {
             var token = token
-            token.leadingTrivia = [.newlines(1), .spaces(indent)]
+            token.leadingTrivia = leading(token.leadingTrivia, indent: indent, node: token)
             return token
+        }
+
+        private static func leading(_ trivia: Trivia, indent: Int, node: some SyntaxProtocol) -> Trivia {
+            let newline: TriviaPiece = node.root.description.contains("\r\n") ? .carriageReturnLineFeeds(1) : .newlines(1)
+            let comments = trivia.drop(while: { $0.isSpace || $0.isNewline })
+            return Trivia(pieces: [newline, .spaces(indent)] + comments)
+        }
+
+        private static func removeSemicolon(from item: inout MemberBlockItemSyntax) {
+            if let semicolon = item.semicolon {
+                item.decl.trailingTrivia = SpacingChecker.trimTrailingSpaces(item.decl.trailingTrivia + semicolon.leadingTrivia + semicolon.trailingTrivia)
+                item.semicolon = nil
+            }
         }
 
         private static func expanded(_ statements: CodeBlockItemListSyntax, indent: Int) -> CodeBlockItemListSyntax {
             let items = Array(statements)
             return CodeBlockItemListSyntax(items.enumerated().map { index, item in
                 var item = item
-                item.semicolon = nil
-                item.leadingTrivia = [.newlines(1), .spaces(indent + 4)]
+                if !item.needsControlFlowSemicolon, let semicolon = item.semicolon {
+                    item.item.trailingTrivia = SpacingChecker.trimTrailingSpaces(item.item.trailingTrivia + semicolon.leadingTrivia + semicolon.trailingTrivia)
+                    item.semicolon = nil
+                }
+                item.leadingTrivia = leading(item.leadingTrivia, indent: indent + 4, node: statements)
                 if index == items.count - 1 {
                     item.trailingTrivia = Trivia(pieces: item.trailingTrivia.filter { !$0.isSpace })
                 }
@@ -384,7 +480,7 @@ public enum SpacingChecker {
         }
     }
 
-    // MARK: Statements joined with `;` on a long line
+    // MARK: Statements joined on one line
 
     private static func findStatements(in tree: SourceFileSyntax, source: String, path: String) -> [Found] {
         let finder = StatementFinder(
@@ -396,8 +492,7 @@ public enum SpacingChecker {
         return finder.found
     }
 
-    /// The statements that follow another on a line that is too long: after a `;`, or after the `:` of a
-    /// `case` label.
+    /// Statements after `;` on any line, or after a `case` label on a line longer than the limit.
     private final class StatementFinder: SyntaxVisitor {
         let converter: SourceLocationConverter
         let lines: [Substring]
@@ -414,8 +509,9 @@ public enum SpacingChecker {
         override func visit(_ node: CodeBlockItemListSyntax) -> SyntaxVisitorContinueKind {
             for item in node {
                 let location = converter.location(for: item.positionAfterSkippingLeadingTrivia)
-                guard location.line <= lines.count, lines[location.line - 1].count > SpacingChecker.maxLineLength,
-                      StatementSplitter.breakKind(of: item) != nil else { continue }
+                guard let kind = StatementSplitter.breakKind(of: item) else { continue }
+                let long = location.line <= lines.count && lines[location.line - 1].count > SpacingChecker.maxLineLength
+                guard long || kind == .afterSemicolon else { continue }
 
                 found.append(Found(
                     itemID: item.id,
@@ -423,9 +519,8 @@ public enum SpacingChecker {
                         path: path,
                         line: location.line,
                         column: location.column,
-                        rule: .longLineStatements,
-                        message: "the line is longer than \(SpacingChecker.maxLineLength) characters; "
-                            + "put each statement on a line of its own"
+                        rule: long ? .longLineStatements : .separateStatements,
+                        message: "put each statement on a line of its own"
                     )
                 ))
             }
@@ -486,7 +581,10 @@ public enum SpacingChecker {
 
                 var indent = Self.lineIndentation(of: originals[index])
                 if kind == .afterSemicolon, index > 0 {
-                    result[index - 1].semicolon = nil
+                    if !result[index - 1].needsControlFlowSemicolon, let semicolon = result[index - 1].semicolon {
+                        result[index - 1].item.trailingTrivia = SpacingChecker.trimTrailingSpaces(result[index - 1].item.trailingTrivia + semicolon.leadingTrivia + semicolon.trailingTrivia)
+                        result[index - 1].semicolon = nil
+                    }
                     // Behind a `case` label on the same line, the statements are one level in.
                     var first = index - 1
                     while first > 0, Self.breakKind(of: originals[first]) == .afterSemicolon { first -= 1 }
@@ -494,7 +592,9 @@ public enum SpacingChecker {
                 } else if kind == .afterColon {
                     indent += 4
                 }
-                result[index].leadingTrivia = [.newlines(1), .spaces(indent)]
+                let newline: TriviaPiece = node.root.description.contains("\r\n") ? .carriageReturnLineFeeds(1) : .newlines(1)
+                let comments = result[index].leadingTrivia.drop(while: { $0.isSpace || $0.isNewline })
+                result[index].leadingTrivia = Trivia(pieces: [newline, .spaces(indent)] + comments)
             }
             return CodeBlockItemListSyntax(result)
         }
@@ -505,6 +605,37 @@ public enum SpacingChecker {
             var start = offset
             while start > 0, bytes[start - 1] != UInt8(ascii: "\n") { start -= 1 }
             return bytes[start..<offset].prefix { $0 == UInt8(ascii: " ") }.count
+        }
+    }
+
+    private final class StatementGrouping: SyntaxVisitor {
+        var shape: [String] = []
+
+        init() { super.init(viewMode: .sourceAccurate) }
+
+        override func visit(_ node: CodeBlockItemListSyntax) -> SyntaxVisitorContinueKind {
+            shape.append("statements:\(node.count)")
+            return .visitChildren
+        }
+
+        override func visit(_ node: MemberBlockItemListSyntax) -> SyntaxVisitorContinueKind {
+            shape.append("members:\(node.count)")
+            return .visitChildren
+        }
+
+        override func visit(_ node: ReturnStmtSyntax) -> SyntaxVisitorContinueKind {
+            shape.append("return:\(node.expression != nil)")
+            return .visitChildren
+        }
+
+        override func visit(_ node: BreakStmtSyntax) -> SyntaxVisitorContinueKind {
+            shape.append("break:\(node.label?.text ?? "")")
+            return .visitChildren
+        }
+
+        override func visit(_ node: ContinueStmtSyntax) -> SyntaxVisitorContinueKind {
+            shape.append("continue:\(node.label?.text ?? "")")
+            return .visitChildren
         }
     }
 
@@ -625,6 +756,12 @@ private extension TriviaPiece {
 }
 
 private extension CodeBlockItemSyntax {
+    var needsControlFlowSemicolon: Bool {
+        if let statement = item.as(ReturnStmtSyntax.self) { return statement.expression == nil }
+        if let statement = item.as(BreakStmtSyntax.self) { return statement.label == nil }
+        if let statement = item.as(ContinueStmtSyntax.self) { return statement.label == nil }
+        return false
+    }
     var isReturn: Bool {
         if case .stmt(let statement) = item { return statement.is(ReturnStmtSyntax.self) }
         return false

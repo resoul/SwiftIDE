@@ -36,6 +36,7 @@ public struct ResolvedLanguage: Equatable, Sendable {
 @MainActor
 public protocol LanguageOverrideStore: AnyObject {
     func override(forPath path: String) -> DocumentLanguage?
+
     /// Nil forgets the choice.
     func setOverride(_ language: DocumentLanguage?, forPath path: String)
 }
@@ -47,6 +48,7 @@ public final class MemoryLanguageOverrideStore: LanguageOverrideStore {
     public init() {}
 
     public func override(forPath path: String) -> DocumentLanguage? { overrides[path] }
+
     public func setOverride(_ language: DocumentLanguage?, forPath path: String) { overrides[path] = language }
 }
 

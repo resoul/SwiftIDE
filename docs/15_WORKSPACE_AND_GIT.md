@@ -1,6 +1,6 @@
 # Workspace components and Git integration
 
-**Status:** accepted direction on 2026-10-10 ([ADR-031](07_ARCHITECTURE_DECISIONS.md#adr-031-workspace-components-git-and-file-status-colours)); TK-025, TK-026, TK-027, TK-028, TK-030 and TK-031 are implemented and tested (2026-10-11, ADR-035/036/037/038/040/041), with live-window acceptance pending. TK-029 Clone/Fetch/Push/fast-forward Pull are implemented (ADR-042/043/044); explicit local conflicts/Merge/Rebase are implemented in TK-033/034 (ADR-045/046); live acceptance pending. Workspace Preview and real project windows use one reusable shell with different providers; normal startup shows Welcome. Preview still contains sample content. This document defines the next working slices while the language/project backend continues separately.
+**Status:** accepted direction on 2026-10-10 ([ADR-031](07_ARCHITECTURE_DECISIONS.md#adr-031-workspace-components-git-and-file-status-colours)); TK-025, TK-026, TK-027, TK-028, TK-030 and TK-031 are implemented and tested (2026-10-11, ADR-035/036/037/038/040/041), with live-window acceptance pending. TK-029 Clone/Fetch/Push/fast-forward Pull are implemented (ADR-042/043/044); explicit local conflicts/Merge/Rebase are implemented in TK-033/034 (ADR-045/046). TK-036 implements reviewed tracking branches/upstream (ADR-050); live acceptance pending. Project windows use the reusable shell; normal startup shows Welcome. Workspace Preview was removed in ADR-048. This document defines working slices while the language/project backend continues separately.
 
 ## Interface and implementation order
 
@@ -81,14 +81,14 @@ Use semantic colours for names in Files and matching file/tab labels. The colour
 | Excluded by the project's Files/search policy | Orange | “Excluded from project”; show the rule/source and any independent Git status |
 | Ignored by Git | Orange | “Ignored by Git”; show the matching ignore rule where available. This is not project exclusion |
 | Renamed or deleted | Blue for a visible changed path; deleted paths remain in Changes | Explicit `R` / `D` and old/new paths for a rename. Do not use orange to mean deletion |
-| Conflict | Red with a distinct warning badge | “Conflict”; never rely on the same red used by untracked files to distinguish a conflict |
+| Conflict | Red | “Conflict” in tooltip/accessibility and the separate Source Control group |
 | Git status not available yet, or no repository | Normal theme foreground | Loading/unavailable explanation where applicable; project exclusions still display independently |
 
-The name-colour precedence is exclusion/ignore (orange), then conflict (red), then modification/rename/deletion (blue), then index addition (green), then untracked (red), then normal. Conflict and Git badges remain visible even when exclusion gives the name its orange colour. Tooltip/context details expose all applicable states. An ignored path is not simultaneously presented as an ordinary untracked path; Git's tracking rules determine ignore status.
+The name-colour precedence is exclusion/ignore (orange), then conflict (red), then modification/rename/deletion (blue), then index addition (green), then untracked (red), then normal. **User decision, 2026-10-12 (ADR-050):** Files and tabs show colours without Git letter/question/warning badges beside names. Only the independent unsaved dot remains. Index/worktree/conflict details stay in tooltips, accessibility and Source Control, including when exclusion colours the name orange. An ignored path is not simultaneously presented as ordinary untracked; Git's tracking rules determine ignore status.
 
-Folders aggregate repository statuses, including descendants in collapsed folders: a conflict gets a warning badge; modified/renamed/deleted descendants give blue; only newly staged additions give green; only untracked additions give red; a mix of new staged/untracked entries gives blue with a “Mixed changes” explanation. Excluded/ignored folders and their affected descendants are orange. Merely containing an ignored or excluded subtree does not make an otherwise included ancestor orange or changed. Git-tracked changes remain visible in Changes even if their paths are excluded from Files/search.
+Folders aggregate repository statuses, including descendants in collapsed folders: conflicts give red; modified/renamed/deleted descendants give blue; only newly staged additions give green; only untracked additions give red; a mix of new staged/untracked entries gives blue with a “Mixed changes” explanation. Excluded/ignored folders and their affected descendants are orange. Merely containing an ignored or excluded subtree does not make an otherwise included ancestor orange or changed. Git-tracked changes remain visible in Changes even if their paths are excluded from Files/search.
 
-Use theme-aware tokens, not colour values copied from one screenshot. Labels, badges and accessibility descriptions explain the status without colour. A selected row must retain readable names and status badges; light/dark switching and increased contrast require manual checks.
+Use theme-aware tokens, not colour values copied from one screenshot. Tooltips and accessibility descriptions explain status in words. Selected rows retain readable names; light/dark switching and increased contrast require manual checks.
 
 ## Exclusions and ignored files
 
@@ -191,3 +191,13 @@ Explicit single-head fetch overrides custom mappings/prune/tags/submodule settin
 ## TK-033/034: explicit conflicts and local Merge/Rebase
 
 [Conflict/integration contract](16_GIT_CONFLICTS_AND_INTEGRATION.md) (ADR-045/046) defines the central stage context with original TextKit result, frozen saved-result staging, binary/absent/deletion cases and bounds. Git ▸ Merge…/Rebase… reviews immutable targets separately from Pull. Merge stops for commit; linear rebase stops for conflicts/empty replay. Source Control and menu provide actual persistent phase, Continue and confirmed Skip/Abort, with save/cancel/locks/disk reconciliation. Ordinary native Undo survives, and does not undo Git state. Live R75–R86 remain pending.
+
+## TK-036: tracking branches and upstream
+
+Git ▸ Branch Tracking… and the branch picker’s Tracking… open a project-owned reusable form. Choose Create local tracking branch, Set/change upstream or Remove upstream, then Review and the explicit action. Review reads local configuration/refs only and shows repository, local name, prior upstream, mapped remote/source and fetched commit. Creating uses the immutable fetched OID, then configures tracking; switching is a separate existing command. Current checkout, disk/index bytes and unsaved editor/Undo stay intact.
+
+The adapter inverts exact/single-wildcard fetch mappings, honors matching negatives and requires one unambiguous remote/source. Slash-containing remote names and local/remote names that differ are supported. Symbolic remote HEAD aliases, ambiguous/unsupported mappings, inherited branch configuration and per-worktree configuration require external adjustment. A branch checked out in another worktree must be configured there. Changed refs/config invalidate or refuse reviewed actions under the existing common-metadata mutation gate; ordinary external writers remain outside that gate.
+
+Native Git configures/removes upstream. Auto-setup of rebase is explicitly disabled for this command, preserving existing rebase policy. Source/ref/config checks and post-write inspection confirm actual results. Creation/configuration is not atomic: a branch already created before cancellation or configuration failure stays, with actual refreshed state and an explicit partial-failure message. No automatic rollback, Fetch, Push, stash or checkout. Individual Git commands retain existing bounded output/timeouts.
+
+Branch snapshots now carry the full upstream ref and Git's native upstream remote/source fields. Push/Pull suggest those names (including when the fetched ref has disappeared) while preserving explicit destination review and user drafts. Upstream does not silently change Push/Pull policy. Live R94–R99 pending; [remaining Git work](17_GIT_BACKLOG.md) now starts with Stash.

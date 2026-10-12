@@ -5,6 +5,7 @@ import Testing
 
 private actor CountedFilesReader: ProjectDirectoryReading {
     private(set) var calls = 0
+
     func children(of path: String) async throws -> [ProjectFile] {
         calls += 1
 
@@ -14,6 +15,7 @@ private actor CountedFilesReader: ProjectDirectoryReading {
 
 private actor FilesStatusService: GitInspecting {
     private var revision = 0
+
     func snapshot(at projectRoot: String) async throws -> GitSnapshot {
         revision += 1
 
@@ -29,6 +31,7 @@ private actor FilesStatusService: GitInspecting {
             capturedAt: Date(timeIntervalSince1970: Double(revision))
         )
     }
+
     func history(
         in repository: GitRepository,
         revision: String,
@@ -38,7 +41,9 @@ private actor FilesStatusService: GitInspecting {
         commits: [],
         hasMore: false
     ) }
+
     func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] { [] }
+
     func diff(in repository: GitRepository, comparison: GitComparison) async throws -> String { "" }
 }
 

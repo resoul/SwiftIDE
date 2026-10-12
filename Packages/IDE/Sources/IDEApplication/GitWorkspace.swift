@@ -39,6 +39,7 @@ public final class GitWorkspace {
     public var prepareCheckout: ((GitRepository) async -> Bool)?
     public var checkoutFinished: ((GitRepository) -> Void)?
     public var conflictReader: (any GitConflictReading)? { service as? any GitConflictReading }
+    public var trackingPlanner: (any GitTrackingPlanning)? { service as? any GitTrackingPlanning }
     public var pullPlanner: (any GitPullPlanning)? { service as? any GitPullPlanning }
     public var pushPlanner: (any GitPushPlanning)? { service as? any GitPushPlanning }
     public var supportsLocalActions: Bool { mutations != nil }
@@ -59,15 +60,21 @@ public final class GitWorkspace {
     private var scheduledRefresh: Task<Void, Never>?
 
     public init(root: String, service: any GitInspecting, mutations: (any GitMutating)? = nil) {
-        self.root = root; self.service = service
+        self.root = root
+        self.service = service
         self.mutations = mutations ?? (service as? any GitMutating)
     }
 
     public func refresh() {
         guard !stopped, !operationState.isBusy else { return }
 
-        refreshTask?.cancel(); historyTask?.cancel(); diffTask?.cancel(); filesTask?.cancel()
-        epoch = UUID(); diffID = UUID(); commitID = UUID()
+        refreshTask?.cancel()
+        historyTask?.cancel()
+        diffTask?.cancel()
+        filesTask?.cancel()
+        epoch = UUID()
+        diffID = UUID()
+        commitID = UUID()
         let token = epoch
         state = .loading
         if historyState == .loading { historyState = .idle }
@@ -93,7 +100,9 @@ public final class GitWorkspace {
 
                 if !customHistory { historyTitle = value.headDescription }
                 if differentRepository {
-                    comparison = nil; diffState = .idle; diffText = "Repository changed; select a new comparison."
+                    comparison = nil
+                    diffState = .idle
+                    diffText = "Repository changed; select a new comparison."
                 }
 
                 if case .untracked(let change) = comparison,
@@ -140,9 +149,12 @@ public final class GitWorkspace {
     public func viewHistory(of branch: GitBranch) {
         guard state == .ready else { return }
 
-        historyTask?.cancel(); filesTask?.cancel()
+        historyTask?.cancel()
+        filesTask?.cancel()
         commitID = UUID()
-        revision = branch.oid; customHistory = true; historyTitle = branch.name
+        revision = branch.oid
+        customHistory = true
+        historyTitle = branch.name
         resetHistory()
         loadMoreHistory()
     }
@@ -176,8 +188,11 @@ public final class GitWorkspace {
     public func select(_ commit: GitCommit) {
         guard !stopped, state == .ready, let repository = snapshot?.repository else { return }
 
-        selectedCommit = commit; commitFiles = []; filesState = .loading
-        filesTask?.cancel(); commitID = UUID()
+        selectedCommit = commit
+        commitFiles = []
+        filesState = .loading
+        filesTask?.cancel()
+        commitID = UUID()
         let token = commitID, generation = epoch
         changed()
         filesTask = Task { [weak self, service] in
@@ -185,7 +200,8 @@ public final class GitWorkspace {
                 let values = try await service.files(in: repository, commit: commit)
                 guard let self, !Task.isCancelled, epoch == generation, commitID == token, !stopped else { return }
 
-                commitFiles = values; filesState = .ready
+                commitFiles = values
+                filesState = .ready
             } catch {
                 guard let self, !Task.isCancelled, epoch == generation, commitID == token, !stopped else { return }
 
@@ -204,7 +220,8 @@ public final class GitWorkspace {
 
         let changedComparison = self.comparison != comparison
         self.comparison = comparison
-        diffTask?.cancel(); diffID = UUID()
+        diffTask?.cancel()
+        diffID = UUID()
         let token = diffID, generation = epoch
         diffState = .loading
         if changedComparison || openTab { diffText = "Loading diff…" }
@@ -220,7 +237,8 @@ public final class GitWorkspace {
             } catch {
                 guard let self, !Task.isCancelled, epoch == generation, diffID == token, !stopped else { return }
 
-                diffState = Self.failure(error); diffText = diffState.explanation
+                diffState = Self.failure(error)
+                diffText = diffState.explanation
             }
             self?.changed()
         }
@@ -229,10 +247,12 @@ public final class GitWorkspace {
     public func perform(_ action: GitLocalAction) {
         guard canMutate, let expected = snapshot, let mutations else { return }
 
-        refreshTask?.cancel(); scheduledRefresh?.cancel()
+        refreshTask?.cancel()
+        scheduledRefresh?.cancel()
         operationID = UUID()
         let token = operationID
-        operationTitle = action.title; operationOutput = ""
+        operationTitle = action.title
+        operationOutput = ""
         operationState = action.changesCheckout ? .preparing : .running
         changed()
         let prepare = prepareCheckout, finish = checkoutFinished
@@ -256,7 +276,8 @@ public final class GitWorkspace {
                 try Task.checkCancellation()
                 guard let self, !stopped, operationID == token else { return }
 
-                operationState = .running; changed()
+                operationState = .running
+                changed()
                 try await mutations.perform(action, expected: reviewed) { [weak self] chunk in
                     Task { @MainActor [weak self] in
                         guard let self, !self.stopped, self.operationID == token else { return }
@@ -280,7 +301,7 @@ public final class GitWorkspace {
 
             operationTask = nil
             changed()
-            refresh() // Failure/cancellation may still have changed Git. Never claim rollback.
+            refresh()// Failure/cancellation may still have changed Git. Never claim rollback.
         }
     }
 
@@ -293,15 +314,28 @@ public final class GitWorkspace {
     }
 
     public func stop() {
-        stopped = true; epoch = UUID(); diffID = UUID(); commitID = UUID()
-        refreshTask?.cancel(); historyTask?.cancel(); diffTask?.cancel(); filesTask?.cancel()
-        scheduledRefresh?.cancel(); operationTask?.cancel()
-        onInspect = nil; prepareCheckout = nil; checkoutFinished = nil
+        stopped = true
+        epoch = UUID()
+        diffID = UUID()
+        commitID = UUID()
+        refreshTask?.cancel()
+        historyTask?.cancel()
+        diffTask?.cancel()
+        filesTask?.cancel()
+        scheduledRefresh?.cancel()
+        operationTask?.cancel()
+        onInspect = nil
+        prepareCheckout = nil
+        checkoutFinished = nil
     }
 
     private func resetHistory() {
-        history = []; selectedCommit = nil; commitFiles = []; hasMoreHistory = false
-        historyState = .idle; filesState = .idle
+        history = []
+        selectedCommit = nil
+        commitFiles = []
+        hasMoreHistory = false
+        historyState = .idle
+        filesState = .idle
     }
 
     private static func failure(_ error: any Error) -> GitLoadState {
@@ -309,12 +343,16 @@ public final class GitWorkspace {
 
         return .failed(error.localizedDescription)
     }
+
     @discardableResult
     public func subscribe(_ observer: @escaping () -> Void) -> UUID {
-        let id = UUID(); observers[id] = observer
+        let id = UUID()
+        observers[id] = observer
 
         return id
     }
+
     public func unsubscribe(_ id: UUID) { observers[id] = nil }
+
     private func changed() { for observer in Array(observers.values) { observer() } }
 }

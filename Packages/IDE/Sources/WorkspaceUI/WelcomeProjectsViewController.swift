@@ -95,7 +95,8 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
         search.action = #selector(openSelected(_:))
         search.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let open = NSButton(title: "Open Folder…", target: self, action: #selector(chooseFolder(_:)))
-        clone.target = self; clone.action = #selector(cloneRequested(_:))
+        clone.target = self
+        clone.action = #selector(cloneRequested(_:))
         let header = welcomeStack([search, open, clone], vertical: false, spacing: 14)
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("Project"))
         table.addTableColumn(column)
@@ -199,8 +200,14 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
     }
 
     @objc private func cloneRequested(_ sender: Any?) { cloneRepository?() }
+
     @objc private func chooseFolder(_ sender: Any?) { openFolder?() }
-    @objc private func focusProjects(_ sender: Any?) { (sender as? NSButton)?.state = .on; focusSearch() }
+
+    @objc private func focusProjects(_ sender: Any?) {
+        (sender as? NSButton)?.state = .on
+        focusSearch()
+    }
+
     @objc func openSelected(_ sender: Any?) {
         guard rows.indices.contains(table.selectedRow) else { return }
 
@@ -225,9 +232,11 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
             menu.addItem(item)
         }
     }
+
     @objc private func openFromMenu(_ sender: NSMenuItem) {
         if let path = sender.representedObject as? String { openProject?(path) }
     }
+
     @objc private func pinFromMenu(_ sender: NSMenuItem) {
         guard let path = sender.representedObject as? String,
               let entry = model.projects.first(where: { $0.path == path }) else {
@@ -236,9 +245,11 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
 
         model.pin(path, pinned: !entry.isPinned)
     }
+
     @objc private func locateFromMenu(_ sender: NSMenuItem) {
         if let path = sender.representedObject as? String { locateProject?(path) }
     }
+
     @objc private func removeFromMenu(_ sender: NSMenuItem) {
         if let path = sender.representedObject as? String { model.remove(path) }
     }
@@ -247,6 +258,7 @@ public final class WelcomeProjectsViewController: NSViewController, NSTableViewD
 @MainActor
 final class RecentProjectsTable: NSTableView {
     var openSelection: (() -> Void)?
+
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36 || event.keyCode == 76 {
             openSelection?()
@@ -291,14 +303,17 @@ final class WelcomeProjectCell: NSTableCellView {
         switch availability {
         case .checking: notes.append("Checking folder…")
         case .available: break
-        case .missing: notes.append("Folder not found · Locate or remove from Recent"); stateColour = Self.warningColour
-        case .unavailable(let reason): notes.append("Unavailable: " + reason); stateColour = Self.warningColour
+        case .missing: notes.append("Folder not found · Locate or remove from Recent")
+            stateColour = Self.warningColour
+        case .unavailable(let reason): notes.append("Unavailable: " + reason)
+            stateColour = Self.warningColour
         }
         status.stringValue = notes.joined(separator: " · ")
         toolTip = ([project.name, project.path] + notes).joined(separator: "\n")
         setAccessibilityLabel(toolTip)
         updateColours()
     }
+
     private func updateColours() {
         title.textColor = .labelColor
         path.textColor = .secondaryLabelColor
@@ -326,13 +341,22 @@ private final class WelcomeProjectRow: NSTableRowView {
 private final class WelcomeBackground: NSView {
     private let sidebar: Bool
 
-    init(sidebar: Bool) { self.sidebar = sidebar; super.init(frame: .zero); wantsLayer = true }
+    init(sidebar: Bool) {
+        self.sidebar = sidebar
+        super.init(frame: .zero)
+        wantsLayer = true
+    }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     override var wantsUpdateLayer: Bool { true }
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); needsDisplay = true }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
     override func updateLayer() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             layer?.backgroundColor = (sidebar ? NSColor.controlBackgroundColor : NSColor.windowBackgroundColor).cgColor

@@ -21,7 +21,10 @@ private func spans(of kinds: Kinds, offset: Int = 0) -> [HighlightSpan] {
     var result: [HighlightSpan] = []
     var index = 0
     while index < kinds.count {
-        guard let kind = kinds[index] else { index += 1; continue }
+        guard let kind = kinds[index] else {
+            index += 1
+            continue
+        }
 
         var end = index + 1
         while end < kinds.count, kinds[end] == kind { end += 1 }
@@ -34,6 +37,7 @@ private func spans(of kinds: Kinds, offset: Int = 0) -> [HighlightSpan] {
 
 private struct SeededGenerator: RandomNumberGenerator {
     var state: UInt64
+
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
 

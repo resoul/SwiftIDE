@@ -48,7 +48,10 @@ extension NativeAppTests {
             ))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil // disposable roots must not persist layout preferences
-            defer { project.closeProject(); app.welcome?.close() }
+            defer {
+                project.closeProject()
+                app.welcome?.close()
+            }
             #expect(app.openProject(path: root.path + "/.") === project)
             project.files.onExclusionsChange = nil // this test uses disposable paths, not the user's settings
             project.files.exclude(root.appendingPathComponent("a.txt").path)
@@ -142,7 +145,10 @@ extension NativeAppTests {
             ))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil // disposable roots must not persist layout preferences
-            defer { project.closeProject(); app.welcome?.close() }
+            defer {
+                project.closeProject()
+                app.welcome?.close()
+            }
             await app.open(path: root.appendingPathComponent("a.txt").path)
             let document = try #require(project.documents.first)
             try document.session.replaceText("dirty", expectedVersion: 0)
@@ -182,7 +188,10 @@ extension NativeAppTests {
             ))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil
-            defer { project.closeProject(); app.welcome?.close() }
+            defer {
+                project.closeProject()
+                app.welcome?.close()
+            }
             for name in ["README.md", "notes.txt", "third.txt"] {
                 await app.open(path: root.appendingPathComponent(name).path)
             }
@@ -253,7 +262,10 @@ extension NativeAppTests {
             ))
             let project = app.openProject(path: root.path)
             project.layout.onSave = nil
-            defer { project.closeProject(); app.welcome?.close() }
+            defer {
+                project.closeProject()
+                app.welcome?.close()
+            }
             await app.open(path: source.path)
             let first = try #require(project.documents.first)
             first.onOpenLocation?(DefinitionLocation(path: definition.path, line: 1, character: 2))
@@ -294,10 +306,10 @@ extension NativeAppTests {
                 scratchRoot: root.appendingPathComponent("scratch"),
                 languages: composition.languages,
                 makeService: { url, _ in
-                starts += 1
+                    starts += 1
 
-                return SourceKitLanguageService(workspaceRoot: url, channelFactory: { throw LSPError.notRunning })
-            }
+                    return SourceKitLanguageService(workspaceRoot: url, channelFactory: { throw LSPError.notRunning })
+                }
             )
             composition.languageServices = services
             let opened = try await composition.open(path: file.path)
@@ -347,7 +359,10 @@ extension NativeAppTests {
             let window = try #require(NSApp.windows.first {
                 $0.representedURL?.path == DocumentPath.canonical(file.path)
             })
-            defer { window.close(); app.welcome?.close() }
+            defer {
+                window.close()
+                app.welcome?.close()
+            }
             let initialContent = try #require(window.contentView)
             let editor = try #require(textView(in: initialContent))
             editor.insertText("edit ", replacementRange: NSRange(location: 0, length: 0))

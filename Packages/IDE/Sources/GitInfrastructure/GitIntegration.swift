@@ -34,12 +34,13 @@ extension GitCLI {
             guard expected.repository == plan.repository, expected.integration == nil, expected.head == plan.head,
                   expected.branch == plan.branch,
                   expected.branches.contains(plan.target), plan.kind != .other else {
-                      throw GitInspectionError.failed("Branch or Git operation changed; review again")
-                  }
+                throw GitInspectionError.failed("Branch or Git operation changed; review again")
+            }
 
             guard !expected.changes
                 .contains(where: {
-                !$0.decoration.index.isEmpty || !$0.decoration.worktree.isEmpty || $0.decoration.isConflict }) else {
+                    !$0.decoration.index.isEmpty || !$0.decoration.worktree.isEmpty || $0.decoration.isConflict
+                }) else {
                 throw GitInspectionError
                     .failed(
                         "Merge/Rebase requires clean tracked files and index; commit changes first. No stash was made."
@@ -96,7 +97,8 @@ extension GitCLI {
                     throw GitInspectionError.failed("Enter a merge commit message (up to 64 KB)")
                 }
 
-                arguments = ["commit", "--file=-", "--cleanup=verbatim"]; input = Data(message.utf8)
+                arguments = ["commit", "--file=-", "--cleanup=verbatim"]
+                input = Data(message.utf8)
             } else {
                 guard reviewed.stoppedCommit == nil || expected.changes
                     .contains(where: { !$0.decoration.index.isEmpty && !$0.decoration.isConflict }) else {
@@ -206,7 +208,7 @@ extension GitCLI {
             guard !paths.contains(where: { $0 == path || $0.hasPrefix(path + "/") || path.hasPrefix($0 + "/") }) else {
                 throw GitInspectionError
                     .failed("Untracked/ignored path may be overwritten: " + change
-                    .path + ". Move it outside the worktree before retrying.")
+                        .path + ". Move it outside the worktree before retrying.")
             }
         }
     }

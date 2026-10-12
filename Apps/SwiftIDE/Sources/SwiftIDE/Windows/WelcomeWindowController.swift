@@ -35,6 +35,14 @@ final class WelcomeWindowController: NSWindowController, NSWindowDelegate {
         content.focusSearch()
         content.model.refreshAvailability()
     }
-    func hide() { window?.orderOut(nil); content.model.stopChecking() }
-    func windowWillClose(_ notification: Notification) { onClose?(); content.model.stopChecking() }
+
+    func hide() {
+        window?.orderOut(nil)
+        content.model.stopChecking()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        onClose?()
+        content.model.stopChecking()
+    }
 }

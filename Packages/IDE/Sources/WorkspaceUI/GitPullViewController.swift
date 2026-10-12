@@ -17,7 +17,10 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
     private let output = NSTextView()
     private var subscription: UUID?
 
-    public init(model: GitPullReview) { self.model = model; super.init(nibName: nil, bundle: nil) }
+    public init(model: GitPullReview) {
+        self.model = model
+        super.init(nibName: nil, bundle: nil)
+    }
 
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -26,14 +29,20 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
         view = GitPullBackground(frame: NSRect(x: 0, y: 0, width: 660, height: 490))
         let title = NSTextField(labelWithString: "Pull Branch")
         title.font = .systemFont(ofSize: 20, weight: .semibold)
-        remote.target = self; remote.action = #selector(selectionChanged(_:))
-        branch.setAccessibilityLabel("Current local branch"); remote.setAccessibilityLabel("Remote to pull")
+        remote.target = self
+        remote.action = #selector(selectionChanged(_:))
+        branch.setAccessibilityLabel("Current local branch")
+        remote.setAccessibilityLabel("Remote to pull")
         source.placeholderString = "Remote branch name"
         source.setAccessibilityLabel("Source branch name")
         source.delegate = self
-        review.target = self; review.action = #selector(reviewSource(_:))
-        pull.target = self; pull.action = #selector(pullReviewed(_:))
-        cancel.target = self; cancel.action = #selector(cancelPull(_:)); cancel.keyEquivalent = "\u{1b}"
+        review.target = self
+        review.action = #selector(reviewSource(_:))
+        pull.target = self
+        pull.action = #selector(pullReviewed(_:))
+        cancel.target = self
+        cancel.action = #selector(cancelPull(_:))
+        cancel.keyEquivalent = "\u{1b}"
         // Return must not accidentally update the checkout while editing the form.
         details.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         details.isSelectable = true
@@ -47,11 +56,14 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
                 locked; upstream stays unchanged.
                 """
             )
-        note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
+        note.font = .systemFont(ofSize: 11)
+        note.textColor = .secondaryLabelColor
         output.isEditable = false
         output.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         output.setAccessibilityLabel("Pull output")
-        let scroll = NSScrollView.nonElastic(); scroll.documentView = output; scroll.hasVerticalScroller = true
+        let scroll = NSScrollView.nonElastic()
+        scroll.documentView = output
+        scroll.hasVerticalScroller = true
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 90).isActive = true
         gitPin(gitStack([
             title,
@@ -66,21 +78,20 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
         subscription = model.subscribe { [weak self] in self?.render() }
         render()
     }
+
     public func select(remote name: String?, source value: String?) {
         _ = view
-        let upstream = model.workspace.snapshot?.branches.first { $0.name == model.workspace.snapshot?.branch }?
-            .upstream
+        let local = model.workspace.snapshot?.branches
+            .first { !$0.isRemote && $0.name == model.workspace.snapshot?.branch }
+        let suggestion = local?.trackingSuggestion(in: remote.itemTitles)
         if let name, remote.itemTitles.contains(name) { remote.selectItem(withTitle: name) }
-        else if name == nil, let upstream,
-                let trackingRemote = remote.itemTitles.sorted(by: { $0.count > $1.count })
-                .first(where: { upstream.hasPrefix("refs/remotes/" + $0 + "/") }) {
-            remote.selectItem(withTitle: trackingRemote)
+        else if name == nil, let suggestion {
+            remote.selectItem(withTitle: suggestion.remote)
         }
 
-        let prefix = "refs/remotes/" + (remote.titleOfSelectedItem ?? "") + "/"
         if let value { source.stringValue = value }
-        else if let upstream, upstream.hasPrefix(prefix) {
-            source.stringValue = String(upstream.dropFirst(prefix.count))
+        else if suggestion?.remote == remote.titleOfSelectedItem, let suggestion {
+            source.stringValue = suggestion.branch
         }
         else { source.stringValue = model.workspace.snapshot?.branch ?? "" }
 
@@ -88,36 +99,45 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
     }
 
     @objc func selectionChanged(_ sender: Any?) { model.invalidate() }
+
     public func controlTextDidChange(_ notification: Notification) { model.invalidate() }
+
     @objc func reviewSource(_ sender: Any?) {
         guard review.isEnabled, let remote = remote.titleOfSelectedItem else { return }
 
         model.review(remote: remote, source: source.stringValue)
     }
+
     @objc func pullReviewed(_ sender: Any?) { if pull.isEnabled { model.pull() } }
+
     @objc func cancelPull(_ sender: Any?) {
         if model.workspace.operationState.isBusy { model.workspace.cancelOperation() } else { close?() }
     }
+
     private func render() {
         let workspace = model.workspace
         branch.stringValue = "Current branch: " + (workspace.snapshot?.headDescription ?? "unavailable")
         let previousRemote = remote.titleOfSelectedItem, names = workspace.snapshot?.remotes ?? []
         if remote.itemTitles != names {
-            remote.removeAllItems(); remote.addItems(withTitles: names)
+            remote.removeAllItems()
+            remote.addItems(withTitles: names)
             if let previousRemote, names.contains(previousRemote) { remote.selectItem(withTitle: previousRemote) }
         }
 
         let busy = workspace.operationState.isBusy, reviewing = model.state == .loading
-        remote.isEnabled = !busy; source.isEnabled = !busy
+        remote.isEnabled = !busy
+        source.isEnabled = !busy
         review.isEnabled = workspace.canMutate && !reviewing && workspace.snapshot?.branch != nil && workspace.snapshot?
             .head != nil && remote.titleOfSelectedItem != nil && !source.stringValue.isEmpty
         pull.isEnabled = model.canPull
-        cancel.title = busy ? "Cancel Pull" : "Close"; cancel.isEnabled = workspace.operationState != .cancelling
+        cancel.title = busy ? "Cancel Pull" : "Close"
+        cancel.isEnabled = workspace.operationState != .cancelling
         let shownPlan = model.plan ?? model.submittedPlan
         details.stringValue = shownPlan
             .map {
-            "Local: " + $0.branch.name + " @ " + $0.branch.oid + "\nRemote: " + $0.remote + "\nAddress: " + $0
-            .url + "\nRemote source: refs/heads/" + $0.source } ?? "Review the source before updating the checkout."
+                "Local: " + $0.branch.name + " @ " + $0.branch.oid + "\nRemote: " + $0.remote + "\nAddress: " + $0
+                    .url + "\nRemote source: refs/heads/" + $0.source
+            } ?? "Review the source before updating the checkout."
         if model.plan == nil, model.submittedPlan != nil {
             details.stringValue = "Last Pull attempt\n" + details.stringValue
         }
@@ -136,7 +156,11 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
             output.scrollRangeToVisible(NSRange(location: (output.string as NSString).length, length: 0))
         }
     }
-    public func disconnect() { if let subscription { model.unsubscribe(subscription) }; subscription = nil }
+
+    public func disconnect() {
+        if let subscription { model.unsubscribe(subscription) }
+        subscription = nil
+    }
 }
 
 @MainActor private final class GitPullBackground: NSView {

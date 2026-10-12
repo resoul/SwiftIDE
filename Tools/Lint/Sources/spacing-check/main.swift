@@ -3,10 +3,10 @@ import SpacingRules
 
 // spacing-check [--fix] [--exclude NAME]... PATH...
 //
-// Checks the blank-line rules of TK-023 in every .swift file under the paths. Prints
+// Checks the spacing and instruction-layout rules of TK-023 in every .swift file under the paths. Prints
 // `path:line:column: error: [rule] message` for each violation and exits 1 if there is any.
-// With --fix it adds the missing blank lines (only when the result has the same tokens and
-// comments) and exits 0. Directories named by --exclude, at any depth, are skipped.
+// With --fix it corrects spacing/layout after checking tokens, comments, statement grouping and
+// control flow, and exits 0. Directories named by --exclude, at any depth, are skipped.
 // Exit codes: 0 clean (or fixed), 1 violations, 2 an error such as an unreadable file.
 
 var fix = false

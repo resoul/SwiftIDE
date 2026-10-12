@@ -7,5 +7,6 @@ public final class MemoryRecentProjectsStore: RecentProjectsStore {
     public init(projects: [RecentProject] = []) { self.projects = projects }
 
     public func load() throws -> [RecentProject] { projects }
+
     public func save(_ projects: [RecentProject]) throws { self.projects = projects }
 }

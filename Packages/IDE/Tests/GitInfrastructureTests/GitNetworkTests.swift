@@ -5,7 +5,8 @@ import IDEApplication
 
 struct GitNetworkTests {
     @Test func configuredCredentialHelperStillWorksAndMissingCredentialsCannotPrompt() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
         try repo.write(
             "credential-helper",
             """
@@ -46,9 +47,13 @@ struct GitNetworkTests {
         )
         #expect(missing.status != 0 && missing.error.contains("could not read Username"))
     }
+
     @Test func cloneAndExplicitFetchUpdateRemoteRefsWithoutTouchingLocalFilesOrIndex() async throws {
         let remote = try RepositoryFixture(), host = try RepositoryFixture()
-        defer { remote.remove(); host.remove() }
+        defer {
+            remote.remove()
+            host.remove()
+        }
         try remote.write("a.txt", "initial\n")
         try remote.git(["add", "."])
         try remote.git(["commit", "-m", "Initial"])
@@ -64,7 +69,8 @@ struct GitNetworkTests {
         let changed = try await cli.snapshot(at: path)
         try await cli.perform(.stage(try #require(changed.changes.first)), expected: changed) { _ in }
         try "dirty\n".write(toFile: file, atomically: true, encoding: .utf8)
-        try remote.write("a.txt", "remote\n"); try remote.git(["commit", "-am", "Remote"])
+        try remote.write("a.txt", "remote\n")
+        try remote.git(["commit", "-am", "Remote"])
         try remote.git(["push", bare, "main"])
         try remote.git(["push", bare, "--delete", "obsolete"])
         try remote.git(["tag", "new-tag"])
@@ -95,7 +101,8 @@ struct GitNetworkTests {
     }
 
     @Test func destinationIsExclusiveAndCredentialsAndUnsupportedTransportsAreRejected() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
         try repo.write("existing/precious", "keep")
         let cli = GitCLI()
         for name in ["existing", ".git", "link"] {
@@ -131,7 +138,8 @@ struct GitNetworkTests {
     }
 
     @Test func cloneFailureKeepsOwnedPartialFolderAndCancellationStopsChildren() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
         let script = repo.root + "/fake-git"
         let program = """
         #!/bin/sh

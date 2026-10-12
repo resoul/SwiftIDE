@@ -40,8 +40,8 @@ extension GitCLI: GitPullPlanning {
         guard plan.repository == expected.repository, expected.branch == plan.branch.name,
               expected.head == plan.branch.oid,
               expected.branches.contains(plan.branch) else {
-                  throw GitInspectionError.failed("Current branch changed since review; review Pull again")
-              }
+            throw GitInspectionError.failed("Current branch changed since review; review Pull again")
+        }
 
         guard try await planPull(in: expected, remote: plan.remote, source: plan.source) == plan else {
             throw GitInspectionError.failed("Fetch address changed since review; review Pull again")
@@ -78,8 +78,8 @@ extension GitCLI: GitPullPlanning {
         let fresh = try await snapshot(at: expected.repository.root)
         guard fresh.repository == expected.repository, fresh.head == expected.head, fresh.branch == expected.branch,
               fresh.changes == expected.changes else {
-                  throw GitInspectionError.failed("Local checkout changed during Fetch; review Pull again")
-              }
+            throw GitInspectionError.failed("Local checkout changed during Fetch; review Pull again")
+        }
 
         try ensurePullAllowed(fresh)
         try Task.checkCancellation()
@@ -113,7 +113,8 @@ extension GitCLI: GitPullPlanning {
     private func ensurePullAllowed(_ snapshot: GitSnapshot) throws {
         guard !snapshot.changes
             .contains(where: {
-            !$0.decoration.index.isEmpty || !$0.decoration.worktree.isEmpty || $0.decoration.isConflict }) else {
+                !$0.decoration.index.isEmpty || !$0.decoration.worktree.isEmpty || $0.decoration.isConflict
+            }) else {
             throw GitInspectionError
                 .failed(
                     """
@@ -134,7 +135,7 @@ extension GitCLI: GitPullPlanning {
         ]
         guard !markers
             .contains(where: { FileManager.default.fileExists(atPath: snapshot.repository.gitDirectory + "/" + $0) })
-            else {
+        else {
             throw GitInspectionError
                 .failed("Finish the existing merge, rebase, cherry-pick, revert or bisect before Pull")
         }

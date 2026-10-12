@@ -343,11 +343,13 @@ func aLongDescriptionIsCutAndMarked() {
 @Test @MainActor
 func theWordRangeStopsAtNonWordCharactersAndAtTheEnds() {
     let text = "let foo_bar2 = (x)"
+
     func word(_ offset: Int) -> UTF16TextRange? {
         WordRange.around(offset, length: text.utf16.count) { range in
             (text as NSString).substring(with: NSRange(location: range.location, length: range.length))
         }
     }
+
     #expect(word(4) == UTF16TextRange(location: 4, length: 8) && word(11) == UTF16TextRange(location: 4, length: 8))
     #expect(word(0) == UTF16TextRange(location: 0, length: 3))
     #expect(word(3) == nil && word(14) == nil && word(17) == nil)
@@ -442,6 +444,7 @@ func theLessASureAPlaceIsThePalerItsLine() {
             freshness: freshness
         )).alphaComponent
     }
+
     #expect(alpha(.verified) == 1)
     #expect(alpha(.unverified) < alpha(.verified) && alpha(.stale) < alpha(.unverified))
 }
@@ -753,6 +756,7 @@ func aProblemFoundOnFallbackSettingsIsPalerAndSaysSoInItsDescription() async {
             basis: basis
         )
     }
+
     let normal = DiagnosticsPresenter.colour(for: mark(.unconfirmed)).usingColorSpace(.deviceRGB)?.alphaComponent ?? 0
     let fallback = DiagnosticsPresenter.colour(for: mark(.fallback)).usingColorSpace(.deviceRGB)?.alphaComponent ?? 1
     #expect(fallback < normal, "paler on the server's defaults: \(fallback) < \(normal)")

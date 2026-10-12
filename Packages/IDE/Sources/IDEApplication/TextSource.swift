@@ -8,9 +8,12 @@ import IDEDomain
 @MainActor
 public protocol TextSource {
     var utf16Length: Int { get }
+
     func utf16Unit(at index: Int) -> UInt16
+
     /// The text of `range`. Cost is proportional to the range.
     func substring(in range: UTF16TextRange) -> String
+
     /// Hands the text of `range` to `body` in consecutive pieces. For readers that must see all of
     /// it once (the line index at open): O(range), without building one big string.
     func enumerateUTF16(in range: UTF16TextRange, using body: (UnsafeBufferPointer<UInt16>) -> Void)
@@ -41,6 +44,7 @@ public struct StringTextSource: TextSource {
     }
 
     public var utf16Length: Int { units.count }
+
     public func utf16Unit(at index: Int) -> UInt16 { units[index] }
 
     public func substring(in range: UTF16TextRange) -> String {

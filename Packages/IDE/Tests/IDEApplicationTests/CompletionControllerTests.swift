@@ -6,7 +6,10 @@ import Testing
 
 @MainActor
 private final class FakeProvider: CompletionProviding {
-    struct Call { let version: UInt64; let caret: Int }
+    struct Call {
+        let version: UInt64
+        let caret: Int
+    }
     private(set) var calls: [Call] = []
     var answer: (Int) async -> CompletionOutcome = { _ in .items([], isIncomplete: false) }
 
@@ -19,7 +22,11 @@ private final class FakeProvider: CompletionProviding {
 
 @MainActor
 private final class FakePresenter: CompletionPresenting {
-    struct Shown: Equatable { let labels: [String]; let selected: Int; let anchor: Int }
+    struct Shown: Equatable {
+        let labels: [String]
+        let selected: Int
+        let anchor: Int
+    }
     private(set) var shown: [Shown] = []
     private(set) var selections: [Int] = []
     private(set) var dismissals = 0
@@ -30,9 +37,18 @@ private final class FakePresenter: CompletionPresenting {
         shown.append(Shown(labels: rows.map(\.label), selected: selected, anchor: anchorOffset))
         isVisible = true
     }
+
     func select(_ index: Int) { selections.append(index) }
-    func dismiss() { dismissals += 1; isVisible = false }
-    func showStatus(_ status: CompletionStatus, anchorOffset: Int) { statuses.append(status); isVisible = true }
+
+    func dismiss() {
+        dismissals += 1
+        isVisible = false
+    }
+
+    func showStatus(_ status: CompletionStatus, anchorOffset: Int) {
+        statuses.append(status)
+        isVisible = true
+    }
 }
 
 private func item(
@@ -85,7 +101,10 @@ private final class Rig {
                 text: { range in
                     (session.text as NSString).substring(with: NSRange(location: range.location, length: range.length))
                 },
-                setCaret: { box?.carets.append($0); box?.caret = $0 }
+                setCaret: {
+                    box?.carets.append($0)
+                    box?.caret = $0
+                }
             ),
             presenter: presenter,
             clock: clock
@@ -605,7 +624,9 @@ private final class Box<T> { var value: T? }
 private final class Flag: @unchecked Sendable {
     private let lock = NSLock()
     private var raised = false
+
     func raise() { lock.withLock { raised = true } }
+
     var isRaised: Bool { lock.withLock { raised } }
 }
 

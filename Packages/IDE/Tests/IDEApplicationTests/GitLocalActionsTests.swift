@@ -10,14 +10,17 @@ struct GitLocalActionsTests {
         while !predicate(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(2)) }
         try #require(predicate())
     }
+
     @Test func busyActionIgnoresDuplicatesDefersRefreshAndCancellationKeepsGateUntilExit() async throws {
         let service = LocalActionFixture(), model = GitWorkspace(root: "/repo", service: service)
         defer { model.stop() }
-        model.refresh(); try await wait { model.state == .ready }
+        model.refresh()
+        try await wait { model.state == .ready }
         let change = try #require(model.snapshot?.changes.first)
         model.perform(.stage(change))
         try await wait { model.operationOutput.contains("started") }
-        model.perform(.stage(change)); model.refresh()
+        model.perform(.stage(change))
+        model.refresh()
         let calls = await service.calls, snapshots = await service.snapshots
         #expect(calls == 1 && snapshots == 1)
         model.cancelOperation()
@@ -25,29 +28,42 @@ struct GitLocalActionsTests {
         await service.complete()
         try await wait { model.operationState == .cancelled && model.state == .ready }
         #expect(await service.snapshots == 2)
-        model.perform(.stage(change)); try await wait { model.operationState == .running }
-        try await service.waitForCall(2); await service.complete()
+        model.perform(.stage(change))
+        try await wait { model.operationState == .running }
+        try await service.waitForCall(2)
+        await service.complete()
         try await wait { model.operationState == .succeeded && model.state == .ready }
     }
 
     @Test func checkoutNeedsDocumentReconciliationAndRejectsHeadMovingDuringIt() async throws {
         let service = LocalActionFixture(), model = GitWorkspace(root: "/repo", service: service)
         defer { model.stop() }
-        model.refresh(); try await wait { model.state == .ready }
+        model.refresh()
+        try await wait { model.state == .ready }
         let branch = try #require(model.snapshot?.branches.first)
         model.perform(.switchBranch(branch))
         try await wait { model.operationState == .cancelled && model.state == .ready }
         #expect(await service.calls == 0)
         var unlocked = 0
-        model.prepareCheckout = { _ in await service.moveHead(); return true }
+        model.prepareCheckout = { _ in
+            await service.moveHead()
+
+            return true
+        }
         model.checkoutFinished = { _ in unlocked += 1 }
         model.perform(.switchBranch(branch))
-        try await wait { if case .failed = model.operationState { return model.state == .ready }; return false }
+        try await wait {
+            if case .failed = model.operationState { return model.state == .ready }
+
+            return false
+        }
         #expect(await service.calls == 0)
         #expect(unlocked == 1)
         model.prepareCheckout = { _ in true }
-        model.perform(.switchBranch(branch)); try await service.waitForCall(1)
-        model.stop(); await service.complete()
+        model.perform(.switchBranch(branch))
+        try await service.waitForCall(1)
+        model.stop()
+        await service.complete()
         try await wait { unlocked == 2 }
         #expect(model.operationState == .running, "stopped model cannot publish a late result")
     }
@@ -59,7 +75,8 @@ struct GitLocalActionsTests {
         var prompts = 0
         let coordinator = GitCheckoutDocuments(documents: { [document] }, prompt: { _ in prompts += 1
 
-        return .save }, save: { _ in
+            return .save
+        }, save: { _ in
             false
         })
         backend.simulateComposition(.began)
@@ -80,12 +97,13 @@ struct GitLocalActionsTests {
             documents: { [a, b, outside] },
             prompt: { document in asked.append(document.path)
 
-        return .cancel },
+                return .cancel
+            },
             save: { _ in
-            Issue.record("Cancel must not save")
+                Issue.record("Cancel must not save")
 
-            return false
-        }
+                return false
+            }
         )
         #expect(await cancelled.prepare(root: "/repo") == false)
         #expect(a.isDirty && b.isDirty && asked == ["/repo/a"])
@@ -94,12 +112,13 @@ struct GitLocalActionsTests {
             documents: { [a, b, outside] },
             prompt: { document in asked.append(document.path)
 
-        return .save },
+                return .save
+            },
             save: { document in
-            _ = try? await save.execute(document: document)
+                _ = try? await save.execute(document: document)
 
-            return !document.isDirty
-        }
+                return !document.isDirty
+            }
         )
         #expect(await approved.prepare(root: "/repo"))
         #expect(asked == ["/repo/a", "/repo/other/b"] && !a.isDirty && !b.isDirty && outside.isDirty)
@@ -119,6 +138,7 @@ private actor LocalActionFixture: GitInspecting, GitMutating {
     private(set) var calls = 0, snapshots = 0
     private var head = String(repeating: "a", count: 40)
     private var pending: CheckedContinuation<Void, Never>?
+
     func snapshot(at projectRoot: String) async throws -> GitSnapshot {
         snapshots += 1
 
@@ -130,6 +150,7 @@ private actor LocalActionFixture: GitInspecting, GitMutating {
             branches: [.init(reference: "refs/heads/other", oid: String(repeating: "b", count: 40))]
         )
     }
+
     func history(
         in repository: GitRepository,
         revision: String,
@@ -138,19 +159,29 @@ private actor LocalActionFixture: GitInspecting, GitMutating {
     ) async throws -> GitHistoryPage {
         .init(commits: [], hasMore: false)
     }
+
     func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] { [] }
+
     func diff(in repository: GitRepository, comparison: GitComparison) async throws -> String { "diff" }
+
     func perform(
         _ action: GitLocalAction,
         expected: GitSnapshot,
         output: @escaping @Sendable (String) -> Void
     ) async throws {
-        calls += 1; output("started\n")
+        calls += 1
+        output("started\n")
         await withCheckedContinuation { pending = $0 }
         try Task.checkCancellation()
     }
-    func complete() { pending?.resume(); pending = nil }
+
+    func complete() {
+        pending?.resume()
+        pending = nil
+    }
+
     func moveHead() { head = String(repeating: "c", count: 40) }
+
     func waitForCall(_ count: Int) async throws {
         let deadline = ContinuousClock.now + .seconds(5)
         while calls < count, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(2)) }

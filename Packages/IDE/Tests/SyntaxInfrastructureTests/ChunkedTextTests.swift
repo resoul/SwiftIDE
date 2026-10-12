@@ -4,6 +4,7 @@ import Testing
 
 private struct SeededGenerator: RandomNumberGenerator {
     var state: UInt64
+
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
 
@@ -30,9 +31,12 @@ func chunkedTextEqualsAPlainArrayThroughRandomEdits() {
             )
             let inserted = (0..<Int.random(in: 0...(Bool.random(using: &generator) ? 50_000 : 10), using: &generator))
                 .map { _ in
-                UInt16.random(in: 0x41...0x5A, using: &generator)
+                    UInt16.random(in: 0x41...0x5A, using: &generator)
+                }
+            do {
+                let ok = text.replace(location..<(location + length), with: inserted)
+                #expect(ok)
             }
-            do { let ok = text.replace(location..<(location + length), with: inserted); #expect(ok) }
             model.replaceSubrange(location..<(location + length), with: inserted)
             #expect(text.length == model.count, "round \(round) step \(step)")
             if step % 8 == 0 { #expect(text.units == model, "round \(round) step \(step)") }
@@ -67,11 +71,20 @@ func chunkedTextReadsSubstringsAndParserBytesFromAnyPlace() {
 func chunkedTextRejectsRangesOutsideItAndHandlesEmptiness() {
     var text = ChunkedText()
     #expect(text.length == 0)
-    do { let ok = text.replace(0..<0, with: Array("abc".utf16)); #expect(ok) }
+    do {
+        let ok = text.replace(0..<0, with: Array("abc".utf16))
+        #expect(ok)
+    }
     #expect(text.units == Array("abc".utf16))
-    do { let ok = text.replace(2..<9, with: []); #expect(!ok) }
+    do {
+        let ok = text.replace(2..<9, with: [])
+        #expect(!ok)
+    }
     #expect(text.units == Array("abc".utf16))
-    do { let ok = text.replace(0..<3, with: []); #expect(ok) }
+    do {
+        let ok = text.replace(0..<3, with: [])
+        #expect(ok)
+    }
     #expect(text.length == 0 && text.units.isEmpty)
     #expect(text.bytes(fromUnit: 0) == nil)
 }
@@ -99,12 +112,20 @@ func pairsAreFoundAcrossChunkBoundariesAndSearchStopsWhenAsked() {
         }
 
         var found: [Int] = []
-        text.forEachPair(0x2F, 0x2A) { found.append($0); return true }
+        text.forEachPair(0x2F, 0x2A) {
+            found.append($0)
+
+            return true
+        }
         #expect(found == expected, "round \(round)")
 
         let limit = Int.random(in: 1...3, using: &generator)
         var limited: [Int] = []
-        text.forEachPair(0x2F, 0x2A) { limited.append($0); return limited.count < limit }
+        text.forEachPair(0x2F, 0x2A) {
+            limited.append($0)
+
+            return limited.count < limit
+        }
         #expect(limited == Array(expected.prefix(limit)), "stops when asked, round \(round)")
     }
 }

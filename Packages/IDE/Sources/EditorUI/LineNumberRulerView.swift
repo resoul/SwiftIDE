@@ -136,11 +136,13 @@ public final class LineNumberRulerView: NSRulerView {
             ?? layoutManager.documentRange.location
 
         var labels: [Label] = []
+
         func baseline(of row: NSTextLineFragment, in frame: CGRect) -> CGFloat {
             let inText = frame.minY + row.typographicBounds.minY + row.glyphOrigin.y + origin.y
 
             return convert(NSPoint(x: 0, y: inText), from: textView).y
         }
+
         let documentEnd = index.utf16Length
         layoutManager.enumerateTextLayoutFragments(from: start, options: [.ensuresLayout]) { fragment in
             let frame = fragment.layoutFragmentFrame

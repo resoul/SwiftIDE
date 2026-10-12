@@ -22,12 +22,15 @@ private struct NestedUITreeReader: ProjectDirectoryReading {
 
 private actor HeldUITreeReader: ProjectDirectoryReading {
     private var continuation: CheckedContinuation<[ProjectFile], Never>?
+
     func children(of path: String) async throws -> [ProjectFile] {
         if path == "/w" { return [.init(path: "/w/folder", isDirectory: true)] }
 
         return await withCheckedContinuation { continuation = $0 }
     }
+
     var waiting: Bool { continuation != nil }
+
     func finish() {
         continuation?.resume(returning: [.init(path: "/w/folder/late.txt", isDirectory: false)])
         continuation = nil
@@ -52,7 +55,7 @@ struct ProjectFilesUITests {
 
                 return controller.outline.numberOfRows == model.children(of: "/w").count + 1
                     && controller.outlineView(controller.outline, viewFor: nil, item: item)?.toolTip?
-                        .hasPrefix(file.path) == true
+                    .hasPrefix(file.path) == true
             }
         }
     }
@@ -69,7 +72,11 @@ struct ProjectFilesUITests {
         )
         window.isReleasedWhenClosed = false
         window.contentViewController = controller
-        defer { controller.disconnect(); model.stop(); window.close() }
+        defer {
+            controller.disconnect()
+            model.stop()
+            window.close()
+        }
         try await loaded(model, in: controller)
         let root = try #require(controller.outline.item(atRow: 0))
         let folder = try #require(controller.outline.item(atRow: 1))
@@ -102,7 +109,11 @@ struct ProjectFilesUITests {
         let model = ProjectFiles(root: "/w", reader: reader)
         let controller = ProjectFilesViewController(model: model)
         _ = controller.view
-        defer { controller.disconnect(); model.stop(); Task { await reader.finish() } }
+        defer {
+            controller.disconnect()
+            model.stop()
+            Task { await reader.finish() }
+        }
         try await loaded(model, in: controller)
         let folder = try #require(controller.outline.item(atRow: 1))
         controller.outline.expandItem(folder)
@@ -141,7 +152,11 @@ struct ProjectFilesUITests {
         let first = ProjectFilesViewController(model: model), second = ProjectFilesViewController(model: model)
         _ = first.view
         _ = second.view
-        defer { first.disconnect(); second.disconnect(); model.stop() }
+        defer {
+            first.disconnect()
+            second.disconnect()
+            model.stop()
+        }
         var opened: [String] = []
         first.openFile = { opened.append($0) }
         try await loaded(model, in: first, second)
@@ -173,7 +188,10 @@ struct ProjectFilesUITests {
         let model = ProjectFiles(root: "/w", reader: UITreeReader())
         let controller = ProjectFilesViewController(model: model)
         _ = controller.view
-        defer { controller.disconnect(); model.stop() }
+        defer {
+            controller.disconnect()
+            model.stop()
+        }
         try await loaded(model, in: controller)
         model.exclude("/w/a.txt")
         model.decorations = ["/w/a.txt": .init(index: "A", worktree: "M", isConflict: true)]
@@ -183,6 +201,9 @@ struct ProjectFilesUITests {
         let item = try #require(controller.outline.item(atRow: controller.outline.selectedRow))
         let cell = try #require(controller.outlineView(controller.outline, viewFor: nil, item: item) as? FileStatusCell)
         #expect(cell.textField?.textColor == .systemOrange)
+        let labels = cell.subviews.flatMap(\.subviews).compactMap { ($0 as? NSTextField)?.stringValue }
+        #expect(labels.contains("a.txt") && labels.contains("●"))
+        #expect(!labels.contains("A") && !labels.contains("M") && !labels.contains("?") && !labels.contains("⚠︎"))
         #expect(cell.toolTip?.contains("Index: A") == true && cell.toolTip?.contains("Working tree: M") == true)
         #expect(cell.accessibilityLabel()?.contains("Conflict") == true)
         #expect(cell.accessibilityLabel()?.contains("Unsaved editor changes") == true)

@@ -23,7 +23,11 @@ private let toolAvailable: Bool = {
     finder.standardOutput = FileHandle.nullDevice
     finder.standardError = FileHandle.nullDevice
 
-    return (try? finder.run()) != nil && { finder.waitUntilExit(); return finder.terminationStatus == 0 }()
+    return (try? finder.run()) != nil && {
+        finder.waitUntilExit()
+
+        return finder.terminationStatus == 0
+    }()
 }()
 
 /// The channels made, so that a test can kill the server the way a crash would.
@@ -32,6 +36,7 @@ private final class Channels: @unchecked Sendable {
     private var list: [ProcessChannel] = []
     var last: ProcessChannel? { lock.withLock { list.last } }
     var count: Int { lock.withLock { list.count } }
+
     func add(_ channel: ProcessChannel) { lock.withLock { list.append(channel) } }
 }
 
@@ -138,7 +143,11 @@ func aKilledServerComesBackAndAnswersAboutTheCurrentText() async throws {
     try real.type("\nlet z: Int = 0\nz.")   // typed while it is down
     var restarted = false
     for _ in 0..<200 {
-        if real.channels.count >= 2, real.service.state == .running { restarted = true; break }
+        if real.channels.count >= 2, real.service.state == .running {
+            restarted = true
+            break
+        }
+
         try await Task.sleep(for: .milliseconds(100))
     }
     #expect(restarted)

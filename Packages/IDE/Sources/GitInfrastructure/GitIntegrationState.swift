@@ -30,9 +30,11 @@ extension GitCLI {
             ]
             label = kind == .rebase ? "Rebase in progress" : "Git am in progress (finish outside SwiftIDE)"
         } else if manager.fileExists(atPath: root + "/MERGE_HEAD") {
-            kind = .merge; files = ["MERGE_HEAD", "ORIG_HEAD", "MERGE_MSG"]; label = "Merge in progress"
+            kind = .merge
+            files = ["MERGE_HEAD", "ORIG_HEAD", "MERGE_MSG"]
+            label = "Merge in progress"
         }
-            else if let marker = ["CHERRY_PICK_HEAD", "REVERT_HEAD", "BISECT_LOG", "sequencer"]
+        else if let marker = ["CHERRY_PICK_HEAD", "REVERT_HEAD", "BISECT_LOG", "sequencer"]
             .first(where: { manager.fileExists(atPath: root + "/" + $0) }) {
             kind = .other
             files = [marker, "ORIG_HEAD"]
@@ -48,15 +50,18 @@ extension GitCLI {
                 continue
             }
 
-            let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
             let data = try handle.read(upToCount: 65_537) ?? Data()
             guard data.count <= 65_536 else {
                 throw GitInspectionError.failed("Git operation metadata is too large to review")
             }
 
-            token.append(data); token.append(0)
+            token.append(data)
+            token.append(0)
             contents[file] = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+
         func oid(_ names: [String]) throws -> String? {
             guard let value = names.compactMap({ contents[$0] }).first, !value.isEmpty else { return nil }
 

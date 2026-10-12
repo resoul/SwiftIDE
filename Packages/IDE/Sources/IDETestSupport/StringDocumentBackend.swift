@@ -22,6 +22,7 @@ public final class StringDocumentBackend: DocumentEditingBackend {
     }
 
     public var utf16Length: Int { storage.length }
+
     public func utf16Unit(at index: Int) -> UInt16 { storage.character(at: index) }
 
     public func substring(in range: UTF16TextRange) -> String {

@@ -19,29 +19,29 @@ public final class GitRepositoryEvents: @unchecked Sendable {
             version: 0,
             info: Unmanaged.passUnretained(callback).toOpaque(),
             retain: { info in
-            guard let info else { return nil }
+                guard let info else { return nil }
 
-            return UnsafeRawPointer(Unmanaged<Callback>.fromOpaque(info).retain().toOpaque())
-        },
+                return UnsafeRawPointer(Unmanaged<Callback>.fromOpaque(info).retain().toOpaque())
+            },
             release: { info in
-            if let info { Unmanaged<Callback>.fromOpaque(info).release() }
-        },
+                if let info { Unmanaged<Callback>.fromOpaque(info).release() }
+            },
             copyDescription: nil
         )
         let paths = Array(Set([repository.root, repository.gitDirectory, repository.commonDirectory]))
         stream = FSEventStreamCreate(
             nil,
             { _, info, _, _, _, _ in
-            guard let info else { return }
+                guard let info else { return }
 
-            Unmanaged<Callback>.fromOpaque(info).takeUnretainedValue().invoke()
-        },
+                Unmanaged<Callback>.fromOpaque(info).takeUnretainedValue().invoke()
+            },
             &context,
             paths as CFArray,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
             0.3,
             FSEventStreamCreateFlags(kFSEventStreamCreateFlagNoDefer |
-                                     kFSEventStreamCreateFlagWatchRoot)
+                kFSEventStreamCreateFlagWatchRoot)
         )
         if let stream {
             FSEventStreamSetDispatchQueue(stream, DispatchQueue.main)
@@ -55,10 +55,18 @@ public final class GitRepositoryEvents: @unchecked Sendable {
 
     /// Called by the owner on the delivery queue before releasing this object.
     public func stop() {
-        let current = lock.withLock { let current = stream; stream = nil; return current }
+        let current = lock.withLock {
+            let current = stream
+            stream = nil
+
+            return current
+        }
         if let stream = current {
-            FSEventStreamStop(stream); FSEventStreamInvalidate(stream); FSEventStreamRelease(stream)
+            FSEventStreamStop(stream)
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
         }
     }
+
     deinit { stop() }
 }

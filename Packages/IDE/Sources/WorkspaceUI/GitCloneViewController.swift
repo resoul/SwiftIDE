@@ -25,7 +25,10 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
     private let output = NSTextView()
     private var subscription: UUID?
 
-    public init(model: GitClone) { self.model = model; super.init(nibName: nil, bundle: nil) }
+    public init(model: GitClone) {
+        self.model = model
+        super.init(nibName: nil, bundle: nil)
+    }
 
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -38,15 +41,24 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
         name.placeholderString = "New folder name"
         source.setAccessibilityLabel("Repository URL or absolute local path")
         name.setAccessibilityLabel("New destination folder name")
-        source.delegate = self; name.delegate = self
+        source.delegate = self
+        name.delegate = self
         parentLabel.lineBreakMode = .byTruncatingMiddle
         parentLabel.setAccessibilityLabel("Parent folder")
-        choose.target = self; choose.action = #selector(chooseFolder(_:))
-        start.target = self; start.action = #selector(startClone(_:)); start.keyEquivalent = "\r"
-        cancel.target = self; cancel.action = #selector(cancelClone(_:)); cancel.keyEquivalent = "\u{1b}"
-        output.isEditable = false; output.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        choose.target = self
+        choose.action = #selector(chooseFolder(_:))
+        start.target = self
+        start.action = #selector(startClone(_:))
+        start.keyEquivalent = "\r"
+        cancel.target = self
+        cancel.action = #selector(cancelClone(_:))
+        cancel.keyEquivalent = "\u{1b}"
+        output.isEditable = false
+        output.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         output.setAccessibilityLabel("Clone output")
-        let scroll = NSScrollView.nonElastic(); scroll.documentView = output; scroll.hasVerticalScroller = true
+        let scroll = NSScrollView.nonElastic()
+        scroll.documentView = output
+        scroll.hasVerticalScroller = true
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
         let note =
             NSTextField(
@@ -55,7 +67,8 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
                 cancellation, a partial folder may remain; inspect or remove it before retrying.
                 """
             )
-        note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
+        note.font = .systemFont(ofSize: 11)
+        note.textColor = .secondaryLabelColor
         status.font = .systemFont(ofSize: 12)
         gitPin(
             gitStack([
@@ -74,20 +87,28 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
         subscription = model.subscribe { [weak self] in self?.render() }
         render()
     }
+
     public func focusSource() { view.window?.makeFirstResponder(source) }
+
     public func controlTextDidChange(_ notification: Notification) { render() }
+
     @objc private func chooseFolder(_ sender: Any?) { chooseParent?() }
+
     @objc func startClone(_ sender: Any?) {
         guard start.isEnabled else { return }
 
         model.start(.init(source: source.stringValue, parent: parentDirectory, name: name.stringValue))
     }
+
     @objc func cancelClone(_ sender: Any?) {
         if model.state.isBusy { model.cancel() } else { close?() }
     }
+
     private func render() {
         let busy = model.state.isBusy
-        source.isEnabled = !busy; name.isEnabled = !busy; choose.isEnabled = !busy
+        source.isEnabled = !busy
+        name.isEnabled = !busy
+        choose.isEnabled = !busy
         let request = GitCloneRequest(source: source.stringValue, parent: parentDirectory, name: name.stringValue)
         start.isEnabled = !busy && model.state != .succeeded && (try? request.validate()) != nil
         cancel.title = busy ? "Cancel Clone" : "Close"
@@ -100,14 +121,19 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
             output.scrollRangeToVisible(NSRange(location: (output.string as NSString).length, length: 0))
         }
     }
-    public func disconnect() { if let subscription { model.unsubscribe(subscription) }; subscription = nil }
+
+    public func disconnect() {
+        if let subscription { model.unsubscribe(subscription) }
+        subscription = nil
+    }
 }
 
 @MainActor
 private final class GitCloneBackground: NSView {
     override func draw(_ dirtyRect: NSRect) {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            NSColor.windowBackgroundColor.setFill(); dirtyRect.fill()
+            NSColor.windowBackgroundColor.setFill()
+            dirtyRect.fill()
         }
     }
 }

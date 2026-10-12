@@ -324,7 +324,7 @@ public final class LanguageServices: CompletionProviding, HoverProviding, Defini
 
         let path = DocumentPath.canonical(root.path)
         if replacing { layoutLoads[path]?.cancel() }
-            else if layoutLoads[path] != nil || contexts.layout(forRoot: path) != nil {
+        else if layoutLoads[path] != nil || contexts.layout(forRoot: path) != nil {
             return
         }
 

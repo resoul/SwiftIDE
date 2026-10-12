@@ -32,13 +32,29 @@ public struct GitBranch: Equatable, Sendable {
     public let reference: String
     public let oid: String
     public let upstream: String
+    public let upstreamRemote: String
+    public let upstreamSource: String
     public var isRemote: Bool { reference.hasPrefix("refs/remotes/") }
     public var name: String { String(reference.dropFirst(isRemote ? 13 : 11)) }
 
-    public init(reference: String, oid: String, upstream: String = "") {
+    public func trackingSuggestion(in remotes: [String]) -> (remote: String, branch: String)? {
+        guard remotes.contains(upstreamRemote), upstreamSource.hasPrefix("refs/heads/") else { return nil }
+
+        return (upstreamRemote, String(upstreamSource.dropFirst(11)))
+    }
+
+    public init(
+        reference: String,
+        oid: String,
+        upstream: String = "",
+        upstreamRemote: String = "",
+        upstreamSource: String = ""
+    ) {
         self.reference = reference
         self.oid = oid
         self.upstream = upstream
+        self.upstreamRemote = upstreamRemote
+        self.upstreamSource = upstreamSource
     }
 }
 
@@ -158,7 +174,10 @@ public struct GitHistoryPage: Sendable {
     public let commits: [GitCommit]
     public let hasMore: Bool
 
-    public init(commits: [GitCommit], hasMore: Bool) { self.commits = commits; self.hasMore = hasMore }
+    public init(commits: [GitCommit], hasMore: Bool) {
+        self.commits = commits
+        self.hasMore = hasMore
+    }
 }
 
 public struct GitCommitFile: Equatable, Sendable {
@@ -167,7 +186,9 @@ public struct GitCommitFile: Equatable, Sendable {
     public let status: String
 
     public init(path: String, previousPath: String? = nil, status: String) {
-        self.path = path; self.previousPath = previousPath; self.status = status
+        self.path = path
+        self.previousPath = previousPath
+        self.status = status
     }
 }
 
@@ -193,8 +214,11 @@ public enum GitComparison: Equatable, Sendable {
 
 public protocol GitInspecting: Sendable {
     func snapshot(at projectRoot: String) async throws -> GitSnapshot
+
     func history(in repository: GitRepository, revision: String, offset: Int, count: Int) async throws -> GitHistoryPage
+
     func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile]
+
     func diff(in repository: GitRepository, comparison: GitComparison) async throws -> String
 }
 

@@ -26,7 +26,11 @@ private let toolAvailable: Bool = {
     finder.standardOutput = FileHandle.nullDevice
     finder.standardError = FileHandle.nullDevice
 
-    return (try? finder.run()) != nil && { finder.waitUntilExit(); return finder.terminationStatus == 0 }()
+    return (try? finder.run()) != nil && {
+        finder.waitUntilExit()
+
+        return finder.terminationStatus == 0
+    }()
 }()
 
 @MainActor
@@ -97,7 +101,10 @@ private func makeServices() -> (LanguageServices, URL) {
 @Test(.enabled(if: toolAvailable)) @MainActor
 func aDocumentWithNoFileGetsStandardLibraryCompletionFromTheRealServer() async throws {
     let (services, scratch) = makeServices()
-    defer { services.terminateAll(); try? FileManager.default.removeItem(at: scratch) }
+    defer {
+        services.terminateAll()
+        try? FileManager.default.removeItem(at: scratch)
+    }
     let w = Window(text: "let s = \"abc\"\ns", path: "Untitled.swift", untitled: true, services: services)
     await services.attach(w.session)
     #expect(services.service(for: w.session)?.state == .running)
@@ -120,7 +127,10 @@ func aDocumentWithNoFileGetsStandardLibraryCompletionFromTheRealServer() async t
 @Test(.enabled(if: toolAvailable)) @MainActor
 func aCallWithArgumentsGetsTheCaretBetweenItsParentheses() async throws {
     let (services, scratch) = makeServices()
-    defer { services.terminateAll(); try? FileManager.default.removeItem(at: scratch) }
+    defer {
+        services.terminateAll()
+        try? FileManager.default.removeItem(at: scratch)
+    }
     let w = Window(text: "var s = \"abc\"\ns", path: "Untitled.swift", untitled: true, services: services)
     await services.attach(w.session)
     w.type(".")
@@ -135,7 +145,10 @@ func aCallWithArgumentsGetsTheCaretBetweenItsParentheses() async throws {
 @Test(.enabled(if: toolAvailable)) @MainActor
 func aFileInAPackageSeesTheOtherFilesOfItsPackage() async throws {
     let (services, scratch) = makeServices()
-    defer { services.terminateAll(); try? FileManager.default.removeItem(at: scratch) }
+    defer {
+        services.terminateAll()
+        try? FileManager.default.removeItem(at: scratch)
+    }
     let source = try String(contentsOf: mainFile, encoding: .utf8)
     let w = Window(text: source + "greeter", path: mainFile.path, untitled: false, services: services)
     await services.attach(w.session)
@@ -164,7 +177,10 @@ func aFileInAPackageSeesTheOtherFilesOfItsPackage() async throws {
 @Test(.enabled(if: toolAvailable)) @MainActor
 func completionAskedByHandInTheMiddleOfAWordNarrowsToIt() async throws {
     let (services, scratch) = makeServices()
-    defer { services.terminateAll(); try? FileManager.default.removeItem(at: scratch) }
+    defer {
+        services.terminateAll()
+        try? FileManager.default.removeItem(at: scratch)
+    }
     let w = Window(text: "let s = \"abc\"\ns.uppe", path: "Untitled.swift", untitled: true, services: services)
     await services.attach(w.session)
     w.coordinator.controller.requestManually()

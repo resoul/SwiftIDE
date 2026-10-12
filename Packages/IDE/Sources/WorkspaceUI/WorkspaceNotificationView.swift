@@ -236,7 +236,11 @@ final class WorkspaceNotificationCard: NSView {
         needsDisplay = true
     }
 
-    func disconnect() { actions = []; dismiss = nil }
+    func disconnect() {
+        actions = []
+        dismiss = nil
+    }
+
     override var wantsUpdateLayer: Bool { true }
 
     override func viewDidChangeEffectiveAppearance() {

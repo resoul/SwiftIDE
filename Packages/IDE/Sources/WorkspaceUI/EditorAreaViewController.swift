@@ -212,6 +212,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
     public func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int {
         displayedItems.count
     }
+
     public func collectionView(
         _ collectionView: NSCollectionView,
         itemForRepresentedObjectAt indexPath: IndexPath
@@ -225,6 +226,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
 
         return cell
     }
+
     public func collectionView(
         _ collectionView: NSCollectionView,
         layout collectionViewLayout: NSCollectionViewLayout,
@@ -238,11 +240,13 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
 
         return NSSize(width: min(280, max(120, width + 70)), height: 30)
     }
+
     public func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
         guard let path = indexPaths.first, displayedItems.indices.contains(path.item) else { return }
 
         onSelect?(displayedItems[path.item].id)
     }
+
     public func collectionView(
         _ collectionView: NSCollectionView,
         pasteboardWriterForItemAt indexPath: IndexPath
@@ -254,6 +258,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
 
         return writer
     }
+
     public func collectionView(
         _ collectionView: NSCollectionView,
         validateDrop draggingInfo: any NSDraggingInfo,
@@ -269,6 +274,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
 
         return .move
     }
+
     public func collectionView(
         _ collectionView: NSCollectionView,
         acceptDrop draggingInfo: any NSDraggingInfo,
@@ -283,6 +289,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
             to: indexPath.item
         )
     }
+
     func moveTab(from source: NSCollectionView?, pasteboard: NSPasteboard, to index: Int) -> Bool {
         guard source === collection, let id = draggedID(from: pasteboard),
               (0...displayedItems.count).contains(index) else {
@@ -293,6 +300,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
 
         return true
     }
+
     private func draggedID(from pasteboard: NSPasteboard) -> DocumentID? {
         guard let payload = pasteboard.string(forType: dragType), payload.hasPrefix(owner + ":"),
               let uuid = UUID(uuidString: String(payload.dropFirst(owner.count + 1))) else { return nil }
@@ -340,9 +348,11 @@ private final class DocumentTabCell: NSCollectionViewItem {
             stack.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
     }
+
     override var isSelected: Bool { didSet { showSelection(isSelected) } }
     private var hovered = false
     private var active = false
+
     /// The active tab always has a close button; another one shows it while the pointer is over the tab.
     private func showSelection(_ selected: Bool) {
         active = selected
@@ -351,10 +361,12 @@ private final class DocumentTabCell: NSCollectionViewItem {
         surface.needsDisplay = true
         closeButton.isHidden = !(selected || hovered)
     }
+
     override func prepareForReuse() {
         super.prepareForReuse()
         hovered = false
     }
+
     func present(_ item: DocumentTabPresentation, selected: Bool) {
         _ = view
         label.stringValue = item.name + (item.decoration.badges.isEmpty ? "" : "  " + item.decoration.badges)
@@ -369,6 +381,7 @@ private final class DocumentTabCell: NSCollectionViewItem {
         closeButton.setAccessibilityLabel("Close " + item.name)
         showSelection(selected)
     }
+
     @objc private func closeTab(_ sender: Any?) { close?() }
 }
 

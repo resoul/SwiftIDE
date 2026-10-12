@@ -135,7 +135,10 @@ public struct HighlightState: Sendable {
         var taken: [Range<Int>] = [], remaining: [Range<Int>] = []
         for item in dirty {
             let lower = max(item.lowerBound, range.lowerBound), upper = min(item.upperBound, range.upperBound)
-            guard lower < upper else { remaining.append(item); continue }
+            guard lower < upper else {
+                remaining.append(item)
+                continue
+            }
 
             taken.append(lower..<upper)
             if item.lowerBound < lower { remaining.append(item.lowerBound..<lower) }
@@ -198,8 +201,14 @@ public struct HighlightState: Sendable {
     /// The stretches of `window` where the two span lists colour the text differently.
     static func differences(old: [HighlightSpan], new: [HighlightSpan], in window: Range<Int>) -> [Range<Int>] {
         var boundaries = Set<Int>([window.lowerBound, window.upperBound])
-        for span in old { boundaries.insert(span.location); boundaries.insert(span.end) }
-        for span in new { boundaries.insert(span.location); boundaries.insert(span.end) }
+        for span in old {
+            boundaries.insert(span.location)
+            boundaries.insert(span.end)
+        }
+        for span in new {
+            boundaries.insert(span.location)
+            boundaries.insert(span.end)
+        }
         let points = boundaries.filter { window.contains($0) || $0 == window.upperBound }.sorted()
         var changed: [Range<Int>] = []
         var oldIndex = 0, newIndex = 0

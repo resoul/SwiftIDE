@@ -9,6 +9,7 @@ import WorkspaceUI
 private final class Servers: @unchecked Sendable {
     private let lock = NSLock()
     private(set) var made: [ScriptedServer] = []
+
     func next() -> ScriptedServer {
         lock.withLock {
             let server = ScriptedServer()
@@ -17,6 +18,7 @@ private final class Servers: @unchecked Sendable {
             return server
         }
     }
+
     var count: Int { lock.withLock { made.count } }
 }
 
@@ -298,6 +300,7 @@ func aCFamilyDocumentIsGivenToTheServerUnderItsOwnLanguageID() async throws {
         return server.messages(named: "textDocument/didOpen")[count - 1]["params"]?["textDocument"]?["languageId"]?
             .stringValue
     }
+
     #expect(await openedAs(1) == "c", "a .h is taken for C")
     selector.setOverride(.cpp)
     #expect(await openedAs(2) == "cpp")
@@ -720,11 +723,13 @@ private final class FakeConfigurationFiles: ConfigurationFileReading, @unchecked
     func setProject(_ file: ConfigurationFile, root: String) {
         lock.withLock { project[DocumentPath.canonical(root)] = file }
     }
+
     func setUser(_ files: [ConfigurationFile]) { lock.withLock { user = files } }
 
     func projectFile(root: String) -> ConfigurationFile {
         lock.withLock { project[DocumentPath.canonical(root)] ?? .absent }
     }
+
     func userFiles() -> [ConfigurationFile] { lock.withLock { user } }
 }
 
@@ -743,7 +748,11 @@ private final class FakeToolchainResolver: ToolchainResolving, @unchecked Sendab
     var calls: Int { lock.withLock { asked } }
 
     func resolve() async -> Toolchain? {
-        lock.withLock { asked += 1; return found }
+        lock.withLock {
+            asked += 1
+
+            return found
+        }
     }
 }
 

@@ -183,7 +183,11 @@ func aLabelWithClangdsLeadingSpaceIsShownWithoutItAndInsertsWithoutIt() async th
     ]))
     let rig = Rig(servers: [server])
     try await rig.started()
-    guard case .items(let items, _) = await rig.completion() else { Issue.record("expected items"); return }
+    guard case .items(let items, _) = await rig.completion() else {
+        Issue.record("expected items")
+
+        return
+    }
 
     #expect(
         items.map(\.label) == ["clib_add", "x", "group_req"],
@@ -197,6 +201,7 @@ func aLabelWithClangdsLeadingSpaceIsShownWithoutItAndInsertsWithoutIt() async th
 @Test @MainActor
 func anInsertReplaceEditNamesTheReplaceRange() async throws {
     func position(_ character: Int) -> JSONValue { ["line": .int(1), "character": .int(character)] }
+
     let both: JSONValue = .object([
         "label": "count",
         "textEdit": [
@@ -208,7 +213,11 @@ func anInsertReplaceEditNamesTheReplaceRange() async throws {
     let server = ScriptedServer(handler: ScriptedServer.standard(completion: [both]))
     let rig = Rig(servers: [server])
     try await rig.started()
-    guard case .items(let items, _) = await rig.completion() else { Issue.record("expected items"); return }
+    guard case .items(let items, _) = await rig.completion() else {
+        Issue.record("expected items")
+
+        return
+    }
 
     #expect(
         items[0].replacementRange == UTF16TextRange(location: 10, length: 2),
@@ -371,7 +380,11 @@ func completionNamesTheStateOfTheServerThatCannotAnswer() async throws {
     #expect(await failing.waitFor { failing.clock.sleeperCount > 0 })
     failing.clock.advance(by: .seconds(1))
     #expect(await failing.waitFor { if case .failed = failing.service.state { true } else { false } })
-    guard case .unavailable(.failed) = await failing.completion() else { Issue.record("expected failed"); return }
+    guard case .unavailable(.failed) = await failing.completion() else {
+        Issue.record("expected failed")
+
+        return
+    }
 }
 
 // MARK: Restarting
@@ -578,7 +591,15 @@ private func notReadyYet(failures: Int) -> ScriptedServer.Handler {
         case "initialize":
             server.reply(id, ["capabilities": [:]])
         case "textDocument/completion":
-            if remaining.withLock({ left -> Bool in if left > 0 { left -= 1; return true }; return false }) {
+            if remaining.withLock({ left -> Bool in
+                if left > 0 {
+                    left -= 1
+
+                    return true
+                }
+
+                return false
+            }) {
                 server.fail(id, code: -32001, message: "No language service for 'file:///w/Main.swift' found")
             } else {
                 server.reply(id, ["isIncomplete": false, "items": [completionItem("member")]])
@@ -609,7 +630,11 @@ func aServerThatNeverGetsReadyEndsInAnErrorNotAnEndlessWait() async throws {
     let server = ScriptedServer(handler: notReadyYet(failures: 1_000))
     let rig = Rig(servers: [server])
     try await rig.started()
-    guard case .unavailable(.failed) = await rig.completion() else { Issue.record("expected unavailable"); return }
+    guard case .unavailable(.failed) = await rig.completion() else {
+        Issue.record("expected unavailable")
+
+        return
+    }
 
     #expect(server.messages(named: "textDocument/completion").count <= 5)
 }
@@ -645,7 +670,10 @@ private final class SecondCopyHeld {
         return capture
     }
 
-    func release() { gate?.resume(); gate = nil }
+    func release() {
+        gate?.resume()
+        gate = nil
+    }
 }
 
 @Test @MainActor
@@ -705,7 +733,11 @@ func hoverReturnsPlainTextAndTheRangeItIsAbout() async throws {
     let rig = Rig(servers: [server])
     try await rig.started()
     rig.caret = 4
-    guard case .content(let content) = await rig.hover() else { Issue.record("expected content"); return }
+    guard case .content(let content) = await rig.hover() else {
+        Issue.record("expected content")
+
+        return
+    }
 
     #expect(content.text == "let x: Int\n\n---\nThe value of x.")
     #expect(content.range == UTF16TextRange(location: 4, length: 1))

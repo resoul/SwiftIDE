@@ -34,16 +34,28 @@ struct EditorAreaTests {
         window.contentViewController = area
         window.setContentSize(NSSize(width: 700, height: 450))
         defer { window.close() }
+
         func render() {
             area.tabs.present(
                 tabs.order.compactMap { id in presentations.first { $0.id == id } },
                 selected: tabs.selected
             )
         }
-        area.tabs.onSelect = { tabs.select($0); render() }
-        area.tabs.onClose = { tabs.remove($0); render() }
-        area.tabs.onMove = { tabs.move($0, to: $1); render() }
-        render(); window.contentView?.layoutSubtreeIfNeeded()
+
+        area.tabs.onSelect = {
+            tabs.select($0)
+            render()
+        }
+        area.tabs.onClose = {
+            tabs.remove($0)
+            render()
+        }
+        area.tabs.onMove = {
+            tabs.move($0, to: $1)
+            render()
+        }
+        render()
+        window.contentView?.layoutSubtreeIfNeeded()
         try await settle()
         area.tabs.collectionView(area.tabs.collection, didSelectItemsAt: [IndexPath(item: 0, section: 0)])
         #expect(tabs.selected == a)
@@ -51,6 +63,7 @@ struct EditorAreaTests {
         let cell = try #require(area.tabs.collection.item(at: IndexPath(item: 0, section: 0)))
         #expect(cell.view.toolTip?.contains("Unsaved editor changes") == true)
         #expect(cell.view.toolTip?.contains("Excluded") == true)
+
         // Only the active tab has a close button.
         func closeButton(_ index: Int) throws -> NSButton {
             let cell = try #require(area.tabs.collection.item(at: IndexPath(item: index, section: 0)))
@@ -58,11 +71,13 @@ struct EditorAreaTests {
             return try #require(cell.view.subviews.compactMap { $0 as? NSStackView }.first?.arrangedSubviews
                 .last as? NSButton)
         }
+
         #expect(try !closeButton(0).isHidden)
         #expect(try closeButton(1).isHidden && closeButton(2).isHidden)
         area.tabs.collectionView(area.tabs.collection, didSelectItemsAt: [IndexPath(item: 1, section: 0)])
         try await settle()
         #expect(try closeButton(0).isHidden && !closeButton(1).isHidden && closeButton(2).isHidden)
+
         // An inactive tab shows its close button while the pointer is over it.
         func pointer(_ type: NSEvent.EventType, over index: Int) throws {
             let cell = try #require(area.tabs.collection.item(at: IndexPath(item: index, section: 0)))
@@ -79,8 +94,10 @@ struct EditorAreaTests {
             ))
             if type == .mouseEntered { cell.view.mouseEntered(with: event) } else { cell.view.mouseExited(with: event) }
         }
+
         try pointer(.mouseEntered, over: 2)
         #expect(try closeButton(0).isHidden && !closeButton(1).isHidden && !closeButton(2).isHidden)
+
         func pixels(_ index: Int) throws -> Data {
             let view = try #require(area.tabs.collection.item(at: IndexPath(item: index, section: 0))).view
             let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
@@ -88,6 +105,7 @@ struct EditorAreaTests {
 
             return try #require(bitmap.representation(using: .png, properties: [:]))
         }
+
         // The hovered inactive tab has a background; the others, and the tab once left, do not.
         let hoveredPixels = try pixels(2)
         try pointer(.mouseExited, over: 2)
@@ -172,7 +190,8 @@ struct EditorAreaTests {
         let editor = NSTextView()
         editor.string = "original text"
         editor.setSelectedRange(NSRange(location: 2, length: 3))
-        first.view = editor; second.view = NSTextView()
+        first.view = editor
+        second.view = NSTextView()
         area.show(first, focusTarget: editor)
         area.show(second, focusTarget: second.view)
         #expect(first.parent == nil && editor.string == "original text")
@@ -203,7 +222,10 @@ struct EditorAreaTests {
         )
         window.isReleasedWhenClosed = false
         window.contentViewController = shell
-        defer { shell.disconnect(); window.close() }
+        defer {
+            shell.disconnect()
+            window.close()
+        }
         shell.select(tool)
         #expect(shell.buttons[tool]?.isEnabled == true && state.layout.right == tool)
         state.resize(right: 350)

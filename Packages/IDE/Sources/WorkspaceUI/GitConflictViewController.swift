@@ -39,12 +39,14 @@ public final class GitConflictViewController: NSViewController {
         heading.font = .systemFont(ofSize: 14, weight: .semibold)
         let reload = NSButton(title: "Reload stages", target: self, action: #selector(reopenContext(_:)))
         let close = NSButton(title: "Close preview", target: self, action: #selector(closeContext(_:)))
-        let panes = GitStageSplitView(); panes.isVertical = true; panes.dividerStyle = .thin
+        let panes = GitStageSplitView()
+        panes.isVertical = true
+        panes.dividerStyle = .thin
         for (stage, title) in [(1, "Base · common ancestor"), (
             2,
             conflict.integration?.kind == .rebase
-            ? "Ours · rebased upstream"
-            : "Ours · current side"
+                ? "Ours · rebased upstream"
+                : "Ours · current side"
         ), (
             3,
             conflict.integration?.kind == .rebase
@@ -63,14 +65,18 @@ public final class GitConflictViewController: NSViewController {
             text.string = side.map { $0.text ?? "Binary or unsupported text · \($0.bytes) bytes · mode \($0.mode)" }
                 ?? "Absent in this stage (addition/deletion)"
             text.setAccessibilityLabel(title + ": " + conflict.path)
-            let scroll = NSScrollView.nonElastic(); scroll.documentView = text; scroll.hasVerticalScroller = true
+            let scroll = NSScrollView.nonElastic()
+            scroll.documentView = text
+            scroll.hasVerticalScroller = true
             scroll.heightAnchor.constraint(equalToConstant: 150).isActive = true
             let use = NSButton(
                 title: "Use " + (stage == 1 ? "Base" : stage == 2 ? "Ours" : "Theirs"),
                 target: self,
                 action: #selector(useSide(_:))
             )
-            use.tag = stage; use.isEnabled = side != nil; buttons.append(use)
+            use.tag = stage
+            use.isEnabled = side != nil
+            buttons.append(use)
             let label = NSTextField(labelWithString: title)
             label.font = .systemFont(ofSize: 11)
             label.lineBreakMode = .byTruncatingTail
@@ -82,9 +88,12 @@ public final class GitConflictViewController: NSViewController {
             panes.addArrangedSubview(pane)
         }
         panes.heightAnchor.constraint(equalToConstant: 220).isActive = true
-        mark.target = self; mark.action = #selector(markWorking(_:))
-        remove.target = self; remove.action = #selector(deleteResult(_:))
-        status.font = .systemFont(ofSize: 11); status.maximumNumberOfLines = 2
+        mark.target = self
+        mark.action = #selector(markWorking(_:))
+        remove.target = self
+        remove.action = #selector(deleteResult(_:))
+        status.font = .systemFont(ofSize: 11)
+        status.maximumNumberOfLines = 2
         let open = NSButton(title: "Open result", target: self, action: #selector(openWorking(_:)))
         let result = resultLabel
         result.font = .systemFont(ofSize: 11, weight: .semibold)
@@ -102,32 +111,48 @@ public final class GitConflictViewController: NSViewController {
         subscription = workspace.subscribe { [weak self] in self?.render() }
         render()
     }
+
     public func installEditor(_ editor: NSView?) {
         _ = view
-        NSLayoutConstraint.deactivate(installedConstraints); installedConstraints = []
-        installedEditor?.removeFromSuperview(); installedEditor = editor
-        guard let editor else { render(); return }
+        NSLayoutConstraint.deactivate(installedConstraints)
+        installedConstraints = []
+        installedEditor?.removeFromSuperview()
+        installedEditor = editor
+        guard let editor else {
+            render()
 
-        editor.translatesAutoresizingMaskIntoConstraints = false; resultHost.addSubview(editor)
+            return
+        }
+
+        editor.translatesAutoresizingMaskIntoConstraints = false
+        resultHost.addSubview(editor)
         installedConstraints = [
             editor.topAnchor.constraint(equalTo: resultHost.topAnchor),
             editor.bottomAnchor.constraint(equalTo: resultHost.bottomAnchor),
             editor.leadingAnchor.constraint(equalTo: resultHost.leadingAnchor),
             editor.trailingAnchor.constraint(equalTo: resultHost.trailingAnchor)
         ]
-        NSLayoutConstraint.activate(installedConstraints); render()
+        NSLayoutConstraint.activate(installedConstraints)
+        render()
     }
+
     @objc func useSide(_ sender: NSButton) {
         guard sender.isEnabled, let side = conflict.sides.first(where: { $0.stage == sender.tag }) else { return }
 
         if installedEditor != nil, side.text != nil, canEditResult?() == true { takeTextSide?(side) }
         else { restoreStage?(sender.tag) }
     }
+
     @objc func markWorking(_ sender: Any?) { if mark.isEnabled { resolveWorking?() } }
+
     @objc private func deleteResult(_ sender: Any?) { if remove.isEnabled { resolveDeleted?() } }
+
     @objc private func reopenContext(_ sender: Any?) { if workspace.canMutate { reopen?() } }
+
     @objc private func openWorking(_ sender: Any?) { openResult?() }
+
     @objc private func closeContext(_ sender: Any?) { closePreview?() }
+
     private func render() {
         resultLabel.stringValue = installedEditor != nil
             ? "Result · native editor (not staged until marked resolved)"
@@ -158,6 +183,7 @@ public final class GitConflictViewController: NSViewController {
         if workspace.operationState.isBusy { status.stringValue = workspace.operationState.explanation }
         else if case .failed(let error) = workspace.operationState { status.stringValue = error }
     }
+
     public func disconnect() {
         if let subscription { workspace.unsubscribe(subscription) }
         subscription = nil
@@ -177,7 +203,10 @@ public final class GitConflictViewController: NSViewController {
 @MainActor private final class GitStageSplitView: NSSplitView, NSSplitViewDelegate {
     private var initializedWidths = false
 
-    override init(frame frameRect: NSRect) { super.init(frame: frameRect); delegate = self }
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        delegate = self
+    }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }

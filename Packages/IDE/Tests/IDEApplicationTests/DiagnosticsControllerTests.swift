@@ -31,7 +31,9 @@ private final class FakeProvider: DiagnosticsProviding {
 @MainActor
 private final class FakePresenter: DiagnosticsPresenting {
     private(set) var shown: [[DiagnosticMark]] = []
+
     func show(_ marks: [DiagnosticMark]) { shown.append(marks) }
+
     var last: [DiagnosticMark] { shown.last ?? [] }
 }
 

@@ -2,7 +2,7 @@ import Foundation
 
 public enum FileNameTone: Sendable { case normal, red, green, blue, orange }
 
-/// Presentation input, independent of any Git porcelain format. Index and worktree badges stay separate.
+/// Presentation input, independent of Git porcelain. Git states use colours and accessible explanations.
 public struct FileDecoration: Equatable, Sendable {
     public var index: String
     public var worktree: String
@@ -44,13 +44,7 @@ public struct FileDecoration: Equatable, Sendable {
     }
 
     public var badges: String {
-        [
-            isConflict ? "⚠︎" : nil,
-            index.isEmpty ? nil : index,
-            worktree.isEmpty ? nil : worktree,
-            isUntracked && ignoredReason == nil ? "?" : nil,
-            isUnsaved ? "●" : nil
-        ].compactMap { $0 }.joined(separator: " ")
+        isUnsaved ? "●" : ""
     }
 
     public var explanation: String {

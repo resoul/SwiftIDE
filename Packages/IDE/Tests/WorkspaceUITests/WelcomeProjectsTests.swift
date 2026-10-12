@@ -6,7 +6,9 @@ import Testing
 @MainActor
 private final class WelcomeStore: RecentProjectsStore {
     var entries: [RecentProject] = []
+
     func load() throws -> [RecentProject] { entries }
+
     func save(_ projects: [RecentProject]) throws { entries = projects }
 }
 private struct WelcomeChecker: ProjectFolderChecking {
@@ -28,7 +30,11 @@ struct WelcomeProjectsTests {
         let model = RecentProjects(store: store, checker: WelcomeChecker())
         let controller = WelcomeProjectsViewController(model: model, version: "Test build")
         let window = makeWindow(controller)
-        defer { controller.disconnect(); model.stopChecking(); window.close() }
+        defer {
+            controller.disconnect()
+            model.stopChecking()
+            window.close()
+        }
         controller.focusSearch()
         let responder = window.firstResponder
         controller.search.stringValue = "beta"
@@ -76,7 +82,11 @@ struct WelcomeProjectsTests {
         let model = RecentProjects(store: store, checker: WelcomeChecker())
         let controller = WelcomeProjectsViewController(model: model, version: "Test build")
         let window = makeWindow(controller)
-        defer { controller.disconnect(); model.stopChecking(); window.close() }
+        defer {
+            controller.disconnect()
+            model.stopChecking()
+            window.close()
+        }
         #expect(controller.table.numberOfRows == 0)
         #expect(descendants(controller.view).compactMap { $0 as? NSTextField }.contains {
             $0.stringValue.contains("Welcome to SwiftIDE")
@@ -121,6 +131,7 @@ struct WelcomeProjectsTests {
 
         return window
     }
+
     private func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
 
     private func assertSelectedTitleContrast(_ controller: WelcomeProjectsViewController) throws {

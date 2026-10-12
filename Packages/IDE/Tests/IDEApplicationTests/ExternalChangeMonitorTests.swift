@@ -17,7 +17,14 @@ private struct Store: DocumentFileStore {
         var observationFailure: FileStoreError?
 
         var observations: Int { lock.withLock { observationCount } }
-        func noteObservation() -> Int { lock.withLock { observationCount += 1; return observationCount } }
+
+        func noteObservation() -> Int {
+            lock.withLock {
+                observationCount += 1
+
+                return observationCount
+            }
+        }
     }
 
     let base: MemoryDocumentFileStore

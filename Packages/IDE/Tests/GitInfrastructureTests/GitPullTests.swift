@@ -6,18 +6,28 @@ import IDEApplication
 struct GitPullTests {
     @Test func fastForwardFetchesOnlyReviewedHeadAndIgnoresMappingsPushURLAndPullPolicy() async throws {
         let local = try RepositoryFixture(), remote = try RepositoryFixture()
-        defer { local.remove(); remote.remove() }
-        try remote.write("a", "base"); try remote.git(["add", "."]); try remote.git(["commit", "-m", "Base"])
+        defer {
+            local.remove()
+            remote.remove()
+        }
+        try remote.write("a", "base")
+        try remote.git(["add", "."])
+        try remote.git(["commit", "-m", "Base"])
         let bare = remote.root + "/bare.git"
         try remote.git(["clone", "--bare", remote.root, bare])
-        try local.git(["fetch", bare, "main"]); try local.git(["reset", "--hard", "FETCH_HEAD"])
+        try local.git(["fetch", bare, "main"])
+        try local.git(["reset", "--hard", "FETCH_HEAD"])
         try local.git(["remote", "add", "origin", bare])
         try local.git(["config", "remote.origin.pushurl", remote.root + "/wrong.git"])
         try local.git(["config", "remote.origin.fetch", "+refs/heads/*:refs/heads/*"])
-        try local.git(["config", "pull.rebase", "true"]); try local.git(["config", "merge.autostash", "true"])
-        try local.git(["config", "fetch.prune", "true"]); try local.git(["config", "fetch.pruneTags", "true"])
-        try remote.write("a", "remote"); try remote.git(["commit", "-am", "Remote"])
-        try remote.git(["tag", "do-not-fetch"]); try remote.git(["branch", "other"])
+        try local.git(["config", "pull.rebase", "true"])
+        try local.git(["config", "merge.autostash", "true"])
+        try local.git(["config", "fetch.prune", "true"])
+        try local.git(["config", "fetch.pruneTags", "true"])
+        try remote.write("a", "remote")
+        try remote.git(["commit", "-am", "Remote"])
+        try remote.git(["tag", "do-not-fetch"])
+        try remote.git(["branch", "other"])
         try remote.git(["push", bare, "main", "other", "--tags"])
         try local.write("untracked", "keep")
         let fetchHead = try Data(contentsOf: URL(fileURLWithPath: local.root + "/.git/FETCH_HEAD"))
@@ -36,7 +46,8 @@ struct GitPullTests {
         let fresh = try await cli.snapshot(at: local.root)
         let again = try await cli.planPull(in: fresh, remote: "origin", source: "main")
         try await cli.perform(.pull(again), expected: fresh) { _ in } // Already up to date.
-        try local.write("a", "local ahead"); try local.git(["commit", "-am", "Local ahead"])
+        try local.write("a", "local ahead")
+        try local.git(["commit", "-am", "Local ahead"])
         let ahead = try await cli.snapshot(at: local.root), localHead = try local.git(["rev-parse", "HEAD"])
         try await cli.perform(
             .pull(try await cli.planPull(in: ahead, remote: "origin", source: "main")),
@@ -47,15 +58,22 @@ struct GitPullTests {
 
     @Test func divergenceDirtyIndexOperationsAndUntrackedOverwriteNeverDiscardLocalData() async throws {
         let local = try RepositoryFixture(), remote = try RepositoryFixture()
-        defer { local.remove(); remote.remove() }
-        try remote.write("a", "base"); try remote.git(["add", "."]); try remote.git(["commit", "-m", "Base"])
-        try local.git(["fetch", remote.root, "main"]); try local.git(["reset", "--hard", "FETCH_HEAD"])
+        defer {
+            local.remove()
+            remote.remove()
+        }
+        try remote.write("a", "base")
+        try remote.git(["add", "."])
+        try remote.git(["commit", "-m", "Base"])
+        try local.git(["fetch", remote.root, "main"])
+        try local.git(["reset", "--hard", "FETCH_HEAD"])
         try local.git(["remote", "add", "origin", remote.root])
         try remote.write("a", "remote")
         try remote.write("collision", "remote file")
         try remote.git(["add", "."])
         try remote.git(["commit", "-m", "Remote"])
-        try local.write("a", "local commit"); try local.git(["commit", "-am", "Local"])
+        try local.write("a", "local commit")
+        try local.git(["commit", "-am", "Local"])
         let cli = GitCLI(), before = try local.git(["rev-parse", "HEAD"])
         var snapshot = try await cli.snapshot(at: local.root)
         var plan = try await cli.planPull(in: snapshot, remote: "origin", source: "main")
@@ -105,8 +123,13 @@ struct GitPullTests {
 
     @Test func changedFetchAddressSourceOrDetachedHeadRefusesReviewedPull() async throws {
         let local = try RepositoryFixture(), remote = try RepositoryFixture()
-        defer { local.remove(); remote.remove() }
-        try local.write("a", "base"); try local.git(["add", "."]); try local.git(["commit", "-m", "Base"])
+        defer {
+            local.remove()
+            remote.remove()
+        }
+        try local.write("a", "base")
+        try local.git(["add", "."])
+        try local.git(["commit", "-m", "Base"])
         try local.git(["remote", "add", "origin", remote.root])
         let cli = GitCLI(), snapshot = try await cli.snapshot(at: local.root)
         let plan = try await cli.planPull(in: snapshot, remote: "origin", source: "main")
@@ -136,11 +159,18 @@ struct GitPullTests {
 
     @Test func cancellationAfterFastForwardStopsHookChildrenWithoutClaimingRollback() async throws {
         let local = try RepositoryFixture(), remote = try RepositoryFixture()
-        defer { local.remove(); remote.remove() }
-        try remote.write("a", "base"); try remote.git(["add", "."]); try remote.git(["commit", "-m", "Base"])
-        try local.git(["fetch", remote.root, "main"]); try local.git(["reset", "--hard", "FETCH_HEAD"])
+        defer {
+            local.remove()
+            remote.remove()
+        }
+        try remote.write("a", "base")
+        try remote.git(["add", "."])
+        try remote.git(["commit", "-m", "Base"])
+        try local.git(["fetch", remote.root, "main"])
+        try local.git(["reset", "--hard", "FETCH_HEAD"])
         try local.git(["remote", "add", "origin", remote.root])
-        try remote.write("a", "remote"); try remote.git(["commit", "-am", "Remote"])
+        try remote.write("a", "remote")
+        try remote.git(["commit", "-am", "Remote"])
         try local.write(
             ".git/hooks/post-merge",
             "#!/bin/sh\n/bin/sleep 30 &\necho $! > '\(local.root)/.git/child.pid'\nwait\n"
@@ -158,11 +188,12 @@ struct GitPullTests {
         }
         let pid =
             try #require(Int32(try String(contentsOfFile: local.root + "/.git/child.pid", encoding: .utf8)
-            .trimmingCharacters(in: .newlines)))
+                        .trimmingCharacters(in: .newlines)))
         await #expect(throws: GitInspectionError.failed("Another Git action is running for this repository")) {
             try await cli.perform(.pull(plan), expected: snapshot) { _ in }
         }
-        task.cancel(); await #expect(throws: CancellationError.self) { try await task.value }
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
         let end = ContinuousClock.now + .seconds(2)
         while kill(pid, 0) == 0, ContinuousClock.now < end { try await Task.sleep(for: .milliseconds(10)) }
         #expect(kill(pid, 0) != 0)

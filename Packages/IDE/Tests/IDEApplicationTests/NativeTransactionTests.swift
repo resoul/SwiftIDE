@@ -21,7 +21,9 @@ private final class Recorder {
 
 private actor RecordingStore: DocumentFileStore {
     private(set) var snapshots: [DocumentSnapshot] = []
+
     func read(path: String, maximumBytes: Int) async throws -> LoadedFile { throw FileStoreError.notFound }
+
     func write(_ snapshot: DocumentSnapshot, expecting: SaveExpectation) async throws -> FileRevision {
         snapshots.append(snapshot)
 
@@ -304,7 +306,13 @@ func plannerReadsOnlyWhatTheEditsReplace() throws {
         var unitsRead = 0
         var charactersCopied = 0
         var utf16Length: Int { inner.utf16Length }
-        func utf16Unit(at index: Int) -> UInt16 { unitsRead += 1; return inner.utf16Unit(at: index) }
+
+        func utf16Unit(at index: Int) -> UInt16 {
+            unitsRead += 1
+
+            return inner.utf16Unit(at: index)
+        }
+
         func substring(in range: UTF16TextRange) -> String {
             charactersCopied += range.length
 

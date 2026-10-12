@@ -60,7 +60,8 @@ public final class ProjectFiles {
     /// Supplied by TK-027. No Git result means unavailable, never an invented clean snapshot.
     public var decorations: [String: FileDecoration] = [:] { didSet { if oldValue != decorations { changed() } } }
     public var statusExplanation = "Git status is not connected yet" {
-        didSet { if oldValue != statusExplanation { changed() } } }
+        didSet { if oldValue != statusExplanation { changed() } }
+    }
     public var unsavedPaths: Set<String> = [] { didSet { if oldValue != unsavedPaths { changed() } } }
     public var onExclusionsChange: ((ProjectExclusions) -> Void)?
     public var onRefresh: (() -> Void)?
@@ -82,6 +83,7 @@ public final class ProjectFiles {
     }
 
     public func state(of path: String) -> DirectoryState { states[path] ?? .idle }
+
     /// A successful empty listing is distinct from a folder that has never loaded.
     public func hasListing(of path: String) -> Bool { listings[path] != nil }
 
@@ -213,6 +215,7 @@ public final class ProjectFiles {
     }
 
     private func isInside(_ path: String) -> Bool { path == root || relative(path) != nil }
+
     private func holds(_ parent: String, _ child: String) -> Bool { child == parent || child.hasPrefix(parent + "/") }
 
     /// The root whose rule applies, so Include removes the rule rather than a meaningless child override.
@@ -264,5 +267,6 @@ public final class ProjectFiles {
     }
 
     public func unsubscribe(_ id: UUID) { observers[id] = nil }
+
     private func changed() { for observer in Array(observers.values) { observer() } }
 }

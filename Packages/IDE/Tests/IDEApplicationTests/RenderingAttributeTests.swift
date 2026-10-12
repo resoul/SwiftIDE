@@ -117,16 +117,16 @@ func renderingAttributesFollowEditsAndTypedTextStartsPlain() {
                 from: s.layoutManager.documentRange.location,
                 reverse: false
             ) { _, attributes, range in
-            if attributes[.foregroundColor] as? NSColor == .red {
-                let start = content.offset(from: content.documentRange.location, to: range.location)
-                runs.append(NSRange(
-                    location: start,
-                    length: content.offset(from: range.location, to: range.endLocation)
-                ))
-            }
+                if attributes[.foregroundColor] as? NSColor == .red {
+                    let start = content.offset(from: content.documentRange.location, to: range.location)
+                    runs.append(NSRange(
+                        location: start,
+                        length: content.offset(from: range.location, to: range.endLocation)
+                    ))
+                }
 
-            return true
-        }
+                return true
+            }
 
         return runs
     }

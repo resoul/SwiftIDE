@@ -96,7 +96,8 @@ func aScratchDocumentSavedAsARealFileIsThenOpenedAsThatDocument() async throws {
     #expect(try Data(contentsOf: URL(fileURLWithPath: target)) == Data("let x = 2\r\n".utf8))
     var info = stat()
     #expect(stat(target, &info) == 0)
-    let mask = umask(0); umask(mask)
+    let mask = umask(0)
+    umask(mask)
     #expect(info.st_mode & 0o777 == 0o666 & ~mask, "a new file gets the usual permissions")
     #expect(session.diskRevision?.fileID == FileIdentity(device: UInt64(info.st_dev), inode: UInt64(info.st_ino)))
 

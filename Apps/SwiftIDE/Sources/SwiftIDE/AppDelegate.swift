@@ -115,7 +115,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// AppKit does not consult windows when the app quits, so unsaved documents are checked here
     /// with the same procedure the documents use. Quitting waits for the answers.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard documents.contains(where: { $0.session.isDirty }) else { isTerminating = true; return .terminateNow }
+        guard documents.contains(where: { $0.session.isDirty }) else {
+            isTerminating = true
+
+            return .terminateNow
+        }
 
         Task {
             // The documents are read again after every answer, not captured once.
@@ -290,6 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func projectSwitcherMenu() -> NSMenu {
         let menu = NSMenu()
+
         func add(_ title: String, path: String) {
             let item = NSMenuItem(title: title, action: #selector(openProjectFromMenu(_:)), keyEquivalent: "")
             item.target = self
@@ -297,6 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.toolTip = path
             menu.addItem(item)
         }
+
         if !projects.isEmpty {
             let heading = NSMenuItem(title: "Open Projects", action: nil, keyEquivalent: "")
             heading.isEnabled = false

@@ -5,6 +5,7 @@ import IDEApplication
 actor GitMutationGate {
     static let shared = GitMutationGate()
     private var active: Set<String> = []
+
     func run(key: String, operation: @Sendable () async throws -> Void) async throws {
         guard active.insert(key).inserted else {
             throw GitInspectionError.failed("Another Git action is running for this repository")
@@ -33,6 +34,10 @@ extension GitCLI: GitMutating {
             var arguments: [String]
             var input: Data?
             switch action {
+            case .tracking(let plan):
+                try await tracking(plan, expected: current, output: output)
+
+                return
             case .integrate, .continueIntegration, .abortIntegration, .skipRebase:
                 try await integrate(action, expected: current, output: output)
 
@@ -125,7 +130,7 @@ extension GitCLI: GitMutating {
         }
     }
 
-    private func validateBranch(_ name: String, root: String) async throws {
+    func validateBranch(_ name: String, root: String) async throws {
         guard !name.isEmpty, name.utf8.count <= 1024, !name.hasPrefix("-"), !name.contains("\0") else {
             throw GitInspectionError.failed("Enter a valid branch name")
         }

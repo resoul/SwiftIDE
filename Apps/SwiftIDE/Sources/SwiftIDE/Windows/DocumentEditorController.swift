@@ -45,6 +45,7 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
     private var checkoutEditing: Bool?
     private var savesInFlight = 0
     var isSaving: Bool { savesInFlight > 0 }
+
     func setGitCheckoutLocked(_ locked: Bool) {
         if locked, checkoutEditing == nil {
             checkoutEditing = editor.textView.isEditable
@@ -59,6 +60,7 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
 
         refreshSubtitle()
     }
+
     func checkDiskAfterGit() { externalChanges.checkNow() }
 
     func bind(to window: NSWindow) {
@@ -340,10 +342,11 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
             recoveryNote,
             readOnly
         ]
-            .compactMap { $0 }.joined(separator: " · ")
+        .compactMap { $0 }.joined(separator: " · ")
     }
 
     private func refreshSubtitle() { onPresentationChange?() }
+
     private func refreshTitle() { onPresentationChange?() }
 
     // MARK: Menu

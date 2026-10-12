@@ -20,6 +20,7 @@ public struct GitCloneRequest: Equatable, Sendable {
             throw GitInspectionError.failed("Choose a parent folder and a single new folder name")
         }
     }
+
     public static func validateSource(_ source: String) throws {
         guard !source.isEmpty, source.utf8.count <= 8192, !source.hasPrefix("-"),
               !source.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
@@ -68,41 +69,70 @@ public final class GitClone {
     public func start(_ request: GitCloneRequest) {
         guard !stopped, !state.isBusy else { return }
 
-        do { try request.validate() } catch { state = .failed(error.localizedDescription); changed(); return }
-        let token = UUID(); generation = token
-        destination = request.destination; output = ""; state = .running; changed()
+        do { try request.validate() } catch {
+            state = .failed(error.localizedDescription)
+            changed()
+
+            return
+        }
+        let token = UUID()
+        generation = token
+        destination = request.destination
+        output = ""
+        state = .running
+        changed()
         task = Task { [weak self, service] in
             do {
                 let path = try await service.clone(request) { [weak self] chunk in
                     Task { @MainActor [weak self] in
                         guard let self, !self.stopped, self.generation == token else { return }
 
-                        self.output = String((self.output + chunk).suffix(32_000)); self.changed()
+                        self.output = String((self.output + chunk).suffix(32_000))
+                        self.changed()
                     }
                 }
                 try Task.checkCancellation()
                 guard let self, !stopped, generation == token else { return }
 
-                state = .succeeded; task = nil; changed(); onSuccess?(path)
+                state = .succeeded
+                task = nil
+                changed()
+                onSuccess?(path)
             } catch {
                 guard let self, !stopped, generation == token else { return }
 
                 state = error is CancellationError || Task.isCancelled
                     ? .cancelled
                     : .failed(error.localizedDescription)
-                task = nil; changed()
+                task = nil
+                changed()
             }
         }
     }
+
     public func cancel() {
         guard state.isBusy else { return }
 
-        state = .cancelling; task?.cancel(); changed()
+        state = .cancelling
+        task?.cancel()
+        changed()
     }
-    public func stop() { stopped = true; generation = UUID(); task?.cancel(); onSuccess = nil }
+
+    public func stop() {
+        stopped = true
+        generation = UUID()
+        task?.cancel()
+        onSuccess = nil
+    }
+
     @discardableResult public func subscribe(_ observer: @escaping () -> Void) -> UUID {
-        let id = UUID(); observers[id] = observer; return id
+        let id = UUID()
+        observers[id] = observer
+
+        return id
     }
+
     public func unsubscribe(_ id: UUID) { observers[id] = nil }
+
     private func changed() { for observer in Array(observers.values) { observer() } }
 }

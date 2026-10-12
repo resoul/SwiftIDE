@@ -85,5 +85,6 @@ public final class WorkspaceNotifications {
     }
 
     public func unsubscribe(_ id: UUID) { observers[id] = nil }
+
     private func changed() { for observer in Array(observers.values) { observer() } }
 }

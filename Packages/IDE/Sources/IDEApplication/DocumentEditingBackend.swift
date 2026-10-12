@@ -31,5 +31,6 @@ public protocol DocumentEditingBackend: AnyObject, TextSource {
 
 extension DocumentEditingBackend {
     public func attach(nativeEditReceiver: any NativeEditReceiver) {}
+
     public func endComposition() {}
 }

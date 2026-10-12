@@ -1,7 +1,11 @@
 import Foundation
 import IDEApplication
 
-struct GitCommandResult: Sendable { let output: Data; let status: Int32; let error: String }
+struct GitCommandResult: Sendable {
+    let output: Data
+    let status: Int32
+    let error: String
+}
 
 /// Bounded pipe readers and process lifetime, entirely off the UI executor.
 enum GitCommand {
@@ -78,7 +82,8 @@ enum GitCommand {
             }
 
             process.environment = environment
-            process.standardOutput = stdout; process.standardError = stderr
+            process.standardOutput = stdout
+            process.standardError = stderr
             do {
                 if let input {
                     let url = FileManager.default.temporaryDirectory
@@ -116,7 +121,13 @@ enum GitCommand {
                                 errors.append(data)
                                 if errors.count > 8192 { errors.removeFirst(errors.count - 8192) }
                             } else if !overflow {
-                                if output.count + data.count > limit { overflow = true; output = Data(); return true }
+                                if output.count + data.count > limit {
+                                    overflow = true
+                                    output = Data()
+
+                                    return true
+                                }
+
                                 output.append(data)
                             }
 
@@ -146,7 +157,12 @@ enum GitCommand {
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
                 guard let self else { return }
 
-                let running = lock.withLock { if finished { return false }; expired = true; return true }
+                let running = lock.withLock {
+                    if finished { return false }
+                    expired = true
+
+                    return true
+                }
                 if running { end() }
             }
             process.waitUntilExit()
@@ -166,7 +182,11 @@ enum GitCommand {
             continuation.resume(with: value)
         }
 
-        func cancel() { lock.withLock { cancelled = true }; end() }
+        func cancel() {
+            lock.withLock { cancelled = true }
+            end()
+        }
+
         private func end() {
             let group = lock.withLock { processGroup }
             guard group != nil || process.isRunning else { return }

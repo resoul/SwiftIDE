@@ -100,8 +100,8 @@ func identical(_ a: NSBitmapImageRep, _ b: NSBitmapImageRep) -> Bool {
               using: .png,
               properties: [:]
           ) else {
-              return false
-          }
+        return false
+    }
 
     return da == db
 }

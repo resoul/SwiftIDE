@@ -35,6 +35,10 @@ struct ProjectFolderCheckerTests {
         }
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: root.path)
         let result = await ProjectFolderChecker().check(path: root.path)
-        guard case .unavailable = result else { Issue.record("expected unavailable, got \(result)"); return }
+        guard case .unavailable = result else {
+            Issue.record("expected unavailable, got \(result)")
+
+            return
+        }
     }
 }

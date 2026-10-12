@@ -342,6 +342,7 @@ func accessControlListsSurviveSaving() async throws {
     try chmod.run()
     chmod.waitUntilExit()
     try #require(chmod.terminationStatus == 0, "could not set an ACL in this environment")
+
     func hasACL() -> Bool {
         guard let acl = acl_get_file(path, ACL_TYPE_EXTENDED) else { return false }
 
@@ -349,6 +350,7 @@ func accessControlListsSurviveSaving() async throws {
 
         return true
     }
+
     #expect(hasACL())
     let file = try await store.read(path: path, maximumBytes: 100)
     _ = try await store.write(snapshot(path, "changed"), expecting: .revision(file.revision))

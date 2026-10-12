@@ -45,15 +45,22 @@ public final class GitPushReview {
     }
 
     public func invalidate() {
-        task?.cancel(); generation = UUID(); plan = nil; state = .idle; changed()
+        task?.cancel()
+        generation = UUID()
+        plan = nil
+        state = .idle
+        changed()
     }
+
     public func review(branch: GitBranch, remote: String, destination: String) {
         guard !stopped, workspace.canMutate, let snapshot = workspace.snapshot,
               let planner = workspace.pushPlanner else {
             return
         }
 
-        invalidate(); state = .loading; changed()
+        invalidate()
+        state = .loading
+        changed()
         let token = generation
         task = Task { [weak self] in
             do {
@@ -72,23 +79,31 @@ public final class GitPushReview {
                     throw GitInspectionError.failed("Source branch changed while reviewing; review again")
                 }
 
-                plan = value; state = .ready
+                plan = value
+                state = .ready
             } catch {
                 guard let self, !stopped, generation == token, !Task.isCancelled else { return }
 
-                plan = nil; state = .failed(error.localizedDescription)
+                plan = nil
+                state = .failed(error.localizedDescription)
             }
-            self?.task = nil; self?.changed()
+            self?.task = nil
+            self?.changed()
         }
     }
+
     public func push() {
         guard canPush, let plan else { return }
 
         submittedPlan = plan
-        activePush = true; operationStarted = true
-        self.plan = nil; state = .idle
-        workspace.perform(.push(plan)); changed()
+        activePush = true
+        operationStarted = true
+        self.plan = nil
+        state = .idle
+        workspace.perform(.push(plan))
+        changed()
     }
+
     private func workspaceChanged() {
         if activePush, !workspace.operationState.isBusy { activePush = false }
         if let plan,
@@ -99,14 +114,24 @@ public final class GitPushReview {
 
         changed()
     }
+
     public func stop() {
-        stopped = true; task?.cancel(); generation = UUID()
+        stopped = true
+        task?.cancel()
+        generation = UUID()
         if activePush { workspace.cancelOperation() }
-        if let subscription { workspace.unsubscribe(subscription) }; subscription = nil
+        if let subscription { workspace.unsubscribe(subscription) }
+        subscription = nil
     }
+
     @discardableResult public func subscribe(_ observer: @escaping () -> Void) -> UUID {
-        let id = UUID(); observers[id] = observer; return id
+        let id = UUID()
+        observers[id] = observer
+
+        return id
     }
+
     public func unsubscribe(_ id: UUID) { observers[id] = nil }
+
     private func changed() { for observer in Array(observers.values) { observer() } }
 }

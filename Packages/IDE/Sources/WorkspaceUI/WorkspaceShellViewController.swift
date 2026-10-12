@@ -34,6 +34,7 @@ public final class WorkspaceShellViewController: NSViewController {
     private let projectSwitcher = NSButton()
     private let projectAccessory = NSStackView()
     public var projectMenu: (() -> NSMenu)? { didSet { projectSwitcher.isEnabled = projectMenu != nil } }
+
     /// A supplied project control, such as a branch picker. The shell has no service dependency.
     public func installProjectAccessory(_ control: NSView?) {
         for old in projectAccessory.arrangedSubviews {
@@ -42,6 +43,7 @@ public final class WorkspaceShellViewController: NSViewController {
         }
         if let control { projectAccessory.addArrangedSubview(control) }
     }
+
     private let detailLabel = NSTextField(labelWithString: "")
     private let statusLabel = NSTextField(labelWithString: "")
     private let pathLabel = NSTextField(labelWithString: "")
@@ -325,6 +327,7 @@ public final class WorkspaceShellViewController: NSViewController {
 @MainActor
 final class WorkspaceSplitView: NSSplitView {
     var onDividerDrag: (([CGFloat]) -> Void)?
+
     override func mouseDown(with event: NSEvent) {
         let before = subviews.map { isVertical ? $0.frame.width : $0.frame.height }
         super.mouseDown(with: event)
@@ -336,6 +339,7 @@ final class WorkspaceSplitView: NSSplitView {
 private final class ShellPanel: NSView {
     private var current: NSView?
     private var tool: WorkspaceTool?
+
     func show(_ panel: WorkspacePanel, tool: WorkspaceTool, target: WorkspaceShellViewController) {
         guard self.tool != tool else { return }
 

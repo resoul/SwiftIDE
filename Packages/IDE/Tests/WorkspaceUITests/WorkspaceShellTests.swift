@@ -51,7 +51,11 @@ struct WorkspaceShellTests {
         )
         window.isReleasedWhenClosed = false
         window.contentViewController = container
-        defer { container.disconnect(); model.stop(); window.close() }
+        defer {
+            container.disconnect()
+            model.stop()
+            window.close()
+        }
         let deadline = ContinuousClock.now + .seconds(5)
         while model.state(of: model.root) != .loaded, ContinuousClock.now < deadline { await Task.yield() }
         try #require(model.state(of: model.root) == .loaded)
@@ -143,7 +147,11 @@ struct WorkspaceShellTests {
         window.isReleasedWhenClosed = false
         window.contentViewController = a
         _ = b.view
-        defer { a.disconnect(); b.disconnect(); window.close() }
+        defer {
+            a.disconnect()
+            b.disconnect()
+            window.close()
+        }
         window.makeFirstResponder(editor)
         let responder = window.firstResponder
         a.present(detail: "Target: App", status: "Preparing package · 2 / 5")
@@ -191,7 +199,10 @@ struct WorkspaceShellTests {
         )
         window.isReleasedWhenClosed = false
         window.contentViewController = shell
-        defer { shell.disconnect(); window.close() }
+        defer {
+            shell.disconnect()
+            window.close()
+        }
         shell.select(.assistant)
         shell.select(.inspector)
         shell.select(.assistant)

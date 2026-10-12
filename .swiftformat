@@ -2,7 +2,11 @@
 # An explicit set of rules; none of them changes logic or declarations.
 --swiftversion 6.0
 
---rules blankLinesAfterGuardStatements,wrapArguments,wrap,consecutiveBlankLines,trailingSpace,wrapSingleLineComments
+--rules blankLinesAfterGuardStatements,wrapArguments,wrap,consecutiveBlankLines,trailingSpace,wrapSingleLineComments,semicolons,indent,braces
+
+# One instruction per line. SwiftFormat retains a semicolon only when removing it changes parsing.
+--semicolons never
+--indent 4
 
 # Maximum line length: 120 characters. A ternary that does not fit breaks before `?` and `:`.
 --max-width 120

@@ -224,6 +224,7 @@ func theSubtitleSaysWhatAChosenLanguageLacks() {
             hasLanguageFeatures: features
         )
     }
+
     #expect(parts(.swift, .fileName, colours: true, features: true) == ["Swift"])
     #expect(parts(.cpp, .manual, colours: false, features: false) == [
         "C++ (chosen)",

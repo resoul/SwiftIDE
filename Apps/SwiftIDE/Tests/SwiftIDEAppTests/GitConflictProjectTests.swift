@@ -12,12 +12,14 @@ extension NativeAppTests {
             while !predicate(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
             try #require(predicate(), "Timed out: \(label)")
         }
+
         @Test(arguments: [GitIntegrationKind.merge, .rebase])
         func nativeConflictResultPreservesEditorUndoAndCompletesReviewedOperation(
             kind: GitIntegrationKind
         ) async throws {
             _ = NSApplication.shared
-            let fixture = try NativeConflictFixture(); defer { fixture.remove() }
+            let fixture = try NativeConflictFixture()
+            defer { fixture.remove() }
             var saves = 0
             let app = AppDelegate(
                 composition: AppCompositionRoot(
@@ -25,15 +27,19 @@ extension NativeAppTests {
                     recentStore: MemoryRecentProjectsStore()
                 ),
                 gitCheckoutPrompt: { _ in
-                saves += 1
+                    saves += 1
 
-                return .save
-            }
+                    return .save
+                }
             )
             let project = app.openProject(path: fixture.root.path)
-            project.layout.onSave = nil; project.files.onExclusionsChange = nil
+            project.layout.onSave = nil
+            project.files.onExclusionsChange = nil
             project.showWorkspace()
-            defer { project.closeProject(); app.welcome?.close() }
+            defer {
+                project.closeProject()
+                app.welcome?.close()
+            }
             let model = try #require(project.git)
             try await wait { model.canMutate }
             await app.open(path: fixture.root.appendingPathComponent("a.txt").path, in: project)
@@ -66,13 +72,14 @@ extension NativeAppTests {
             #expect(context.document === document && document.parent === context && context.context.resultHost.subviews
                 .first === document.view)
             #expect(context.context.conflict.sides.first { $0.stage == 2 }?.text == (kind == .rebase
-                ? "incoming\n"
-                : "local\n"))
+                    ? "incoming\n"
+                    : "local\n"))
             let chosen = try #require(context.context.conflict.sides.first { $0.stage == 3 })
             context.context.takeTextSide?(chosen)
             try await wait { document.session.text == chosen.text }
             #expect(editor.undoManager?.canUndo == true && project.activeDocument === document)
-            editor.undoManager?.undo(); #expect(document.session.text.hasPrefix("<<<<<<<"))
+            editor.undoManager?.undo()
+            #expect(document.session.text.hasPrefix("<<<<<<<"))
             editor.insertText(
                 "reviewed result\n",
                 replacementRange: NSRange(location: 0, length: document.session.utf16Length)
@@ -97,17 +104,23 @@ extension NativeAppTests {
                 "Native Undo survives preview, save and integration; it does not undo Git commits"
             )
         }
+
         @Test func binaryConflictUsesCentralToolAndDeletionNeedsExplicitApproval() async throws {
             _ = NSApplication.shared
-            let fixture = try NativeConflictFixture(binary: true); defer { fixture.remove() }
+            let fixture = try NativeConflictFixture(binary: true)
+            defer { fixture.remove() }
             let app = AppDelegate(composition: AppCompositionRoot(
                 recoveryStore: MemoryRecoveryStore(),
                 recentStore: MemoryRecentProjectsStore()
             ))
             let project = app.openProject(path: fixture.root.path)
-            project.layout.onSave = nil; project.files.onExclusionsChange = nil
+            project.layout.onSave = nil
+            project.files.onExclusionsChange = nil
             project.showWorkspace()
-            defer { project.closeProject(); app.welcome?.close() }
+            defer {
+                project.closeProject()
+                app.welcome?.close()
+            }
             let model = try #require(project.git)
             try await wait { model.canMutate }
             let before = try #require(model.snapshot), target = try #require(before.branches.first {
@@ -153,6 +166,7 @@ private final class NativeConflictFixture {
         try git(["config", "user.name", "Author"])
         try git(["config", "user.email", "test@example.test"])
         try git(["config", "commit.gpgsign", "false"])
+
         func write(_ value: String) throws {
             try (value + (binary ? "\0binary" : "\n")).write(
                 to: root.appendingPathComponent("a.txt"),
@@ -160,19 +174,30 @@ private final class NativeConflictFixture {
                 encoding: .utf8
             )
         }
-        try write("base"); try git(["add", "."]); try git(["commit", "-m", "Base"])
-        try git(["switch", "-c", "incoming"]); try write("incoming"); try git(["commit", "-am", "Incoming"])
-        try git(["switch", "main"]); try write("local"); try git(["commit", "-am", "Local"])
+
+        try write("base")
+        try git(["add", "."])
+        try git(["commit", "-m", "Base"])
+        try git(["switch", "-c", "incoming"])
+        try write("incoming")
+        try git(["commit", "-am", "Incoming"])
+        try git(["switch", "main"])
+        try write("local")
+        try git(["commit", "-am", "Local"])
     }
 
     func remove() { try? FileManager.default.removeItem(at: root) }
+
     @discardableResult func git(_ arguments: [String]) throws -> Data {
         let process = Process(), output = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git"); process.arguments = ["-C", root.path] + arguments
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = ["-C", root.path] + arguments
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
         process.standardInput = FileHandle.nullDevice
-        try process.run(); let data = output.fileHandleForReading.readDataToEndOfFile(); process.waitUntilExit()
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
         try #require(process.terminationStatus == 0)
 
         return data

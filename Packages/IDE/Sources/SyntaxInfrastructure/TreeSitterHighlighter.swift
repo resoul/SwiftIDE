@@ -94,7 +94,9 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
     private final class NewestRequest: @unchecked Sendable {
         private let lock = NSLock()
         private var version: UInt64 = 0
+
         func note(_ requested: UInt64) { lock.withLock { version = max(version, requested) } }
+
         func isOlderThanNewest(_ requested: UInt64) -> Bool { lock.withLock { requested < version } }
     }
 
@@ -149,7 +151,9 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
     }
 
     public func reset(text: [[UInt16]], version: UInt64) { messages.yield(.reset(text, version)) }
+
     public func edit(_ changes: DocumentChangeSet) { messages.yield(.edit(changes)) }
+
     public func requestHighlights(in window: Range<Int>, version: UInt64) {
         newest.note(version)
         messages.yield(.request(window, version))
@@ -222,11 +226,19 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                 let start = edit.range.location
                 let oldEnd = start + edit.range.length
                 let units = Array(edit.replacement.utf16)
-                guard oldEnd <= lines.utf16Length else { lost = true; return }
+                guard oldEnd <= lines.utf16Length else {
+                    lost = true
+
+                    return
+                }
 
                 let startPoint = point(at: start), oldEndPoint = point(at: oldEnd)
                 guard lines.replace(edit.range, with: edit.replacement),
-                      text.replace(start..<oldEnd, with: units) else { lost = true; return }
+                      text.replace(start..<oldEnd, with: units) else {
+                    lost = true
+
+                    return
+                }
 
                 let newEnd = start + units.count
                 tree?.edit(InputEdit(
@@ -243,7 +255,11 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
         }
 
         func highlights(in window: Range<Int>, version requested: UInt64) {
-            guard !lost, requested == version, !isStale(requested), let handler else { statistics.skipped += 1; return }
+            guard !lost, requested == version, !isStale(requested), let handler else {
+                statistics.skipped += 1
+
+                return
+            }
 
             if needsParse || tree == nil {
                 let source = text
@@ -354,7 +370,10 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             var result: [HighlightSpan] = []
             var index = 0
             while index < kinds.count {
-                guard kinds[index] != 0, let kind = HighlightKind(rawValue: kinds[index]) else { index += 1; continue }
+                guard kinds[index] != 0, let kind = HighlightKind(rawValue: kinds[index]) else {
+                    index += 1
+                    continue
+                }
 
                 var end = index + 1
                 while end < kinds.count, kinds[end] == kinds[index] { end += 1 }

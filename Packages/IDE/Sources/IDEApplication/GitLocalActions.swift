@@ -1,6 +1,7 @@
 import Foundation
 
 public enum GitAction: Equatable, Sendable {
+    case tracking(GitTrackingPlan)
     case integrate(GitIntegrationPlan)
     case continueIntegration(GitIntegrationStatus, String)
     case abortIntegration(GitIntegrationStatus), skipRebase(GitIntegrationStatus)
@@ -13,6 +14,7 @@ public enum GitAction: Equatable, Sendable {
 
     public var title: String {
         switch self {
+        case .tracking(let plan): plan.title
         case .integrate(let plan): plan.title
         case .continueIntegration(let status, _): "Continue " + status.kind.rawValue
         case .abortIntegration(let status): "Abort " + status.kind.rawValue
@@ -82,12 +84,15 @@ public final class GitCheckoutDocuments {
         prompt: @escaping (DocumentSession) async -> Decision,
         save: @escaping (DocumentSession) async -> Bool
     ) {
-        self.documents = documents; self.prompt = prompt; self.save = save
+        self.documents = documents
+        self.prompt = prompt
+        self.save = save
     }
 
     public static func contains(_ document: DocumentSession, root: String) -> Bool {
         !document.isUntitled && (document.path == root || document.path.hasPrefix(root + "/"))
     }
+
     public func prepare(root: String) async -> Bool {
         let affected = documents().filter { Self.contains($0, root: root) }
         for document in affected {

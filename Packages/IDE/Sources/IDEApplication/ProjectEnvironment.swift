@@ -32,6 +32,7 @@ public enum ConfigurationFile: Equatable, Sendable {
 public protocol ConfigurationFileReading: Sendable {
     /// `.sourcekit-lsp/config.json` of the project at `root`.
     func projectFile(root: String) -> ConfigurationFile
+
     /// The files of the user, lowest priority first (the project's file overrides them all).
     func userFiles() -> [ConfigurationFile]
 }

@@ -5,8 +5,10 @@ import Foundation
 /// which is what lets the tests put a scripted server on the other end.
 public protocol LSPChannel: Sendable {
     func write(_ data: Data) async throws
+
     /// Pieces of the server's output as they arrive, in any size; finishes when the server is gone.
     var incoming: AsyncStream<Data> { get }
+
     func close()
 }
 

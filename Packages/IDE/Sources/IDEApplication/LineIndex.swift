@@ -198,7 +198,8 @@ public struct LineIndex: Sendable {
             case .none: break
             case .lf: scanner.lineFeed()
             case .cr: scanner.carriageReturn()
-            case .crlf: scanner.carriageReturn(); scanner.lineFeed()
+            case .crlf: scanner.carriageReturn()
+                scanner.lineFeed()
             }
         }
         scanner.finish(endsWithTerminator: last.record.terminator != .none)

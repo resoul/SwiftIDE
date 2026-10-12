@@ -336,6 +336,7 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
     }
 
     @objc private func toggleExcluded(_ sender: Any?) { model.showExcluded.toggle() }
+
     @objc private func toggleIgnored(_ sender: Any?) { model.showIgnored.toggle() }
 }
 
@@ -381,12 +382,12 @@ final class FileStatusCell: NSTableCellView {
             icon.image = message != nil
                 ? nil
                 : file.isDirectory
-                ? WorkspaceIcon.image(
-                    file.isSymbolicLink ? "folder.badge.questionmark" : "folder",
-                    description: "Folder"
-                )
-                : NSWorkspace.shared
-                    .icon(for: UTType(filenameExtension: (file.name as NSString).pathExtension) ?? .data)
+                    ? WorkspaceIcon.image(
+                        file.isSymbolicLink ? "folder.badge.questionmark" : "folder",
+                        description: "Folder"
+                    )
+                    : NSWorkspace.shared
+                        .icon(for: UTType(filenameExtension: (file.name as NSString).pathExtension) ?? .data)
             icon.contentTintColor = file.isDirectory ? .secondaryLabelColor : nil
         }
 
@@ -396,6 +397,7 @@ final class FileStatusCell: NSTableCellView {
         isPlaceholder = message != nil
         name.stringValue = message ?? file.name
         badge.stringValue = message == nil ? decoration.badges : ""
+        badge.isHidden = badge.stringValue.isEmpty
         colour = message == nil ? decoration.tone.colour : .secondaryLabelColor
         name.textColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : colour
         badge.textColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : .labelColor
@@ -428,6 +430,7 @@ private final class FileRow: NSObject {
 @MainActor
 final class FilesOutlineView: NSOutlineView {
     var openSelection: (() -> Void)?
+
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36 || event.keyCode == 76 {
             openSelection?()

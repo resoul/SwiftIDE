@@ -6,7 +6,8 @@ import IDEApplication
 @Suite(.serialized) @MainActor
 struct GitEventsTests {
     @Test func nestedDiskEditsAreObservedAndStopIsIdempotent() async throws {
-        let fixture = try RepositoryFixture(); defer { fixture.remove() }
+        let fixture = try RepositoryFixture()
+        defer { fixture.remove() }
         try fixture.write("nested/a.txt", "one")
         try fixture.git(["add", "."])
         try fixture.git(["commit", "-m", "One"])
@@ -19,15 +20,20 @@ struct GitEventsTests {
         let deadline = ContinuousClock.now + .seconds(5)
         while events.value == 0, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
         #expect(events.value > 0)
-        watcher.stop(); watcher.stop()
+        watcher.stop()
+        watcher.stop()
         let stoppedAt = events.value
         try fixture.write("nested/a.txt", "three")
         try await Task.sleep(for: .milliseconds(600))
         #expect(events.value == stoppedAt)
     }
+
     @Test func linkedWorktreeObservesReferencesInTheCommonGitDirectory() async throws {
-        let fixture = try RepositoryFixture(); defer { fixture.remove() }
-        try fixture.write("a.txt", "one"); try fixture.git(["add", "."]); try fixture.git(["commit", "-m", "One"])
+        let fixture = try RepositoryFixture()
+        defer { fixture.remove() }
+        try fixture.write("a.txt", "one")
+        try fixture.git(["add", "."])
+        try fixture.git(["commit", "-m", "One"])
         let linked = fixture.root + "-linked"
         defer { try? FileManager.default.removeItem(atPath: linked) }
         try fixture.git(["worktree", "add", "-b", "linked", linked])
@@ -49,5 +55,6 @@ private final class EventCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
     var value: Int { lock.withLock { count } }
+
     func increment() { lock.withLock { count += 1 } }
 }

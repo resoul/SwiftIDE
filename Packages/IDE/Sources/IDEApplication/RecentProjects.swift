@@ -17,6 +17,7 @@ public struct RecentProject: Codable, Equatable, Sendable, Identifiable {
 @MainActor
 public protocol RecentProjectsStore {
     func load() throws -> [RecentProject]
+
     func save(_ projects: [RecentProject]) throws
 }
 
@@ -127,7 +128,10 @@ public final class RecentProjects {
         let checker = checker
         refreshTask = Task { [weak self] in
             defer {
-                if let self, self.generation == token { self.isChecking = false; self.changed() }
+                if let self, self.generation == token {
+                    self.isChecking = false
+                    self.changed()
+                }
             }
             await withTaskGroup(of: (String, ProjectFolderAvailability).self) { group in
                 var pending = paths.makeIterator()
@@ -135,11 +139,18 @@ public final class RecentProjects {
                     if let path = pending.next() { group.addTask { (path, await checker.check(path: path)) } }
                 }
                 while let (path, state) = await group.next() {
-                    guard !Task.isCancelled, let self, self.generation == token else { group.cancelAll(); return }
+                    guard !Task.isCancelled, let self, self.generation == token else {
+                        group.cancelAll()
+
+                        return
+                    }
 
                     if self.projects.contains(where: { $0.path == path }) {
                         // A successful explicit opening can be newer than a slow background check.
-                        if case .checking = self.availability[path] { self.availability[path] = state; self.changed() }
+                        if case .checking = self.availability[path] {
+                            self.availability[path] = state
+                            self.changed()
+                        }
                     }
 
                     if let path = pending.next() { group.addTask { (path, await checker.check(path: path)) } }
@@ -162,6 +173,7 @@ public final class RecentProjects {
 
         return id
     }
+
     public func unsubscribe(_ id: UUID) { observers[id] = nil }
 
     private func persist() {

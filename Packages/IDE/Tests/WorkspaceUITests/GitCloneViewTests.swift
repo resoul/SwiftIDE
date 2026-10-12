@@ -14,8 +14,13 @@ struct GitCloneViewTests {
             backing: .buffered,
             defer: false
         )
-        window.isReleasedWhenClosed = false; window.contentViewController = controller
-        defer { model.stop(); controller.disconnect(); window.close() }
+        window.isReleasedWhenClosed = false
+        window.contentViewController = controller
+        defer {
+            model.stop()
+            controller.disconnect()
+            window.close()
+        }
         _ = controller.view
         #expect(!controller.start.isEnabled)
         controller.parentDirectory = "/projects"
@@ -37,7 +42,8 @@ struct GitCloneViewTests {
             for appearance in [NSAppearance.Name.aqua, .darkAqua] {
                 window.appearance = NSAppearance(named: appearance)
                 try await Task.sleep(for: .milliseconds(40))
-                window.contentView?.layoutSubtreeIfNeeded(); window.displayIfNeeded()
+                window.contentView?.layoutSubtreeIfNeeded()
+                window.displayIfNeeded()
                 let view = try #require(window.contentView),
                     bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
                 view.cacheDisplay(in: view.bounds, to: bitmap)
@@ -50,6 +56,7 @@ struct GitCloneViewTests {
 private actor FormClone: GitCloning {
     private(set) var calls = 0
     private var continuation: CheckedContinuation<String, any Error>?
+
     func clone(_ request: GitCloneRequest, output: @escaping @Sendable (String) -> Void) async throws -> String {
         calls += 1
 
@@ -58,6 +65,7 @@ private actor FormClone: GitCloning {
             output("Connecting…\n")
         }
     }
+
     func fail() {
         continuation?.resume(throwing: GitInspectionError.failed("Denied by test server"))
         continuation = nil

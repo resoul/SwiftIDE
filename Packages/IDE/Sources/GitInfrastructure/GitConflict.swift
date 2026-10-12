@@ -51,7 +51,7 @@ extension GitCLI: GitConflictReading {
             ["check-attr", "-z", "conflict-marker-size", "--", path],
             at: snapshot.repository.root
         ))
-            .split(separator: "\0", omittingEmptySubsequences: false)
+        .split(separator: "\0", omittingEmptySubsequences: false)
         let markerSize = attributes.count >= 3 ? Int(attributes[2]) ?? 7 : 7
         guard (1...4096).contains(markerSize),
               try await conflictIndex(at: snapshot.repository.root, path: path) == data,
@@ -106,7 +106,8 @@ extension GitCLI: GitConflictReading {
         let descriptor = open(current, O_RDONLY | O_NOFOLLOW)
         guard descriptor >= 0 else { throw GitInspectionError.failed("Cannot read working conflict file") }
 
-        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true); defer { try? handle.close() }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        defer { try? handle.close() }
         guard fstat(descriptor, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG else {
             throw GitInspectionError.failed("Working conflict file changed before reading")
         }
@@ -128,7 +129,7 @@ extension GitCLI: GitConflictReading {
         guard conflict.repository == expected.repository, conflict.supportsResolution,
               conflict.integration == expected.integration,
               digest(try await conflictIndex(at: expected.repository.root, path: conflict.path)) == conflict.indexToken
-              else {
+        else {
             throw GitInspectionError.failed("Conflict stages or operation changed; reopen the conflict")
         }
 
@@ -158,8 +159,8 @@ extension GitCLI: GitConflictReading {
             try rejectMarkers(staged, size: fresh.markerSize)
             guard digest(try await conflictIndex(at: expected.repository.root, path: path)) == conflict.indexToken,
                   try integration(at: expected.repository) == conflict.integration else {
-                      throw GitInspectionError.failed("Conflict changed before staging; reopen it")
-                  }
+                throw GitInspectionError.failed("Conflict changed before staging; reopen it")
+            }
 
             let filemode = try GitPorcelain.string(await run(
                 ["config", "--bool", "--get", "core.filemode"],
@@ -222,6 +223,7 @@ extension GitCLI: GitConflictReading {
             // Restoring a side is not marking it resolved: the unmerged index remains intact.
         }
     }
+
     private func rejectMarkers(_ data: Data, size: Int) throws {
         if let text = text(data) {
             let prefixes = ["<", "=", ">", "|"].map { String(repeating: $0, count: size) }

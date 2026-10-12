@@ -45,6 +45,7 @@ private final class Counter: @unchecked Sendable {
     private let lock = NSLock()
     private var value = 0
     var count: Int { lock.withLock { value } }
+
     func bump() { lock.withLock { value += 1 } }
 
     /// Waits for at least one event more than `since`; false if none came.

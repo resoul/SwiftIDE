@@ -11,7 +11,8 @@ final class GitConflictEditorController: NSViewController {
     var reportError: ((String) -> Void)?
 
     init(workspace: GitWorkspace, conflict: GitConflict, document: DocumentEditorController?) {
-        self.document = document; context = GitConflictViewController(workspace: workspace, conflict: conflict)
+        self.document = document
+        context = GitConflictViewController(workspace: workspace, conflict: conflict)
         super.init(nibName: nil, bundle: nil)
         context.canEditResult = { [weak document] in (document?.focusTarget as? NSTextView)?.isEditable == true }
         context.takeTextSide = { [weak self] in self?.take($0) }
@@ -21,13 +22,31 @@ final class GitConflictEditorController: NSViewController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    override func loadView() { addChild(context); view = context.view }
+    override func loadView() {
+        addChild(context)
+        view = context.view
+    }
+
     func attachEditor() {
         _ = view
-        if let document { document.removeFromParent(); addChild(document); context.installEditor(document.view) }
+        if let document {
+            document.removeFromParent()
+            addChild(document)
+            context.installEditor(document.view)
+        }
     }
-    func detachEditor() { context.installEditor(nil); document?.removeFromParent() }
-    func stop() { task?.cancel(); detachEditor(); context.disconnect() }
+
+    func detachEditor() {
+        context.installEditor(nil)
+        document?.removeFromParent()
+    }
+
+    func stop() {
+        task?.cancel()
+        detachEditor()
+        context.disconnect()
+    }
+
     private func take(_ side: GitConflictSide) {
         guard context.workspace.canMutate, let document, let text = side.text,
               let snapshot = context.workspace.snapshot,
@@ -45,8 +64,8 @@ final class GitConflictEditorController: NSViewController {
                       context.workspace.canMutate, fresh.indexToken == context.conflict.indexToken,
                       fresh.integration == context.conflict.integration,
                       (document.focusTarget as? NSTextView)?.isEditable == true else {
-                          throw GitInspectionError.failed("Conflict or editor changed; reopen its preview")
-                      }
+                    throw GitInspectionError.failed("Conflict or editor changed; reopen its preview")
+                }
 
                 try document.session.replaceText(text, expectedVersion: version)
             } catch { if !Task.isCancelled { self?.reportError?(error.localizedDescription) } }

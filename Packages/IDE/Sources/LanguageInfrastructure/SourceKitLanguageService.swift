@@ -134,7 +134,10 @@ public final class SourceKitLanguageService: CompletionProviding {
     /// Where the user's decision about the project's configuration is kept. Set by whoever owns the
     /// application's settings; a service without one refuses the configuration and keeps nothing.
     public var trustStore: (any ProjectTrustStore)? {
-        didSet { trust = storedTrust(); refreshReadiness() }
+        didSet {
+            trust = storedTrust()
+            refreshReadiness()
+        }
     }
     /// Asks the user. Without it the answer to the server's question is a refusal.
     public var trustPrompt: TrustPrompt?
@@ -704,8 +707,8 @@ public final class SourceKitLanguageService: CompletionProviding {
         (list?.arrayValue ?? []).compactMap { raw -> LanguageDiagnostic? in
             guard let message = raw["message"]?.stringValue,
                   let start = position(raw["range"]?["start"]), let end = position(raw["range"]?["end"]) else {
-                      return nil
-                  }
+                return nil
+            }
 
             return LanguageDiagnostic(
                 severity: LanguageDiagnostic.Severity(rawValue: raw["severity"]?.intValue ?? 1) ?? .error,

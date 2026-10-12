@@ -6,6 +6,109 @@ private func rules(_ source: String) -> [Rule] { SpacingChecker.check(source).ma
 
 private func lines(_ source: String) -> [Int] { SpacingChecker.check(source).map(\.line) }
 
+@Test
+func functionsAreSeparatedWithTheirAttributesAndDocumentation() throws {
+    let source = """
+    class Actions {
+        var value = 0
+        /// Opens the picker.
+        @objc func open() { show() }
+        @objc func filter() { render() }
+        var enabled = true
+    }
+    """
+    #expect(rules(source) == Array(repeating: .blankLineAroundFunction, count: 3))
+    let fixed = try #require(try SpacingChecker.fix(source))
+    #expect(fixed.contains("var value = 0\n\n    /// Opens the picker.\n    @objc"))
+    #expect(fixed.contains("show() }\n\n    @objc"))
+    #expect(fixed.contains("render() }\n\n    var enabled"))
+    #expect(rules(fixed).isEmpty)
+    #expect(try SpacingChecker.fix(fixed) == nil)
+}
+
+@Test
+func functionsAtBlockEdgesNeedNoExtraBlankLine() throws {
+    #expect(rules("struct A {\n    func f() { work() }\n}\n").isEmpty)
+    let source = "let x = 1\nfunc f() {}\nlet y = 2\n"
+    #expect(rules(source) == [.blankLineAroundFunction, .blankLineAroundFunction])
+    #expect(try SpacingChecker.fix(source) == "let x = 1\n\nfunc f() {}\n\nlet y = 2\n")
+    let local = "func f() {\n    let x = 1\n    func g() {}\n    g()\n}\n"
+    #expect(rules(local) == [.blankLineAroundFunction, .blankLineAroundFunction])
+    #expect(rules("#if DEBUG\nlet x = 1\nfunc f() {}\n#endif\n") == [.blankLineAroundFunction])
+}
+
+@Test
+func shortMultipleInstructionBodiesExpandAndSeparateFunctions() throws {
+    let source = """
+    class Actions {
+        public func showRemoteSelection() { _ = view; showBranches(nil) }
+        @objc private func filterChanged(_ sender: Any?) { render() }
+    }
+    """
+    let expected = """
+    class Actions {
+        public func showRemoteSelection() {
+            _ = view
+            showBranches(nil)
+        }
+
+        @objc private func filterChanged(_ sender: Any?) { render() }
+    }
+    """
+    #expect(try SpacingChecker.fix(source) == expected)
+    #expect(rules(expected).isEmpty)
+    #expect(try SpacingChecker.fix(expected) == nil)
+}
+
+@Test
+func shortAssignmentsSplitWithoutTouchingStringsOrComments() throws {
+    let source = "func f() {\n    tracking.target = self; tracking.action = selector\n    print(\"a;b\") // c;d\n}\n"
+    let expected = "func f() {\n    tracking.target = self\n    tracking.action = selector\n    print(\"a;b\") // c;d\n}\n"
+    #expect(rules(source) == [.separateStatements])
+    #expect(try SpacingChecker.fix(source) == expected)
+    #expect(rules(expected).isEmpty)
+}
+
+@Test
+func compactNestedBodiesAndMemberDeclarationsPreserveComments() throws {
+    let samples = [
+        "func f() { if ok { first(); /* note */ second() }; finish() }\n",
+        "let action = { value in first(value); second(value) }\n",
+        "struct A { let x = 1; func f() { first(); second() } }\n",
+    ]
+    for source in samples {
+        let fixed = try #require(try SpacingChecker.fix(source))
+        try SpacingChecker.verify(original: source, fixed: fixed, path: "sample")
+        #expect(rules(fixed).isEmpty)
+        #expect(try SpacingChecker.fix(fixed) == nil)
+    }
+}
+
+@Test
+func newRulesPreserveCRLF() throws {
+    let source = "struct A {\r\n    func f() { first(); second() }\r\n    func g() {}\r\n}\r\n"
+    let fixed = try #require(try SpacingChecker.fix(source))
+    #expect(!fixed.replacingOccurrences(of: "\r\n", with: "").contains("\n"))
+    #expect(rules(fixed).isEmpty)
+}
+
+@Test
+func controlFlowSeparatorsCannotBeSilentlyRemoved() throws {
+    for source in [
+        "func f() { return; work() }\n",
+        "func f() { while true { break; work() } }\n",
+        "func f() { while true { continue; work() } }\n",
+    ] {
+        let fixed = try #require(try SpacingChecker.fix(source))
+        #expect(fixed.contains(";"))
+        try SpacingChecker.verify(original: source, fixed: fixed, path: "sample")
+        #expect(rules(fixed).isEmpty)
+    }
+    #expect(throws: SpacingChecker.FixRefused.self) {
+        try SpacingChecker.verify(original: "func f() { return; work() }", fixed: "func f() { return work() }", path: "sample")
+    }
+}
+
 // MARK: The documented examples are accepted
 
 @Test
@@ -81,9 +184,9 @@ func aReturnInsideAOneLineGuardOrIfIsTheOnlyStatementOfItsBlock() {
 }
 
 @Test
-func aReturnOnTheLineOfTheStatementBeforeIsLeftAlone() {
-    #expect(rules("func f() -> Int {\n    let x = 1; return x\n}\n").isEmpty)
-    #expect(rules("let g: () -> Int = { let y = 2; return y }\n").isEmpty)
+func aReturnOnTheLineOfTheStatementBeforeRequiresSeparation() {
+    #expect(rules("func f() -> Int {\n    let x = 1; return x\n}\n") == [.separateStatements])
+    #expect(rules("let g: () -> Int = { let y = 2; return y }\n").contains(.multipleStatementBody))
 }
 
 @Test
@@ -416,9 +519,9 @@ func initializersKeepAttributesAndDocumentationTogetherAndSeparateNeighbors() th
 }
 
 @Test
-func firstAndLastInitializersAndSameLineMembersNeedNoExtraSpace() throws {
+func firstAndLastInitializersNeedNoExtraSpaceAndInlineMembersAreExpanded() throws {
     #expect(rules("struct A {\n    init() {}\n}\n").isEmpty)
-    #expect(rules("struct A { let x = 1; init() {}; func f() {} }").isEmpty)
+    #expect(rules("struct A { let x = 1; init() {}; func f() {} }") == [.multipleStatementBody])
     let source = "extension A {\r\n    var x: Int { 1 }\r\n    init() {}\r\n    // next member\r\n    var y: Int { 2 }\r\n}"
     let fixed = try #require(try SpacingChecker.fix(source))
     #expect(fixed.contains("1 }\r\n\r\n    init"))
@@ -449,8 +552,8 @@ func aOneLineBodyOnALongLineGetsLinesOfItsOwn() throws {
 }
 
 @Test
-func aShortLineIsLeftAlone() {
-    #expect(rules("func f() {\n    if a { b() }; c()\n    Task { d() }\n}\n").isEmpty)
+func shortJoinedStatementsAreSeparatedToo() {
+    #expect(rules("func f() {\n    if a { b() }; c()\n    Task { d() }\n}\n") == [.separateStatements])
 }
 
 @Test

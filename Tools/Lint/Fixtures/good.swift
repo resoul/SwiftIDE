@@ -56,3 +56,20 @@ extension Sample {
         }
     }
 }
+
+class Actions {
+    var tracking = Button()
+
+    public func showRemoteSelection() {
+        _ = view
+        showBranches(nil)
+    }
+
+    /// Filters the branch list.
+    @objc private func filterChanged(_ sender: Any?) { render() }
+
+    func configure() {
+        tracking.target = self
+        tracking.action = selector
+    }
+}

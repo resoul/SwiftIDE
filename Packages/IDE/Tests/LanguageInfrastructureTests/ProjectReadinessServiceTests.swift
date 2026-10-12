@@ -733,7 +733,8 @@ func aFailedPullIsRecordedWithItsReason() async throws {
     #expect(
         await rig
             .waitFor {
-            rig.service.diagnosticsPullLog.contains { $0.contains("failed") && $0.contains("no such method") } },
+                rig.service.diagnosticsPullLog.contains { $0.contains("failed") && $0.contains("no such method") }
+            },
         "\(rig.service.diagnosticsPullLog)"
     )
 }
@@ -778,8 +779,9 @@ func aPullAnsweredAfterTheDocumentMovedToAnotherAddressIsNotUsed() async throws 
     #expect(
         await rig
             .waitFor {
-            rig.service.diagnosticsPullLog
-            .contains { $0.contains("Old.swift") && $0.contains("moved to another address") } },
+                rig.service.diagnosticsPullLog
+                    .contains { $0.contains("Old.swift") && $0.contains("moved to another address") }
+            },
         "\(rig.service.diagnosticsPullLog)"
     )
     #expect(arrivals == before, "the answer about the old address is not taken for a report of the document")

@@ -285,6 +285,7 @@ func typingASlashStarOpensACommentOverTheRestAndClosingItGivesTheColoursBack() a
     let run = try Run(.c)
     var units = Array("int a = 1;\nint b = 2;\nint c = 3;\n".utf16)
     _ = await run.spans(of: String(decoding: units, as: UTF16.self))
+
     func edit(_ range: UTF16TextRange, _ text: String, version: UInt64) async -> [HighlightSpan] {
         let changes = DocumentChangeSet(
             documentID: DocumentID(),
@@ -299,6 +300,7 @@ func typingASlashStarOpensACommentOverTheRestAndClosingItGivesTheColoursBack() a
 
         return await run.next()?.spans ?? []
     }
+
     let opened = await edit(UTF16TextRange(location: 11, length: 0), "/*", version: 1)
     #expect(opened.filter { $0.location >= 11 }.allSatisfy { $0.kind == .comment } && !opened.isEmpty)
     let closed = await edit(UTF16TextRange(location: 11 + 2 + 10, length: 0), "*/", version: 2)

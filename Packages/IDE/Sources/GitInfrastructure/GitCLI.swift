@@ -66,6 +66,7 @@ public struct GitCLI: GitInspecting {
 
             return text
         }
+
         let top = try await value(["rev-parse", "--show-toplevel"])
         let directory = try await value(["rev-parse", "--absolute-git-dir"])
         let common = try await value(["rev-parse", "--path-format=absolute", "--git-common-dir"])
@@ -133,7 +134,7 @@ public struct GitCLI: GitInspecting {
             [
                 "for-each-ref",
                 "--sort=refname",
-                "--format=%(refname)%00%(objectname)%00%(upstream:short)%00",
+                "--format=%(refname)%00%(objectname)%00%(upstream)%00%(upstream:remotename)%00%(upstream:remoteref)%00",
                 "refs/heads",
                 "refs/remotes"
             ],
@@ -144,11 +145,17 @@ public struct GitCLI: GitInspecting {
             let fields = try record.split(separator: 0, omittingEmptySubsequences: false).map {
                 try GitPorcelain.string(Data($0))
             }
-            guard fields.count == 4, fields[0].hasPrefix("refs/heads/") || fields[0].hasPrefix("refs/remotes/") else {
+            guard fields.count == 6, fields[0].hasPrefix("refs/heads/") || fields[0].hasPrefix("refs/remotes/") else {
                 throw GitInspectionError.failed("Malformed Git branch report")
             }
 
-            return GitBranch(reference: fields[0], oid: try GitPorcelain.oid(fields[1]), upstream: fields[2])
+            return GitBranch(
+                reference: fields[0],
+                oid: try GitPorcelain.oid(fields[1]),
+                upstream: fields[2],
+                upstreamRemote: fields[3],
+                upstreamSource: fields[4]
+            )
         }
     }
 

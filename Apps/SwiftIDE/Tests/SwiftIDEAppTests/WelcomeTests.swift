@@ -49,7 +49,10 @@ extension NativeAppTests {
             let app = AppDelegate(composition: composition)
             await app.start()
             let project = try #require(await app.openProjectFolder(path: folder.path))
-            defer { project.closeProject(); app.welcome?.close() }
+            defer {
+                project.closeProject()
+                app.welcome?.close()
+            }
             #expect(project.window?.isVisible == true && app.welcome?.window?.isVisible == false)
             #expect(await app.openProjectFolder(path: alias.path) === project)
             #expect(recent.projects.map(\.path) == [folder.path])
@@ -149,11 +152,18 @@ extension NativeAppTests {
             let recent = MemoryRecentProjectsStore()
             let composition = AppCompositionRoot(recoveryStore: recovery, recentStore: recent)
             var decisions: [RecoveryCandidate] = []
-            let app = AppDelegate(composition: composition, recoveryPrompt: { decisions.append($0); return true })
+            let app = AppDelegate(composition: composition, recoveryPrompt: {
+                decisions.append($0)
+
+                return true
+            })
             await app.start()
             let window = try #require(NSApp.windows.first { $0.representedURL?.path == file.path })
             let document = try #require(window.windowController as? WorkspaceWindowController)
-            defer { window.close(); app.welcome?.close() }
+            defer {
+                window.close()
+                app.welcome?.close()
+            }
             #expect(decisions.count == 1 && document.session.text == record.text && document.session.isDirty)
             #expect(try String(contentsOf: file, encoding: .utf8) == "disk text")
             #expect(app.welcome?.window?.isVisible == false && recent.projects.isEmpty)

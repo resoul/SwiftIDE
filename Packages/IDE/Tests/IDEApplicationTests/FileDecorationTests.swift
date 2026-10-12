@@ -2,7 +2,7 @@ import IDEApplication
 import Testing
 
 struct FileDecorationTests {
-    @Test func precedencePreservesIndependentBadgesAndReasons() {
+    @Test func precedenceUsesColoursAndKeepsGitDetailsOutOfVisibleBadges() {
         let combined = FileDecoration(
             index: "A",
             worktree: "M",
@@ -11,7 +11,8 @@ struct FileDecorationTests {
             isUnsaved: true
         )
         #expect(combined.tone == .orange)
-        #expect(combined.badges == "⚠︎ A M ●")
+        #expect(combined.badges == "●")
+        #expect(FileDecoration(index: "M", worktree: "D", isUntracked: true, isConflict: true).badges.isEmpty)
         #expect(combined.explanation.contains("Conflict") && combined.explanation.contains("Unsaved"))
         #expect(FileDecoration(isConflict: true).tone == .red)
         #expect(FileDecoration(index: "A", worktree: "M").tone == .blue)

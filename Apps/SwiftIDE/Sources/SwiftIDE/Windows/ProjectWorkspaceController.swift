@@ -15,6 +15,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     private let gitChanges: GitChangesViewController?
     private let gitLog: GitLogViewController?
     private(set) var integrationWindow: GitIntegrationWindowController?
+    private(set) var trackingWindow: GitTrackingWindowController?
     private var conflictTask: Task<Void, Never>?
     private var conflictID = UUID()
     private var confirmationTask: Task<Void, Never>?
@@ -88,7 +89,11 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         area.tabs.onClose = { [weak self] id in
             guard let self else { return }
 
-            if id == conflictTabID { standaloneConflict?.stop(); standaloneConflict = nil; tabs.remove(id) }
+            if id == conflictTabID {
+                standaloneConflict?.stop()
+                standaloneConflict = nil
+                tabs.remove(id)
+            }
             else if id == diffTabID { tabs.remove(id) } else { editors[id]?.requestClose() }
         }
         area.tabs.onMove = { [weak self] in self?.tabs.move($0, to: $1) }
@@ -101,9 +106,14 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             }
 
             if let gitLog { browser.addChild(gitLog) }
-            if let gitBranches { browser.addChild(gitBranches); shell.installProjectAccessory(gitBranches.view) }
+            if let gitBranches {
+                browser.addChild(gitBranches)
+                shell.installProjectAccessory(gitBranches.view)
+            }
+
             gitChanges?.resolveConflict = { [weak self] in self?.showConflict($0) }
             gitChanges?.confirmAction = { [weak self] in self?.confirmGitAction($0) }
+            gitBranches?.onTrackingRequested = { [weak self] in self?.showTracking(branch: $0) }
             gitBranches?.onIntegrateRequested = { [weak self] kind, branch in
                 self?.showIntegration(kind, target: branch)
             }
@@ -167,8 +177,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         let conflict = tabs.selected == conflictTabID
             ? standaloneConflict
             : active.flatMap {
-            conflictEditors[$0.session.id]
-        }
+                conflictEditors[$0.session.id]
+            }
         let content: NSViewController? = conflict ?? (inspection ? gitDiff : active)
         let focus = inspection ? gitDiff?.text : active?.focusTarget
         let switching = area.active !== content
@@ -195,8 +205,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         shell.present(
             detail: tabs.selected == diffTabID ? "Read-only Git diff" : activeDocument?.detail,
             status: activeDocument?.status ?? (tabs.selected == diffTabID
-                          ? git?.diffState.explanation
-                          : "Open a file to begin editing") ?? ""
+                ? git?.diffState.explanation
+                : "Open a file to begin editing") ?? ""
         )
         presentTabs()
     }
@@ -207,7 +217,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
                 return DocumentTabPresentation(
                     id: id,
                     name: "Resolve · " + ((standaloneConflict?.context.conflict.path ?? "Conflict") as NSString)
-                    .lastPathComponent,
+                        .lastPathComponent,
                     path: standaloneConflict?.context.conflict.path ?? "Git conflict"
                 )
             }
@@ -216,7 +226,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
                 return DocumentTabPresentation(
                     id: id,
                     name: "Diff · " + ((git?.comparison?.path ?? "Changes") as NSString)
-                                               .lastPathComponent,
+                        .lastPathComponent,
                     path: git?.comparison?.title ?? "Git diff"
                 )
             }
@@ -283,13 +293,16 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         let message: String
         switch git.operationState {
         case .succeeded:
-            kind = .success; suffix = " completed"
+            kind = .success
+            suffix = " completed"
             message = "See Source Control for the current repository state."
         case .failed(let reason):
-            kind = .error; suffix = " stopped"
+            kind = .error
+            suffix = " stopped"
             message = String(reason.prefix(600))
         case .cancelled:
-            kind = .information; suffix = " cancelled"
+            kind = .information
+            suffix = " cancelled"
             message = "Changes already made are retained. See Source Control for details."
         default: return
         }
@@ -336,13 +349,26 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         if let filesSubscription { files.unsubscribe(filesSubscription) }
         if let tabSubscription { tabs.unsubscribe(tabSubscription) }
         if let gitSubscription { git?.unsubscribe(gitSubscription) }
-        gitEvents?.stop(); gitEvents = nil
-        fileRefreshTask?.cancel(); fileRefreshTask = nil
-        conflictTask?.cancel(); conflictID = UUID(); confirmationTask?.cancel()
-        for controller in conflictEditors.values { controller.stop() }; conflictEditors = [:]
-        standaloneConflict?.stop(); standaloneConflict = nil
-        integrationWindow?.dismiss(); pushWindow?.dismiss(); pullWindow?.dismiss()
-        git?.stop(); gitChanges?.disconnect(); gitLog?.disconnect(); gitBranches?.disconnect(); gitDiff?.disconnect()
+        gitEvents?.stop()
+        gitEvents = nil
+        fileRefreshTask?.cancel()
+        fileRefreshTask = nil
+        conflictTask?.cancel()
+        conflictID = UUID()
+        confirmationTask?.cancel()
+        for controller in conflictEditors.values { controller.stop() }
+        conflictEditors = [:]
+        standaloneConflict?.stop()
+        standaloneConflict = nil
+        integrationWindow?.dismiss()
+        pushWindow?.dismiss()
+        pullWindow?.dismiss()
+        trackingWindow?.dismiss()
+        git?.stop()
+        gitChanges?.disconnect()
+        gitLog?.disconnect()
+        gitBranches?.disconnect()
+        gitDiff?.disconnect()
         files.onRefresh = nil
         files.stop()
         shell.notifications.removeAll()
@@ -359,30 +385,52 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             return
         }
 
-        if tabs.selected == diffTabID { tabs.remove(diffTabID); return }
+        if tabs.selected == diffTabID {
+            tabs.remove(diffTabID)
+
+            return
+        }
+
         if let activeDocument { activeDocument.requestClose() } else { window?.performClose(sender) }
     }
+
     @objc func saveDocument(_ sender: Any?) { activeDocument?.saveDocument(sender) }
+
     @objc func saveDocumentAs(_ sender: Any?) { activeDocument?.saveDocumentAs(sender) }
+
     @objc func selectLanguage(_ sender: NSMenuItem) { activeDocument?.selectLanguage(sender) }
+
     @objc func showQuickHelp(_ sender: Any?) { activeDocument?.showQuickHelp(sender) }
+
     @objc func jumpToDefinition(_ sender: Any?) { activeDocument?.jumpToDefinition(sender) }
+
     @objc func allowProjectConfiguration(_ sender: Any?) { activeDocument?.allowProjectConfiguration(sender) }
+
     @objc func disallowProjectConfiguration(_ sender: Any?) { activeDocument?.disallowProjectConfiguration(sender) }
+
     @objc func askAboutProjectConfigurationAgain(_ sender: Any?) {
         activeDocument?.askAboutProjectConfigurationAgain(sender)
     }
+
     @objc func showFiles(_ sender: Any?) { shell.select(.files) }
+
     @objc func toggleFocusEditor(_ sender: Any?) { shell.toggleFocusEditor(sender) }
+
     @objc func resetWorkspaceLayout(_ sender: Any?) { shell.resetWorkspaceLayout(sender) }
+
     @objc func showSearch(_ sender: Any?) {}
+
     @objc func showSourceControl(_ sender: Any?) { if git != nil { shell.select(.sourceControl) } }
+
     @objc func showGitLog(_ sender: Any?) { if git != nil { shell.select(.gitLog) } }
+
     @objc func refreshGit(_ sender: Any?) { git?.refresh() }
+
     func showConflict(_ change: GitChange) {
         guard let git, git.canMutate, let snapshot = git.snapshot, let reader = git.conflictReader else { return }
 
-        conflictTask?.cancel(); conflictID = UUID()
+        conflictTask?.cancel()
+        conflictID = UUID()
         let token = conflictID
         conflictTask = Task { [weak self] in
             do {
@@ -421,13 +469,19 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
                         controller?.stop()
                         renderSelection()
                     }
-                    else { standaloneConflict?.stop(); standaloneConflict = nil; tabs.remove(conflictTabID) }
+                    else {
+                        standaloneConflict?.stop()
+                        standaloneConflict = nil
+                        tabs.remove(conflictTabID)
+                    }
                 }
                 if let document {
                     if standaloneConflict?.context.conflict.path == data.path,
                        standaloneConflict?.context.conflict.repository == data.repository {
                         if area.active === standaloneConflict { area.show(nil) }
-                        standaloneConflict?.stop(); standaloneConflict = nil; tabs.remove(conflictTabID)
+                        standaloneConflict?.stop()
+                        standaloneConflict = nil
+                        tabs.remove(conflictTabID)
                     }
 
                     if let old = conflictEditors.removeValue(forKey: document.session.id) {
@@ -436,7 +490,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
                     }
 
                     conflictEditors[document.session.id] = controller
-                    tabs.open(document.session.id); renderSelection()
+                    tabs.open(document.session.id)
+                    renderSelection()
                 } else {
                     if area.active === standaloneConflict { area.show(nil) }
                     standaloneConflict?.stop()
@@ -447,16 +502,22 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             } catch { if !Task.isCancelled { self?.showGitError(error.localizedDescription) } }
         }
     }
+
     private func showGitError(_ message: String) {
         guard let window, window.isVisible, window.attachedSheet == nil else { return }
 
-        let alert = NSAlert(); alert.messageText = "Git action unavailable"; alert.informativeText = message
-        alert.addButton(withTitle: "OK"); alert.beginSheetModal(for: window)
+        let alert = NSAlert()
+        alert.messageText = "Git action unavailable"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.beginSheetModal(for: window)
     }
+
     func confirmGitAction(_ action: GitAction) {
         guard let git, git.canMutate, let window, window.attachedSheet == nil else { return }
 
-        let alert = NSAlert(); alert.messageText = action.title + "?"
+        let alert = NSAlert()
+        alert.messageText = action.title + "?"
         switch action {
         case .abortIntegration(let status):
             let head = status.originalHead.map { String($0.prefix(12)) } ?? "unknown"
@@ -482,7 +543,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             """
         default: return
         }
-        alert.addButton(withTitle: "Cancel"); alert.addButton(withTitle: action.title)
+        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: action.title)
         confirmationTask?.cancel()
         confirmationTask = Task { [weak self] in
             let answer = await withTaskCancellationHandler { await alert.beginSheetModal(for: window) } onCancel: {
@@ -495,24 +557,49 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             git.perform(action)
         }
     }
+
     func showIntegration(_ kind: GitIntegrationKind, target: GitBranch? = nil) {
         guard integrationWindow == nil, let git, git.canMutate, git.conflictReader != nil,
               git.snapshot?.integration == nil,
               let window, window.attachedSheet == nil else { return }
 
         let controller = GitIntegrationWindowController(workspace: git, kind: kind)
-        integrationWindow = controller; controller.onClosed = { [weak self] in self?.integrationWindow = nil }
-        shell.select(.sourceControl); controller.present(on: window, target: target)
+        integrationWindow = controller
+        controller.onClosed = { [weak self] in self?.integrationWindow = nil }
+        shell.select(.sourceControl)
+        controller.present(on: window, target: target)
     }
+
     @objc func mergeGit(_ sender: Any?) { showIntegration(.merge) }
+
+    func showTracking(branch: GitBranch? = nil) {
+        guard trackingWindow == nil, let git, git.canMutate, git.trackingPlanner != nil,
+              git.snapshot?.integration == nil,
+              let window, window.attachedSheet == nil else { return }
+
+        let controller = GitTrackingWindowController(workspace: git)
+        trackingWindow = controller
+        controller.onClosed = { [weak self] in self?.trackingWindow = nil }
+        controller.present(on: window, branch: branch)
+    }
+
+    @objc func trackingGit(_ sender: Any?) { showTracking() }
+
     @objc func rebaseGit(_ sender: Any?) { showIntegration(.rebase) }
-    @objc func continueGit(_ sender: Any?) { shell.select(.sourceControl); gitChanges?.continueOperation() }
+
+    @objc func continueGit(_ sender: Any?) {
+        shell.select(.sourceControl)
+        gitChanges?.continueOperation()
+    }
+
     @objc func abortGit(_ sender: Any?) {
         if let status = git?.snapshot?.integration { confirmGitAction(.abortIntegration(status)) }
     }
+
     @objc func skipGit(_ sender: Any?) {
         if let status = git?.snapshot?.integration { confirmGitAction(.skipRebase(status)) }
     }
+
     func showPull(remote: String? = nil, source: String? = nil) {
         guard pullWindow == nil, let git, git.canMutate, git.pullPlanner != nil,
               let window, window.attachedSheet == nil else { return }
@@ -523,7 +610,9 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         shell.select(.sourceControl)
         controller.present(on: window, remote: remote, source: source)
     }
+
     @objc func pullGit(_ sender: Any?) { showPull() }
+
     func showPush(branch: GitBranch? = nil, remote: String? = nil) {
         guard pushWindow == nil, let git, git.canMutate, git.pushPlanner != nil,
               let window, window.attachedSheet == nil else { return }
@@ -534,12 +623,22 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         shell.select(.sourceControl)
         controller.present(on: window, branch: branch?.reference, remote: remote)
     }
+
     @objc func pushGit(_ sender: Any?) { showPush() }
+
     @objc func fetchGit(_ sender: Any?) { gitBranches?.showRemoteSelection() }
-    @objc func commitGit(_ sender: Any?) { shell.select(.sourceControl); gitChanges?.focusCommitMessage() }
+
+    @objc func commitGit(_ sender: Any?) {
+        shell.select(.sourceControl)
+        gitChanges?.focusCommitMessage()
+    }
+
     @objc func cancelGit(_ sender: Any?) { git?.cancelOperation() }
+
     @objc func showTerminal(_ sender: Any?) {}
+
     @objc func showAssistant(_ sender: Any?) {}
+
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(mergeGit(_:)) || item.action == #selector(rebaseGit(_:)) {
             return git?.canMutate == true && git?.conflictReader != nil && git?.snapshot?.integration == nil && git?
@@ -551,8 +650,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
                 .kind != .other && git?.snapshot?.changes
                 .contains(where: { $0.decoration.isConflict }) == false &&
                 (git?.snapshot?.integration?.kind != .rebase || git?.snapshot?.integration?.stoppedCommit == nil || git?
-                .snapshot?.changes
-                .contains(where: { !$0.decoration.index.isEmpty && !$0.decoration.isConflict }) == true)
+                    .snapshot?.changes
+                    .contains(where: { !$0.decoration.index.isEmpty && !$0.decoration.isConflict }) == true)
         }
 
         if item.action == #selector(abortGit(_:)) {
@@ -576,6 +675,10 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
         if item.action == #selector(fetchGit(_:)) {
             return git?.canMutate == true && git?.snapshot?.remotes.isEmpty == false
+        }
+
+        if item.action == #selector(trackingGit(_:)) {
+            return git?.canMutate == true && git?.trackingPlanner != nil && git?.snapshot?.integration == nil
         }
 
         if item.action == #selector(commitGit(_:)) { return git?.canMutate == true }

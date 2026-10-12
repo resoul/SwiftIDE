@@ -114,6 +114,7 @@ public struct WorkspaceLayout: Codable, Equatable, Sendable {
         case .bottom: bottom = bottom == tool ? nil : tool
         }
     }
+
     public func contains(_ tool: WorkspaceTool) -> Bool {
         left == tool || right == tool || bottom == tool
     }

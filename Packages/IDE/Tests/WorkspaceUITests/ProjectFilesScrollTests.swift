@@ -14,7 +14,9 @@ private actor RefreshableScrollReader: ProjectDirectoryReading {
 
         return entries
     }
+
     func pause() { hold = true }
+
     func finish(_ result: Result<[ProjectFile], Error>? = nil) {
         hold = false
         let response = result ?? .success(entries)
@@ -22,6 +24,7 @@ private actor RefreshableScrollReader: ProjectDirectoryReading {
         continuation?.resume(with: response)
         continuation = nil
     }
+
     func insertAndDelete() {
         entries.removeAll { $0.path == "/w/002.txt" }
         entries.append(.init(path: "/w/000-new.txt", isDirectory: false))
@@ -64,7 +67,12 @@ struct ProjectFilesScrollTests {
         let model = ProjectFiles(root: "/w", reader: reader)
         let controller = ProjectFilesViewController(model: model)
         let window = window(controller)
-        defer { controller.disconnect(); model.stop(); window.close(); Task { await reader.finish() } }
+        defer {
+            controller.disconnect()
+            model.stop()
+            window.close()
+            Task { await reader.finish() }
+        }
         try await wait { controller.outline.numberOfRows == 201 }
         controller.view.layoutSubtreeIfNeeded()
         let outline = controller.outline
@@ -115,7 +123,12 @@ struct ProjectFilesScrollTests {
         let model = ProjectFiles(root: "/w", reader: reader)
         let controller = ProjectFilesViewController(model: model)
         let window = window(controller)
-        defer { controller.disconnect(); model.stop(); window.close(); Task { await reader.finish() } }
+        defer {
+            controller.disconnect()
+            model.stop()
+            window.close()
+            Task { await reader.finish() }
+        }
         try await wait { controller.outline.numberOfRows == 201 }
         controller.view.layoutSubtreeIfNeeded()
         let outline = controller.outline
@@ -157,7 +170,7 @@ struct ProjectFilesScrollTests {
         #expect(outline.numberOfRows == 202)
         #expect(
             abs(outline.rect(ofRow: outline.row(forItem: item)).minY - scroll.contentView.bounds.origin.y - offset) <
-            1
+                1
         )
     }
 }

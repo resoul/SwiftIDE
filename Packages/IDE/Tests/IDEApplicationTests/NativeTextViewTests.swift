@@ -308,7 +308,9 @@ func saveDuringCompositionFinishesItAndWritesFinalText() async throws {
 
 private actor SpyStore: DocumentFileStore {
     private(set) var texts: [String] = []
+
     func read(path: String, maximumBytes: Int) async throws -> LoadedFile { throw FileStoreError.notFound }
+
     func write(_ snapshot: DocumentSnapshot, expecting: SaveExpectation) async throws -> FileRevision {
         texts.append(snapshot.text)
 
@@ -454,7 +456,10 @@ func unmatchedPreflightLeaksNoBridgeStateAndKeepsSessionInSync() throws {
         range: UTF16TextRange(location: 3, length: 0),
         replacement: "!"
     )])
-    while manager.canUndo { manager.undo(); f.endEvent() }
+    while manager.canUndo {
+        manager.undo()
+        f.endEvent()
+    }
     #expect(f.session.text == f.textView.string)
     #expect(manager.groupingLevel == 0)
 }
@@ -471,9 +476,12 @@ func typingProgrammaticTypingInOnePassGivesThreeSeparateSteps() throws {
     f.textView.insertText("b", replacementRange: NSRange(location: 4, length: 0))     // Zbcab
     f.endEvent()
     let manager = f.editor.undo.undoManager
-    manager.undo(); #expect(f.textView.string == "Zbca")
-    manager.undo(); #expect(f.textView.string == "abca")
-    manager.undo(); #expect(f.textView.string == "abc")
+    manager.undo()
+    #expect(f.textView.string == "Zbca")
+    manager.undo()
+    #expect(f.textView.string == "abca")
+    manager.undo()
+    #expect(f.textView.string == "abc")
     #expect(!manager.canUndo)
     #expect(f.session.text == "abc")
 }
@@ -517,9 +525,12 @@ func noEditingOperationOnTheRealViewCopiesTheWholeText() throws {
         origin: .formatting
     )
     f.endEvent()
-    manager.undo(); f.endEvent()                           // undo of the programmatic edit
-    manager.undo(); f.endEvent()                           // undo of typing (storage's own report)
-    manager.redo(); f.endEvent()
+    manager.undo()
+    f.endEvent()                           // undo of the programmatic edit
+    manager.undo()
+    f.endEvent()                           // undo of typing (storage's own report)
+    manager.redo()
+    f.endEvent()
     f.textView.setMarkedText(
         "k",
         selectedRange: NSRange(location: 1, length: 0),

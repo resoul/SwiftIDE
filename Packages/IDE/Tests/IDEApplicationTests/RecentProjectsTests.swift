@@ -5,11 +5,15 @@ import Testing
 
 private actor DelayedFolderChecker: ProjectFolderChecking {
     var calls: [(String, CheckedContinuation<ProjectFolderAvailability, Never>)] = []
+
     func check(path: String) async -> ProjectFolderAvailability {
         await withCheckedContinuation { calls.append((path, $0)) }
     }
+
     var count: Int { calls.count }
+
     func path(_ index: Int) -> String { calls[index].0 }
+
     func finish(_ index: Int, _ result: ProjectFolderAvailability) { calls[index].1.resume(returning: result) }
 }
 
@@ -139,6 +143,8 @@ struct RecentProjectsTests {
 @MainActor
 private struct FailingRecentStore: RecentProjectsStore {
     struct Failure: Error {}
+
     func load() throws -> [RecentProject] { throw Failure() }
+
     func save(_ projects: [RecentProject]) throws { throw Failure() }
 }

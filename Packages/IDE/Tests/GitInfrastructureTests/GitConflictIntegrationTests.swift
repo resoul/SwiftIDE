@@ -10,12 +10,15 @@ struct GitConflictIntegrationTests {
         try repo.git(["add", "."])
         try repo.git(["commit", "-m", "Base"])
         try repo.git(["switch", "-c", "incoming"])
-        try repo.write(path, binary ? "incoming\0blob" : "incoming\n"); try repo.git(["commit", "-am", "Incoming"])
+        try repo.write(path, binary ? "incoming\0blob" : "incoming\n")
+        try repo.git(["commit", "-am", "Incoming"])
         try repo.git(["switch", "main"])
-        try repo.write(path, binary ? "local\0blob" : "local\n"); try repo.git(["commit", "-am", "Local"])
+        try repo.write(path, binary ? "local\0blob" : "local\n")
+        try repo.git(["commit", "-am", "Local"])
 
         return repo
     }
+
     private func start(_ kind: GitIntegrationKind, cli: GitCLI, repo: RepositoryFixture) async throws {
         let snapshot = try await cli.snapshot(at: repo.root), target = try #require(snapshot.branches.first {
             $0.name == "incoming"
@@ -31,8 +34,10 @@ struct GitConflictIntegrationTests {
             expected: snapshot
         ) { _ in }
     }
+
     @Test func realMergeStagesCustomMarkersResolveAndContinueWithExplicitMessage() async throws {
-        let repo = try divergent(":odd,\tname.txt"), cli = GitCLI(); defer { repo.remove() }
+        let repo = try divergent(":odd,\tname.txt"), cli = GitCLI()
+        defer { repo.remove() }
         try repo.write(".gitattributes", "* conflict-marker-size=11\n")
         try repo.git(["add", ".gitattributes"])
         try repo.git(["commit", "-m", "Markers"])
@@ -67,9 +72,12 @@ struct GitConflictIntegrationTests {
             .count == 2)
         #expect(try repo.git(["show", "HEAD::odd,\tname.txt"]) == Data("reviewed result\n".utf8))
     }
+
     @Test func missingStagesDeleteAndBinaryRestoreAreExplicitAndStaleIndexRefuses() async throws {
-        let repo = try divergent(), cli = GitCLI(); defer { repo.remove() }
-        try repo.git(["rm", "a.txt"]); try repo.git(["commit", "-m", "Delete local"])
+        let repo = try divergent(), cli = GitCLI()
+        defer { repo.remove() }
+        try repo.git(["rm", "a.txt"])
+        try repo.git(["commit", "-m", "Delete local"])
         await #expect(throws: GitInspectionError.self) { try await start(.merge, cli: cli, repo: repo) }
         var snapshot = try await cli.snapshot(at: repo.root)
         let data = try await cli.conflict(in: snapshot, path: "a.txt")
@@ -79,7 +87,8 @@ struct GitConflictIntegrationTests {
         #expect(!FileManager.default.fileExists(atPath: repo.root + "/a.txt") && !snapshot.changes.contains {
             $0.decoration.isConflict
         })
-        let binary = try divergent("b.bin", binary: true); defer { binary.remove() }
+        let binary = try divergent("b.bin", binary: true)
+        defer { binary.remove() }
         await #expect(throws: GitInspectionError.self) { try await start(.merge, cli: cli, repo: binary) }
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: binary.root + "/b.bin")
         var bytes = try await cli.snapshot(at: binary.root)
@@ -98,15 +107,18 @@ struct GitConflictIntegrationTests {
         }
         #expect(FileManager.default.fileExists(atPath: binary.root + "/b.bin"))
     }
+
     @Test func staleOperationSymlinkAndChangedDiskCannotDeleteOrRestore() async throws {
-        let repo = try divergent(), outside = try RepositoryFixture(), cli = GitCLI(); defer {
+        let repo = try divergent(), outside = try RepositoryFixture(), cli = GitCLI()
+        defer {
             repo.remove()
             outside.remove()
         }
         await #expect(throws: GitInspectionError.self) { try await start(.merge, cli: cli, repo: repo) }
         var snapshot = try await cli.snapshot(at: repo.root)
         let conflict = try await cli.conflict(in: snapshot, path: "a.txt"), status = try #require(snapshot.integration)
-        try repo.write("a.txt", "new external edit\n"); snapshot = try await cli.snapshot(at: repo.root)
+        try repo.write("a.txt", "new external edit\n")
+        snapshot = try await cli.snapshot(at: repo.root)
         for resolution in [GitConflictResolution.delete, .restoreStage(3)] {
             await #expect(throws: GitInspectionError.self) {
                 try await cli.perform(.resolveConflict(conflict, resolution), expected: snapshot) { _ in }
@@ -131,9 +143,13 @@ struct GitConflictIntegrationTests {
         }
         #expect(try String(contentsOfFile: outside.root + "/safe", encoding: .utf8) == "do not touch")
     }
+
     @Test func mergeWithoutConflictsStopsForMessageAndAbortRestoresOriginalTip() async throws {
-        let repo = try RepositoryFixture(), cli = GitCLI(); defer { repo.remove() }
-        try repo.write("a", "base"); try repo.git(["add", "."]); try repo.git(["commit", "-m", "Base"])
+        let repo = try RepositoryFixture(), cli = GitCLI()
+        defer { repo.remove() }
+        try repo.write("a", "base")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Base"])
         let original = try repo.git(["rev-parse", "HEAD"])
         try repo.git(["switch", "-c", "incoming"])
         try repo.write("b", "new")
@@ -154,8 +170,10 @@ struct GitConflictIntegrationTests {
             .fileExists(atPath: repo.root + "/b"))
         #expect(try repo.git(["rev-parse", "HEAD"]) == original)
     }
+
     @Test func rebaseRoleLabelsResolutionContinueAndAbortRecoverOriginalHistory() async throws {
-        let repo = try divergent(), cli = GitCLI(); defer { repo.remove() }
+        let repo = try divergent(), cli = GitCLI()
+        defer { repo.remove() }
         let original = try repo.git(["rev-parse", "HEAD"])
         await #expect(throws: GitInspectionError.self) { try await start(.rebase, cli: cli, repo: repo) }
         var snapshot = try await cli.snapshot(at: repo.root)
@@ -168,7 +186,8 @@ struct GitConflictIntegrationTests {
         await #expect(throws: GitInspectionError.self) { try await start(.rebase, cli: cli, repo: repo) }
         snapshot = try await cli.snapshot(at: repo.root)
         let second = try #require(snapshot.integration), conflict = try await cli.conflict(in: snapshot, path: "a.txt")
-        try repo.write("a.txt", "resolved\n"); snapshot = try await cli.snapshot(at: repo.root)
+        try repo.write("a.txt", "resolved\n")
+        snapshot = try await cli.snapshot(at: repo.root)
         try await cli.perform(.resolveConflict(conflict, .workingFile), expected: snapshot) { _ in }
         snapshot = try await cli.snapshot(at: repo.root)
         try await cli.perform(.continueIntegration(second, ""), expected: snapshot) { _ in }
@@ -177,15 +196,18 @@ struct GitConflictIntegrationTests {
         #expect(try repo.git(["rev-parse", "HEAD"]) != original)
         #expect(try repo.git(["log", "-1", "--format=%s"]) == Data("Local\n".utf8))
     }
+
     @Test func explicitSkipDropsOnlyCurrentCommitAndIgnoredReplayPathIsProtected() async throws {
-        let repo = try divergent(), cli = GitCLI(); defer { repo.remove() }
+        let repo = try divergent(), cli = GitCLI()
+        defer { repo.remove() }
         await #expect(throws: GitInspectionError.self) { try await start(.rebase, cli: cli, repo: repo) }
         var snapshot = try await cli.snapshot(at: repo.root)
         try await cli.perform(.skipRebase(try #require(snapshot.integration)), expected: snapshot) { _ in }
         snapshot = try await cli.snapshot(at: repo.root)
         #expect(snapshot.integration == nil && snapshot.branch == "main")
         #expect(try repo.git(["show", "HEAD:a.txt"]) == Data("incoming\n".utf8))
-        let protected = try RepositoryFixture(); defer { protected.remove() }
+        let protected = try RepositoryFixture()
+        defer { protected.remove() }
         try protected.write("base", "base")
         try protected.git(["add", "."])
         try protected.git(["commit", "-m", "Base"])
@@ -193,24 +215,32 @@ struct GitConflictIntegrationTests {
         try protected.write("transient", "committed briefly")
         try protected.git(["add", "."])
         try protected.git(["commit", "-m", "Add"])
-        try protected.git(["rm", "transient"]); try protected.git(["commit", "-m", "Delete"])
+        try protected.git(["rm", "transient"])
+        try protected.git(["commit", "-m", "Delete"])
         try protected.git(["switch", "incoming"])
         try protected.write("other", "remote")
         try protected.git(["add", "."])
         try protected.git(["commit", "-m", "Remote"])
         try protected.git(["switch", "main"])
-        try protected.write(".git/info/exclude", "transient\n"); try protected.write("transient", "keep ignored bytes")
+        try protected.write(".git/info/exclude", "transient\n")
+        try protected.write("transient", "keep ignored bytes")
         let before = try protected.git(["rev-parse", "HEAD"])
         await #expect(throws: GitInspectionError.self) { try await start(.rebase, cli: cli, repo: protected) }
         #expect(try protected.git(["rev-parse", "HEAD"]) == before && !FileManager.default
             .fileExists(atPath: protected.root + "/.git/rebase-merge"))
         #expect(try String(contentsOfFile: protected.root + "/transient", encoding: .utf8) == "keep ignored bytes")
     }
+
     @Test func cleanRebaseKeepsOtherBranchRefsAndEmptyReplayRequiresExplicitSkip() async throws {
-        let repo = try RepositoryFixture(), cli = GitCLI(); defer { repo.remove() }
-        try repo.write("a", "base"); try repo.git(["add", "."]); try repo.git(["commit", "-m", "Base"])
+        let repo = try RepositoryFixture(), cli = GitCLI()
+        defer { repo.remove() }
+        try repo.write("a", "base")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Base"])
         try repo.git(["branch", "incoming"])
-        try repo.write("local", "local"); try repo.git(["add", "."]); try repo.git(["commit", "-m", "Local"])
+        try repo.write("local", "local")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Local"])
         try repo.git(["branch", "keep-original"])
         let original = try repo.git(["rev-parse", "HEAD"])
         try repo.git(["switch", "incoming"])
@@ -218,17 +248,20 @@ struct GitConflictIntegrationTests {
         try repo.git(["add", "."])
         try repo.git(["commit", "-m", "Remote"])
         try repo.git(["switch", "main"])
-        try repo.git(["config", "rebase.updateRefs", "true"]); try repo.git(["config", "rebase.autoStash", "true"])
+        try repo.git(["config", "rebase.updateRefs", "true"])
+        try repo.git(["config", "rebase.autoStash", "true"])
         try await start(.rebase, cli: cli, repo: repo)
         var snapshot = try await cli.snapshot(at: repo.root)
         #expect(snapshot.integration == nil && snapshot.branch == "main" && snapshot.changes.isEmpty)
         #expect(try repo.git(["rev-parse", "HEAD"]) != original && repo.git(["rev-parse", "keep-original"]) == original)
-        let empty = try RepositoryFixture(); defer { empty.remove() }
+        let empty = try RepositoryFixture()
+        defer { empty.remove() }
         try empty.write("a", "base")
         try empty.git(["add", "."])
         try empty.git(["commit", "-m", "Base"])
         try empty.git(["branch", "incoming"])
-        try empty.write("a", "same patch"); try empty.git(["commit", "-am", "Local duplicate"])
+        try empty.write("a", "same patch")
+        try empty.git(["commit", "-am", "Local duplicate"])
         try empty.git(["switch", "incoming"])
         try empty.write("a", "same patch")
         try empty.write("other", "remote")
@@ -246,9 +279,13 @@ struct GitConflictIntegrationTests {
         try await cli.perform(.skipRebase(try #require(snapshot.integration)), expected: snapshot) { _ in }
         #expect(try await cli.snapshot(at: empty.root).integration == nil)
     }
+
     @Test func cancelledPostCommitChildReleasesGateAndDoesNotRollBackCompletedMerge() async throws {
-        let repo = try RepositoryFixture(), cli = GitCLI(); defer { repo.remove() }
-        try repo.write("a", "base"); try repo.git(["add", "."]); try repo.git(["commit", "-m", "Base"])
+        let repo = try RepositoryFixture(), cli = GitCLI()
+        defer { repo.remove() }
+        try repo.write("a", "base")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Base"])
         try repo.git(["switch", "-c", "incoming"])
         try repo.write("b", "remote")
         try repo.git(["add", "."])
@@ -265,18 +302,20 @@ struct GitConflictIntegrationTests {
             ofItemAtPath: repo.root + "/.git/hooks/post-commit"
         )
         let action = GitAction.continueIntegration(status, "Merge fixture")
-        let task = Task { try await cli.perform(action, expected: snapshot) { _ in } }; defer { task.cancel() }
+        let task = Task { try await cli.perform(action, expected: snapshot) { _ in } }
+        defer { task.cancel() }
         let deadline = ContinuousClock.now + .seconds(10)
         while !FileManager.default.fileExists(atPath: repo.root + "/.git/child.pid"), ContinuousClock.now < deadline {
             try await Task.sleep(for: .milliseconds(10))
         }
         let pid =
             try #require(Int32(try String(contentsOfFile: repo.root + "/.git/child.pid", encoding: .utf8)
-            .trimmingCharacters(in: .newlines)))
+                        .trimmingCharacters(in: .newlines)))
         await #expect(throws: GitInspectionError.failed("Another Git action is running for this repository")) {
             try await cli.perform(action, expected: snapshot) { _ in }
         }
-        task.cancel(); await #expect(throws: CancellationError.self) { try await task.value }
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
         let end = ContinuousClock.now + .seconds(2)
         while kill(pid, 0) == 0, ContinuousClock.now < end { try await Task.sleep(for: .milliseconds(10)) }
         #expect(kill(pid, 0) != 0)
@@ -286,7 +325,8 @@ struct GitConflictIntegrationTests {
     }
 
     @Test func resolutionStagesCapturedBytesAndRefusesMarkersIntroducedByCleanFilter() async throws {
-        let repo = try divergent(), cli = GitCLI(); defer { repo.remove() }
+        let repo = try divergent(), cli = GitCLI()
+        defer { repo.remove() }
         await #expect(throws: GitInspectionError.self) { try await start(.merge, cli: cli, repo: repo) }
         var snapshot = try await cli.snapshot(at: repo.root)
         let conflict = try await cli.conflict(in: snapshot, path: "a.txt")
@@ -299,7 +339,8 @@ struct GitConflictIntegrationTests {
         try await cli.perform(.resolveConflict(conflict, .workingFile), expected: snapshot) { _ in }
         #expect(try repo.git(["show", ":a.txt"]) == Data("captured result\n".utf8))
         #expect(try String(contentsOfFile: repo.root + "/a.txt", encoding: .utf8) == "later disk edit\n")
-        let bad = try divergent(), second = GitCLI(); defer { bad.remove() }
+        let bad = try divergent(), second = GitCLI()
+        defer { bad.remove() }
         await #expect(throws: GitInspectionError.self) { try await start(.merge, cli: second, repo: bad) }
         var other = try await second.snapshot(at: bad.root)
         let captured = try await second.conflict(in: other, path: "a.txt")

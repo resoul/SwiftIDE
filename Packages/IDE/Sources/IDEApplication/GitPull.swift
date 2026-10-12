@@ -8,7 +8,11 @@ public struct GitPullPlan: Equatable, Sendable {
     public let url: String
 
     public init(repository: GitRepository, branch: GitBranch, remote: String, source: String, url: String) {
-        self.repository = repository; self.branch = branch; self.remote = remote; self.source = source; self.url = url
+        self.repository = repository
+        self.branch = branch
+        self.remote = remote
+        self.source = source
+        self.url = url
     }
 
     public var title: String { "Pull " + remote + "/" + source + " → " + branch.name + " (fast-forward only)" }
@@ -40,15 +44,22 @@ public final class GitPullReview {
     }
 
     public func invalidate() {
-        task?.cancel(); generation = UUID(); plan = nil; state = .idle; changed()
+        task?.cancel()
+        generation = UUID()
+        plan = nil
+        state = .idle
+        changed()
     }
+
     public func review(remote: String, source: String) {
         guard !stopped, workspace.canMutate, let snapshot = workspace.snapshot,
               let planner = workspace.pullPlanner else {
             return
         }
 
-        invalidate(); state = .loading; changed()
+        invalidate()
+        state = .loading
+        changed()
         let token = generation
         task = Task { [weak self] in
             do {
@@ -63,23 +74,31 @@ public final class GitPullReview {
                     throw GitInspectionError.failed("Source branch changed while reviewing; review again")
                 }
 
-                plan = value; state = .ready
+                plan = value
+                state = .ready
             } catch {
                 guard let self, !stopped, generation == token, !Task.isCancelled else { return }
 
-                plan = nil; state = .failed(error.localizedDescription)
+                plan = nil
+                state = .failed(error.localizedDescription)
             }
-            self?.task = nil; self?.changed()
+            self?.task = nil
+            self?.changed()
         }
     }
+
     public func pull() {
         guard canPull, let plan else { return }
 
         submittedPlan = plan
-        activePull = true; operationStarted = true
-        self.plan = nil; state = .idle
-        workspace.perform(.pull(plan)); changed()
+        activePull = true
+        operationStarted = true
+        self.plan = nil
+        state = .idle
+        workspace.perform(.pull(plan))
+        changed()
     }
+
     private func workspaceChanged() {
         if activePull, !workspace.operationState.isBusy { activePull = false }
         if let plan,
@@ -91,14 +110,24 @@ public final class GitPullReview {
 
         changed()
     }
+
     public func stop() {
-        stopped = true; task?.cancel(); generation = UUID()
+        stopped = true
+        task?.cancel()
+        generation = UUID()
         if activePull { workspace.cancelOperation() }
-        if let subscription { workspace.unsubscribe(subscription) }; subscription = nil
+        if let subscription { workspace.unsubscribe(subscription) }
+        subscription = nil
     }
+
     @discardableResult public func subscribe(_ observer: @escaping () -> Void) -> UUID {
-        let id = UUID(); observers[id] = observer; return id
+        let id = UUID()
+        observers[id] = observer
+
+        return id
     }
+
     public func unsubscribe(_ id: UUID) { observers[id] = nil }
+
     private func changed() { for observer in Array(observers.values) { observer() } }
 }

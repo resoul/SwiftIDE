@@ -86,7 +86,7 @@ private final class VnodeWatch: FileWatchHandle, @unchecked Sendable {
         let fd = open(path, O_EVTONLY | O_CLOEXEC)
         guard fd >= 0 else { return }
 
-   // not there: the directory's events will say when it is
+        // not there: the directory's events will say when it is
         var info = stat()
         guard fstat(fd, &info) == 0 else {
             close(fd)

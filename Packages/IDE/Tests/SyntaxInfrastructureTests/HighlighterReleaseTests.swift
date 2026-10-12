@@ -27,8 +27,11 @@ func stoppingAHighlighterLetsGoOfItsTextAndItsTree() async throws {
 private final class Received: @unchecked Sendable {
     private let lock = NSLock()
     private var results: [HighlightResult] = []
+
     func add(_ result: HighlightResult) { lock.withLock { results.append(result) } }
+
     var versions: [UInt64] { lock.withLock { results.map(\.version) } }
+
     func waitForFirst() async {
         for _ in 0..<4_000 {
             if lock.withLock({ !results.isEmpty }) { return }

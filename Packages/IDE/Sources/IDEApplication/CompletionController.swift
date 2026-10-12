@@ -12,8 +12,11 @@ public struct CompletionRow: Equatable, Sendable {
 public protocol CompletionPresenting: AnyObject {
     /// Shows `rows` below the character at `anchorOffset` (where the word being completed begins).
     func present(rows: [CompletionRow], selected: Int, anchorOffset: Int)
+
     func select(_ index: Int)
+
     func dismiss()
+
     /// Shows one line saying why there is no list, under the character at `anchorOffset`.
     func showStatus(_ status: CompletionStatus, anchorOffset: Int)
 }

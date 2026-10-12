@@ -572,3 +572,16 @@ R87–R91 are pending. Use disposable repositories for the real operation result
 | № | Do | Expected |
 |---|---|---|
 | R93 | Expand a long Files tree, scroll midway, open/edit/save a visible file and refresh Git; insert/delete files above the viewport externally, then Refresh; collapse/reopen nested folders; repeat with slow/failed directory reads and both appearances | Status/dirty/selection updates preserve visible rows without flicker or jumping; background refresh retains cached children, failure is explicit; surviving visible file and its offset remain anchored after changes above it; real additions/deletions still appear; selection/expansion survive; native recursive collapse never crashes |
+
+### Tracking branches and upstream (TK-036 / ADR-050; pending)
+
+Use disposable repositories and a linked worktree for R94–R98. These local tracking actions perform no network request.
+
+| № | Do | Expected |
+|---|---|---|
+| R94 | Fetch separately; select a remote branch and Tracking…, Review then Create branch; repeat with dirty editor/index and local/remote names that differ | Review shows repository, fetched ref/OID, remote/source and local name; no write before explicit Create; branch starts at the reviewed OID and tracks the actual source; current checkout, staged/dirty bytes and native Undo unchanged; switch remains separate |
+| R95 | Git ▸ Branch Tracking…; set/change upstream for a local branch, then remove it; delete the fetched upstream ref externally before removal | Reviewed set/change/remove succeeds; native configured remote/source displayed even when fetched ref is missing; Push/Pull suggest actual configured names, retaining destination review and explicit drafts |
+| R96 | Move refs/config after Review; duplicate/orphan branch name, ambiguous/negative fetch mapping, remote HEAD alias, branch owned by another worktree, per-worktree/inherited branch config | Changed/unsupported state refused before the intended write with an explanation; no guessed remote/source or forced checkout; owner worktree can perform supported operations |
+| R97 | Close the owning project during Review; cancel execution; simulate config-lock failure after creating the ref | Late Review never enables a closed form; cancellation/failure does not promise rollback; an already created branch stays with an explicit partial-result message; inspect actual state after refresh |
+| R98 | Keyboard/VoiceOver, two project windows, light/dark and long repository/ref names | Form belongs to requesting project; operation/input labels and full details accessible (tooltip contains full text); Return never submits implicitly; notifications belong to the invoking workspace; controls remain usable |
+| R99 | Inspect clean, untracked, staged, modified, conflicted and excluded/ignored filenames in tree and tabs, including selected rows and unsaved text | No Git letters/question/warning badges beside names; existing colour/selected-text readability retained, only unsaved dot independent; tooltip/VoiceOver still explains index/worktree/conflict/ignore/exclusion, Source Control keeps separate groups |

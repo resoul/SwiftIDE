@@ -13,15 +13,19 @@ private actor DirectoryScript: ProjectDirectoryReading {
 
         return entries[path] ?? []
     }
+
     func set(_ value: [ProjectFile], for path: String) { entries[path] = value }
 }
 
 private actor SuspendedDirectories: ProjectDirectoryReading {
     var requests: [(String, CheckedContinuation<[ProjectFile], Error>)] = []
+
     func children(of path: String) async throws -> [ProjectFile] {
         try await withCheckedThrowingContinuation { requests.append((path, $0)) }
     }
+
     var count: Int { requests.count }
+
     func finish(_ index: Int, with result: Result<[ProjectFile], Error>) { requests[index].1.resume(with: result) }
 }
 

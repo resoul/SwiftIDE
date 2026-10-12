@@ -43,8 +43,10 @@ public struct NativeEditCommit: Sendable {
 public protocol NativeEditReceiver: AnyObject {
     /// Cheap preflight. `false` means the edit must be refused before it mutates storage.
     func allowsNativeEdit() -> Bool
+
     /// Storage already changed. The receiver brings its version up to date from the commit,
     /// without reading the text and without writing into storage.
     func nativeEditDidCommit(_ commit: NativeEditCommit)
+
     func compositionDidChange(_ event: CompositionEvent)
 }

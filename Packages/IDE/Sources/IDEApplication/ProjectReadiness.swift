@@ -215,7 +215,9 @@ public enum TrustDecision: String, Sendable {
 @MainActor
 public protocol ProjectTrustStore: AnyObject {
     func decision(forRoot root: String) -> TrustDecision?
+
     func record(_ decision: TrustDecision, forRoot root: String)
+
     func forget(root: String)
 }
 

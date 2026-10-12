@@ -14,6 +14,10 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-023 function spacing and instruction separation: blank lines around functions with attached comments/attributes; short `;`-joined instructions and compact multi-instruction bodies expand onto separate lines. Auto-fix verifies statement grouping/control flow as well as tokens/comments; unnecessary semicolons are removed and existing sources are formatted (docs/14).
+
+- TK-036: reviewed tracking-branch creation at a fetched commit and set/change/remove upstream; native upstream remote/source suggestions for Push/Pull, config/ref/worktree revalidation, explicit partial-result handling and project-owned sheet (ADR-050). Live R94–R98 pending.
+
 - Settings window (SwiftIDE ▸ Settings…, ⌘,) with Appearance › Theme: System, Light or Dark for the whole application, stored in UserDefaults and applied at launch (ADR-048).
 
 - TK-023 line length: the longest line is 120 characters (`--max-width 120` in `.swiftformat`, `line_length` in `.swiftlint.yml`). Multi-line calls and collections use the declaration layout (first argument on its own line, `)` on its own line) and ternaries break before `?`/`:`. `spacing-check` gets `long_line_body` and `long_line_statements`, which put the body of a one-line block and `;`-joined statements on lines of their own when the line is too long, so a header is not wrapped with its body left behind it; `format.sh` runs it before and after SwiftFormat. The code was reformatted accordingly (docs/14).
@@ -109,6 +113,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 - TK-008 benchmark tool (`Tools/Benchmarks/TextKitBenchmarks`) and results ([docs/benchmarks/TK-008-results.md](docs/benchmarks/TK-008-results.md)): opening 100 MB takes 0.8 s and viewport work stays near 4 ms at any size, but each keystroke costs time proportional to the file (about 20 ms per MB) because the pipeline copies and compares the whole text; a single very long line makes TextKit itself slow (about 1.3 ms per KB of line). Follow-up designed in ADR-012 (TK-011).
 
 ### Changed
+
+- Files and document tabs now use Git colours without `M`, `A`, `?` or conflict badges beside names, as requested. The independent unsaved dot remains; index/worktree/conflict/ignore/exclusion details stay in tooltips, accessibility and Source Control. Live R99 pending.
 
 - Workspace Preview now separates the editor and side/bottom panels with theme-aware backgrounds, 10-point rounded corners, subtle borders, and small gutters. Text and scroll views use transparent backgrounds so each panel reads as one surface.
 - Editing now costs time proportional to the edit, not to the file (ADR-012, TK-011). `DocumentSession` keeps no copy of the text; edits are validated and described against the backend's storage (`TextSource`), native edits are described from the storage's edited range, and the whole text is copied only for a snapshot (save, reload). Typing in a 100 MB file went from 1.3-1.9 s to about 5 ms per keystroke, programmatic edits from 3.5 s to 0.3 ms, undo from 2.7 s to 4 ms, peak memory from 1.5 GB to 0.8 GB. Saving large files is slower because the copy moved there (170 ms to 424 ms at 100 MB). See [docs/benchmarks/TK-011-results.md](docs/benchmarks/TK-011-results.md).

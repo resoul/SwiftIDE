@@ -13,12 +13,16 @@ final class GitOperationView: NSView {
     init(model: GitWorkspace) {
         self.model = model
         super.init(frame: .zero)
-        cancel.target = self; cancel.action = #selector(stop(_:))
-        output.isEditable = false; output.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+        cancel.target = self
+        cancel.action = #selector(stop(_:))
+        output.isEditable = false
+        output.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
         output.setAccessibilityLabel("Git action output")
-        scroll.documentView = output; scroll.hasVerticalScroller = true
+        scroll.documentView = output
+        scroll.hasVerticalScroller = true
         scroll.heightAnchor.constraint(equalToConstant: 70).isActive = true
-        label.font = .systemFont(ofSize: 11); label.maximumNumberOfLines = 3
+        label.font = .systemFont(ofSize: 11)
+        label.maximumNumberOfLines = 3
         gitPin(gitStack([gitStack([label, cancel], vertical: false), scroll]), to: self)
     }
 
@@ -26,6 +30,7 @@ final class GitOperationView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     @objc private func stop(_ sender: Any?) { model.cancelOperation() }
+
     func render() {
         isHidden = model.operationTitle.isEmpty
         label.stringValue = model.operationTitle + " · " + model.operationState.explanation

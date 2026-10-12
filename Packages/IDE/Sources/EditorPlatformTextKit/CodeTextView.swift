@@ -68,8 +68,8 @@ final class CodeTextView: NSTextView {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard modifiers == .command, !hasMarkedText(),
               let offset = characterOffset(atViewPoint: convert(event.locationInWindow, from: nil)) else {
-                  return false
-              }
+            return false
+        }
 
         return hooks?.commandClick?(offset) == true
     }

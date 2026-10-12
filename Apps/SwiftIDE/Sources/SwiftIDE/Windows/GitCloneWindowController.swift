@@ -15,7 +15,9 @@ final class GitCloneWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Clone Repository"; window.isReleasedWhenClosed = false; window.tabbingMode = .disallowed
+        window.title = "Clone Repository"
+        window.isReleasedWhenClosed = false
+        window.tabbingMode = .disallowed
         window.contentViewController = content
         super.init(window: window)
         window.delegate = self
@@ -29,25 +31,43 @@ final class GitCloneWindowController: NSWindowController, NSWindowDelegate {
     func present(on parent: NSWindow) {
         guard let window else { return }
 
-        parent.beginSheet(window); content.focusSource()
+        parent.beginSheet(window)
+        content.focusSource()
     }
+
     private func chooseParent() {
         guard let window else { return }
 
         let panel = NSOpenPanel()
-        panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.allowsMultipleSelection = false
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
         panel.prompt = "Choose Parent Folder"
         panel.beginSheetModal(for: window) { [weak self] response in
             if response == .OK, let path = panel.url?.path { self?.content.parentDirectory = path }
         }
     }
+
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if content.model.state.isBusy { content.model.cancel(); return false }
-        dismiss(); return false
+        if content.model.state.isBusy {
+            content.model.cancel()
+
+            return false
+        }
+
+        dismiss()
+
+        return false
     }
+
     func dismiss() {
-        content.model.stop(); content.disconnect()
-        if let window { window.sheetParent?.endSheet(window); window.orderOut(nil) }
+        content.model.stop()
+        content.disconnect()
+        if let window {
+            window.sheetParent?.endSheet(window)
+            window.orderOut(nil)
+        }
+
         onClosed?()
     }
 }

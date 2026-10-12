@@ -261,14 +261,18 @@ private final class FakeDefinitions: DefinitionProviding {
 @MainActor
 private final class FakeNavigator: DefinitionNavigating {
     private(set) var events: [String] = []
+
     func moveCaret(to offset: Int) { events.append("caret \(offset)") }
+
     func open(_ location: DefinitionLocation) {
         events.append("open \(location.path):\(location.line):\(location.character)")
     }
+
     func tell(_ message: String, at offset: Int) { events.append("tell \(message) @\(offset)") }
 
     /// What the user would choose: the index in `choice`, or nobody.
     var choice: Int?
+
     func choose(
         among places: [DefinitionLocation],
         near offset: Int,

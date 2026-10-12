@@ -56,7 +56,11 @@ struct ProjectTrustPresenterTests {
         other.makeKey()
         let presenter = ProjectTrustPresenter()
         let task = Task { await presenter.ask(projectName: "Project A", parent: parent) }
-        defer { presenter.cancel(for: parent); parent.close(); other.close() }
+        defer {
+            presenter.cancel(for: parent)
+            parent.close()
+            other.close()
+        }
         try #require(await waitFor { parent.attachedSheet != nil })
         #expect(other.attachedSheet == nil && NSApp.modalWindow == nil, "no application-wide modal loop")
         let sheet = try #require(parent.attachedSheet)
@@ -66,7 +70,10 @@ struct ProjectTrustPresenterTests {
         #expect(other.makeFirstResponder(field), "the unrelated window remains usable")
         field.stringValue = "still editable"
         parent.endSheet(sheet, returnCode: response)
-        let watchdog = Task { try? await Task.sleep(for: .seconds(10)); presenter.cancel(for: parent) }
+        let watchdog = Task {
+            try? await Task.sleep(for: .seconds(10))
+            presenter.cancel(for: parent)
+        }
         defer { watchdog.cancel() }
         #expect(await task.value == ProjectTrustDialog.decision(forButton: response))
         #expect(parent.attachedSheet == nil)
@@ -76,17 +83,26 @@ struct ProjectTrustPresenterTests {
         let parent = window()
         let presenter = ProjectTrustPresenter()
         let task = Task { await presenter.ask(projectName: "A", parent: parent) }
-        defer { presenter.cancel(for: parent); parent.close() }
+        defer {
+            presenter.cancel(for: parent)
+            parent.close()
+        }
         try #require(await waitFor { parent.attachedSheet != nil })
         parent.close()
-        let watchdog = Task { try? await Task.sleep(for: .seconds(10)); presenter.cancel(for: parent) }
+        let watchdog = Task {
+            try? await Task.sleep(for: .seconds(10))
+            presenter.cancel(for: parent)
+        }
         defer { watchdog.cancel() }
         #expect(await task.value == nil)
         #expect(parent.attachedSheet == nil)
 
         let reopened = window()
         let next = Task { await presenter.ask(projectName: "A", parent: reopened) }
-        defer { presenter.cancel(for: reopened); reopened.close() }
+        defer {
+            presenter.cancel(for: reopened)
+            reopened.close()
+        }
         try #require(await waitFor { reopened.attachedSheet != nil })
         presenter.cancel(for: reopened)
         #expect(await next.value == nil)
@@ -96,7 +112,10 @@ struct ProjectTrustPresenterTests {
         let parent = window()
         let presenter = ProjectTrustPresenter()
         let task = Task { await presenter.ask(projectName: "A", parent: parent) }
-        defer { presenter.cancel(for: parent); parent.close() }
+        defer {
+            presenter.cancel(for: parent)
+            parent.close()
+        }
         try #require(await waitFor { parent.attachedSheet != nil })
         task.cancel()
         try #require(await waitFor { parent.attachedSheet == nil })
@@ -108,7 +127,10 @@ struct ProjectTrustPresenterTests {
         let parent = window()
         let presenter = ProjectTrustPresenter()
         let task = Task { await presenter.ask(projectName: "A", parent: parent) }
-        defer { presenter.cancel(for: parent); parent.close() }
+        defer {
+            presenter.cancel(for: parent)
+            parent.close()
+        }
         try #require(await waitFor { parent.attachedSheet != nil })
         let original = parent.attachedSheet
         #expect(await presenter.ask(projectName: "B", parent: parent) == nil)

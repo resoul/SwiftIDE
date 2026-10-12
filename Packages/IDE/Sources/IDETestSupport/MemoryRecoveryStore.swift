@@ -18,8 +18,11 @@ public actor MemoryRecoveryStore: RecoveryStore {
 
     public var operations: [Operation] { log }
     public var keys: Set<RecoveryKey> { Set(records.keys) }
+
     public func record(for key: RecoveryKey) -> RecoveryRecord? { records[key] }
+
     public func setFailingWrites(_ failing: Bool) { failingWrites = failing }
+
     public func setUnreadable(_ descriptions: [String]) { unreadable = descriptions }
 
     public func hold() { held = true }

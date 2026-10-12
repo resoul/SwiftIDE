@@ -6,6 +6,7 @@ import IDEDomain
 public protocol HoverPresenting: AnyObject {
     /// Shows `text` under the first character of `anchor`, replacing what is shown.
     func show(_ text: String, anchor: UTF16TextRange)
+
     func dismiss()
 }
 

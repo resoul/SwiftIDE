@@ -14,6 +14,7 @@ public final class ManualFileWatcher: FileWatching, @unchecked Sendable {
         }
 
         var cancelled: Bool { lock.withLock { isCancelled } }
+
         func cancel() { lock.withLock { isCancelled = true } }
     }
 

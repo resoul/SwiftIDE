@@ -19,7 +19,11 @@ public final class ManualDelayClock: DelayClock, @unchecked Sendable {
     public var sleeperCount: Int { lock.withLock { sleepers.count } }
 
     public func sleep(for duration: Duration) async throws {
-        let id = lock.withLock { () -> UInt64 in nextID += 1; return nextID }
+        let id = lock.withLock { () -> UInt64 in
+            nextID += 1
+
+            return nextID
+        }
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 let cancelledAlready = lock.withLock { () -> Bool in

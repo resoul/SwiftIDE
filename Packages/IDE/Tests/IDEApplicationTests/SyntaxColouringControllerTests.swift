@@ -9,12 +9,16 @@ private final class Shown: @unchecked Sendable {
     final class Token {
         let shown: Shown
 
-        init(_ shown: Shown) { self.shown = shown; shown.made += 1 }
+        init(_ shown: Shown) {
+            self.shown = shown
+            shown.made += 1
+        }
 
         deinit { shown.released += 1 }
     }
     var made = 0
     var released = 0
+
     func token() -> Token { Token(self) }
 }
 
@@ -27,7 +31,10 @@ private struct Setup {
     let shown: Shown
     let states: States
 
-    @MainActor final class Highlighters { var all: [ScriptedHighlighter] = []; var available = true }
+    @MainActor final class Highlighters {
+        var all: [ScriptedHighlighter] = []
+        var available = true
+    }
     @MainActor final class States { var seen: [SyntaxColouringController.State] = [] }
 
     /// A limit of 1000 units makes "large" easy to reach; 900 is where colouring resumes.
@@ -288,7 +295,13 @@ private func controller(
 @MainActor
 private final class ScriptedHighlighterBox {
     var made: [ScriptedHighlighter] = []
-    func make() -> ScriptedHighlighter { let h = ScriptedHighlighter(); made.append(h); return h }
+
+    func make() -> ScriptedHighlighter {
+        let h = ScriptedHighlighter()
+        made.append(h)
+
+        return h
+    }
 }
 
 @Test @MainActor
@@ -347,7 +360,11 @@ func theHighlighterIsMadeForTheLanguageOfTheDocument() {
         source: backend,
         languages: selector,
         supportedLanguages: [.c, .cpp, .swift],
-        makeHighlighter: { language in asked.append(language); return ScriptedHighlighter() },
+        makeHighlighter: { language in
+            asked.append(language)
+
+            return ScriptedHighlighter()
+        },
         present: { _ in Shown().token() }
     )
     #expect(asked == [.c] && colouring.state == .on)

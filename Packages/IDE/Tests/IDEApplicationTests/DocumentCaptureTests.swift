@@ -9,6 +9,7 @@ private let tiny = CapturePolicy(synchronousLimit: 0, sliceUnits: 8)
 
 private struct SeededGenerator: RandomNumberGenerator {
     var state: UInt64
+
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
 
@@ -53,7 +54,10 @@ func aLargeCaptureLetsOtherWorkRunBetweenSlices() async throws {
     let session = makeSession(sample)
     var turns = 0
     let counter = Task { @MainActor in
-        while !Task.isCancelled { turns += 1; await Task.yield() }
+        while !Task.isCancelled {
+            turns += 1
+            await Task.yield()
+        }
     }
     _ = try await session.capture(policy: tiny)
     counter.cancel()

@@ -27,7 +27,11 @@ private let toolAvailable: Bool = {
     finder.standardOutput = FileHandle.nullDevice
     finder.standardError = FileHandle.nullDevice
 
-    return (try? finder.run()) != nil && { finder.waitUntilExit(); return finder.terminationStatus == 0 }()
+    return (try? finder.run()) != nil && {
+        finder.waitUntilExit()
+
+        return finder.terminationStatus == 0
+    }()
 }()
 
 @MainActor

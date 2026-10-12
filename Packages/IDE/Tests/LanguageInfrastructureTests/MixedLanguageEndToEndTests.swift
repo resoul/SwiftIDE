@@ -387,7 +387,10 @@ struct MixedLanguageEndToEnd {
         )
         let languages = DocumentLanguages()
         let services = LanguageServices(scratchRoot: scratch, languages: languages)
-        defer { services.terminateAll(); try? FileManager.default.removeItem(at: scratch) }
+        defer {
+            services.terminateAll()
+            try? FileManager.default.removeItem(at: scratch)
+        }
 
         let text = "#include <stdio.h>\nstruct point { int x; int y; };\nvoid f(struct point p) { p."
         let session = DocumentSession(

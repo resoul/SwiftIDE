@@ -7,6 +7,7 @@ import Testing
 
 private struct SeededGenerator: RandomNumberGenerator {
     var state: UInt64
+
     mutating func next() -> UInt64 {
         state = state &* 6364136223846793005 &+ 1442695040888963407
 
@@ -37,6 +38,7 @@ private final class Rig {
     }
 
     let uri: String
+
     func model() -> LSPDocumentModel { server.model() }
 
     /// Waits until what the server would believe is the session's text, and checks nothing the
@@ -417,7 +419,10 @@ private final class GatedCopy {
         return capture
     }
 
-    func release() { gate?.resume(); gate = nil }
+    func release() {
+        gate?.resume()
+        gate = nil
+    }
 }
 
 @Test @MainActor

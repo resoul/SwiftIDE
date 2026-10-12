@@ -31,8 +31,11 @@ public final class GitIntegrationViewController: NSViewController {
         target.target = self
         target.action = #selector(selectionChanged(_:))
         target.setAccessibilityLabel("Locally known integration target")
-        review.target = self; review.action = #selector(reviewTarget(_:))
-        apply.title = kind.rawValue.capitalized; apply.target = self; apply.action = #selector(applyReviewed(_:))
+        review.target = self
+        review.action = #selector(reviewTarget(_:))
+        apply.title = kind.rawValue.capitalized
+        apply.target = self
+        apply.action = #selector(applyReviewed(_:))
         let cancel = NSButton(title: "Cancel", target: self, action: #selector(closeForm(_:)))
         cancel.keyEquivalent = "\u{1b}"
         let note = NSTextField(wrappingLabelWithString: kind == .merge
@@ -41,11 +44,11 @@ public final class GitIntegrationViewController: NSViewController {
             message. Saves/cancels open documents; requires clean tracked files. No Fetch or stash.
             """
             :
-                """
-                Rebase rewrites current branch commits onto the selected commit. Avoid rebasing published history. \
-                This slice supports a linear range, not interactive/merge-preserving rebase. Conflicts/empty commits \
-                stop for Resolve/Continue/Skip/Abort. No Push, Fetch or stash.
-                """)
+            """
+            Rebase rewrites current branch commits onto the selected commit. Avoid rebasing published history. \
+            This slice supports a linear range, not interactive/merge-preserving rebase. Conflicts/empty commits \
+            stop for Resolve/Continue/Skip/Abort. No Push, Fetch or stash.
+            """)
         note.font = .systemFont(ofSize: 11)
         detail.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         detail.isSelectable = true
@@ -54,18 +57,22 @@ public final class GitIntegrationViewController: NSViewController {
             to: view,
             inset: 16
         )
-        subscription = workspace.subscribe { [weak self] in self?.render() }; render()
+        subscription = workspace.subscribe { [weak self] in self?.render() }
+        render()
     }
+
     public func select(_ branch: GitBranch?) {
         _ = view
         if let branch, let index = branches.firstIndex(of: branch) { target.selectItem(at: index) }
         selectionChanged(nil)
     }
+
     @objc private func selectionChanged(_ sender: Any?) {
         plan = nil
         detail.stringValue = "Choose a locally known branch and Review."
         render()
     }
+
     @objc func reviewTarget(_ sender: Any?) {
         guard review.isEnabled, let snapshot = workspace.snapshot, let head = snapshot.head,
               let branch = snapshot.branch, branches.indices.contains(target.indexOfSelectedItem) else {
@@ -78,8 +85,11 @@ public final class GitIntegrationViewController: NSViewController {
             .oid + "\nRemote refs are locally known; Fetch separately if needed."
         render()
     }
+
     @objc func applyReviewed(_ sender: Any?) { if apply.isEnabled, let plan { start?(plan) } }
+
     @objc private func closeForm(_ sender: Any?) { close?() }
+
     private func render() {
         let previous = branches.indices.contains(target.indexOfSelectedItem)
             ? branches[target.indexOfSelectedItem].reference
@@ -88,7 +98,8 @@ public final class GitIntegrationViewController: NSViewController {
         branches = (current?.branches ?? []).filter { $0.reference != "refs/heads/" + (current?.branch ?? "") }
         let names = branches.map { ($0.isRemote ? "Remote · " : "Local · ") + $0.name }
         if target.itemTitles != names {
-            target.removeAllItems(); target.addItems(withTitles: names)
+            target.removeAllItems()
+            target.addItems(withTitles: names)
             if let index = branches.firstIndex(where: { $0.reference == previous }) { target.selectItem(at: index) }
         }
 
@@ -104,5 +115,9 @@ public final class GitIntegrationViewController: NSViewController {
         target.isEnabled = review.isEnabled
         apply.isEnabled = review.isEnabled && plan != nil
     }
-    public func disconnect() { if let subscription { workspace.unsubscribe(subscription) }; subscription = nil }
+
+    public func disconnect() {
+        if let subscription { workspace.unsubscribe(subscription) }
+        subscription = nil
+    }
 }

@@ -52,7 +52,10 @@ func aBrokenProcessPipeThrowsWithoutKillingTheClient() async throws {
 func aProcessChannelCarriesBytesInBothDirections() async throws {
     let channel = try ProcessChannel(executable: URL(fileURLWithPath: "/bin/cat"))
     defer { channel.close() }
-    let timeout = Task { try await Task.sleep(for: .seconds(10)); channel.close() }
+    let timeout = Task {
+        try await Task.sleep(for: .seconds(10))
+        channel.close()
+    }
     defer { timeout.cancel() }
     let first = Data("first αβ😀\n".utf8), second = Data("second\n".utf8)
     try await channel.write(first)

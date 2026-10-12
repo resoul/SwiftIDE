@@ -169,7 +169,7 @@ public final class RecoveryCoordinator {
                 let capture = try await session.capture()
                 guard session.isDirty else { return }
 
-   // saved while it was being copied
+                // saved while it was being copied
                 let capturedVersion = capture.snapshot.version
                 let record = RecoveryRecord(
                     key: key,

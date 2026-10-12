@@ -137,7 +137,11 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
         let body = try! JSONEncoder().encode(message)
         var data = Data("Content-Length: \(body.count)\r\n\r\n".utf8)
         data.append(body)
-        guard let size else { continuation.yield(data); return }
+        guard let size else {
+            continuation.yield(data)
+
+            return
+        }
 
         var start = data.startIndex
         while start < data.endIndex {
@@ -151,7 +155,9 @@ final class ScriptedServer: LSPChannel, @unchecked Sendable {
 
     private struct Framing {
         var buffer = Data()
+
         mutating func append(_ data: Data) { buffer.append(data) }
+
         mutating func next() -> Data? {
             guard let range = buffer.range(of: Data("\r\n\r\n".utf8)) else { return nil }
 

@@ -20,7 +20,11 @@ private let swiftAvailable: Bool = {
     finder.standardOutput = FileHandle.nullDevice
     finder.standardError = FileHandle.nullDevice
 
-    return (try? finder.run()) != nil && { finder.waitUntilExit(); return finder.terminationStatus == 0 }()
+    return (try? finder.run()) != nil && {
+        finder.waitUntilExit()
+
+        return finder.terminationStatus == 0
+    }()
 }()
 
 private func scratch() -> URL {
@@ -50,7 +54,10 @@ func theRealSwiftDescribesTheFixtureAndLeavesTheProjectsFolderAlone() async thro
     try FileManager.default.copyItem(at: root, to: copy)
     try? FileManager.default.removeItem(at: copy.appendingPathComponent(".build"))
     let scratchFolder = scratch()
-    defer { try? FileManager.default.removeItem(at: copy); try? FileManager.default.removeItem(at: scratchFolder) }
+    defer {
+        try? FileManager.default.removeItem(at: copy)
+        try? FileManager.default.removeItem(at: scratchFolder)
+    }
 
     let layout = try await SwiftPackageDescriber(scratchDirectory: scratchFolder).describe(root: copy.path)
 

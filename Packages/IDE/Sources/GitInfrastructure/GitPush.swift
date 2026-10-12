@@ -27,7 +27,7 @@ extension GitCLI: GitPushPlanning {
             ["remote", "get-url", "--push", "--all", remote],
             at: snapshot.repository.root
         ))
-            .split(separator: "\n").map(String.init)
+        .split(separator: "\n").map(String.init)
         guard urls.count == 1, let rawURL = urls.first else {
             throw GitInspectionError
                 .failed("This remote has multiple push addresses; choose a remote with one push address")
@@ -79,7 +79,7 @@ extension GitCLI: GitPushPlanning {
                 "--",
                 plan.url,
                 (try GitPorcelain.oid(plan.branch.oid)) + ":refs/heads/" + plan
-                                            .destination
+                    .destination
             ],
             at: expected.repository.root,
             limit: 1_000_000,

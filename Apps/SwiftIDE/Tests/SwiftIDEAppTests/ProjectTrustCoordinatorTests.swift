@@ -44,7 +44,12 @@ extension NativeAppTests {
             coordinator.register(b, window: second)
             second.makeKey()
             let task = Task { await coordinator.ask(projectName: "A", root: URL(fileURLWithPath: "/w/A")) }
-            defer { coordinator.unregister(a); coordinator.unregister(b); first.close(); second.close() }
+            defer {
+                coordinator.unregister(a)
+                coordinator.unregister(b)
+                first.close()
+                second.close()
+            }
             try #require(await waitFor { first.attachedSheet != nil })
             #expect(second.attachedSheet == nil)
             coordinator.unregister(a)
@@ -56,7 +61,10 @@ extension NativeAppTests {
             let unrelated = window()
             let coordinator = ProjectTrustCoordinator { URL(fileURLWithPath: $0.path).deletingLastPathComponent() }
             coordinator.register(b, window: unrelated)
-            defer { coordinator.unregister(b); unrelated.close() }
+            defer {
+                coordinator.unregister(b)
+                unrelated.close()
+            }
             #expect(await coordinator.ask(projectName: "A", root: URL(fileURLWithPath: "/w/A")) == nil)
             #expect(unrelated.attachedSheet == nil)
         }
@@ -73,7 +81,11 @@ extension NativeAppTests {
             coordinator.register(a, window: parent)
             coordinator.register(b, window: parent)
             let task = Task { await coordinator.ask(projectName: "tabs", root: URL(fileURLWithPath: "/w/tabs")) }
-            defer { coordinator.unregister(a); coordinator.unregister(b); parent.close() }
+            defer {
+                coordinator.unregister(a)
+                coordinator.unregister(b)
+                parent.close()
+            }
             try #require(await waitFor { parent.attachedSheet != nil })
             coordinator.unregister(b)
             #expect(parent.attachedSheet != nil, "closing an unrelated tab must not cancel the project's sheet")
@@ -88,11 +100,17 @@ extension NativeAppTests {
             let coordinator = ProjectTrustCoordinator { _ in currentRoot }
             coordinator.register(a, window: parent)
             let task = Task { await coordinator.ask(projectName: "A", root: currentRoot) }
-            defer { coordinator.unregister(a); parent.close() }
+            defer {
+                coordinator.unregister(a)
+                parent.close()
+            }
             try #require(await waitFor { parent.attachedSheet != nil })
             currentRoot = URL(fileURLWithPath: "/w/B")
             parent.endSheet(try #require(parent.attachedSheet), returnCode: .alertSecondButtonReturn)
-            let watchdog = Task { try? await Task.sleep(for: .seconds(10)); coordinator.unregister(a) }
+            let watchdog = Task {
+                try? await Task.sleep(for: .seconds(10))
+                coordinator.unregister(a)
+            }
             defer { watchdog.cancel() }
             #expect(await task.value == nil)
         }
@@ -114,8 +132,8 @@ extension NativeAppTests {
             let services = LanguageServices(
                 scratchRoot: directory.appendingPathComponent("scratch"),
                 makeService: { root, _ in
-                SourceKitLanguageService(workspaceRoot: root, channelFactory: { throw LSPError.notRunning })
-            }
+                    SourceKitLanguageService(workspaceRoot: root, channelFactory: { throw LSPError.notRunning })
+                }
             )
             services.trustPrompt = prompt
             composition.languageServices = services
@@ -126,7 +144,10 @@ extension NativeAppTests {
             parent.isReleasedWhenClosed = false
             controller.showWindow(nil)
             let task = Task { await prompt("A", directory) }
-            defer { parent.close(); services.terminateAll() }
+            defer {
+                parent.close()
+                services.terminateAll()
+            }
             try #require(await waitFor { parent.attachedSheet != nil })
             parent.close()
             #expect(await task.value == nil)

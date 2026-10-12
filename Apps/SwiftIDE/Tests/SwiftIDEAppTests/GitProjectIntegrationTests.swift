@@ -13,6 +13,7 @@ extension NativeAppTests {
             while !predicate(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
             try #require(predicate())
         }
+
         @Test func actualRepositoryDecoratesFilesAndDiffTabRetainsOriginalDirtyEditor() async throws {
             _ = NSApplication.shared
             let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-git-app-\(UUID())")
@@ -25,15 +26,20 @@ extension NativeAppTests {
             try git(["config", "commit.gpgsign", "false"], root: root)
             let path = root.appendingPathComponent("a.txt")
             try "before\n".write(to: path, atomically: true, encoding: .utf8)
-            try git(["add", "."], root: root); try git(["commit", "-m", "Initial"], root: root)
+            try git(["add", "."], root: root)
+            try git(["commit", "-m", "Initial"], root: root)
             try "on disk\n".write(to: path, atomically: true, encoding: .utf8)
             let app = AppDelegate(composition: AppCompositionRoot(
                 recoveryStore: MemoryRecoveryStore(),
                 recentStore: MemoryRecentProjectsStore()
             ))
             let project = app.openProject(path: root.path)
-            project.layout.onSave = nil; project.files.onExclusionsChange = nil
-            defer { project.closeProject(); app.welcome?.close() }
+            project.layout.onSave = nil
+            project.files.onExclusionsChange = nil
+            defer {
+                project.closeProject()
+                app.welcome?.close()
+            }
             let model = try #require(project.git)
             try await wait { model.state == .ready }
             #expect(project.files.decoration(for: path.path).tone == .blue)
@@ -65,7 +71,8 @@ extension NativeAppTests {
             for (name, theme) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                 if !project.layout.layout.contains(.sourceControl) { project.layout.select(.sourceControl) }
                 if !project.layout.layout.contains(.gitLog) { project.layout.select(.gitLog) }
-                model.inspect(.worktree(changed)); try await wait { model.diffState == .ready }
+                model.inspect(.worktree(changed))
+                try await wait { model.diffState == .ready }
                 project.window?.appearance = NSAppearance(named: theme)
                 let view = try #require(project.window?.contentView)
                 view.layoutSubtreeIfNeeded()
@@ -80,8 +87,10 @@ extension NativeAppTests {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
             process.arguments = ["-C", root.path] + arguments
-            process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
-            try process.run(); process.waitUntilExit()
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
             try #require(process.terminationStatus == 0)
         }
     }

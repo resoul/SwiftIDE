@@ -6,10 +6,13 @@ import IDEDomain
 public protocol DefinitionNavigating: AnyObject {
     /// The definition is in this document: put the caret there and show it.
     func moveCaret(to offset: Int)
+
     /// The definition is in another file: open it at that place.
     func open(_ location: DefinitionLocation)
+
     /// Nothing to jump to, or why not.
     func tell(_ message: String, at offset: Int)
+
     /// Several places: let the user choose one, near `offset`; `pick` goes there.
     func choose(
         among places: [DefinitionLocation],

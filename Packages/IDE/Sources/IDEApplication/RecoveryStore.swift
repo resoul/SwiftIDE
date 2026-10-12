@@ -68,8 +68,10 @@ public struct RecoveryListing: Equatable, Sendable {
 /// Writing a key replaces what it held; a failed write leaves the previous record as it was.
 public protocol RecoveryStore: Sendable {
     func write(_ record: RecoveryRecord) async throws
+
     /// Removing a key that holds nothing is not an error.
     func remove(_ key: RecoveryKey) async throws
+
     func pending() async throws -> RecoveryListing
 }
 

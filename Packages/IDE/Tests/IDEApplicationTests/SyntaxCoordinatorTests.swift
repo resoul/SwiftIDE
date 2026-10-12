@@ -31,7 +31,10 @@ private struct Setup {
     }
 
     /// Lets the main-actor hop that delivers a result run.
-    func settle() async { await Task.yield(); await Task.yield() }
+    func settle() async {
+        await Task.yield()
+        await Task.yield()
+    }
 }
 
 @Test @MainActor

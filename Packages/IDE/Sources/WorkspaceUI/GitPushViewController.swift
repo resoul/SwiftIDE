@@ -18,7 +18,10 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
     private var branches: [GitBranch] = []
     private var subscription: UUID?
 
-    public init(model: GitPushReview) { self.model = model; super.init(nibName: nil, bundle: nil) }
+    public init(model: GitPushReview) {
+        self.model = model
+        super.init(nibName: nil, bundle: nil)
+    }
 
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -27,14 +30,22 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
         view = GitPushBackground(frame: NSRect(x: 0, y: 0, width: 660, height: 490))
         let title = NSTextField(labelWithString: "Push Branch")
         title.font = .systemFont(ofSize: 20, weight: .semibold)
-        for control in [branch, remote] { control.target = self; control.action = #selector(selectionChanged(_:)) }
-        branch.setAccessibilityLabel("Local source branch"); remote.setAccessibilityLabel("Remote to push")
+        for control in [branch, remote] {
+            control.target = self
+            control.action = #selector(selectionChanged(_:))
+        }
+        branch.setAccessibilityLabel("Local source branch")
+        remote.setAccessibilityLabel("Remote to push")
         destination.placeholderString = "Remote branch name"
         destination.setAccessibilityLabel("Destination branch name")
         destination.delegate = self
-        review.target = self; review.action = #selector(reviewDestination(_:))
-        push.target = self; push.action = #selector(pushReviewed(_:))
-        cancel.target = self; cancel.action = #selector(cancelPush(_:)); cancel.keyEquivalent = "\u{1b}"
+        review.target = self
+        review.action = #selector(reviewDestination(_:))
+        push.target = self
+        push.action = #selector(pushReviewed(_:))
+        cancel.target = self
+        cancel.action = #selector(cancelPush(_:))
+        cancel.keyEquivalent = "\u{1b}"
         // Return must not accidentally publish while editing the form.
         details.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         details.isSelectable = true
@@ -48,11 +59,14 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
                 stay unchanged.
                 """
             )
-        note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
+        note.font = .systemFont(ofSize: 11)
+        note.textColor = .secondaryLabelColor
         output.isEditable = false
         output.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         output.setAccessibilityLabel("Push output")
-        let scroll = NSScrollView.nonElastic(); scroll.documentView = output; scroll.hasVerticalScroller = true
+        let scroll = NSScrollView.nonElastic()
+        scroll.documentView = output
+        scroll.hasVerticalScroller = true
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 90).isActive = true
         gitPin(gitStack([
             title,
@@ -67,6 +81,7 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
         subscription = model.subscribe { [weak self] in self?.render() }
         render()
     }
+
     public func select(branch reference: String?, remote name: String?) {
         _ = view
         if let reference, let index = branches.firstIndex(where: { $0.reference == reference }) {
@@ -74,32 +89,49 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
         }
 
         if let name, remote.itemTitles.contains(name) { remote.selectItem(withTitle: name) }
-        destination.stringValue = selectedBranch?.name ?? ""
+        let suggestion = selectedBranch?.trackingSuggestion(in: remote.itemTitles)
+        if name == nil, let suggestion { remote.selectItem(withTitle: suggestion.remote) }
+        destination.stringValue = suggestion?.remote == remote.titleOfSelectedItem
+            ? suggestion?.branch ?? ""
+            : selectedBranch?.name ?? ""
         model.invalidate()
     }
+
     private var selectedBranch: GitBranch? {
         branches.indices.contains(branch.indexOfSelectedItem) ? branches[branch.indexOfSelectedItem] : nil
     }
+
     @objc func selectionChanged(_ sender: Any?) {
-        if sender as? NSPopUpButton === branch { destination.stringValue = selectedBranch?.name ?? "" }
+        if sender as? NSPopUpButton === branch {
+            let suggestion = selectedBranch?.trackingSuggestion(in: remote.itemTitles)
+            if let suggestion { remote.selectItem(withTitle: suggestion.remote) }
+            destination.stringValue = suggestion?.branch ?? selectedBranch?.name ?? ""
+        }
+
         model.invalidate()
     }
+
     public func controlTextDidChange(_ notification: Notification) { model.invalidate() }
+
     @objc func reviewDestination(_ sender: Any?) {
         guard review.isEnabled, let branch = selectedBranch, let remote = remote.titleOfSelectedItem else { return }
 
         model.review(branch: branch, remote: remote, destination: destination.stringValue)
     }
+
     @objc func pushReviewed(_ sender: Any?) { if push.isEnabled { model.push() } }
+
     @objc func cancelPush(_ sender: Any?) {
         if model.workspace.operationState.isBusy { model.workspace.cancelOperation() } else { close?() }
     }
+
     private func render() {
         let workspace = model.workspace
         let old = selectedBranch?.reference
         branches = (workspace.snapshot?.branches ?? []).filter { !$0.isRemote }
         if branch.itemTitles != branches.map(\.name) {
-            branch.removeAllItems(); branch.addItems(withTitles: branches.map(\.name))
+            branch.removeAllItems()
+            branch.addItems(withTitles: branches.map(\.name))
             let preferred = old ?? workspace.snapshot?.branch.map { "refs/heads/" + $0 }
             if let index = branches.firstIndex(where: { $0.reference == preferred }) { branch.selectItem(at: index) }
             if old == nil || !branches.contains(where: { $0.reference == old }) {
@@ -109,21 +141,26 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
 
         let previousRemote = remote.titleOfSelectedItem, names = workspace.snapshot?.remotes ?? []
         if remote.itemTitles != names {
-            remote.removeAllItems(); remote.addItems(withTitles: names)
+            remote.removeAllItems()
+            remote.addItems(withTitles: names)
             if let previousRemote, names.contains(previousRemote) { remote.selectItem(withTitle: previousRemote) }
         }
 
         let busy = workspace.operationState.isBusy, reviewing = model.state == .loading
-        branch.isEnabled = !busy; remote.isEnabled = !busy; destination.isEnabled = !busy
+        branch.isEnabled = !busy
+        remote.isEnabled = !busy
+        destination.isEnabled = !busy
         review.isEnabled = workspace.canMutate && !reviewing && selectedBranch != nil && remote
             .titleOfSelectedItem != nil && !destination.stringValue.isEmpty
         push.isEnabled = model.canPush
-        cancel.title = busy ? "Cancel Push" : "Close"; cancel.isEnabled = workspace.operationState != .cancelling
+        cancel.title = busy ? "Cancel Push" : "Close"
+        cancel.isEnabled = workspace.operationState != .cancelling
         let shownPlan = model.plan ?? model.submittedPlan
         details.stringValue = shownPlan
             .map {
-            "Source: " + $0.branch.name + " @ " + $0.branch.oid + "\nRemote: " + $0.remote + "\nAddress: " + $0
-            .url + "\nDestination: refs/heads/" + $0.destination } ?? "Review the destination before sending."
+                "Source: " + $0.branch.name + " @ " + $0.branch.oid + "\nRemote: " + $0.remote + "\nAddress: " + $0
+                    .url + "\nDestination: refs/heads/" + $0.destination
+            } ?? "Review the destination before sending."
         if model.plan == nil, model.submittedPlan != nil {
             details.stringValue = "Last Push attempt\n" + details.stringValue
         }
@@ -142,7 +179,11 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
             output.scrollRangeToVisible(NSRange(location: (output.string as NSString).length, length: 0))
         }
     }
-    public func disconnect() { if let subscription { model.unsubscribe(subscription) }; subscription = nil }
+
+    public func disconnect() {
+        if let subscription { model.unsubscribe(subscription) }
+        subscription = nil
+    }
 }
 
 @MainActor private final class GitPushBackground: NSView {

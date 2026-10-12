@@ -13,9 +13,11 @@ extension NativeAppTests {
             while !predicate(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
             try #require(predicate())
         }
+
         private func completed(_ model: GitWorkspace) async throws {
             try await wait { !model.operationState.isBusy && model.state == .ready }
         }
+
         @Test func checkoutReconcilesOtherWindowsAndLocalActionsPreserveBuffersAndUndo() async throws {
             _ = NSApplication.shared
             let root = FileManager.default.temporaryDirectory.appendingPathComponent("SwiftIDE-git-local-\(UUID())")
@@ -30,11 +32,13 @@ extension NativeAppTests {
             try git(["config", "commit.gpgsign", "false"], root)
             try "base a\n".write(to: aPath, atomically: true, encoding: .utf8)
             try "base b\n".write(to: bPath, atomically: true, encoding: .utf8)
-            try git(["add", "."], root); try git(["commit", "-m", "Base"], root)
+            try git(["add", "."], root)
+            try git(["commit", "-m", "Base"], root)
             try git(["switch", "-c", "other"], root)
             try "other a\n".write(to: aPath, atomically: true, encoding: .utf8)
             try "other b\n".write(to: bPath, atomically: true, encoding: .utf8)
-            try git(["commit", "-am", "Other"], root); try git(["switch", "main"], root)
+            try git(["commit", "-am", "Other"], root)
+            try git(["switch", "main"], root)
             var saveAll = false, asked: [String] = []
             let app = AppDelegate(
                 composition: AppCompositionRoot(
@@ -42,18 +46,25 @@ extension NativeAppTests {
                     recentStore: MemoryRecentProjectsStore()
                 ),
                 gitCheckoutPrompt: { document in
-                asked.append(document.path)
+                    asked.append(document.path)
 
-                return saveAll || document.path == aPath.path ? .save : .cancel
-            }
+                    return saveAll || document.path == aPath.path ? .save : .cancel
+                }
             )
             let project = app.openProject(path: root.path), second = app.openProject(path: sub.path)
-            project.layout.onSave = nil; second.layout.onSave = nil
-            project.files.onExclusionsChange = nil; second.files.onExclusionsChange = nil
-            defer { project.closeProject(); second.closeProject(); app.welcome?.close() }
+            project.layout.onSave = nil
+            second.layout.onSave = nil
+            project.files.onExclusionsChange = nil
+            second.files.onExclusionsChange = nil
+            defer {
+                project.closeProject()
+                second.closeProject()
+                app.welcome?.close()
+            }
             let model = try #require(project.git)
             try await wait { model.state == .ready && second.git?.state == .ready }
-            await app.open(path: aPath.path, in: project); await app.open(path: bPath.path, in: second)
+            await app.open(path: aPath.path, in: project)
+            await app.open(path: bPath.path, in: second)
             let a = try #require(project.activeDocument), b = try #require(second.activeDocument)
             let aEditor = try #require(a.focusTarget as? NSTextView),
                 bEditor = try #require(b.focusTarget as? NSTextView)
@@ -61,13 +72,15 @@ extension NativeAppTests {
             bEditor.insertText("saved ", replacementRange: NSRange(location: 0, length: 0))
             let aText = a.session.text, bText = b.session.text
             let branch = try #require(model.snapshot?.branches.first { $0.name == "other" })
-            model.perform(.switchBranch(branch)); try await completed(model)
+            model.perform(.switchBranch(branch))
+            try await completed(model)
             #expect(model.operationState == .cancelled && model.snapshot?.branch == "main")
             #expect(project.shell.notifications.items.first?.kind == .information)
             #expect(asked == [aPath.path, bPath.path] && !a.session.isDirty && b.session.isDirty)
             #expect(a.session.text == aText && b.session.text == bText)
             saveAll = true
-            model.perform(.switchBranch(branch)); try await completed(model)
+            model.perform(.switchBranch(branch))
+            try await completed(model)
             if case .failed = model.operationState {} else {
                 Issue.record("Git must refuse overwriting conflicting saved disk edits")
             }
@@ -77,17 +90,20 @@ extension NativeAppTests {
             #expect(a.session.text == aText && b.session.text == bText && bEditor.undoManager?.canUndo == true)
             for path in ["a.txt", "Sub/b.txt"] {
                 let change = try #require(model.snapshot?.changes.first { $0.path == path })
-                model.perform(.stage(change)); try await completed(model)
+                model.perform(.stage(change))
+                try await completed(model)
                 #expect(model.operationState == .succeeded)
             }
-            model.perform(.commit("Saved main edits")); try await completed(model)
+            model.perform(.commit("Saved main edits"))
+            try await completed(model)
             #expect(model.operationState == .succeeded && model.snapshot?.changes.isEmpty == true)
             let notification = try #require(project.shell.notifications.items.first)
             #expect(notification.id == "git.operation" && notification.kind == .success)
             #expect(notification.title == "Commit staged changes completed")
             #expect(second.shell.notifications.items.isEmpty, "another project did not run this operation")
             project.shell.notifications.dismiss(notification.id)
-            model.refresh(); try await wait { model.state == .ready }
+            model.refresh()
+            try await wait { model.state == .ready }
             #expect(
                 project.shell.notifications.items.isEmpty,
                 "status refresh does not replay an old operation notification"
@@ -106,7 +122,8 @@ extension NativeAppTests {
 
                 return prepared
             }
-            model.perform(.switchBranch(branch)); try await completed(model)
+            model.perform(.switchBranch(branch))
+            try await completed(model)
             #expect(model.operationState == .succeeded && model.snapshot?.branch == "other" && sawLocks)
             try await wait { a.session.text == "other a\n" && b.session.text == "other b\n" }
             #expect(aEditor.isEditable && bEditor.isEditable && !a.session.isDirty && !b.session.isDirty)
@@ -115,7 +132,8 @@ extension NativeAppTests {
             #expect(a.session.text == aText && a.session.isDirty)
             #expect(try String(contentsOf: aPath, encoding: .utf8) == "other a\n")
             try await wait { model.canMutate }
-            model.perform(.createBranch("created/local")); try await completed(model)
+            model.perform(.createBranch("created/local"))
+            try await completed(model)
             #expect(model.operationState == .succeeded && model.snapshot?.branch == "other")
             #expect(model.snapshot?.branches.contains { $0.name == "created/local" } == true)
             project.commitGit(nil)
@@ -131,12 +149,15 @@ extension NativeAppTests {
             }
 
         }
+
         private func git(_ arguments: [String], _ root: URL) throws {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
             process.arguments = ["-C", root.path] + arguments
-            process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
-            try process.run(); process.waitUntilExit()
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            try process.run()
+            process.waitUntilExit()
             try #require(process.terminationStatus == 0)
         }
     }

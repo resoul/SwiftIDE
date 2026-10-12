@@ -49,7 +49,10 @@ struct WorkspaceNotificationTests {
             path: "/a"
         )
         let window = makeWindow(shell)
-        defer { shell.disconnect(); window.close() }
+        defer {
+            shell.disconnect()
+            window.close()
+        }
         window.makeFirstResponder(editor)
         let focus = window.firstResponder
         var invoked = 0
@@ -59,8 +62,8 @@ struct WorkspaceNotificationTests {
             title: "Operation completed",
             message: "Details",
             actions: [.init(title: "Inspect", perform: {
-            invoked += 1
-        })]
+                invoked += 1
+            })]
         ))
         shell.view.layoutSubtreeIfNeeded()
         let overlay = try #require(shell.notificationOverlay)
@@ -79,8 +82,8 @@ struct WorkspaceNotificationTests {
             kind: .warning,
             title: "Updated result",
             actions: [.init(title: "Inspect again", perform: {
-            invoked += 10
-        })]
+                invoked += 10
+            })]
         ))
         #expect(overlay.cards.first === card && card.actionButtons.first === button)
         button.performClick(nil)
@@ -109,7 +112,10 @@ struct WorkspaceNotificationTests {
             path: "/preview"
         )
         let window = makeWindow(shell)
-        defer { shell.disconnect(); window.close() }
+        defer {
+            shell.disconnect()
+            window.close()
+        }
         shell.notifications.post(.init(
             kind: .warning,
             title: "Workspace Preview",
@@ -157,7 +163,8 @@ struct WorkspaceNotificationTests {
             }
         }
         #expect(colours[0] > colours[1] + 0.4)
-        shell.select(.assistant); shell.select(.terminal)
+        shell.select(.assistant)
+        shell.select(.terminal)
         window.setContentSize(NSSize(width: 900, height: 560))
         for n in 0..<3 {
             shell.notifications.post(.init(

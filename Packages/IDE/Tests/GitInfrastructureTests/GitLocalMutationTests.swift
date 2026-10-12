@@ -5,12 +5,14 @@ import IDEApplication
 
 struct GitLocalMutationTests {
     private let git = GitCLI()
+
     private func perform(_ action: GitLocalAction, repo: RepositoryFixture) async throws {
         try await git.perform(action, expected: git.snapshot(at: repo.root), output: { _ in })
     }
 
     @Test func unbornStageUnstageAndCommitKeepDiskAndIncludeOnlyIndex() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
         let path = ":(glob)*\nfile.txt"
         try repo.write(path, "staged bytes\n")
         var snapshot = try await git.snapshot(at: repo.root)
@@ -40,9 +42,12 @@ struct GitLocalMutationTests {
     }
 
     @Test func unstageModificationRenameAndDeletionNeverRewritesWorktree() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
-        try repo.write("old.txt", "original\n"); try repo.write("deleted.txt", "deleted\n")
-        try repo.git(["add", "."]); try repo.git(["commit", "-m", "Initial"])
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
+        try repo.write("old.txt", "original\n")
+        try repo.write("deleted.txt", "deleted\n")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Initial"])
         try repo.git(["mv", "old.txt", "new.txt"])
         var snapshot = try await git.snapshot(at: repo.root)
         let rename = try #require(snapshot.changes.first { $0.path == "new.txt" })
@@ -60,14 +65,18 @@ struct GitLocalMutationTests {
     }
 
     @Test func branchCreationIsSeparateAndSwitchRefusesOverwritingDiskOrAnotherWorktree() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
-        try repo.write("a.txt", "base\n"); try repo.git(["add", "."]); try repo.git(["commit", "-m", "Base"])
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
+        try repo.write("a.txt", "base\n")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Base"])
         try await perform(.createBranch("feature/local"), repo: repo)
         var snapshot = try await git.snapshot(at: repo.root)
         #expect(snapshot.branch == "main")
         let feature = try #require(snapshot.branches.first { $0.name == "feature/local" })
         try await git.perform(.switchBranch(feature), expected: snapshot, output: { _ in })
-        try repo.write("a.txt", "feature\n"); try repo.git(["commit", "-am", "Feature"])
+        try repo.write("a.txt", "feature\n")
+        try repo.git(["commit", "-am", "Feature"])
         try repo.git(["switch", "main"])
         try repo.write("a.txt", "local disk edit\n")
         snapshot = try await git.snapshot(at: repo.root)
@@ -78,7 +87,8 @@ struct GitLocalMutationTests {
         #expect(try String(contentsOfFile: repo.root + "/a.txt", encoding: .utf8) == "local disk edit\n")
         #expect(try await git.snapshot(at: repo.root).branch == "main")
         try repo.write("a.txt", "base\n")
-        let link = repo.root + "-linked"; defer { try? FileManager.default.removeItem(atPath: link) }
+        let link = repo.root + "-linked"
+        defer { try? FileManager.default.removeItem(atPath: link) }
         try repo.git(["worktree", "add", link, "feature/local"])
         snapshot = try await git.snapshot(at: repo.root)
         await #expect(throws: GitInspectionError.self) {
@@ -92,10 +102,13 @@ struct GitLocalMutationTests {
     }
 
     @Test func staleIndexAndHeadAreRejectedBeforeMutation() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
-        try repo.write("a.txt", "first\n"); try repo.git(["add", "."])
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
+        try repo.write("a.txt", "first\n")
+        try repo.git(["add", "."])
         let old = try await git.snapshot(at: repo.root)
-        try repo.write("a.txt", "other staged\n"); try repo.git(["add", "."])
+        try repo.write("a.txt", "other staged\n")
+        try repo.git(["add", "."])
         await #expect(throws: GitInspectionError
             .failed("Repository changed since review; refresh and retry the action")) {
             try await git.perform(.commit("Stale commit"), expected: old, output: { _ in })
@@ -109,8 +122,10 @@ struct GitLocalMutationTests {
     }
 
     @Test func configuredHookFailureStreamsOutputAndRetainsStagedChanges() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
-        try repo.write("a.txt", "one\n"); try repo.git(["add", "."])
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
+        try repo.write("a.txt", "one\n")
+        try repo.git(["add", "."])
         let hook = repo.root + "/.git/hooks/pre-commit"
         try "#!/bin/sh\necho 'hook explains failure' >&2\nexit 1\n".write(
             toFile: hook,
@@ -129,8 +144,10 @@ struct GitLocalMutationTests {
     }
 
     @Test func cancellationStopsHookChildrenAndReleasesSharedMutationGate() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
-        try repo.write("a.txt", "one\n"); try repo.git(["add", "."])
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
+        try repo.write("a.txt", "one\n")
+        try repo.git(["add", "."])
         let hook = repo.root + "/.git/hooks/pre-commit", marker = repo.root + "/.git/hook-running"
         try "#!/bin/sh\necho running\necho $$ > '\(marker)'\n/bin/sleep 30\n".write(
             toFile: hook,
@@ -150,7 +167,7 @@ struct GitLocalMutationTests {
         }
         let pid =
             try #require(Int32(String(contentsOfFile: marker, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines)))
+                        .trimmingCharacters(in: .whitespacesAndNewlines)))
         task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
         #expect(kill(pid, 0) != 0)
@@ -163,6 +180,8 @@ struct GitLocalMutationTests {
 private final class CollectedOutput: @unchecked Sendable {
     private let lock = NSLock()
     private var value = ""
+
     func append(_ text: String) { lock.withLock { value += text } }
+
     var text: String { lock.withLock { value } }
 }

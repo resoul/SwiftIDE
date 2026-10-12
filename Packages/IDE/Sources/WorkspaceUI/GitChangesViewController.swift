@@ -26,7 +26,10 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
     private var subscription: UUID?
     private var comparisons: [String: GitComparison] = [:]
 
-    public init(model: GitWorkspace) { self.model = model; super.init(nibName: nil, bundle: nil) }
+    public init(model: GitWorkspace) {
+        self.model = model
+        super.init(nibName: nil, bundle: nil)
+    }
 
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -35,16 +38,25 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         view = NSView()
         let refresh = NSButton(title: "Refresh", target: self, action: #selector(refreshGit(_:)))
         let header = gitStack([NSTextField(labelWithString: "Changes"), NSView(), refresh], vertical: false)
-        resolve.target = self; resolve.action = #selector(resolveSelected(_:))
-        proceed.target = self; proceed.action = #selector(continueGit(_:))
-        abort.target = self; abort.action = #selector(abortGit(_:))
-        skip.target = self; skip.action = #selector(skipGit(_:))
-        stage.target = self; stage.action = #selector(stageSelected(_:))
-        unstage.target = self; unstage.action = #selector(unstageSelected(_:))
-        commit.target = self; commit.action = #selector(commitStaged(_:))
-        compose.target = self; compose.action = #selector(composeCommit(_:))
+        resolve.target = self
+        resolve.action = #selector(resolveSelected(_:))
+        proceed.target = self
+        proceed.action = #selector(continueGit(_:))
+        abort.target = self
+        abort.action = #selector(abortGit(_:))
+        skip.target = self
+        skip.action = #selector(skipGit(_:))
+        stage.target = self
+        stage.action = #selector(stageSelected(_:))
+        unstage.target = self
+        unstage.action = #selector(unstageSelected(_:))
+        commit.target = self
+        commit.action = #selector(commitStaged(_:))
+        compose.target = self
+        compose.action = #selector(composeCommit(_:))
         stage.toolTip = "Stage the whole file from disk, replacing any partial staging"
-        message.isRichText = false; message.font = .systemFont(ofSize: 12)
+        message.isRichText = false
+        message.font = .systemFont(ofSize: 12)
         message.delegate = self
         message.setAccessibilityLabel("Commit message")
         let messageScroll = NSScrollView.nonElastic()
@@ -58,21 +70,26 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
                 does not roll back changes.
                 """
             )
-        mutationNote.font = .systemFont(ofSize: 10); mutationNote.textColor = .secondaryLabelColor
+        mutationNote.font = .systemFont(ofSize: 10)
+        mutationNote.textColor = .secondaryLabelColor
         let commitForm = gitStack([NSTextField(labelWithString: "Commit message"), messageScroll, commit, mutationNote])
-        commitForm.isHidden = true; self.commitForm = commitForm
+        commitForm.isHidden = true
+        self.commitForm = commitForm
         let actions = gitStack([gitStack([stage, unstage, compose], vertical: false), commitForm])
         actions.isHidden = !model.supportsLocalActions
-        let operation = GitOperationView(model: model); self.operation = operation
+        let operation = GitOperationView(model: model)
+        self.operation = operation
         let note =
             NSTextField(
                 wrappingLabelWithString: """
                 Diff compares disk and index. Unsaved editor text is separate. Double-click to open the file.
                 """
             )
-        note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
+        note.font = .systemFont(ofSize: 11)
+        note.textColor = .secondaryLabelColor
         status.font = .systemFont(ofSize: 11)
-        status.maximumNumberOfLines = 2; status.lineBreakMode = .byTruncatingMiddle
+        status.maximumNumberOfLines = 2
+        status.lineBreakMode = .byTruncatingMiddle
         gitPin(
             gitStack([
                 header,
@@ -105,7 +122,9 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         subscription = model.subscribe { [weak self] in self?.render() }
         render()
     }
+
     @objc private func refreshGit(_ sender: Any?) { model.refresh() }
+
     @objc func resolveSelected(_ sender: Any?) {
         guard resolve.isEnabled, let key = list.selectedKey, case .worktree(let change) = comparisons[key] else {
             return
@@ -113,7 +132,12 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
 
         resolveConflict?(change)
     }
-    public func continueOperation() { _ = view; continueGit(nil) }
+
+    public func continueOperation() {
+        _ = view
+        continueGit(nil)
+    }
+
     @objc func continueGit(_ sender: Any?) {
         guard proceed.isEnabled, let operation = model.snapshot?.integration else { return }
 
@@ -125,42 +149,54 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
 
         model.perform(.continueIntegration(operation, message.string))
     }
+
     @objc func abortGit(_ sender: Any?) {
         if abort.isEnabled, let operation = model.snapshot?.integration { confirmAction?(.abortIntegration(operation)) }
     }
+
     @objc func skipGit(_ sender: Any?) {
         if skip.isEnabled, let operation = model.snapshot?.integration { confirmAction?(.skipRebase(operation)) }
     }
+
     @objc func stageSelected(_ sender: Any?) {
         guard let key = list.selectedKey, let comparison = comparisons[key], stage.isEnabled else { return }
 
         if case .worktree(let change) = comparison { model.perform(.stage(change)) }
         if case .untracked(let change) = comparison { model.perform(.stage(change)) }
     }
+
     @objc func unstageSelected(_ sender: Any?) {
         guard let key = list.selectedKey, case .index(let change) = comparisons[key], unstage.isEnabled else { return }
 
         model.perform(.unstage(change))
     }
+
     @objc func commitStaged(_ sender: Any?) {
         guard commit.isEnabled else { return }
 
         model.perform(.commit(message.string))
     }
+
     @objc private func composeCommit(_ sender: Any?) {
-        if commitForm?.isHidden == false { commitForm?.isHidden = true; updateActions() }
+        if commitForm?.isHidden == false {
+            commitForm?.isHidden = true
+            updateActions()
+        }
         else { focusCommitMessage() }
     }
+
     public func focusCommitMessage() {
         commitForm?.isHidden = false
         updateActions()
         view.window?.makeFirstResponder(message)
     }
+
     private func updateActions() {
         let operation = model.snapshot?.integration
         integrationStatus.stringValue = operation
             .map {
-            $0.detail + ". Resolve each conflict, then Continue (ALL staged content); Abort/Skip require confirmation."
+                $0.detail
+                    + ". Resolve each conflict, then Continue (ALL staged content); Abort/Skip require confirmation."
             } ?? ""
         integrationStatus.isHidden = operation == nil
         for button in [proceed, abort, skip] { button.isHidden = operation == nil }
@@ -174,7 +210,8 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         }
 
         abort.isEnabled = model.canMutate && operation != nil && operation?.kind != .other
-        skip.isHidden = operation?.kind != .rebase; skip.isEnabled = abort.isEnabled && operation?.kind == .rebase
+        skip.isHidden = operation?.kind != .rebase
+        skip.isEnabled = abort.isEnabled && operation?.kind == .rebase
         resolve.isHidden = list.selectedKey?.hasPrefix("conflicts:") != true
         resolve.isEnabled = model.canMutate && model.conflictReader != nil && !resolve.isHidden
         let key = list.selectedKey ?? ""
@@ -189,11 +226,14 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
             && model.snapshot?.changes.contains(where: { !$0.decoration.index.isEmpty }) == true
             && model.snapshot?.changes.contains(where: { $0.decoration.isConflict }) == false
     }
+
     public func textDidChange(_ notification: Notification) { updateActions() }
+
     private func render() {
         status.stringValue = model.explanation
         status.toolTip = model.explanation
-        var rows: [GitListRow] = []; comparisons = [:]
+        var rows: [GitListRow] = []
+        comparisons = [:]
         let changes = model.snapshot?.changes.filter { $0.decoration.ignoredReason == nil } ?? []
         for (group, title) in [
             "conflicts": "Conflicts",
@@ -223,8 +263,8 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
                         change.previousPath.map { "from " + $0 },
                         d.explanation,
                         change.submodule != "N..."
-                    ? "Submodule: " + change.submodule
-                    : nil
+                            ? "Submodule: " + change.submodule
+                            : nil
                     ].compactMap { $0 }.joined(separator: " · "),
                     colour: d.tone.colour,
                     selectable: true
@@ -247,10 +287,16 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         }
 
         lastOperationState = model.operationState
-        updateActions(); operation?.render()
+        updateActions()
+        operation?.render()
     }
+
     private func order(_ key: String) -> Int {
         ["conflicts", "index", "worktree", "untracked"].firstIndex(of: key) ?? 4
     }
-    public func disconnect() { if let subscription { model.unsubscribe(subscription) }; subscription = nil }
+
+    public func disconnect() {
+        if let subscription { model.unsubscribe(subscription) }
+        subscription = nil
+    }
 }

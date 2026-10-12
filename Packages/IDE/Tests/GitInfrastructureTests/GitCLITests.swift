@@ -7,9 +7,11 @@ struct GitCLITests {
     @Test func realStatusKeepsBothSidesRenamesUnusualPathsAndIgnoreRules() async throws {
         let repo = try RepositoryFixture()
         defer { repo.remove() }
-        try repo.write("tracked.txt", "first\n"); try repo.write("old name.txt", "rename\n")
+        try repo.write("tracked.txt", "first\n")
+        try repo.write("old name.txt", "rename\n")
         try repo.write(".gitignore", "generated/\n!keep.txt\n")
-        try repo.git(["add", "."]); try repo.git(["commit", "-m", "Initial"])
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Initial"])
         let head = String(decoding: try repo.git(["rev-parse", "HEAD"]), as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         try repo.git(["update-ref", "refs/remotes/origin/main", head])
@@ -17,10 +19,12 @@ struct GitCLITests {
         try repo.git(["config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"])
         try repo.git(["config", "branch.main.remote", "origin"])
         try repo.git(["config", "branch.main.merge", "refs/heads/main"])
-        try repo.write("tracked.txt", "staged\n"); try repo.git(["add", "tracked.txt"])
+        try repo.write("tracked.txt", "staged\n")
+        try repo.git(["add", "tracked.txt"])
         try repo.write("tracked.txt", "staged\nunstaged\n")
         try repo.git(["mv", "old name.txt", "new name.txt"])
-        try repo.write("new\nquoted\".txt", "new\n"); try repo.write("generated/nested/file.txt", "ignored\n")
+        try repo.write("new\nquoted\".txt", "new\n")
+        try repo.write("generated/nested/file.txt", "ignored\n")
         let snapshot = try await GitCLI().snapshot(at: repo.root)
         let tracked = try #require(snapshot.changes.first { $0.path == "tracked.txt" })
         #expect(tracked.decoration.index == "M" && tracked.decoration.worktree == "M")
@@ -39,10 +43,13 @@ struct GitCLITests {
     }
 
     @Test func unbornDetachedAndLinkedWorktreeUseGitReportedIdentity() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
         let empty = try await GitCLI().snapshot(at: repo.root)
         #expect(empty.head == nil && empty.branch == "main")
-        try repo.write("a.txt", "one\n"); try repo.git(["add", "."]); try repo.git(["commit", "-m", "One"])
+        try repo.write("a.txt", "one\n")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "One"])
         let link = repo.root + "-worktree"
         defer { try? FileManager.default.removeItem(atPath: link) }
         try repo.git(["worktree", "add", "-b", "linked", link])
@@ -56,15 +63,20 @@ struct GitCLITests {
     }
 
     @Test func historyIsAnchoredPaginatedAndRootCommitHasFilesAndDiff() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
         for i in 0..<4 {
-            try repo.write("a.txt", "\(i)\n"); try repo.git(["add", "."]); try repo.git(["commit", "-m", "Commit \(i)"])
+            try repo.write("a.txt", "\(i)\n")
+            try repo.git(["add", "."])
+            try repo.git(["commit", "-m", "Commit \(i)"])
         }
         let service = GitCLI(), snapshot = try await service.snapshot(at: repo.root)
         let head = try #require(snapshot.head)
         let first = try await service.history(in: snapshot.repository, revision: head, offset: 0, count: 2)
         #expect(first.commits.count == 2 && first.hasMore)
-        try repo.write("a.txt", "later\n"); try repo.git(["add", "."]); try repo.git(["commit", "-m", "Later"])
+        try repo.write("a.txt", "later\n")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Later"])
         let second = try await service.history(in: snapshot.repository, revision: head, offset: 2, count: 2)
         #expect(second.commits.count == 2 && !second.hasMore)
         #expect(Set(first.commits.map(\.oid)).isDisjoint(with: second.commits.map(\.oid)))
@@ -78,17 +90,21 @@ struct GitCLITests {
     }
 
     @Test func diffDisablesExternalProgramsAndTreatsMagicPathLiterally() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
         let path = ":(glob)*.txt"
-        try repo.write(path, "before\n"); try repo.write("ordinary.txt", "ordinary\n")
-        try repo.git(["add", "."]); try repo.git(["commit", "-m", "Initial"])
+        try repo.write(path, "before\n")
+        try repo.write("ordinary.txt", "ordinary\n")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Initial"])
         try repo.write(".gitattributes", "*.txt diff=custom\n")
         let marker = repo.root + "/executed"
         try repo.write("driver", "#!/bin/sh\ntouch '\(marker)'\n")
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: repo.root + "/driver")
         try repo.git(["config", "diff.external", repo.root + "/driver"])
         try repo.git(["config", "diff.custom.textconv", repo.root + "/driver"])
-        try repo.write(path, "after\n"); try repo.write("ordinary.txt", "also changed\n")
+        try repo.write(path, "after\n")
+        try repo.write("ordinary.txt", "also changed\n")
         let snapshot = try await GitCLI().snapshot(at: repo.root)
         let change = try #require(snapshot.changes.first { $0.path == path })
         let diff = try await GitCLI().diff(in: snapshot.repository, comparison: .worktree(change))
@@ -101,19 +117,25 @@ struct GitCLITests {
     }
 
     @Test func conflictsRemainDistinctFromUntrackedAndRenameCommitKeepsBothPaths() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
-        try repo.write("a.txt", "base\n"); try repo.git(["add", "."]); try repo.git(["commit", "-m", "Base"])
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
+        try repo.write("a.txt", "base\n")
+        try repo.git(["add", "."])
+        try repo.git(["commit", "-m", "Base"])
         try repo.git(["checkout", "-b", "other"])
-        try repo.write("a.txt", "other\n"); try repo.git(["commit", "-am", "Other"])
+        try repo.write("a.txt", "other\n")
+        try repo.git(["commit", "-am", "Other"])
         try repo.git(["checkout", "main"])
-        try repo.write("a.txt", "main\n"); try repo.git(["commit", "-am", "Main"])
+        try repo.write("a.txt", "main\n")
+        try repo.git(["commit", "-am", "Main"])
         try repo.git(["merge", "other"], accepted: [1])
         let snapshot = try await GitCLI().snapshot(at: repo.root)
         #expect(snapshot.changes.contains {
             $0.path == "a.txt" && $0.decoration.isConflict && !$0.decoration.isUntracked
         })
         try repo.git(["merge", "--abort"])
-        try repo.git(["mv", "a.txt", "renamed.txt"]); try repo.git(["commit", "-m", "Rename"])
+        try repo.git(["mv", "a.txt", "renamed.txt"])
+        try repo.git(["commit", "-m", "Rename"])
         let newer = try await GitCLI().snapshot(at: repo.root)
         let page = try await GitCLI().history(
             in: newer.repository,
@@ -127,7 +149,8 @@ struct GitCLITests {
     }
 
     @Test func boundedProcessReportsFailuresSizeTimeoutAndCancellation() async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
         let missing = GitCLI(executable: URL(fileURLWithPath: "/does-not-exist/git"))
         await #expect(throws: GitInspectionError.self) { try await missing.snapshot(at: repo.root) }
         let outside = repo.root + "-outside"
@@ -161,7 +184,8 @@ struct GitCLITests {
                 timeout: 10
             )
         }
-        try await Task.sleep(for: .milliseconds(30)); task.cancel()
+        try await Task.sleep(for: .milliseconds(30))
+        task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
     }
 
@@ -169,7 +193,8 @@ struct GitCLITests {
         false,
         true
     ]) func timedOutSubprocessCannotLeaveAChildHoldingTheOutputPipe(parentExits: Bool) async throws {
-        let repo = try RepositoryFixture(); defer { repo.remove() }
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
         let spawn = "/bin/sleep 20 &\necho $! > '\(repo.root)/child.pid'\n" + (parentExits ? "exit 0\n" : "wait\n")
         let started = ContinuousClock.now
         await #expect(throws: GitInspectionError.failed("Git request timed out")) {
@@ -196,21 +221,25 @@ final class RepositoryFixture: @unchecked Sendable {
     init() throws {
         try FileManager.default.createDirectory(atPath: root, withIntermediateDirectories: true)
         try git(["init", "-b", "main"])
-        try git(["config", "user.name", "Test Author"]); try git(["config", "user.email", "author@example.test"])
+        try git(["config", "user.name", "Test Author"])
+        try git(["config", "user.email", "author@example.test"])
         try git(["config", "commit.gpgsign", "false"])
     }
 
     func remove() { try? FileManager.default.removeItem(atPath: root) }
+
     func write(_ path: String, _ value: String) throws {
         let url = URL(fileURLWithPath: root + "/" + path)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try value.write(to: url, atomically: true, encoding: .utf8)
     }
+
     @discardableResult func git(_ arguments: [String], accepted: Set<Int32> = [0]) throws -> Data {
         let process = Process(), pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         process.arguments = ["-C", root] + arguments
-        process.standardOutput = pipe; process.standardError = FileHandle.nullDevice
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
         process.standardInput = FileHandle.nullDevice
         try process.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()

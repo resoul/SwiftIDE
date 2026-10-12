@@ -7,7 +7,11 @@ import Testing
 
 /// The obvious, slow definition of lines that the index must agree with.
 private struct ReferenceLines {
-    struct Line: Equatable { var start: Int; var content: Int; var terminator: LineTerminator }
+    struct Line: Equatable {
+        var start: Int
+        var content: Int
+        var terminator: LineTerminator
+    }
     var lines: [Line] = []
 
     init(_ units: [UInt16]) {
@@ -16,7 +20,8 @@ private struct ReferenceLines {
             let unit = units[index]
             if unit == 0x0A {
                 lines.append(Line(start: start, content: index - start, terminator: .lf))
-                index += 1; start = index
+                index += 1
+                start = index
             } else if unit == 0x0D {
                 if index + 1 < units.count, units[index + 1] == 0x0A {
                     lines.append(Line(start: start, content: index - start, terminator: .crlf))
@@ -51,8 +56,8 @@ private func expectAgrees(
     let numbers = everyLine
         ? Array(reference.lines.indices)
         : (0..<80).map { _ in
-        Int.random(in: 0..<reference.lines.count)
-    }
+            Int.random(in: 0..<reference.lines.count)
+        }
     for number in numbers {
         let expected = reference.lines[number]
         let extent = index.lineExtent(number)

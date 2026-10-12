@@ -26,7 +26,11 @@ private func keyEvent(
 func aKeyGoesToTheHooksBeforeTheTextViewAndIsNotTypedWhenTheyUseIt() throws {
     let editor = TextKitEditorFactory.makeEditor(loadedText: "")
     var seen: [String] = []
-    editor.input.interceptKey = { event in seen.append(event.characters ?? ""); return true }
+    editor.input.interceptKey = { event in
+        seen.append(event.characters ?? "")
+
+        return true
+    }
     editor.textView.keyDown(with: try keyEvent("a"))
     #expect(seen == ["a"])
     #expect(editor.textView.string.isEmpty, "a key the hooks used is not inserted")
@@ -57,7 +61,11 @@ func controlSpaceAsksForCompletionAndPlainSpaceDoesNot() throws {
 func whileAnInputMethodHoldsMarkedTextNoKeyGoesToTheHooks() throws {
     let editor = TextKitEditorFactory.makeEditor(loadedText: "")
     var intercepted = 0, asked = 0
-    editor.input.interceptKey = { _ in intercepted += 1; return true }
+    editor.input.interceptKey = { _ in
+        intercepted += 1
+
+        return true
+    }
     editor.input.requestCompletion = { asked += 1 }
     editor.textView.setMarkedText(
         "に",

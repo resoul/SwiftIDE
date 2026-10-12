@@ -78,7 +78,10 @@ private actor GatedStore: DocumentFileStore {
         await withCheckedContinuation { started = $0 }
     }
 
-    func release() { gate?.resume(); gate = nil }
+    func release() {
+        gate?.resume()
+        gate = nil
+    }
 }
 
 @Test @MainActor
@@ -210,7 +213,11 @@ func refusingTheLateQuestionKeepsTheAppRunning() async throws {
     let b = try dirtySession("B.swift")
     let coordinator = UnsavedChangesCoordinator(
         prompt: { session in
-            if session.path == "B.swift" { try? a.replaceText("late edit", expectedVersion: 0); return .discard }
+            if session.path == "B.swift" {
+                try? a.replaceText("late edit", expectedVersion: 0)
+
+                return .discard
+            }
 
             return .cancel
         },
@@ -273,7 +280,11 @@ func discardingOneVersionDoesNotAskAgainWhileNothingChanged() async throws {
     let b = try dirtySession("B.swift")
     var prompted: [String] = []
     let coordinator = UnsavedChangesCoordinator(
-        prompt: { session in prompted.append(session.path); return .discard },
+        prompt: { session in
+            prompted.append(session.path)
+
+            return .discard
+        },
         save: { _ in true }
     )
     #expect(await coordinator.canQuit(documents: { [a, b] }))

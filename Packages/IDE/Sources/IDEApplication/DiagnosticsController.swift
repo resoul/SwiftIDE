@@ -175,7 +175,10 @@ public final class DiagnosticsController {
         trackedVersion = report.version
         // A report for the version the document has now is placed as it is; one for an older version
         // would have been refused by the provider.
-        if report.version != session.version { trackedVersion = nil; items = [] }
+        if report.version != session.version {
+            trackedVersion = nil
+            items = []
+        }
 
         publish()
     }
@@ -255,7 +258,9 @@ public enum DiagnosticPlacement {
         let start = index.startOffset(ofLine: line)
         let content = min(index.lineExtent(line).content, 1_000)
         let units = Array(text(UTF16TextRange(location: start, length: content)).utf16)
+
         func isBlank(_ unit: UInt16) -> Bool { unit == 0x20 || unit == 0x09 }
+
         var first = 0, last = units.count
         while first < last, isBlank(units[first]) { first += 1 }
         while last > first, isBlank(units[last - 1]) { last -= 1 }

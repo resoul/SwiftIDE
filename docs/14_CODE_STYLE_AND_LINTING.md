@@ -13,7 +13,8 @@ The goal is to maintain consistent readability of the code automatically and to 
 | One blank line after a multi-line `if` | If work continues in the same block after the whole `if`/`else if`/`else` construct; do not insert between branches or before the closing `}` |
 | One parameter per line in a multi-line signature | For `init` and methods/functions; the first parameter on the line after `(`, the closing `)` on a separate line. A short signature may stay on one line |
 | Adjacent short `if`s — one group | One-line checks need not be separated by blank lines; the result after them is separated by the `return` rule |
-| One blank line around `init` | Separate from the previous/next declaration; comments and attributes such as `@available` belong to the initializer. First/last members need no extra line against the containing braces; same-line declarations stay untouched |
+| One blank line around `init` and functions | Separate from neighboring declarations/statements; comments and attributes such as `@available` and `@objc` belong to the declaration. First/last declarations need no extra line against the containing braces |
+| One instruction per line | Separate instructions joined with `;`, even on short lines. Expand compact bodies containing several instructions/declarations. Single-instruction short methods, closures and `if`/`guard` bodies may stay inline. Remove unnecessary `;`; retain a separator if removal changes parsing |
 | Stable whitespace | No more than one consecutive blank line; no trailing whitespace; documentation comments stay attached to their declaration |
 
 Examples of the expected result:
@@ -136,3 +137,31 @@ public required init?(coder: NSCoder) {
 - `format.sh` order: `spacing-check --fix` (bodies and statements first, so SwiftFormat wraps only what is left of the line), SwiftFormat, `spacing-check --fix` once more for the blank lines. The `--fix` verification now ignores `;` tokens, which go when statements get their own lines; tokens and comments are otherwise compared as before.
 
 **Result.** 7 new `spacing-check` tests (35 in all), the fixtures and `selftest.sh` cover the new rules and the new order (the SwiftFormat diagnostic for a split signature may now be named `wrap` instead of `wrapArguments`). One formatting pass changed about 195 files; the 120-character limit left no line longer than that in `Apps/SwiftIDE` and `Packages/IDE`. Long string literals (about 45) were split by hand into `"""` literals or `+`, and a few over-long expressions were broken up with local constants. `lint.sh` is clean, the application and package build, and all package tests pass; of the application tests `aProjectQuestionBelongsToItsOwnerWhileAnotherProjectIsActuallyActive` fails with and without the change when the application is not the active one (`active=false`), which is a property of running it from a background session.
+
+## Function spacing and instruction separation (2026-10-12)
+
+**Decision (user):** separate functions from their neighbors with one blank line and put each instruction on its own line, including lines shorter than 120 characters.
+
+```swift
+public func showRemoteSelection() {
+    _ = view
+    showBranches(nil)
+}
+
+@objc private func filterChanged(_ sender: Any?) { render() }
+
+private func configure() {
+    tracking.target = self
+    tracking.action = #selector(trackingSelected(_:))
+}
+```
+
+`blank_line_around_function` checks type members, top-level/local functions and conditional compilation. The blank line goes before the complete documentation/attribute group, including `@objc`; first/last declarations need no blank line against the containing braces. This is declaration spacing, not empty lines at the beginning/end of every function body. A short function containing just one instruction can stay on one line.
+
+`one_statement_per_line` separates instructions joined with `;` regardless of length. `multiple_statement_body` expands a compact body containing several instructions/declarations, including nested bodies, closures and compact member blocks. Existing long-line rules remain in force. Strings and comments containing `;` are not instructions.
+
+SwiftFormat now also enables `semicolons` (`--semicolons never`), `indent` (`--indent 4`) and `braces`. These normalize the layout after syntax-aware expansion and remove unnecessary semicolons. A separator is retained when removing it changes parsing: for example, `return; work()` must never become `return work()`. Before writing, the syntax-aware fixer compares the non-semicolon tokens, exact comments, statement/member counts, return expressions, break/continue labels and syntax-error counts. CRLF is preserved.
+
+**Verification:** 42 checker tests and the complete pipeline self-test pass, including the user's short examples, documentation/attributes, nested blocks, strings/comments, CRLF, control-flow separators and repeated formatting. Formatting changed 161 of the 293 checked Swift files. A one-off comparison of all 293 files against the current working-tree snapshot confirmed unchanged tokens, comments and statement/control-flow structure, preserving the pending Git functionality. Commit the mechanical source formatting separately from functional changes.
+
+The second formatting pass changed no source file. One expression that exceeded 120 characters after indentation was wrapped without changing its string literal. Final verification: 974 package tests pass; App builds; lint has zero violations and four pre-existing force-cast/force-try warnings. Of the 39 App tests, 38 pass and the existing foreground-window probe fails with `active=false` in the background run; its assertion was retained.

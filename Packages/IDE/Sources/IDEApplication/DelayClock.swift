@@ -4,6 +4,7 @@ import Foundation
 public protocol DelayClock: Sendable {
     /// Time since an arbitrary start; only differences mean anything.
     var now: Duration { get }
+
     func sleep(for duration: Duration) async throws
 }
 

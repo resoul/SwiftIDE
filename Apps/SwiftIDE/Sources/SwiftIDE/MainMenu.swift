@@ -66,6 +66,11 @@ enum MainMenu {
         ]))
 
         main.addItem(submenuItem(title: "Git", items: [
+            NSMenuItem(
+                title: "Branch Tracking…",
+                action: #selector(ProjectWorkspaceController.trackingGit(_:)),
+                keyEquivalent: ""
+            ),
             NSMenuItem(title: "Merge…", action: #selector(ProjectWorkspaceController.mergeGit(_:)), keyEquivalent: ""),
             NSMenuItem(
                 title: "Rebase…",

@@ -17,6 +17,7 @@ public final class ScriptedHighlighter: SyntaxHighlighter, @unchecked Sendable {
     public init() {}
 
     public var calls: [Call] { lock.withLock { recorded } }
+
     public func clearCalls() { lock.withLock { recorded.removeAll() } }
 
     public func answer(_ result: HighlightResult) {

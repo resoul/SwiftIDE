@@ -19,9 +19,12 @@ final class GitPullWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Pull Branch"; window.isReleasedWhenClosed = false; window.tabbingMode = .disallowed
+        window.title = "Pull Branch"
+        window.isReleasedWhenClosed = false
+        window.tabbingMode = .disallowed
         window.contentViewController = content
-        super.init(window: window); window.delegate = self
+        super.init(window: window)
+        window.delegate = self
         content.close = { [weak self] in self?.dismiss() }
         subscription = workspace.subscribe { [weak self] in self?.updatePresentation() }
     }
@@ -40,31 +43,51 @@ final class GitPullWindowController: NSWindowController, NSWindowDelegate {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in self?.updatePresentation() }
         }
-        content.select(remote: remote, source: source); parent.beginSheet(window)
+        content.select(remote: remote, source: source)
+        parent.beginSheet(window)
     }
+
     private func updatePresentation() {
         guard let window, let parent else { return }
 
         if content.model.workspace.operationState == .preparing {
             if window.sheetParent === parent {
-                temporarilyHidden = true; parent.endSheet(window); window.orderOut(nil)
+                temporarilyHidden = true
+                parent.endSheet(window)
+                window.orderOut(nil)
             }
         } else if temporarilyHidden, parent.isVisible, parent.attachedSheet == nil {
-            temporarilyHidden = false; parent.beginSheet(window)
+            temporarilyHidden = false
+            parent.beginSheet(window)
         }
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if content.model.workspace.operationState.isBusy { content.model.workspace.cancelOperation(); return false }
-        dismiss(); return false
+        if content.model.workspace.operationState.isBusy {
+            content.model.workspace.cancelOperation()
+
+            return false
+        }
+
+        dismiss()
+
+        return false
     }
+
     func dismiss() {
-        if let subscription { content.model.workspace.unsubscribe(subscription) }; subscription = nil
+        if let subscription { content.model.workspace.unsubscribe(subscription) }
+        subscription = nil
         if let sheetNotification { NotificationCenter.default.removeObserver(sheetNotification) }
         sheetNotification = nil
-        parent = nil; temporarilyHidden = false
-        content.model.stop(); content.disconnect()
-        if let window { window.sheetParent?.endSheet(window); window.orderOut(nil) }
+        parent = nil
+        temporarilyHidden = false
+        content.model.stop()
+        content.disconnect()
+        if let window {
+            window.sheetParent?.endSheet(window)
+            window.orderOut(nil)
+        }
+
         onClosed?()
     }
 }

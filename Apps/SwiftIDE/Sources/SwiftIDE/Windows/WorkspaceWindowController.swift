@@ -55,6 +55,7 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
     }
 
     func showDocument() { editorController.showDocument() }
+
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard session.isDirty, let unsavedChanges else { return true }
 
@@ -65,23 +66,39 @@ final class WorkspaceWindowController: NSWindowController, NSWindowDelegate, NSM
 
         return false
     }
+
     func windowWillClose(_ notification: Notification) { editorController.close() }
+
     func validateMenuItem(_ item: NSMenuItem) -> Bool { editorController.validateMenuItem(item) }
+
     func save() async -> Bool { await editorController.save() }
+
     func saveAs(to url: URL, target: SaveAsTarget) async -> Bool {
         await editorController.saveAs(to: url, target: target)
     }
+
     func promptForUnsavedChanges() async -> UnsavedChangesDecision { await editorController.promptForUnsavedChanges() }
+
     func openForReading() { editorController.openForReading() }
+
     func reveal(line: Int, character: Int) { editorController.reveal(line: line, character: character) }
+
     static func describe(_ error: Error) -> String { DocumentEditorController.describe(error) }
+
     @objc func saveDocument(_ sender: Any?) { editorController.saveDocument(sender) }
+
     @objc func saveDocumentAs(_ sender: Any?) { editorController.saveDocumentAs(sender) }
+
     @objc func selectLanguage(_ sender: NSMenuItem) { editorController.selectLanguage(sender) }
+
     @objc func showQuickHelp(_ sender: Any?) { editorController.showQuickHelp(sender) }
+
     @objc func jumpToDefinition(_ sender: Any?) { editorController.jumpToDefinition(sender) }
+
     @objc func allowProjectConfiguration(_ sender: Any?) { editorController.allowProjectConfiguration(sender) }
+
     @objc func disallowProjectConfiguration(_ sender: Any?) { editorController.disallowProjectConfiguration(sender) }
+
     @objc func askAboutProjectConfigurationAgain(_ sender: Any?) {
         editorController.askAboutProjectConfigurationAgain(sender)
     }
