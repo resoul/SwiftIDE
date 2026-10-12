@@ -16,6 +16,8 @@ public struct WorkspacePanel {
 @MainActor
 public final class WorkspaceShellViewController: NSViewController {
     public let state: WorkspaceLayoutState
+    public let notifications: WorkspaceNotifications
+    private(set) var notificationOverlay: WorkspaceNotificationOverlay?
     let horizontal = NSSplitViewController()
     let vertical = NSSplitViewController()
     private let left = ShellPanel()
@@ -51,9 +53,11 @@ public final class WorkspaceShellViewController: NSViewController {
         editorFocus: NSView? = nil,
         panels: [WorkspaceTool: WorkspacePanel],
         project: String,
-        path: String
+        path: String,
+        notifications: WorkspaceNotifications = WorkspaceNotifications()
     ) {
         self.state = state
+        self.notifications = notifications
         self.editor = editor
         self.editorFocus = editorFocus
         self.panels = panels
@@ -83,7 +87,12 @@ public final class WorkspaceShellViewController: NSViewController {
         leftItem.canCollapse = true
         leftItem.minimumThickness = 200
         leftItem.maximumThickness = 440
-        let centre = NSSplitViewItem(viewController: controller(surface(editor, role: .editor)))
+        let editorSurface = surface(editor, role: .editor)
+        let overlay = WorkspaceNotificationOverlay(notifications: notifications)
+        overlay.restoreFocus = { [weak self] in self?.focusEditor() }
+        pin(overlay, to: editorSurface)
+        notificationOverlay = overlay
+        let centre = NSSplitViewItem(viewController: controller(editorSurface))
         centre.minimumThickness = 360
         rightItem = NSSplitViewItem(viewController: controller(surface(right)))
         rightItem.canCollapse = true
@@ -132,6 +141,7 @@ public final class WorkspaceShellViewController: NSViewController {
     }
 
     public func disconnect() {
+        notificationOverlay?.disconnect()
         if let subscription { state.unsubscribe(subscription) }
         subscription = nil
         (horizontal.splitView as? WorkspaceSplitView)?.onDividerDrag = nil

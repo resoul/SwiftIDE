@@ -4,6 +4,12 @@
 
 The reference is the provided PhpStorm screenshots: a single window, compact tool strips at the edges, a central editor and flexible auxiliary panels. For SwiftIDE we use this organization of space with the familiar behaviour of a native macOS application.
 
+## Notification cards (TK-035 / ADR-047)
+
+Implemented: reusable cards stack at the lower right inside the central content, above its lower edge, following the editor when auxiliary panels resize or hide. A semantic Tabler icon, bold title, optional wrapping body, explicit link-style actions and dismiss control follow the supplied notification reference. Cards overlay content without moving text; clicks outside the stack go through to the editor, and posting does not change focus. The default five-card collection is temporary and project-scoped; repeated IDs replace a card, overflow scrolls, and no automatic timeout is applied in this slice.
+
+App connects actual Git operation results and a Show details action to that project's Source Control. Preview supplies labelled examples. Application update checking, installation and Sparkle remain deferred. Light/dark rendering, bounds/focus and cross-project routing have automated coverage; live R87–R91 remain pending.
+
 ## Window structure
 
 ```text
