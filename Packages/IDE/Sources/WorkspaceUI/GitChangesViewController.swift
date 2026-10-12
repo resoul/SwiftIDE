@@ -6,6 +6,8 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
     public let model: GitWorkspace
     public var resolveConflict: ((GitChange) -> Void)?
     public var confirmAction: ((GitAction) -> Void)?
+    public var showStashes: (() -> Void)?
+    let stash = NSButton(title: "Stashes…", target: nil, action: nil)
     let resolve = NSButton(title: "Resolve conflict…", target: nil, action: nil)
     let proceed = NSButton(title: "Continue", target: nil, action: nil)
     let abort = NSButton(title: "Abort…", target: nil, action: nil)
@@ -37,7 +39,9 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
     public override func loadView() {
         view = NSView()
         let refresh = NSButton(title: "Refresh", target: self, action: #selector(refreshGit(_:)))
-        let header = gitStack([NSTextField(labelWithString: "Changes"), NSView(), refresh], vertical: false)
+        stash.target = self
+        stash.action = #selector(showStashList(_:))
+        let header = gitStack([NSTextField(labelWithString: "Changes"), NSView(), stash, refresh], vertical: false)
         resolve.target = self
         resolve.action = #selector(resolveSelected(_:))
         proceed.target = self
@@ -125,6 +129,8 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
 
     @objc private func refreshGit(_ sender: Any?) { model.refresh() }
 
+    @objc private func showStashList(_ sender: Any?) { if stash.isEnabled { showStashes?() } }
+
     @objc func resolveSelected(_ sender: Any?) {
         guard resolve.isEnabled, let key = list.selectedKey, case .worktree(let change) = comparisons[key] else {
             return
@@ -192,6 +198,8 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
     }
 
     private func updateActions() {
+        stash.isHidden = model.stashReader == nil
+        stash.isEnabled = model.state == .ready && !model.operationState.isBusy
         let operation = model.snapshot?.integration
         integrationStatus.stringValue = operation
             .map {

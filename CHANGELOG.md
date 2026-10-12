@@ -14,6 +14,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-037: project-owned Stashes browser/review, central saved-content diff and explicit Create/Apply/Pop/Drop. Separate untracked/ignored and index-restoration choices, editor reconciliation, immutable OID application, stale reflog/checkout checks and conflict/cancellation handling (ADR-051); live R100–R107 pending.
+
 - TK-023 function spacing and instruction separation: blank lines around functions with attached comments/attributes; short `;`-joined instructions and compact multi-instruction bodies expand onto separate lines. Auto-fix verifies statement grouping/control flow as well as tokens/comments; unnecessary semicolons are removed and existing sources are formatted (docs/14).
 
 - TK-036: reviewed tracking-branch creation at a fetched commit and set/change/remove upstream; native upstream remote/source suggestions for Push/Pull, config/ref/worktree revalidation, explicit partial-result handling and project-owned sheet (ADR-050). Live R94–R98 pending.

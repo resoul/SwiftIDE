@@ -10,8 +10,8 @@ prepare
 
 failed=0
 echo "== SwiftFormat $("$LINT/.tools/swiftformat" --version): formatting"
-"$LINT/.tools/swiftformat" --lint . 2>&1 | grep -vE "^(Running SwiftFormat|SwiftFormat completed|\(lint mode)" || true
-"$LINT/.tools/swiftformat" --lint . >/dev/null 2>&1 || failed=1
+"$LINT/.tools/swiftformat" --lint "${SOURCES[@]}" --config "$ROOT/.swiftformat" 2>&1 | grep -vE "^(Running SwiftFormat|SwiftFormat completed|\(lint mode)" || true
+"$LINT/.tools/swiftformat" --lint "${SOURCES[@]}" --config "$ROOT/.swiftformat" >/dev/null 2>&1 || failed=1
 
 echo "== SwiftLint $("$LINT/.tools/swiftlint" --version)"
 "$LINT/.tools/swiftlint" lint --quiet --config .swiftlint.yml || failed=1

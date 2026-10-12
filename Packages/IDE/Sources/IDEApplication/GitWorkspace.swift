@@ -40,6 +40,7 @@ public final class GitWorkspace {
     public var checkoutFinished: ((GitRepository) -> Void)?
     public var conflictReader: (any GitConflictReading)? { service as? any GitConflictReading }
     public var trackingPlanner: (any GitTrackingPlanning)? { service as? any GitTrackingPlanning }
+    public var stashReader: (any GitStashReading)? { service as? any GitStashReading }
     public var pullPlanner: (any GitPullPlanning)? { service as? any GitPullPlanning }
     public var pushPlanner: (any GitPushPlanning)? { service as? any GitPushPlanning }
     public var supportsLocalActions: Bool { mutations != nil }

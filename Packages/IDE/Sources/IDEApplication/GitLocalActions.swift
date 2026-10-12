@@ -1,6 +1,7 @@
 import Foundation
 
 public enum GitAction: Equatable, Sendable {
+    case stash(GitStashPlan)
     case tracking(GitTrackingPlan)
     case integrate(GitIntegrationPlan)
     case continueIntegration(GitIntegrationStatus, String)
@@ -14,6 +15,7 @@ public enum GitAction: Equatable, Sendable {
 
     public var title: String {
         switch self {
+        case .stash(let plan): plan.request.title
         case .tracking(let plan): plan.title
         case .integrate(let plan): plan.title
         case .continueIntegration(let status, _): "Continue " + status.kind.rawValue
@@ -35,6 +37,8 @@ public enum GitAction: Equatable, Sendable {
     }
     public var changesCheckout: Bool {
         switch self {
+        case .stash(let plan):
+            plan.request.changesCheckout
         case .switchBranch, .pull, .integrate, .continueIntegration, .abortIntegration, .skipRebase, .resolveConflict:
             true
         default:

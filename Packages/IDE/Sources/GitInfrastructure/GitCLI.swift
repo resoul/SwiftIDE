@@ -14,9 +14,10 @@ public struct GitCLI: GitInspecting {
         accepted: Set<Int32> = [0],
         timeout: TimeInterval = 15,
         output: (@Sendable (String) -> Void)? = nil,
-        network: Bool = false
+        network: Bool = false,
+        literalPaths: Bool = true
     ) async throws -> Data {
-        let literal = arguments.first == "check-ignore" ? [] : ["--literal-pathspecs"]
+        let literal = arguments.first == "check-ignore" || !literalPaths ? [] : ["--literal-pathspecs"]
         let invocation = ["--no-optional-locks"] + literal + [
             "-c",
             "core.fsmonitor=false",
@@ -233,6 +234,10 @@ public struct GitCLI: GitInspecting {
         let options = ["--no-ext-diff", "--no-textconv", "--no-color", "--find-renames", "--unified=3"]
         var arguments: [String], paths = [path], accepted: Set<Int32> = [0]
         switch comparison {
+        case .stash(let entry):
+            arguments = ["stash", "show", "--patch", "--include-untracked"] + options + [
+                try GitPorcelain.oid(entry.oid)
+            ]
         case .index(let change):
             if let previous = change.previousPath { paths.append(try GitPorcelain.path(previous)) }
             arguments = ["diff", "--cached"] + options + ["--"] + paths

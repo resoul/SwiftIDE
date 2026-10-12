@@ -34,6 +34,10 @@ extension GitCLI: GitMutating {
             var arguments: [String]
             var input: Data?
             switch action {
+            case .stash(let plan):
+                try await stash(plan, expected: current, output: output)
+
+                return
             case .tracking(let plan):
                 try await tracking(plan, expected: current, output: output)
 

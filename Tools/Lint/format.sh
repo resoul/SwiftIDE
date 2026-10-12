@@ -10,6 +10,6 @@ prepare
 # Order matters: expand multi-instruction/over-long bodies before SwiftFormat wraps the remaining
 # headers, splits semicolons and normalizes indentation/braces; then restore declaration spacing.
 "$SPACING" --fix "${SOURCES[@]}" "${SPACING_EXCLUDES[@]}"
-"$LINT/.tools/swiftformat" .
+"$LINT/.tools/swiftformat" "${SOURCES[@]}" --config "$ROOT/.swiftformat"
 "$SPACING" --fix "${SOURCES[@]}" "${SPACING_EXCLUDES[@]}"
 echo "format: done; run Tools/Lint/lint.sh to confirm"

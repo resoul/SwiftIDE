@@ -193,16 +193,19 @@ public struct GitCommitFile: Equatable, Sendable {
 }
 
 public enum GitComparison: Equatable, Sendable {
+    case stash(GitStashEntry)
     case index(GitChange), worktree(GitChange), untracked(GitChange)
     case commit(GitCommit, GitCommitFile)
     public var path: String {
         switch self {
+        case .stash(let entry): entry.selector
         case .index(let c), .worktree(let c), .untracked(let c): c.path
         case .commit(_, let f): f.path
         }
     }
     public var title: String {
         switch self {
+        case .stash(let entry): entry.selector + " @ " + String(entry.oid.prefix(12)) + " · " + entry.message
         case .index: "Index ↔ HEAD · " + path
         case .worktree(let change):
             (change.decoration.isConflict ? "Unmerged working tree · " : "Disk ↔ index · ") + path

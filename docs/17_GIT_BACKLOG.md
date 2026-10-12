@@ -1,8 +1,8 @@
 # Remaining Git work
 
-**Recorded:** 2026-10-12, after TK-033/TK-034; updated after TK-036. Git work resumed at the user's request after the UI/UX and Files stability slices. Tracking branches/upstream are implemented (ADR-050), with manual acceptance pending. The next recommended Git implementation is Stash; later entries remain a backlog, not an instruction to start them automatically.
+**Recorded:** 2026-10-12, after TK-033/TK-034; updated after TK-037. Tracking branches/upstream (ADR-050) and Stash (ADR-051) are implemented, with manual acceptance pending. The next recommended Git implementation is staging selected hunks/lines; later entries remain a backlog.
 
-Implemented baseline: status and file/tab decorations, worktree/index Changes, read-only diff, paginated history, branch inspection, whole-file Stage/Unstage, Commit, local branch creation/switching, Clone, Fetch, reviewed Push, fast-forward-only Pull, conflict resolution and reviewed local Merge/Rebase with Continue/Skip/Abort. Contracts: [workspace and Git](15_WORKSPACE_AND_GIT.md), [conflicts and integration](16_GIT_CONFLICTS_AND_INTEGRATION.md).
+Implemented baseline: status and file/tab decorations, worktree/index Changes, read-only diff, paginated history, branch inspection, whole-file Stage/Unstage, Commit, local branch creation/switching, Clone, Fetch, reviewed Push, fast-forward-only Pull, conflict resolution, reviewed local Merge/Rebase with Continue/Skip/Abort, tracking/upstream and explicit Stash workflows. Contracts: [workspace and Git](15_WORKSPACE_AND_GIT.md), [conflicts and integration](16_GIT_CONFLICTS_AND_INTEGRATION.md).
 
 ## Recommended implementation order
 
@@ -11,7 +11,7 @@ The order below is a recommendation for resuming Git work, not an approved sched
 | Priority | Feature | Scope and acceptance |
 |---|---|---|
 | Done; acceptance pending | Tracking branches and upstream (TK-036) | Create a local branch at a reviewed fetched OID without switching; set/change/remove upstream, inspect actual remote/source and suggest them in Push/Pull. Config/mapping/ref/worktree checks and partial failure are covered; live R94–R98 pending. Per-worktree/inherited branch configuration and ambiguous/unsupported mappings require external Git. |
-| 2 | Stash | List and inspect entries; explicitly create, apply, pop and drop. Choose whether to include untracked files; ignored files require a separate explicit choice. Reconcile open editors, handle conflicts and cancelled/partially completed operations, and preserve an entry if application fails. No automatic stash. |
+| Done; acceptance pending | Stash (TK-037) | Newest 200 entries, central read-only diff including saved extras; reviewed create/apply/pop/drop. Tracked-only default, separate explicit untracked/ignored choices and restore-index checkbox. Editor reconciliation, stale list/head checks, conflicts/partial cancellation and post-apply removal covered; live R100–R107 pending. No automatic stash. |
 | 3 | Stage/Unstage selected hunks or lines | Apply a patch to the intended index state without staging unrelated edits. Reject stale selections; cover independent staged/worktree changes, additions/deletions, encodings and line endings. Explain unsupported binary or oversized cases. |
 | 4 | Branch, remote and tag management | Review rename/delete branch, add/edit/remove remote and create/delete tag workflows. Explain unmerged branch history and worktree ownership; deleting a remote branch/tag is a separate explicit network action. Local configuration changes must not imply publication. |
 | 5 | History graph | Render branch/merge lanes over bounded, paginated history with ref labels and selection linked to commit details/diffs. Keep search and loading responsive on large repositories. |

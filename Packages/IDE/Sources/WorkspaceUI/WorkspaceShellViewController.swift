@@ -30,6 +30,8 @@ public final class WorkspaceShellViewController: NSViewController {
     private var rightItem: NSSplitViewItem!
     private var bottomItem: NSSplitViewItem!
     private(set) var buttons: [WorkspaceTool: NSButton] = [:]
+    private let projectBadge: ProjectBadgeView
+    private let projectAccent: NSColor
     private let projectLabel = NSTextField(labelWithString: "")
     private let projectSwitcher = NSButton()
     private let projectAccessory = NSStackView()
@@ -66,6 +68,8 @@ public final class WorkspaceShellViewController: NSViewController {
         self.editor = editor
         self.editorFocus = editorFocus
         self.panels = panels
+        projectBadge = ProjectBadgeView(name: project)
+        projectAccent = ProjectIdentity.colour(for: project)
         super.init(nibName: nil, bundle: nil)
         projectLabel.stringValue = project
         projectLabel.toolTip = path
@@ -78,7 +82,7 @@ public final class WorkspaceShellViewController: NSViewController {
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     public override func loadView() {
-        view = WorkspaceBackgroundView(role: .chrome)
+        view = WorkspaceBackgroundView(role: .chrome, accent: projectAccent)
         view.frame = NSRect(x: 0, y: 0, width: 1280, height: 820)
         let horizontalSplit = WorkspaceSplitView()
         horizontalSplit.onDividerDrag = { [weak self] before in
@@ -203,7 +207,7 @@ public final class WorkspaceShellViewController: NSViewController {
 
         return padded(
             stack(
-                [projectLabel, projectSwitcher, projectAccessory, NSView(), detailLabel, focus, reset],
+                [projectBadge, projectLabel, projectSwitcher, projectAccessory, NSView(), detailLabel, focus, reset],
                 vertical: false,
                 spacing: 8
             ),
@@ -434,15 +438,26 @@ private func pin(_ view: NSView, to parent: NSView) {
 private final class WorkspaceBackgroundView: NSView {
     enum Role { case chrome, panel, editor }
     private let role: Role
+    /// A faint wash of the project's colour, fading out across the surface.
+    private let accent: NSColor?
+    private let tint: CAGradientLayer?
 
-    init(role: Role) {
+    init(role: Role, accent: NSColor? = nil) {
         self.role = role
+        self.accent = accent
+        tint = accent == nil ? nil : CAGradientLayer()
         super.init(frame: .zero)
         wantsLayer = true
         if role != .chrome {
             layer?.cornerRadius = 10
             layer?.masksToBounds = true
             layer?.borderWidth = 0.5
+        }
+
+        if let tint {
+            tint.startPoint = CGPoint(x: 0, y: 1)
+            tint.endPoint = CGPoint(x: 0.8, y: 0.2)
+            layer?.addSublayer(tint)
         }
     }
 
@@ -456,6 +471,14 @@ private final class WorkspaceBackgroundView: NSView {
         needsDisplay = true
     }
 
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        tint?.frame = bounds
+        CATransaction.commit()
+    }
+
     override func updateLayer() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
             let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
@@ -467,6 +490,12 @@ private final class WorkspaceBackgroundView: NSView {
             }
             layer?.backgroundColor = NSColor(white: white, alpha: 1).cgColor
             layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.45).cgColor
+            if let accent, let tint {
+                tint.colors = [
+                    accent.withAlphaComponent(dark ? 0.24 : 0.14).cgColor,
+                    accent.withAlphaComponent(0).cgColor
+                ]
+            }
         }
     }
 }

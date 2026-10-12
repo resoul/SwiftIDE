@@ -16,6 +16,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     private let gitLog: GitLogViewController?
     private(set) var integrationWindow: GitIntegrationWindowController?
     private(set) var trackingWindow: GitTrackingWindowController?
+    private(set) var stashWindow: GitStashWindowController?
     private var conflictTask: Task<Void, Never>?
     private var conflictID = UUID()
     private var confirmationTask: Task<Void, Never>?
@@ -113,6 +114,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
             gitChanges?.resolveConflict = { [weak self] in self?.showConflict($0) }
             gitChanges?.confirmAction = { [weak self] in self?.confirmGitAction($0) }
+            gitChanges?.showStashes = { [weak self] in self?.showStashes() }
             gitBranches?.onTrackingRequested = { [weak self] in self?.showTracking(branch: $0) }
             gitBranches?.onIntegrateRequested = { [weak self] kind, branch in
                 self?.showIntegration(kind, target: branch)
@@ -364,6 +366,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         pushWindow?.dismiss()
         pullWindow?.dismiss()
         trackingWindow?.dismiss()
+        stashWindow?.dismiss()
         git?.stop()
         gitChanges?.disconnect()
         gitLog?.disconnect()
@@ -585,6 +588,19 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
     @objc func trackingGit(_ sender: Any?) { showTracking() }
 
+    func showStashes() {
+        guard stashWindow == nil, let git, git.state == .ready, !git.operationState.isBusy,
+              git.stashReader != nil, let window, window.attachedSheet == nil else { return }
+
+        let controller = GitStashWindowController(workspace: git)
+        stashWindow = controller
+        controller.onClosed = { [weak self] in self?.stashWindow = nil }
+        shell.select(.sourceControl)
+        controller.present(on: window)
+    }
+
+    @objc func stashesGit(_ sender: Any?) { showStashes() }
+
     @objc func rebaseGit(_ sender: Any?) { showIntegration(.rebase) }
 
     @objc func continueGit(_ sender: Any?) {
@@ -640,6 +656,10 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func showAssistant(_ sender: Any?) {}
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(stashesGit(_:)) {
+            return git?.state == .ready && git?.operationState.isBusy == false && git?.stashReader != nil
+        }
+
         if item.action == #selector(mergeGit(_:)) || item.action == #selector(rebaseGit(_:)) {
             return git?.canMutate == true && git?.conflictReader != nil && git?.snapshot?.integration == nil && git?
                 .snapshot?.branch != nil && git?.snapshot?.head != nil

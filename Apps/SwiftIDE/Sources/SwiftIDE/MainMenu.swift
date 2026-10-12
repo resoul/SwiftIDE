@@ -67,6 +67,11 @@ enum MainMenu {
 
         main.addItem(submenuItem(title: "Git", items: [
             NSMenuItem(
+                title: "Stashes…",
+                action: #selector(ProjectWorkspaceController.stashesGit(_:)),
+                keyEquivalent: ""
+            ),
+            NSMenuItem(
                 title: "Branch Tracking…",
                 action: #selector(ProjectWorkspaceController.trackingGit(_:)),
                 keyEquivalent: ""
