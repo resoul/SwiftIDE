@@ -3,6 +3,7 @@ import IDEApplication
 import IDEDomain
 import WorkspaceUI
 import GitInfrastructure
+import ChatUI
 
 /// One real project window, one shell/tree and content-owned document tabs.
 @MainActor
@@ -12,6 +13,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     let tabs = DocumentTabs()
     let area = EditorAreaViewController()
     let git: GitWorkspace?
+    let agent: AgentSession
+    let chat: ChatPanelViewController
     private let gitChanges: GitChangesViewController?
     private let gitLog: GitLogViewController?
     private(set) var integrationWindow: GitIntegrationWindowController?
@@ -53,16 +56,23 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         files: ProjectFiles,
         layout: WorkspaceLayoutState = .init(),
         panels: [WorkspaceTool: WorkspacePanel] = [:],
-        git: GitWorkspace? = nil
+        git: GitWorkspace? = nil,
+        agent: AgentSession
     ) {
         self.files = files
         self.layout = layout
         self.git = git
+        self.agent = agent
+        chat = ChatPanelViewController(session: agent)
         gitChanges = git.map { GitChangesViewController(model: $0) }
         gitLog = git.map { GitLogViewController(model: $0) }
         gitBranches = git.map { GitBranchPickerViewController(model: $0) }
         gitDiff = git.map { GitDiffViewController(model: $0) }
         var providers = panels
+        if providers[.assistant] == nil {
+            providers[.assistant] = WorkspacePanel(view: chat.view, focusTarget: chat.focusTarget)
+        }
+
         if let gitChanges {
             providers[.sourceControl] = WorkspacePanel(view: gitChanges.view, focusTarget: gitChanges.focusTarget)
         }
@@ -85,6 +95,16 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         super.init(window: window)
         window.delegate = self
         browser.addChild(area)
+        browser.addChild(chat)
+        chat.captureSelection = { [weak self] in
+            guard let document = self?.activeDocument, let text = document.focusTarget as? NSTextView else {
+                throw AgentSelectionError("Open a document and select text in its editor.")
+            }
+
+            let range = text.selectedRange()
+
+            return try document.session.captureAgentSelection(in: .init(location: range.location, length: range.length))
+        }
         browser.files.openFile = { [weak self] in self?.openFile?($0) }
         area.tabs.onSelect = { [weak self] in self?.select($0) }
         area.tabs.onClose = { [weak self] id in
@@ -367,6 +387,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         pullWindow?.dismiss()
         trackingWindow?.dismiss()
         stashWindow?.dismiss()
+        agent.stop()
+        chat.disconnect()
         git?.stop()
         gitChanges?.disconnect()
         gitLog?.disconnect()
@@ -653,7 +675,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
     @objc func showTerminal(_ sender: Any?) {}
 
-    @objc func showAssistant(_ sender: Any?) {}
+    @objc func showAssistant(_ sender: Any?) { shell.select(.assistant) }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(stashesGit(_:)) {
@@ -706,7 +728,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         if item.action == #selector(refreshGit(_:)) { return git != nil && git?.operationState.isBusy == false }
         if item.action == #selector(showSourceControl(_:)) { return git != nil }
         if item.action == #selector(showGitLog(_:)) || item.action == #selector(refreshGit(_:)) { return git != nil }
-        if [#selector(showSearch(_:)), #selector(showTerminal(_:)), #selector(showAssistant(_:))]
+        if item.action == #selector(showAssistant(_:)) { return !closing }
+        if [#selector(showSearch(_:)), #selector(showTerminal(_:))]
             .contains(item.action) {
             return false
         }

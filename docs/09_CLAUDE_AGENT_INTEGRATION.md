@@ -1,6 +1,6 @@
 # Claude: chat and agent in the IDE
 
-Recorded on 9 October 2026. **Status: an integration plan, with no implementation.** The CLI/SDK were not installed as part of this task; connection, authorization and requests to the model were not performed. This feature does not change the current scope of the TextKit MVP.
+Recorded on 9 October 2026. **Updated 12 October: ChatUI, a typed in-memory AgentSession and a labelled offline DemoAgentProvider are implemented (TK-038 / ADR-052, [docs/18](18_AGENT_CHAT_UI.md)).** Real Claude integration remains a plan. The CLI/SDK were not installed; connection, authorization and requests to the model were not performed. Recheck the provider documentation and terms below before connecting a runtime.
 
 ## Purpose
 
@@ -86,18 +86,24 @@ The model's answer is non-deterministic: check the structure of events, the rest
 4. An SDK helper if tool callbacks and managed editing are needed.
 5. Document-aware tools, diff review and test execution.
 
-Planned files, still absent:
+Implemented locations for the first UI slice:
 
 ```text
-IDEApplication/Agents/CodingAgentProvider.swift
-IDEApplication/Agents/AgentSession.swift
-IDEDomain/Agents/AgentEvent.swift
-ChatUI/ChatViewModel.swift
-ChatUI/ChatPanel.swift
+IDEApplication/AgentSession.swift
+IDEApplication/AgentSelectionError.swift
+IDEDomain/AgentMessage.swift
+ChatUI/ChatPanelViewController.swift
+ChatUI/ChatMessageRow.swift
+ChatUI/ChatTextView.swift
+AgentInfrastructure/DemoAgentProvider.swift
+```
+
+Real integration files still absent:
+
+```text
 AgentInfrastructure/ClaudeCodeProcessAdapter.swift
 AgentInfrastructure/ClaudeAgentSDKAdapter.swift
 AgentInfrastructure/CredentialStore.swift
-IDETestSupport/FakeAgentProvider.swift
 Tools/ClaudeAgentHelper/
 ```
 

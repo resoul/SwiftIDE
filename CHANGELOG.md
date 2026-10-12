@@ -14,6 +14,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-038: reusable native ChatUI and project-owned in-memory AgentSession with a labelled offline demo in Assistant. Streaming typed blocks, exact code Copy, activity details, selected unsaved editor snapshots, separate composer Undo/IME handling, Stop and stable scroll/row identity (ADR-052). Real provider, full Markdown, persistence and file/tool actions remain separate work; live S1–S8 pending.
+
 - TK-037: project-owned Stashes browser/review, central saved-content diff and explicit Create/Apply/Pop/Drop. Separate untracked/ignored and index-restoration choices, editor reconciliation, immutable OID application, stale reflog/checkout checks and conflict/cancellation handling (ADR-051); live R100–R107 pending.
 
 - TK-023 function spacing and instruction separation: blank lines around functions with attached comments/attributes; short `;`-joined instructions and compact multi-instruction bodies expand onto separate lines. Auto-fix verifies statement grouping/control flow as well as tokens/comments; unnecessary semicolons are removed and existing sources are formatted (docs/14).
