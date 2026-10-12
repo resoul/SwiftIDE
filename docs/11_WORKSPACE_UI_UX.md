@@ -135,9 +135,9 @@ Tab order/selection remain in memory; existing root-scoped layout preferences an
 
 ### The first prototype
 
-A separate window **Window → Workspace Preview** was added; direct launch: `swift run --package-path Apps/SwiftIDE SwiftIDE --workspace-preview`. It has native dividers, switching and hiding of tools, Focus Editor, Reset Layout and layout persistence. The View → Preview: Light/Dark/System Appearance commands change the theme of this window only.
+The first prototype was a separate sample-data window (**Window → Workspace Preview**, `--workspace-preview`). It was removed on 2026-10-12 (ADR-048): real project windows host the same `WorkspaceShellViewController` with native dividers, switching and hiding of tools, Focus Editor, Reset Layout and per-project layout persistence. The light/dark choice moved to **SwiftIDE → Settings…** and applies to the whole application.
 
-The panels' content is demonstrational, and the centre holds an editor placeholder. The tree does not open files, the terminal does not execute commands, the chat does not send messages. Real documents are still opened in the old windows. The layout is saved as common to the prototype; binding to a specific workspace will appear when projects are connected. Three application tests check the switching of zones, the serialization of the layout and the return of sizes after Focus Editor.
+The text below records what was checked on the prototype.
 
 Checked in a live window: opening Assistant/Terminal, returning from Focus Editor, keeping a draft while hiding, and the change of light/dark theme. Resizing and its restoration were checked by a test on native split views; dragging the dividers with the mouse was not confirmed through automation. Full keyboard navigation, VoiceOver and operation in a small window remain for acceptance.
 

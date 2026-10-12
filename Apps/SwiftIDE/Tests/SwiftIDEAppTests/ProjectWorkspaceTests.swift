@@ -81,15 +81,15 @@ extension NativeAppTests {
             #expect(!project.layout.isFocused && project.layout.layout.left == .files)
             let sourceControl = NSMenuItem(
                 title: "Source Control",
-                action: #selector(ProjectWorkspaceController.showPreviewSourceControl(_:)),
+                action: #selector(ProjectWorkspaceController.showSourceControl(_:)),
                 keyEquivalent: ""
             )
             #expect(project.validateMenuItem(sourceControl))
-            project.showPreviewSourceControl(nil)
+            project.showSourceControl(nil)
             #expect(project.layout.layout.left == .sourceControl)
             try await waitFor { project.git?.state == .unavailable("This folder is not in a Git repository") }
             #expect(project.files.statusExplanation.contains("not in a Git repository"))
-            project.showPreviewFiles(nil)
+            project.showFiles(nil)
             let reset = NSMenuItem(
                 title: "Reset Layout",
                 action: #selector(ProjectWorkspaceController.resetWorkspaceLayout(_:)),

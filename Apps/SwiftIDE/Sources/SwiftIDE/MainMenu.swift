@@ -6,6 +6,8 @@ enum MainMenu {
     static func install() {
         let main = NSMenu()
         main.addItem(submenuItem(title: "SwiftIDE", items: [
+            NSMenuItem(title: "Settings…", action: #selector(AppDelegate.showSettings(_:)), keyEquivalent: ","),
+            .separator(),
             NSMenuItem(title: "Quit SwiftIDE", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         ]))
 
@@ -109,17 +111,17 @@ enum MainMenu {
         main.addItem(submenuItem(title: "View", items: [
             NSMenuItem(
                 title: "Files",
-                action: #selector(WorkspacePreviewWindowController.showPreviewFiles(_:)),
+                action: #selector(ProjectWorkspaceController.showFiles(_:)),
                 keyEquivalent: "1"
             ),
             NSMenuItem(
                 title: "Search",
-                action: #selector(WorkspacePreviewWindowController.showPreviewSearch(_:)),
+                action: #selector(ProjectWorkspaceController.showSearch(_:)),
                 keyEquivalent: "2"
             ),
             NSMenuItem(
                 title: "Source Control",
-                action: #selector(WorkspacePreviewWindowController.showPreviewSourceControl(_:)),
+                action: #selector(ProjectWorkspaceController.showSourceControl(_:)),
                 keyEquivalent: "3"
             ),
             NSMenuItem(
@@ -134,50 +136,29 @@ enum MainMenu {
             ),
             NSMenuItem(
                 title: "Terminal",
-                action: #selector(WorkspacePreviewWindowController.showPreviewTerminal(_:)),
+                action: #selector(ProjectWorkspaceController.showTerminal(_:)),
                 keyEquivalent: ""
             ),
             NSMenuItem(
                 title: "Assistant",
-                action: #selector(WorkspacePreviewWindowController.showPreviewAssistant(_:)),
+                action: #selector(ProjectWorkspaceController.showAssistant(_:)),
                 keyEquivalent: ""
             ),
             .separator(),
             NSMenuItem(
                 title: "Focus Editor",
-                action: #selector(WorkspacePreviewWindowController.toggleFocusEditor(_:)),
+                action: #selector(ProjectWorkspaceController.toggleFocusEditor(_:)),
                 keyEquivalent: ""
             ),
             fullScreenItem(),
             NSMenuItem(
                 title: "Reset Layout",
-                action: #selector(WorkspacePreviewWindowController.resetWorkspaceLayout(_:)),
-                keyEquivalent: ""
-            ),
-            .separator(),
-            NSMenuItem(
-                title: "Preview: Light",
-                action: #selector(WorkspacePreviewWindowController.previewLightAppearance(_:)),
-                keyEquivalent: ""
-            ),
-            NSMenuItem(
-                title: "Preview: Dark",
-                action: #selector(WorkspacePreviewWindowController.previewDarkAppearance(_:)),
-                keyEquivalent: ""
-            ),
-            NSMenuItem(
-                title: "Preview: System Appearance",
-                action: #selector(WorkspacePreviewWindowController.previewSystemAppearance(_:)),
+                action: #selector(ProjectWorkspaceController.resetWorkspaceLayout(_:)),
                 keyEquivalent: ""
             )
         ]))
         main.addItem(submenuItem(title: "Window", items: [
-            NSMenuItem(title: "Welcome", action: #selector(AppDelegate.showWelcome(_:)), keyEquivalent: ""),
-            NSMenuItem(
-                title: "Workspace Preview",
-                action: #selector(AppDelegate.showWorkspacePreview(_:)),
-                keyEquivalent: ""
-            )
+            NSMenuItem(title: "Welcome", action: #selector(AppDelegate.showWelcome(_:)), keyEquivalent: "")
         ]))
         NSApp.mainMenu = main
     }

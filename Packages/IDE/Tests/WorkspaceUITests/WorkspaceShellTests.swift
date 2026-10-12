@@ -6,6 +6,33 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct WorkspaceShellTests {
+    @Test func toolsToggleIndependentlyByZone() {
+        var layout = WorkspaceLayout()
+        layout.toggle(.assistant)
+        layout.toggle(.terminal)
+        layout.toggle(.search)
+        #expect(layout.left == .search)
+        #expect(layout.right == .assistant)
+        #expect(layout.bottom == .terminal)
+        layout.toggle(.search)
+        #expect(layout.left == nil)
+        #expect(layout.right == .assistant)
+        layout.toggle(.build)
+        #expect(layout.bottom == .build)
+    }
+
+    @Test func savedLayoutKeepsDimensionsAndHiddenPanels() throws {
+        var layout = WorkspaceLayout()
+        layout.left = nil
+        layout.right = .inspector
+        layout.bottom = .problems
+        layout.leftWidth = 310
+        layout.rightWidth = 280
+        layout.bottomHeight = 170
+        let decoded = try JSONDecoder().decode(WorkspaceLayout.self, from: JSONEncoder().encode(layout))
+        #expect(decoded == layout)
+    }
+
     @Test func realFilesProviderRendersInBothAppearances() async throws {
         _ = NSApplication.shared
         let model = ProjectFiles(root: "/preview/SwiftIDE", reader: ShellDirectoryReader())

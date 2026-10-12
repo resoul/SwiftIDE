@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let recoveryPrompt: ((RecoveryCandidate) -> Bool)?
     private(set) var cloneWindow: GitCloneWindowController?
     private(set) var welcome: WelcomeWindowController?
+    private(set) var settingsWindow: SettingsWindowController?
 
     init(
         composition: AppCompositionRoot = AppCompositionRoot(),
@@ -31,7 +32,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         super.init()
     }
 
-    private var workspacePreview: WorkspacePreviewWindowController?
     /// Where the user jumped from, for Go Back.
     private var history = NavigationHistory()
     private lazy var unsavedChanges = UnsavedChangesCoordinator(
@@ -44,16 +44,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        composition.appearance.applyStored()
         MainMenu.install()
         NSWindow.allowsAutomaticWindowTabbing = false
         NSApp.activate()
-        if CommandLine.arguments.contains("--workspace-preview")
-            || Bundle.main.bundleIdentifier == "org.swiftide.workspace-preview" {
-            showWorkspacePreview(nil)
-
-            return
-        }
-
         Task { await start() }
     }
 
@@ -159,10 +153,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         show(composition.makeUntitledDocument(), in: activeProject)
     }
 
-    @objc func showWorkspacePreview(_ sender: Any?) {
-        if workspacePreview == nil { workspacePreview = WorkspacePreviewWindowController() }
-        workspacePreview?.showWindow(nil)
-        workspacePreview?.window?.makeKeyAndOrderFront(nil)
+    @objc func showSettings(_ sender: Any?) {
+        if settingsWindow == nil { settingsWindow = SettingsWindowController(settings: composition.appearance) }
+        settingsWindow?.showWindow(nil)
+        settingsWindow?.window?.makeKeyAndOrderFront(nil)
     }
 
     @objc func openDocument(_ sender: Any?) {

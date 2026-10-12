@@ -33,14 +33,17 @@ final class AppCompositionRoot {
     private let filesSettings = ProjectFilesSettings()
     private let layoutSettings: WorkspaceLayoutSettings
     let recentProjects: RecentProjects
+    let appearance: AppearanceSettings
     let folderChecker: any ProjectFolderChecking
 
     init(
         recoveryStore: (any RecoveryStore)? = nil,
         layoutDefaults: UserDefaults = .standard,
         recentStore: (any RecentProjectsStore)? = nil,
-        folderChecker: any ProjectFolderChecking = ProjectFolderChecker()
+        folderChecker: any ProjectFolderChecking = ProjectFolderChecker(),
+        appearance: AppearanceSettings = AppearanceSettings()
     ) {
+        self.appearance = appearance
         self.recoveryStore = recoveryStore ?? RecoveryJournal(directory: Self.recoveryDirectory)
         layoutSettings = WorkspaceLayoutSettings(defaults: layoutDefaults)
         self.folderChecker = folderChecker

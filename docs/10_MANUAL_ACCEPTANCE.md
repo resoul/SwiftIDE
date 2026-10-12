@@ -406,7 +406,7 @@ TK-025/026/027/028/030/031/032 and TK-029 Clone/Fetch/Push/fast-forward Pull and
 
 | Check | Action | Expected |
 |---|---|---|
-| R21 | Open Folder, open two files, then open Window ▸ Workspace Preview; compare light/dark appearance | Both use the same bars, rails and surfaces; real project shows real Files/editor/status, Preview labels samples; unavailable real tools and View commands are disabled |
+| R21 | Open Folder, open two files, then switch Theme between Light, Dark and System in SwiftIDE ▸ Settings… | Bars, rails and surfaces follow the theme in every open window; real project shows real Files/editor/status; unavailable real tools and View commands are disabled |
 | R22 | Drag Files divider, switch tabs, toggle Focus Editor twice, Reset Layout; shrink to 900 × 560 and expand again | Project tabs share visibility/preferred sizes; focus restores the layout; text/Undo/caret/scroll remain; no clipped controls; small-screen compression does not overwrite preferred dimensions; actual user dragging saves its dimension |
 | R23 | Hide Files or resize it, close/reopen project and relaunch; open a different root; close while Focus Editor is active | Normal layout restores by canonical root; another root/Preview is independent; temporary Focus Editor does not persist all panels hidden; last closed tab returns to the same shell/browser |
 | R24 | Type with IME while server prepares/restarts or diagnostics change; inspect full status tooltip; use keyboard to toggle Files/focus/reset | Background presentation does not steal input/focus or alter text; existing marked-text behaviour remains; target/readiness/status are real; no fabricated branch/scheme/destination; keyboard and VoiceOver labels are usable |
@@ -451,7 +451,7 @@ Automated component and real-editor tests do not replace these live checks.
 
 | # | Action | Expected |
 |---|---|---|
-| R38 | Open Welcome, a project with folders and symbolic links, several file tabs, and Workspace Preview; switch light/dark mode and inspect at different display scales | Consistent Tabler outlines, legible folder/link/Swift/file symbols, correctly tinted active controls; disabled tools visibly disabled; no white squares or missing icons; file statuses remain independent |
+| R38 | Open Welcome, a project with folders and symbolic links, several file tabs; switch light/dark mode in Settings and inspect at different display scales | Consistent Tabler outlines, legible folder/link/Swift/file symbols, correctly tinted active controls; disabled tools visibly disabled; no white squares or missing icons; file statuses remain independent |
 | R39 | Use keyboard navigation and VoiceOver on project switching, tool buttons and tab close; hide/show arbitrary panels | Existing action names and focus behavior remain intact; custom SF Symbol tools and tabler:brand-docker remain valid; no panel-specific backend logic in IconUI |
 
 
@@ -551,12 +551,18 @@ Use disposable repositories, including a linked worktree; R75–R86 are pending.
 
 ### Workspace notification cards (TK-035 / ADR-047)
 
-R87–R91 are pending. Use Workspace Preview for sample cards and disposable repositories for real operation results.
+R87–R91 are pending. Use disposable repositories for the real operation results.
 
 | № | Do | Expected |
 |---|---|---|
-| R87 | Open Workspace Preview in light/dark, inspect both sample cards, resize and hide/show panels | Compact lower-right stack inside central content; title/body/actions and distinct Tabler icons readable; no text/panel shift or fake real-operation claims |
+| R87 | Finish a Git action in a disposable repository in light/dark, inspect the card, resize and hide/show panels | Compact lower-right stack inside central content; title/body/actions and distinct Tabler icons readable; no text/panel shift or fake real-operation claims |
 | R88 | Type with a real IME, move caret/select/scroll outside cards while a Git action finishes | Posting does not activate another window or interrupt typing/composition; clicks and scroll outside the stack reach the editor; existing text/Undo/caret remain intact |
 | R89 | Complete/fail/cancel a Git action in project A with project B open; select Show details, dismiss, Refresh | Only A receives its result; action opens A's Source Control without rerunning Git; dismissed results do not reappear on status refresh; cancellation does not promise rollback |
 | R90 | Navigate cards/actions/close controls with keyboard and VoiceOver, replace/dismiss a focused card | Kind/title/body/actions accessible; no global Escape/Return shortcut interception; retaining controls preserves focus, removing a focused control returns to the editor when available |
-| R91 | Post multiple/long cards with an injected preview provider, open both side and bottom panels at minimum size, then Focus Editor | Five-card default cap evicts oldest; stack height bounded and scrollable; new long card reveals heading/close; cards remain within central content, panels stay usable; close/reopen project retains no old notifications |
+| R91 | Finish several Git actions with long messages in a row (or run the notification tests), open both side and bottom panels at minimum size, then Focus Editor | Five-card default cap evicts oldest; stack height bounded and scrollable; new long card reveals heading/close; cards remain within central content, panels stay usable; close/reopen project retains no old notifications |
+
+### Settings and appearance (ADR-048)
+
+| № | Do | Expected |
+|---|---|---|
+| R92 | Press ⌘, (or SwiftIDE ▸ Settings…); choose Light, Dark, then System; quit and relaunch | One Settings window; Theme is applied at once to Welcome, project and document windows; the choice is restored at launch; System follows macOS, also when macOS switches appearance while the app runs; the segmented control is keyboard- and VoiceOver-accessible |

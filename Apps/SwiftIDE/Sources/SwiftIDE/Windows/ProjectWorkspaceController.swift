@@ -357,11 +357,11 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func askAboutProjectConfigurationAgain(_ sender: Any?) {
         activeDocument?.askAboutProjectConfigurationAgain(sender)
     }
-    @objc func showPreviewFiles(_ sender: Any?) { shell.select(.files) }
+    @objc func showFiles(_ sender: Any?) { shell.select(.files) }
     @objc func toggleFocusEditor(_ sender: Any?) { shell.toggleFocusEditor(sender) }
     @objc func resetWorkspaceLayout(_ sender: Any?) { shell.resetWorkspaceLayout(sender) }
-    @objc func showPreviewSearch(_ sender: Any?) {}
-    @objc func showPreviewSourceControl(_ sender: Any?) { if git != nil { shell.select(.sourceControl) } }
+    @objc func showSearch(_ sender: Any?) {}
+    @objc func showSourceControl(_ sender: Any?) { if git != nil { shell.select(.sourceControl) } }
     @objc func showGitLog(_ sender: Any?) { if git != nil { shell.select(.gitLog) } }
     @objc func refreshGit(_ sender: Any?) { git?.refresh() }
     func showConflict(_ change: GitChange) {
@@ -523,8 +523,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func fetchGit(_ sender: Any?) { gitBranches?.showRemoteSelection() }
     @objc func commitGit(_ sender: Any?) { shell.select(.sourceControl); gitChanges?.focusCommitMessage() }
     @objc func cancelGit(_ sender: Any?) { git?.cancelOperation() }
-    @objc func showPreviewTerminal(_ sender: Any?) {}
-    @objc func showPreviewAssistant(_ sender: Any?) {}
+    @objc func showTerminal(_ sender: Any?) {}
+    @objc func showAssistant(_ sender: Any?) {}
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(mergeGit(_:)) || item.action == #selector(rebaseGit(_:)) {
             return git?.canMutate == true && git?.conflictReader != nil && git?.snapshot?.integration == nil && git?
@@ -566,15 +566,15 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         if item.action == #selector(commitGit(_:)) { return git?.canMutate == true }
         if item.action == #selector(cancelGit(_:)) { return git?.operationState.isBusy == true }
         if item.action == #selector(refreshGit(_:)) { return git != nil && git?.operationState.isBusy == false }
-        if item.action == #selector(showPreviewSourceControl(_:)) { return git != nil }
+        if item.action == #selector(showSourceControl(_:)) { return git != nil }
         if item.action == #selector(showGitLog(_:)) || item.action == #selector(refreshGit(_:)) { return git != nil }
-        if [#selector(showPreviewSearch(_:)), #selector(showPreviewTerminal(_:)), #selector(showPreviewAssistant(_:))]
+        if [#selector(showSearch(_:)), #selector(showTerminal(_:)), #selector(showAssistant(_:))]
             .contains(item.action) {
             return false
         }
 
         if [
-            #selector(showPreviewFiles(_:)),
+            #selector(showFiles(_:)),
             #selector(toggleFocusEditor(_:)),
             #selector(resetWorkspaceLayout(_:)),
             #selector(closeDocument(_:))

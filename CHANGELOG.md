@@ -14,6 +14,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- Settings window (SwiftIDE ▸ Settings…, ⌘,) with Appearance › Theme: System, Light or Dark for the whole application, stored in UserDefaults and applied at launch (ADR-048).
+
 - TK-023 line length: the longest line is 120 characters (`--max-width 120` in `.swiftformat`, `line_length` in `.swiftlint.yml`). Multi-line calls and collections use the declaration layout (first argument on its own line, `)` on its own line) and ternaries break before `?`/`:`. `spacing-check` gets `long_line_body` and `long_line_statements`, which put the body of a one-line block and `;`-joined statements on lines of their own when the line is too long, so a header is not wrapped with its body left behind it; `format.sh` runs it before and after SwiftFormat. The code was reformatted accordingly (docs/14).
 
 - TK-035: reusable project notification cards in the central workspace overlay, explicit actions/dismiss, bounded scrolling stack and Tabler severity icons; App posts local/network Git results without stealing editor focus. Preview samples and pending live acceptance are recorded in ADR-047; application updates remain deferred.
@@ -85,6 +87,10 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 - Save As (⇧⌘S) and a nameable scratch window: ⌘S on the untitled window asks for a name, the document then becomes that file (registered, with its disk revision); the name must be free or explicitly replaced, a file open in another window is refused, and the close prompt can save an untitled document. See ADR-013.
 - `UnsavedChangesCoordinator`: one procedure for closing a window and for quitting, so ⌘Q no longer skips the save prompt, and a window stays open when text was typed while its save was running.
 - Architecture documents, a development roadmap, quality criteria, and plans for language/agent integrations.
+
+### Removed
+
+- The Workspace Preview window, `--workspace-preview`, Window ▸ Workspace Preview and View ▸ Preview: Light/Dark/System Appearance. Real project windows host the same WorkspaceUI shell; the View commands now target `ProjectWorkspaceController` (`showFiles` etc., formerly `showPreview…`). Its two layout unit tests moved to `WorkspaceShellTests` (ADR-048).
 
 ### Fixed
 
