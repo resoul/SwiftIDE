@@ -12,6 +12,7 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
     let proceed = NSButton(title: "Continue", target: nil, action: nil)
     let abort = NSButton(title: "Abort…", target: nil, action: nil)
     let skip = NSButton(title: "Skip commit…", target: nil, action: nil)
+    public let keepEmpty = NSButton(title: "Keep empty commit…", target: nil, action: nil)
     private let integrationStatus = NSTextField(wrappingLabelWithString: "")
     public var openFile: ((String) -> Void)?
     public var focusTarget: NSView { list.table }
@@ -50,6 +51,8 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         abort.action = #selector(abortGit(_:))
         skip.target = self
         skip.action = #selector(skipGit(_:))
+        keepEmpty.target = self
+        keepEmpty.action = #selector(keepEmptyGit(_:))
         stage.target = self
         stage.action = #selector(stageSelected(_:))
         unstage.target = self
@@ -98,7 +101,7 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
             gitStack([
                 header,
                 integrationStatus,
-                gitStack([proceed, abort, skip], vertical: false),
+                gitStack([proceed, abort, skip, keepEmpty], vertical: false),
                 list,
                 resolve,
                 actions,
@@ -164,6 +167,12 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         if skip.isEnabled, let operation = model.snapshot?.integration { confirmAction?(.skipRebase(operation)) }
     }
 
+    @objc public func keepEmptyGit(_ sender: Any?) {
+        if keepEmpty.isEnabled, let operation = model.snapshot?.integration {
+            confirmAction?(.keepEmptyRebase(operation))
+        }
+    }
+
     @objc func stageSelected(_ sender: Any?) {
         guard let key = list.selectedKey, let comparison = comparisons[key], stage.isEnabled else { return }
 
@@ -210,16 +219,24 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         for button in [proceed, abort, skip] { button.isHidden = operation == nil }
         proceed.isEnabled = model.canMutate && operation != nil && operation?.kind != .other && model.snapshot?.changes
             .contains(where: { $0.decoration.isConflict }) == false
-        if operation?.kind == .rebase, operation?.stoppedCommit != nil,
+        let emptyReplay = operation?.kind == .rebase && operation?.stoppedCommit != nil && operation?
+            .isEditingCommit == false
+            && operation?.keptEmptyHead != model.snapshot?.head
+            && (operation?.emptyAttemptParent == nil || operation?.emptyAttemptParent == model.snapshot?.head)
+        keepEmpty.isHidden = !emptyReplay
+        keepEmpty.isEnabled = model.canMutate && emptyReplay && model.snapshot?.changes.contains(where: {
+            !$0.decoration.index.isEmpty || !$0.decoration.worktree.isEmpty || $0.decoration.isConflict
+        }) == false
+        if emptyReplay,
            model.snapshot?.changes
            .contains(where: { !$0.decoration.index.isEmpty && !$0.decoration.isConflict }) == false {
             proceed.isEnabled = false
-            integrationStatus.stringValue += " Empty staged replay: use explicit Skip or Abort."
+            integrationStatus.stringValue += " Empty replay: explicitly Keep empty, Skip or Abort."
         }
 
         abort.isEnabled = model.canMutate && operation != nil && operation?.kind != .other
-        skip.isHidden = operation?.kind != .rebase
-        skip.isEnabled = abort.isEnabled && operation?.kind == .rebase
+        skip.isHidden = operation?.kind.supportsSkip != true
+        skip.isEnabled = abort.isEnabled && operation?.kind.supportsSkip == true
         resolve.isHidden = list.selectedKey?.hasPrefix("conflicts:") != true
         resolve.isEnabled = model.canMutate && model.conflictReader != nil && !resolve.isHidden
         let key = list.selectedKey ?? ""

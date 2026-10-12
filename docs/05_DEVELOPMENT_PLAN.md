@@ -178,3 +178,7 @@ The [CLI/SDK integration plan](09_CLAUDE_AGENT_INTEGRATION.md) is recorded: a fa
 ## How to develop a feature
 
 One user scenario → the state owner → port/contract → application behaviour → adapter → UI states → edge cases/measurements. Check cancellation, stale results and the close lifecycle. DI chooses the backend once when the session is created; replacing a live backend is a separate migration feature.
+
+## TK-039: complete the extended Git backlog
+
+Approved 2026-10-12: all remaining local/network Git workflows plus GitHub and GitLab accounts, PR/MR and commit-specific CI. **Implemented with automatic validation; live acceptance R108–R121 pending.** See [slice status, contracts and defaults awaiting confirmation](19_EXTENDED_GIT_WORKFLOWS.md) and ADR-053. Preserve existing manual acceptance as pending.

@@ -36,15 +36,23 @@ final class AppCompositionRoot {
     let recentProjects: RecentProjects
     let appearance: AppearanceSettings
     let folderChecker: any ProjectFolderChecking
+    let gitHostingAccounts: GitHostingAccounts
 
     init(
         recoveryStore: (any RecoveryStore)? = nil,
         layoutDefaults: UserDefaults = .standard,
         recentStore: (any RecentProjectsStore)? = nil,
         folderChecker: any ProjectFolderChecking = ProjectFolderChecker(),
-        appearance: AppearanceSettings = AppearanceSettings()
+        appearance: AppearanceSettings = AppearanceSettings(),
+        gitHostingAccounts: GitHostingAccounts? = nil
     ) {
         self.appearance = appearance
+        let credentials = GitKeychainCredentials()
+        self.gitHostingAccounts = gitHostingAccounts ?? GitHostingAccounts(
+            store: GitHostingAccountSettings(defaults: layoutDefaults),
+            credentials: credentials,
+            api: GitHostingClient(credentials: credentials)
+        )
         self.recoveryStore = recoveryStore ?? RecoveryJournal(directory: Self.recoveryDirectory)
         layoutSettings = WorkspaceLayoutSettings(defaults: layoutDefaults)
         self.folderChecker = folderChecker

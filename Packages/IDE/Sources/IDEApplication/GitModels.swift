@@ -58,7 +58,25 @@ public struct GitBranch: Equatable, Sendable {
     }
 }
 
+public struct GitTag: Equatable, Sendable {
+    public let reference: String
+    public let oid: String
+    public let commit: String?
+    public var name: String { String(reference.dropFirst(10)) }
+
+    public init(reference: String, oid: String, commit: String?) {
+        self.reference = reference
+        self.oid = oid
+        self.commit = commit
+    }
+}
+
+public protocol GitAllHistoryInspecting: Sendable {
+    func history(in repository: GitRepository, tips: [String], offset: Int, count: Int) async throws -> GitHistoryPage
+}
+
 public struct GitSnapshot: Equatable, Sendable {
+    public let tags: [GitTag]
     public let repository: GitRepository
     public let branch: String?
     public let head: String?
@@ -89,9 +107,11 @@ public struct GitSnapshot: Equatable, Sendable {
         mutationToken: String? = nil,
         remotes: [String] = [],
         integration: GitIntegrationStatus? = nil,
-        capturedAt: Date = .now
+        capturedAt: Date = .now,
+        tags: [GitTag] = []
     ) {
         self.repository = repository
+        self.tags = tags
         self.branch = branch
         self.head = head
         self.upstream = upstream
@@ -227,7 +247,12 @@ public protocol GitInspecting: Sendable {
 
 public enum GitInspectionError: Error, Equatable, Sendable, LocalizedError {
     case unavailable(String), failed(String)
+    case pullDiverged(GitPullDivergence)
     public var errorDescription: String? {
-        switch self { case .unavailable(let reason), .failed(let reason): reason }
+        switch self {
+        case .unavailable(let reason), .failed(let reason): reason
+        case .pullDiverged:
+            "Fast-forward is unavailable: branches diverged. Explicitly review Merge or Rebase of the fetched branch."
+        }
     }
 }

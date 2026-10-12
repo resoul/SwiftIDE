@@ -14,6 +14,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-039 / ADR-053: extended Git workflows. Stage/Unstage of selected blocks and lines; branch/remote/tag management with reviewed remote deletion; history graph with ref labels over all known references; per-region Base/Ours/Theirs, linked scrolling and index-only resolution of symlink/submodule/directory/rename-group conflicts; interactive rebase (reorder/squash/fixup/edit/drop), topology-preserving rebase and explicit empty replays; Pull divergence to reviewed Merge/Rebase; reviewed discard/reset/cherry-pick/revert, force-with-lease, advanced Fetch and submodule add/update/sync/deinit/remove; GitHub and GitLab accounts (Keychain tokens), PR/MR list/creation and CI of an exact commit, including a selected history commit. Automatic: IDE 1065 and App 44 tests pass; live R108–R121 pending; defaults awaiting confirmation listed in docs/19.
+
 - TK-038: reusable native ChatUI and project-owned in-memory AgentSession with a labelled offline demo in Assistant. Streaming typed blocks, exact code Copy, activity details, selected unsaved editor snapshots, separate composer Undo/IME handling, Stop and stable scroll/row identity (ADR-052). Real provider, full Markdown, persistence and file/tool actions remain separate work; live S1–S8 pending.
 
 - TK-037: project-owned Stashes browser/review, central saved-content diff and explicit Create/Apply/Pop/Drop. Separate untracked/ignored and index-restoration choices, editor reconciliation, immutable OID application, stale reflog/checkout checks and conflict/cancellation handling (ADR-051); live R100–R107 pending.

@@ -106,3 +106,7 @@ Code: `IDEApplication/NativeEditing.swift`, `TextSource.swift`, `DocumentEditPla
 - **Composition.** `CompositionEvent` `.began/.updated/.ended` goes separately from the text revisions. `unmarkText` without a text change gives `.ended` without a new version. While a composition is active, `apply` throws `DocumentError.compositionInProgress`. An explicit Save calls `requestCompositionEnd()` and waits for `.ended`; autosave only waits; the waiting is cancellable.
 
 Not done: the LSP consumer and queue (TK-010), a real file store (TK-006), the acceptance of save N/N+1 is already covered by existing tests. Not checked automatically: real CJK IME and dead keys, selection inside the marked range during scroll/wrap, undo during an active IME, the absence of duplicates when a composition is ended automatically by a mouse click (if AppKit does not call `unmarkText` on the view, the state will be caught only by `textDidChange`).
+
+### TK-039 — extended Git completion (implemented; live acceptance pending)
+
+User-approved scope: full docs/17 backlog, including both GitHub and GitLab. Typed reviewed operations, original editor/document ownership and reusable WorkspaceUI remain the implementation contract. Regional conflict choices replace one versioned region in the original editor with native Undo. Contracts and validation are in [docs/19](19_EXTENDED_GIT_WORKFLOWS.md); no pending live check is marked passed.

@@ -10,6 +10,7 @@ public final class GitIntegrationViewController: NSViewController {
     let target = NSPopUpButton(frame: .zero, pullsDown: false)
     let review = NSButton(title: "Review", target: nil, action: nil)
     let apply = NSButton(title: "", target: nil, action: nil)
+    private let preserveMerges = NSButton(checkboxWithTitle: "Preserve merge topology", target: nil, action: nil)
     private let detail = NSTextField(wrappingLabelWithString: "Choose a locally known branch and Review.")
     private var branches: [GitBranch] = []
     private var plan: GitIntegrationPlan?
@@ -36,6 +37,9 @@ public final class GitIntegrationViewController: NSViewController {
         apply.title = kind.rawValue.capitalized
         apply.target = self
         apply.action = #selector(applyReviewed(_:))
+        preserveMerges.isHidden = kind != .rebase
+        preserveMerges.target = self
+        preserveMerges.action = #selector(selectionChanged(_:))
         let cancel = NSButton(title: "Cancel", target: self, action: #selector(closeForm(_:)))
         cancel.keyEquivalent = "\u{1b}"
         let note = NSTextField(wrappingLabelWithString: kind == .merge
@@ -46,14 +50,14 @@ public final class GitIntegrationViewController: NSViewController {
             :
             """
             Rebase rewrites current branch commits onto the selected commit. Avoid rebasing published history. \
-            This slice supports a linear range, not interactive/merge-preserving rebase. Conflicts/empty commits \
+            Enable Preserve merge topology to recreate merge commits. Conflicts/empty commits \
             stop for Resolve/Continue/Skip/Abort. No Push, Fetch or stash.
             """)
         note.font = .systemFont(ofSize: 11)
         detail.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         detail.isSelectable = true
         gitPin(
-            gitStack([title, target, note, detail, gitStack([cancel, review, apply], vertical: false)]),
+            gitStack([title, target, preserveMerges, note, detail, gitStack([cancel, review, apply], vertical: false)]),
             to: view,
             inset: 16
         )
@@ -80,9 +84,17 @@ public final class GitIntegrationViewController: NSViewController {
         }
 
         let selected = branches[target.indexOfSelectedItem]
-        plan = .init(repository: snapshot.repository, kind: kind, head: head, branch: branch, target: selected)
+        plan = .init(
+            repository: snapshot.repository,
+            kind: kind,
+            head: head,
+            branch: branch,
+            target: selected,
+            preserveMerges: kind == .rebase && preserveMerges.state == .on
+        )
         detail.stringValue = "Current: " + branch + " @ " + head + "\nTarget: " + selected.name + " @ " + selected
-            .oid + "\nRemote refs are locally known; Fetch separately if needed."
+            .oid + "\nPreserve topology: " + ((plan?.preserveMerges == true) ? "Yes" : "No")
+            + "\nRemote refs are locally known; Fetch separately if needed."
         render()
     }
 

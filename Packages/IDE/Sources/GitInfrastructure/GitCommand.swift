@@ -9,6 +9,9 @@ struct GitCommandResult: Sendable {
 
 /// Bounded pipe readers and process lifetime, entirely off the UI executor.
 enum GitCommand {
+    private static let lifecycleQueue = DispatchQueue(label: "com.swiftide.git.lifecycle", qos: .userInitiated)
+    private static let pipeQueue = DispatchQueue(label: "com.swiftide.git.pipes", qos: .userInitiated)
+
     static func run(
         executable: URL,
         root: String,
@@ -17,7 +20,8 @@ enum GitCommand {
         limit: Int = 8_000_000,
         timeout: TimeInterval = 15,
         onOutput: (@Sendable (String) -> Void)? = nil,
-        network: Bool = false
+        network: Bool = false,
+        indexOverride: String? = nil
     ) async throws -> GitCommandResult {
         let execution = Execution(limit: limit)
 
@@ -32,6 +36,7 @@ enum GitCommand {
                         timeout: timeout,
                         onOutput: onOutput,
                         network: network,
+                        indexOverride: indexOverride,
                         continuation: continuation
                     )
                 }
@@ -44,7 +49,7 @@ enum GitCommand {
         private let process = Process()
         private let limit: Int
         private var output = Data(), errors = Data()
-        private var cancelled = false, expired = false, overflow = false, finished = false
+        private var cancelled = false, expired = false, overflow = false, finished = false, pipeFailed = false
         private var processGroup: Int32?
         private var streamedBytes = 0
 
@@ -58,6 +63,7 @@ enum GitCommand {
             timeout: TimeInterval,
             onOutput: (@Sendable (String) -> Void)?,
             network: Bool,
+            indexOverride: String?,
             continuation: CheckedContinuation<GitCommandResult, any Error>
         ) {
             let stdout = Pipe(), stderr = Pipe()
@@ -75,12 +81,21 @@ enum GitCommand {
             environment["GIT_TERMINAL_PROMPT"] = "0"
             environment["GIT_PAGER"] = "cat"
             environment["LC_ALL"] = "C"
+            if let indexOverride { environment["GIT_INDEX_FILE"] = indexOverride }
             if network {
                 environment["GIT_ASKPASS"] = "/usr/bin/false"
                 environment["SSH_ASKPASS"] = "/usr/bin/false"
                 environment["SSH_ASKPASS_REQUIRE"] = "never"
             }
 
+            let readers = DispatchGroup()
+            readers.enter()
+            readers.enter()
+            process.terminationHandler = { [weak self] completed in
+                readers.notify(queue: GitCommand.lifecycleQueue) { [weak self] in
+                    self?.complete(status: completed.terminationStatus, continuation: continuation)
+                }
+            }
             process.environment = environment
             process.standardOutput = stdout
             process.standardError = stderr
@@ -108,53 +123,30 @@ enum GitCommand {
 
                 return
             }
-            let readers = DispatchGroup()
             for (pipe, isError) in [(stdout, false), (stderr, true)] {
-                readers.enter()
-                DispatchQueue.global(qos: .userInitiated).async { [self] in
-                    defer { readers.leave() }
-                    while true {
-                        let data = pipe.fileHandleForReading.availableData
-                        if data.isEmpty { break }
-                        let terminate = lock.withLock {
-                            if isError {
-                                errors.append(data)
-                                if errors.count > 8192 { errors.removeFirst(errors.count - 8192) }
-                            } else if !overflow {
-                                if output.count + data.count > limit {
-                                    overflow = true
-                                    output = Data()
-
-                                    return true
-                                }
-
-                                output.append(data)
-                            }
-
-                            return false
-                        }
-                        if let onOutput {
-                            let preview = lock.withLock { () -> Data? in
-                                guard streamedBytes < 128_000 else { return nil }
-
-                                let preview = Data(data.prefix(128_000 - streamedBytes))
-                                streamedBytes += preview.count
-
-                                return preview
-                            }
-                            if let preview {
-                                onOutput(String(decoding: preview, as: UTF8.self))
-                                if lock.withLock({ streamedBytes == 128_000 }) {
-                                    onOutput("\n[Git output preview limited]\n")
-                                }
-                            }
+                let channel = DispatchIO(
+                    type: .stream,
+                    fileDescriptor: pipe.fileHandleForReading.fileDescriptor,
+                    queue: GitCommand.pipeQueue
+                ) { _ in
+                    try? pipe.fileHandleForReading.close()
+                }
+                channel.setLimit(lowWater: 1)
+                channel.setLimit(highWater: 64_000)
+                channel.read(offset: 0, length: Int.max, queue: GitCommand.pipeQueue) { [self] done, bytes, error in
+                    if let bytes, !bytes.isEmpty { receive(Data(bytes), isError: isError, onOutput: onOutput) }
+                    if done {
+                        if error != 0 {
+                            lock.withLock { pipeFailed = true }
+                            end()
                         }
 
-                        if terminate { end() }
+                        channel.close(flags: .stop)
+                        readers.leave()
                     }
                 }
             }
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
+            GitCommand.lifecycleQueue.asyncAfter(deadline: .now() + timeout) { [weak self] in
                 guard let self else { return }
 
                 let running = lock.withLock {
@@ -165,17 +157,57 @@ enum GitCommand {
                 }
                 if running { end() }
             }
-            process.waitUntilExit()
-            readers.wait()
+        }
+
+        private func receive(_ data: Data, isError: Bool, onOutput: (@Sendable (String) -> Void)?) {
+            let terminate = lock.withLock {
+                if isError {
+                    errors.append(data)
+                    if errors.count > 8192 { errors.removeFirst(errors.count - 8192) }
+                } else if !overflow {
+                    if output.count + data.count > limit {
+                        overflow = true
+                        output = Data()
+
+                        return true
+                    }
+
+                    output.append(data)
+                }
+
+                return false
+            }
+            if let onOutput {
+                let preview = lock.withLock { () -> Data? in
+                    guard streamedBytes < 128_000 else { return nil }
+
+                    let preview = Data(data.prefix(128_000 - streamedBytes))
+                    streamedBytes += preview.count
+
+                    return preview
+                }
+                if let preview {
+                    onOutput(String(decoding: preview, as: UTF8.self))
+                    if lock.withLock({ streamedBytes == 128_000 }) {
+                        onOutput("\n[Git output preview limited]\n")
+                    }
+                }
+            }
+
+            if terminate { end() }
+        }
+
+        private func complete(status: Int32, continuation: CheckedContinuation<GitCommandResult, any Error>) {
             let value: Result<GitCommandResult, any Error> = lock.withLock {
                 finished = true
                 if cancelled { return .failure(CancellationError()) }
                 if overflow { return .failure(GitInspectionError.failed("Git output exceeds the preview limit")) }
+                if pipeFailed { return .failure(GitInspectionError.failed("Git output pipe failed")) }
                 if expired { return .failure(GitInspectionError.failed("Git request timed out")) }
 
                 return .success(GitCommandResult(
                     output: output,
-                    status: process.terminationStatus,
+                    status: status,
                     error: String(decoding: errors, as: UTF8.self)
                 ))
             }
@@ -193,7 +225,7 @@ enum GitCommand {
 
             let pid = process.processIdentifier
             if let group { kill(-group, SIGTERM) } else { process.terminate() }
-            DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            GitCommand.lifecycleQueue.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 guard let self else { return }
 
                 let stillFinishing = lock.withLock { !finished }

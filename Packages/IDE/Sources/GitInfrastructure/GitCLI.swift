@@ -1,7 +1,7 @@
 import Foundation
 import IDEApplication
 
-public struct GitCLI: GitInspecting {
+public struct GitCLI: GitInspecting, GitAllHistoryInspecting {
     public let executable: URL
 
     public init(executable: URL = URL(fileURLWithPath: "/usr/bin/git")) { self.executable = executable }
@@ -15,7 +15,8 @@ public struct GitCLI: GitInspecting {
         timeout: TimeInterval = 15,
         output: (@Sendable (String) -> Void)? = nil,
         network: Bool = false,
-        literalPaths: Bool = true
+        literalPaths: Bool = true,
+        indexOverride: String? = nil
     ) async throws -> Data {
         let literal = arguments.first == "check-ignore" || !literalPaths ? [] : ["--literal-pathspecs"]
         let invocation = ["--no-optional-locks"] + literal + [
@@ -38,7 +39,8 @@ public struct GitCLI: GitInspecting {
             limit: limit,
             timeout: timeout,
             onOutput: output,
-            network: network
+            network: network,
+            indexOverride: indexOverride
         )
         guard accepted.contains(result.status) else {
             if result.error.contains("not a git repository") {
@@ -109,6 +111,7 @@ public struct GitCLI: GitInspecting {
             }
 
             let refs = try await branches(in: repository)
+            let tags = try await tags(in: repository)
             let remotes = try await remoteNames(at: repository.root)
             let verification = try await run(
                 ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all", "--ignored=matching"],
@@ -122,7 +125,8 @@ public struct GitCLI: GitInspecting {
                     ignored: reasons,
                     mutationToken: digest(data + Data((operation?.token ?? "").utf8)),
                     remotes: remotes,
-                    integration: operation
+                    integration: operation,
+                    tags: tags
                 )
             }
         }
@@ -166,19 +170,34 @@ public struct GitCLI: GitInspecting {
         offset: Int,
         count: Int
     ) async throws -> GitHistoryPage {
-        let revision = try GitPorcelain.oid(revision), count = max(1, min(100, count))
+        try await history(in: repository, tips: [revision], offset: offset, count: count)
+    }
+
+    public func history(
+        in repository: GitRepository,
+        tips: [String],
+        offset: Int,
+        count: Int
+    ) async throws -> GitHistoryPage {
+        guard tips.count <= 512 else {
+            throw GitInspectionError.unavailable("All-reference history supports up to 512 tips; choose a branch.")
+        }
+
+        let revisions = try Array(Set(tips.map { try GitPorcelain.oid($0) })).sorted()
+        guard !revisions.isEmpty else { return .init(commits: [], hasMore: false) }
+
+        let count = max(1, min(100, count))
         let data = try await run(
             [
                 "log",
+                "--topo-order",
                 "--no-show-signature",
                 "--no-decorate",
                 "-z",
                 "--format=%H%x00%P%x00%an%x00%at%x00%s",
                 "--max-count=\(count + 1)",
                 "--skip=\(max(0, offset))",
-                revision,
-                "--"
-            ],
+            ] + revisions + ["--"],
             at: repository.root
         )
         let fields = try data.split(separator: 0, omittingEmptySubsequences: false).map {
@@ -205,6 +224,26 @@ public struct GitCLI: GitInspecting {
         }
 
         return GitHistoryPage(commits: Array(commits.prefix(count)), hasMore: commits.count > count)
+    }
+
+    private func tags(in repository: GitRepository) async throws -> [GitTag] {
+        let data = try await run([
+            "for-each-ref",
+            "--sort=refname",
+            "--format=%(refname)%00%(objectname)%00%(objecttype)%00%(*objectname)%00%(*objecttype)%00",
+            "refs/tags"
+        ], at: repository.root)
+
+        return try data.split(separator: 10).map { row in
+            let fields = try row.split(separator: 0, omittingEmptySubsequences: false).map {
+                try GitPorcelain.string(Data($0))
+            }
+            guard fields.count == 6 else { throw GitInspectionError.failed("Malformed tag report.") }
+
+            let commit = fields[2] == "commit" ? fields[1] : fields[4] == "commit" ? fields[3] : nil
+
+            return try .init(reference: fields[0], oid: GitPorcelain.oid(fields[1]), commit: commit)
+        }
     }
 
     public func files(in repository: GitRepository, commit: GitCommit) async throws -> [GitCommitFile] {

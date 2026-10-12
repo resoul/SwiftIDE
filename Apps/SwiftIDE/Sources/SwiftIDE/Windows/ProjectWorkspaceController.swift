@@ -16,9 +16,14 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     let agent: AgentSession
     let chat: ChatPanelViewController
     private let gitChanges: GitChangesViewController?
-    private let gitLog: GitLogViewController?
+    let gitLog: GitLogViewController?
     private(set) var integrationWindow: GitIntegrationWindowController?
+    private(set) var interactiveRebaseWindow: GitInteractiveRebaseWindowController?
     private(set) var trackingWindow: GitTrackingWindowController?
+    private(set) var managementWindow: GitManagementWindowController?
+    private(set) var repositoryOperationWindow: GitRepositoryOperationWindowController?
+    private(set) var hostingWindow: GitHostingWindowController?
+    private let hostingAccounts: GitHostingAccounts?
     private(set) var stashWindow: GitStashWindowController?
     private var conflictTask: Task<Void, Never>?
     private var conflictID = UUID()
@@ -57,12 +62,14 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         layout: WorkspaceLayoutState = .init(),
         panels: [WorkspaceTool: WorkspacePanel] = [:],
         git: GitWorkspace? = nil,
-        agent: AgentSession
+        agent: AgentSession,
+        hostingAccounts: GitHostingAccounts? = nil
     ) {
         self.files = files
         self.layout = layout
         self.git = git
         self.agent = agent
+        self.hostingAccounts = hostingAccounts
         chat = ChatPanelViewController(session: agent)
         gitChanges = git.map { GitChangesViewController(model: $0) }
         gitLog = git.map { GitLogViewController(model: $0) }
@@ -131,7 +138,13 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
                 gitChanges.openFile = { [weak self] in self?.openFile?($0) }
             }
 
-            if let gitLog { browser.addChild(gitLog) }
+            if let gitLog {
+                browser.addChild(gitLog)
+                if hostingAccounts != nil {
+                    gitLog.inspectCI = { [weak self] commit in self?.showHosting(commit: commit.oid) }
+                }
+            }
+
             if let gitBranches {
                 browser.addChild(gitBranches)
                 shell.installProjectAccessory(gitBranches.view)
@@ -392,9 +405,13 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         standaloneConflict?.stop()
         standaloneConflict = nil
         integrationWindow?.dismiss()
+        interactiveRebaseWindow?.dismiss()
         pushWindow?.dismiss()
         pullWindow?.dismiss()
         trackingWindow?.dismiss()
+        managementWindow?.dismiss()
+        repositoryOperationWindow?.dismiss()
+        hostingWindow?.dismiss()
         stashWindow?.dismiss()
         agent.stop()
         chat.disconnect()
@@ -469,6 +486,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         conflictTask = Task { [weak self] in
             do {
                 let data = try await reader.conflict(in: snapshot, path: change.path)
+                let group = try await git.conflictGrouping?.conflictGroup(in: snapshot, path: change.path)
                 try Task.checkCancellation()
                 guard let self, conflictID == token, !closing, window?.isVisible == true else { return }
 
@@ -480,11 +498,24 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
                 let controller = GitConflictEditorController(workspace: git, conflict: data, document: document)
                 controller.reportError = { [weak self] in self?.showGitError($0) }
+                controller.context.group = group
+                controller.context.resolveGroup = { [weak self] group, stage in
+                    self?.confirmGitAction(.resolveConflictGroup(group, stage))
+                }
                 controller.context.restoreStage = { [weak self] stage in
                     self?.confirmGitAction(.resolveConflict(data, .restoreStage(stage)))
                 }
                 controller.context.resolveDeleted = { [weak self] in
                     self?.confirmGitAction(.resolveConflict(data, .delete))
+                }
+                controller.context.resolveAllowingLiteralMarkers = { [weak self] in
+                    self?.confirmGitAction(.resolveConflict(data, .workingFileAllowingLiteralMarkers))
+                }
+                controller.context.resolveIndexStage = { [weak self] stage in
+                    self?.confirmGitAction(.resolveConflict(data, .indexStage(stage)))
+                }
+                controller.context.resolveIndexDeleted = { [weak self] in
+                    self?.confirmGitAction(.resolveConflict(data, .indexDeleted))
                 }
                 controller.context.reopen = { [weak self] in
                     if let current = git.snapshot?.changes
@@ -553,6 +584,9 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         let alert = NSAlert()
         alert.messageText = action.title + "?"
         switch action {
+        case .resolveConflictGroup(let group, let stage):
+            alert.informativeText = group.repository.root + "\n" + group.summary(stage: stage)
+                + "\nResolves all these paths in one index update. Disk and editor contents remain unchanged."
         case .abortIntegration(let status):
             let head = status.originalHead.map { String($0.prefix(12)) } ?? "unknown"
             alert.informativeText = """
@@ -565,6 +599,11 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             Drops the current replayed commit (\(commit)) from the rewritten branch. Staged resolution edits for this \
             step may be discarded; remaining commits still replay. Unsaved documents require Save or Cancel.
             """
+        case .keepEmptyRebase(let status):
+            alert.informativeText = """
+            Keeps the replay \(status.stoppedCommit ?? "") as an empty commit with its original author/message, \
+            then continues Rebase. It does not drop the commit.
+            """
         case .resolveConflict(let conflict, .delete):
             alert.informativeText = """
             Deletes “\(conflict.path)” from disk and stages its deletion as the resolution. Unsaved documents require \
@@ -574,6 +613,24 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             alert.informativeText = """
             Replaces “\(conflict.path)” on disk with the reviewed stage \(stage) blob and executable mode. It does \
             not mark the file resolved. Save and reload the preview first if the working file has changed.
+            """
+        case .resolveConflict(let conflict, .workingFileAllowingLiteralMarkers):
+            alert.informativeText = """
+            Stages the saved result of “\(conflict.path)” even if individual lines look like markers. Complete \
+            conflict regions are still refused. Review the full result; unsaved documents require Save or \
+            Cancel.
+            """
+        case .resolveConflict(let conflict, .indexStage(let stage)):
+            let side = conflict.sides.first { $0.stage == stage }
+            alert.informativeText = """
+            Resolves “\(conflict.path)” in the index using stage \(stage): \(side?.oid ?? "missing"), mode \
+            \(side?.mode ?? "unknown"). Disk files, directory contents, nested checkout and unsaved editor text \
+            stay unchanged.
+            """
+        case .resolveConflict(let conflict, .indexDeleted):
+            alert.informativeText = """
+            Removes “\(conflict.path)” only from the unmerged index. All working files, directories, nested \
+            checkouts and editor text are kept.
             """
         default: return
         }
@@ -632,7 +689,63 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
     @objc func stashesGit(_ sender: Any?) { showStashes() }
 
+    @objc func manageGit(_ sender: Any?) {
+        guard !closing, let git, git.canMutate, git.managementPlanner != nil, let window,
+              window.attachedSheet == nil else {
+            return
+        }
+
+        if let managementWindow {
+            managementWindow.window?.makeKeyAndOrderFront(nil)
+
+            return
+        }
+
+        let controller = GitManagementWindowController(workspace: git)
+        managementWindow = controller
+        controller.onClosed = { [weak self] in self?.managementWindow = nil }
+        controller.present(on: window)
+    }
+
+    @objc func repositoryOperationsGit(_ sender: Any?) {
+        guard repositoryOperationWindow == nil, let git, git.canMutate, git.repositoryOperationPlanner != nil,
+              git.snapshot?.integration == nil, let window, window.attachedSheet == nil else { return }
+
+        let controller = GitRepositoryOperationWindowController(workspace: git)
+        repositoryOperationWindow = controller
+        controller.onClosed = { [weak self] in self?.repositoryOperationWindow = nil }
+        controller.present(on: window)
+    }
+
+    @objc func hostingGit(_ sender: Any?) {
+        showHosting()
+    }
+
+    func showHosting(commit: String? = nil) {
+        guard hostingWindow == nil, let git, git.state == .ready, let hostingAccounts,
+              let window, window.attachedSheet == nil else { return }
+
+        let controller = GitHostingWindowController(workspace: git, accounts: hostingAccounts)
+        controller.content.selectCommit(commit)
+        controller.onChecks = { [weak self] sha, checks, limited, date, source in
+            self?.gitLog?.presentCI(sha: sha, checks: checks, limited: limited, receivedAt: date, source: source)
+        }
+        hostingWindow = controller
+        controller.onClosed = { [weak self] in self?.hostingWindow = nil }
+        controller.present(on: window)
+    }
+
     @objc func rebaseGit(_ sender: Any?) { showIntegration(.rebase) }
+
+    @objc func interactiveRebaseGit(_ sender: Any?) {
+        guard interactiveRebaseWindow == nil, let git, git.canMutate, git.interactiveRebasePlanner != nil,
+              git.snapshot?.integration == nil, let window, window.attachedSheet == nil else { return }
+
+        let controller = GitInteractiveRebaseWindowController(workspace: git)
+        interactiveRebaseWindow = controller
+        controller.onClosed = { [weak self] in self?.interactiveRebaseWindow = nil }
+        controller.present(on: window)
+    }
 
     @objc func continueGit(_ sender: Any?) {
         shell.select(.sourceControl)
@@ -652,6 +765,10 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
               let window, window.attachedSheet == nil else { return }
 
         let controller = GitPullWindowController(workspace: git)
+        controller.content.integrateFetched = { [weak self, weak controller] kind, branch in
+            controller?.dismiss()
+            self?.showIntegration(kind, target: branch)
+        }
         pullWindow = controller
         controller.onClosed = { [weak self] in self?.pullWindow = nil }
         shell.select(.sourceControl)
@@ -687,6 +804,19 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func showAssistant(_ sender: Any?) { shell.select(.assistant) }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(hostingGit(_:)) {
+            return git?.state == .ready && hostingAccounts != nil
+        }
+
+        if item.action == #selector(repositoryOperationsGit(_:)) {
+            return git?.canMutate == true && git?.repositoryOperationPlanner != nil && git?.snapshot?.integration == nil
+        }
+
+        if item.action == #selector(interactiveRebaseGit(_:)) {
+            return git?.canMutate == true && git?.interactiveRebasePlanner != nil
+                && git?.snapshot?.integration == nil && git?.snapshot?.branch != nil
+        }
+
         if item.action == #selector(stashesGit(_:)) {
             return git?.state == .ready && git?.operationState.isBusy == false && git?.stashReader != nil
         }
@@ -700,7 +830,11 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             return git?.canMutate == true && git?.snapshot?.integration != nil && git?.snapshot?.integration?
                 .kind != .other && git?.snapshot?.changes
                 .contains(where: { $0.decoration.isConflict }) == false &&
-                (git?.snapshot?.integration?.kind != .rebase || git?.snapshot?.integration?.stoppedCommit == nil || git?
+                (git?.snapshot?.integration?.kind != .rebase || git?.snapshot?.integration?.stoppedCommit == nil
+                    || git?.snapshot?.integration?.isEditingCommit == true
+                    || git?.snapshot?.integration?.keptEmptyHead == git?.snapshot?.head
+                    || (git?.snapshot?.integration?.emptyAttemptParent != nil
+                        && git?.snapshot?.integration?.emptyAttemptParent != git?.snapshot?.head) || git?
                     .snapshot?.changes
                     .contains(where: { !$0.decoration.index.isEmpty && !$0.decoration.isConflict }) == true)
         }
@@ -711,7 +845,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         }
 
         if item.action == #selector(skipGit(_:)) {
-            return git?.canMutate == true && git?.snapshot?.integration?.kind == .rebase
+            return git?.canMutate == true && git?.snapshot?.integration?.kind.supportsSkip == true
         }
 
         if item.action == #selector(pullGit(_:)) {
@@ -730,6 +864,10 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
         if item.action == #selector(trackingGit(_:)) {
             return git?.canMutate == true && git?.trackingPlanner != nil && git?.snapshot?.integration == nil
+        }
+
+        if item.action == #selector(manageGit(_:)) {
+            return git?.canMutate == true && git?.managementPlanner != nil && git?.snapshot?.integration == nil
         }
 
         if item.action == #selector(commitGit(_:)) { return git?.canMutate == true }

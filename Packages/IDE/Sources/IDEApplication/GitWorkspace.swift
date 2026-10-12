@@ -23,12 +23,17 @@ public final class GitWorkspace {
     public private(set) var historyState = GitLoadState.idle
     public private(set) var historyTitle = "HEAD"
     public private(set) var hasMoreHistory = false
+    public private(set) var showingAllHistory = false
+    public var supportsAllHistory: Bool { service is any GitAllHistoryInspecting }
+    private var historyTips: [String] = []
     public private(set) var selectedCommit: GitCommit?
     public private(set) var commitFiles: [GitCommitFile] = []
     public private(set) var filesState = GitLoadState.idle
     public private(set) var comparison: GitComparison?
     public private(set) var diffText = "Select a changed file to inspect its disk/index diff."
     public private(set) var diffState = GitLoadState.idle
+    public private(set) var partialDiff: GitPartialDiff?
+    public private(set) var partialDiffNotice = ""
     public var onInspect: (() -> Void)?
     public var liveUpdatesAvailable: Bool? {
         didSet { if oldValue != liveUpdatesAvailable { changed() } }
@@ -39,12 +44,23 @@ public final class GitWorkspace {
     public var prepareCheckout: ((GitRepository) async -> Bool)?
     public var checkoutFinished: ((GitRepository) -> Void)?
     public var conflictReader: (any GitConflictReading)? { service as? any GitConflictReading }
+    public var conflictGrouping: (any GitConflictGrouping)? { service as? any GitConflictGrouping }
+    public var hostingRemoteReader: (any GitHostingRemoteReading)? { service as? any GitHostingRemoteReading }
     public var trackingPlanner: (any GitTrackingPlanning)? { service as? any GitTrackingPlanning }
+    public var managementPlanner: (any GitManagementPlanning)? { service as? any GitManagementPlanning }
+    public var repositoryOperationPlanner: (any GitRepositoryOperationPlanning)? {
+        service as? any GitRepositoryOperationPlanning
+    }
+    public var interactiveRebasePlanner: (any GitInteractiveRebasePlanning)? {
+        service as? any GitInteractiveRebasePlanning
+    }
     public var stashReader: (any GitStashReading)? { service as? any GitStashReading }
     public var pullPlanner: (any GitPullPlanning)? { service as? any GitPullPlanning }
     public var pushPlanner: (any GitPushPlanning)? { service as? any GitPushPlanning }
+    public var forcePushPlanner: (any GitForcePushPlanning)? { service as? any GitForcePushPlanning }
     public var supportsLocalActions: Bool { mutations != nil }
     public private(set) var lastFetch: (remote: String, date: Date)?
+    public private(set) var pullDivergence: GitPullDivergence?
     public var canMutate: Bool { supportsLocalActions && state == .ready && !operationState.isBusy && !stopped }
     private let mutations: (any GitMutating)?
     private var operationTask: Task<Void, Never>?
@@ -81,6 +97,7 @@ public final class GitWorkspace {
         if historyState == .loading { historyState = .idle }
         if filesState == .loading { filesState = .idle }
         if comparison != nil { diffState = .loading }
+        partialDiff = nil
         changed()
         refreshTask = Task { [weak self, service, root] in
             do {
@@ -92,7 +109,14 @@ public final class GitWorkspace {
                 snapshot = value
                 state = .ready
                 refreshTask = nil
-                if newHead || revision == nil {
+                if showingAllHistory {
+                    let tips = allTips(value)
+                    if tips != historyTips || differentRepository {
+                        historyTips = tips
+                        revision = tips.first
+                        resetHistory()
+                    }
+                } else if newHead || revision == nil {
                     customHistory = false
                     revision = value.head
                     historyTitle = value.headDescription
@@ -106,11 +130,20 @@ public final class GitWorkspace {
                     diffText = "Repository changed; select a new comparison."
                 }
 
-                if case .untracked(let change) = comparison,
-                   !value.changes.contains(where: { $0.path == change.path && $0.decoration.isUntracked }) {
-                    comparison = nil
-                    diffState = .idle
-                    diffText = "This file is no longer untracked; select its current change."
+                switch comparison {
+                case .worktree(let previous), .index(let previous), .untracked(let previous):
+                    if let current = value.changes.first(where: { $0.path == previous.path }) {
+                        switch comparison {
+                        case .index: comparison = .index(current)
+                        case .untracked where current.decoration.isUntracked: comparison = .untracked(current)
+                        default: comparison = .worktree(current)
+                        }
+                    } else {
+                        comparison = nil
+                        diffState = .idle
+                        diffText = "This file has no current changes."
+                    }
+                default: break
                 }
 
                 changed()
@@ -154,28 +187,72 @@ public final class GitWorkspace {
         filesTask?.cancel()
         commitID = UUID()
         revision = branch.oid
+        showingAllHistory = false
         customHistory = true
         historyTitle = branch.name
         resetHistory()
         loadMoreHistory()
     }
 
+    private func allTips(_ snapshot: GitSnapshot) -> [String] {
+        Array(Set(snapshot.branches.map(\.oid) + snapshot.tags.compactMap(\.commit) + [snapshot.head]
+                .compactMap { $0 })).sorted()
+    }
+
+    public func viewAllHistory() {
+        guard state == .ready, supportsAllHistory, let snapshot else { return }
+
+        historyTask?.cancel()
+        filesTask?.cancel()
+        commitID = UUID()
+        showingAllHistory = true
+        customHistory = true
+        historyTips = allTips(snapshot)
+        revision = historyTips.first
+        historyTitle = "All known references"
+        resetHistory()
+        changed()
+        loadMoreHistory()
+    }
+
+    public func viewHeadHistory() {
+        guard state == .ready, let snapshot else { return }
+
+        historyTask?.cancel()
+        filesTask?.cancel()
+        commitID = UUID()
+        showingAllHistory = false
+        customHistory = false
+        revision = snapshot.head
+        historyTitle = snapshot.headDescription
+        resetHistory()
+        changed()
+        loadMoreHistory()
+    }
+
     public func loadMoreHistory() {
         guard !stopped, state == .ready, historyState != .loading, let repository = snapshot?.repository,
-              let revision else {
+              history.count < 5000, let revision else {
             return
         }
 
         let token = epoch, start = history.count
+        let all = showingAllHistory, tips = historyTips
         historyState = .loading
         changed()
         historyTask = Task { [weak self, service] in
             do {
-                let page = try await service.history(in: repository, revision: revision, offset: start, count: 50)
+                let page: GitHistoryPage
+                if all, let reader = service as? any GitAllHistoryInspecting {
+                    page = try await reader.history(in: repository, tips: tips, offset: start, count: 50)
+                } else {
+                    page = try await service.history(in: repository, revision: revision, offset: start, count: 50)
+                }
+
                 guard let self, !Task.isCancelled, epoch == token, self.revision == revision, !stopped else { return }
 
                 history += page.commits
-                hasMoreHistory = page.hasMore
+                hasMoreHistory = page.hasMore && history.count < 5000
                 historyState = .ready
             } catch {
                 guard let self, !Task.isCancelled, epoch == token, self.revision == revision, !stopped else { return }
@@ -225,16 +302,34 @@ public final class GitWorkspace {
         diffID = UUID()
         let token = diffID, generation = epoch
         diffState = .loading
+        partialDiff = nil
+        partialDiffNotice = ""
         if changedComparison || openTab { diffText = "Loading diff…" }
         changed()
         if openTab { onInspect?() }
         diffTask = Task { [weak self, service] in
             do {
-                let text = try await service.diff(in: repository, comparison: comparison)
+                var partial: GitPartialDiff?
+                var notice = ""
+                if let reader = service as? any GitPartialReading, let snapshot = self?.snapshot {
+                    switch comparison {
+                    case .index, .worktree, .untracked:
+                        do { partial = try await reader.partialDiff(in: snapshot, comparison: comparison) }
+                        catch { notice = error.localizedDescription }
+                    default: break
+                    }
+                }
+
+                let text: String
+                if let partial { text = partial.text }
+                else { text = try await service.diff(in: repository, comparison: comparison) }
+
                 guard let self, !Task.isCancelled, epoch == generation, diffID == token, !stopped else { return }
 
                 diffText = text.isEmpty ? "No differences on disk for this comparison." : text
                 diffState = .ready
+                partialDiff = partial
+                partialDiffNotice = notice
             } catch {
                 guard let self, !Task.isCancelled, epoch == generation, diffID == token, !stopped else { return }
 
@@ -254,6 +349,7 @@ public final class GitWorkspace {
         let token = operationID
         operationTitle = action.title
         operationOutput = ""
+        pullDivergence = nil
         operationState = action.changesCheckout ? .preparing : .running
         changed()
         let prepare = prepareCheckout, finish = checkoutFinished
@@ -293,6 +389,8 @@ public final class GitWorkspace {
                 if !Task.isCancelled, case .fetch(let remote) = action { lastFetch = (remote, .now) }
             } catch {
                 guard let self, !stopped, operationID == token else { return }
+
+                if case GitInspectionError.pullDiverged(let divergence) = error { pullDivergence = divergence }
 
                 operationState = error is CancellationError || Task.isCancelled
                     ? .cancelled

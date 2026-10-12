@@ -35,6 +35,7 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
     private(set) weak var presentationWindow: NSWindow?
     var window: NSWindow? { presentationWindow }
     var focusTarget: NSView { editor.textView }
+    var resolvedDocumentLanguage: DocumentLanguage { languageSelector.resolved.language }
     var onPresentationChange: (() -> Void)?
     var onFileSaved: (() -> Void)?
     var onActivate: (() -> Void)?

@@ -82,6 +82,23 @@ extension GitCLI: GitPullPlanning {
         }
 
         try ensurePullAllowed(fresh)
+        if let head = fresh.head {
+            let counts = try GitPorcelain.string(await run(
+                ["rev-list", "--left-right", "--count", head + "..." + target],
+                at: fresh.repository.root
+            ))
+            .split(whereSeparator: \.isWhitespace).compactMap { Int($0) }
+            guard counts.count == 2 else { throw GitInspectionError.failed("Cannot determine branch divergence.") }
+
+            if counts[0] > 0, counts[1] > 0 {
+                throw GitInspectionError.pullDiverged(.init(
+                    repository: fresh.repository,
+                    head: head,
+                    target: .init(reference: ref, oid: target)
+                ))
+            }
+        }
+
         try Task.checkCancellation()
         _ = try await run(
             [

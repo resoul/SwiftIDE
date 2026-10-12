@@ -34,6 +34,26 @@ extension GitCLI: GitMutating {
             var arguments: [String]
             var input: Data?
             switch action {
+            case .repositoryOperation(let plan):
+                try await repositoryOperation(plan, expected: current, output: output)
+
+                return
+            case .resolveConflictGroup(let group, let stage):
+                try await resolveGroup(group, stage: stage, expected: current, output: output)
+
+                return
+            case .interactiveRebase(let plan):
+                try await interactiveRebase(plan, expected: current, output: output)
+
+                return
+            case .manage(let plan):
+                try await manage(plan, expected: current, output: output)
+
+                return
+            case .partial(let selection):
+                try await partial(selection, expected: current, output: output)
+
+                return
             case .stash(let plan):
                 try await stash(plan, expected: current, output: output)
 
@@ -42,7 +62,7 @@ extension GitCLI: GitMutating {
                 try await tracking(plan, expected: current, output: output)
 
                 return
-            case .integrate, .continueIntegration, .abortIntegration, .skipRebase:
+            case .integrate, .continueIntegration, .abortIntegration, .skipRebase, .keepEmptyRebase:
                 try await integrate(action, expected: current, output: output)
 
                 return

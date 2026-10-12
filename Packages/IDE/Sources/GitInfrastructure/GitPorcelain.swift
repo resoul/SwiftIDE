@@ -39,7 +39,8 @@ enum GitPorcelain {
         ignored: [String: String],
         mutationToken: String? = nil,
         remotes: [String] = [],
-        integration: GitIntegrationStatus? = nil
+        integration: GitIntegrationStatus? = nil,
+        tags: [GitTag] = []
     ) throws -> GitSnapshot {
         let records = try data.split(separator: 0).map { try string(Data($0)) }
         var branch: String?, head: String?, upstream: String?, ahead: Int?, behind: Int?
@@ -112,7 +113,8 @@ enum GitPorcelain {
             branches: branches,
             mutationToken: mutationToken,
             remotes: remotes,
-            integration: integration
+            integration: integration,
+            tags: tags
         )
     }
 

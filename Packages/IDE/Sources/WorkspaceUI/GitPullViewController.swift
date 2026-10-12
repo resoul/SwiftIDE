@@ -6,6 +6,9 @@ import IDEApplication
 public final class GitPullViewController: NSViewController, NSTextFieldDelegate {
     public let model: GitPullReview
     public var close: (() -> Void)?
+    public var integrateFetched: ((GitIntegrationKind, GitBranch) -> Void)?
+    public let mergeFetched = NSButton(title: "Review Merge…", target: nil, action: nil)
+    public let rebaseFetched = NSButton(title: "Review Rebase…", target: nil, action: nil)
     private let branch = NSTextField(labelWithString: "")
     let remote = NSPopUpButton(frame: .zero, pullsDown: false)
     let source = NSTextField(string: "")
@@ -43,6 +46,10 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
         cancel.target = self
         cancel.action = #selector(cancelPull(_:))
         cancel.keyEquivalent = "\u{1b}"
+        mergeFetched.target = self
+        mergeFetched.action = #selector(mergeFetchedBranch(_:))
+        rebaseFetched.target = self
+        rebaseFetched.action = #selector(rebaseFetchedBranch(_:))
         // Return must not accidentally update the checkout while editing the form.
         details.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         details.isSelectable = true
@@ -72,6 +79,7 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
             note,
             details,
             status,
+            gitStack([mergeFetched, rebaseFetched], vertical: false),
             scroll,
             gitStack([cancel, review, pull], vertical: false)
         ]), to: view, inset: 20)
@@ -114,8 +122,28 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
         if model.workspace.operationState.isBusy { model.workspace.cancelOperation() } else { close?() }
     }
 
+    @objc public func mergeFetchedBranch(_ sender: Any?) {
+        if mergeFetched.isEnabled, let divergence = model.workspace.pullDivergence {
+            integrateFetched?(.merge, divergence.target)
+        }
+    }
+
+    @objc public func rebaseFetchedBranch(_ sender: Any?) {
+        if rebaseFetched.isEnabled, let divergence = model.workspace.pullDivergence {
+            integrateFetched?(.rebase, divergence.target)
+        }
+    }
+
     private func render() {
         let workspace = model.workspace
+        let divergence = workspace.pullDivergence
+        let valid = divergence.map { value in workspace.canMutate && value.repository == workspace.snapshot?.repository
+            && value.head == workspace.snapshot?.head && workspace.snapshot?.branches.contains(value.target) == true
+        } ?? false
+        mergeFetched.isHidden = !valid
+        rebaseFetched.isHidden = !valid
+        mergeFetched.isEnabled = valid && integrateFetched != nil
+        rebaseFetched.isEnabled = mergeFetched.isEnabled
         branch.stringValue = "Current branch: " + (workspace.snapshot?.headDescription ?? "unavailable")
         let previousRemote = remote.titleOfSelectedItem, names = workspace.snapshot?.remotes ?? []
         if remote.itemTitles != names {

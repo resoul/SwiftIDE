@@ -251,3 +251,35 @@ final class RepositoryFixture: @unchecked Sendable {
         return data
     }
 }
+
+extension GitCLITests {
+    @Test func concurrentPipesCannotStarveTimeoutsOrLeaveChildren() async throws {
+        let repo = try RepositoryFixture()
+        defer { repo.remove() }
+        let started = ContinuousClock.now
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for index in 0..<40 {
+                group.addTask {
+                    let script = "/bin/sleep 20 &\necho $! > '" + repo.root + "/child-\(index).pid'\n"
+                        + "echo ready\necho detail >&2\nwait\n"
+                    await #expect(throws: GitInspectionError.failed("Git request timed out")) {
+                        try await GitCommand.run(
+                            executable: URL(fileURLWithPath: "/bin/sh"),
+                            root: repo.root,
+                            arguments: ["-c", script],
+                            timeout: 0.5
+                        )
+                    }
+                }
+            }
+            try await group.waitForAll()
+        }
+        #expect(started.duration(to: .now) < .seconds(10))
+        for index in 0..<40 {
+            let text = try String(contentsOfFile: repo.root + "/child-\(index).pid", encoding: .utf8)
+                .trimmingCharacters(in: .newlines)
+            let pid = try #require(Int32(text))
+            #expect(kill(pid, 0) != 0)
+        }
+    }
+}

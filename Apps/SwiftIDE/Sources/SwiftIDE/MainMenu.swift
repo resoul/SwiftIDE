@@ -67,6 +67,21 @@ enum MainMenu {
 
         main.addItem(submenuItem(title: "Git", items: [
             NSMenuItem(
+                title: "GitHub / GitLab…",
+                action: #selector(ProjectWorkspaceController.hostingGit(_:)),
+                keyEquivalent: ""
+            ),
+            NSMenuItem(
+                title: "Repository Operations…",
+                action: #selector(ProjectWorkspaceController.repositoryOperationsGit(_:)),
+                keyEquivalent: ""
+            ),
+            NSMenuItem(
+                title: "Manage Repository…",
+                action: #selector(ProjectWorkspaceController.manageGit(_:)),
+                keyEquivalent: ""
+            ),
+            NSMenuItem(
                 title: "Stashes…",
                 action: #selector(ProjectWorkspaceController.stashesGit(_:)),
                 keyEquivalent: ""
@@ -83,17 +98,22 @@ enum MainMenu {
                 keyEquivalent: ""
             ),
             NSMenuItem(
-                title: "Continue Merge/Rebase",
+                title: "Interactive Rebase…",
+                action: #selector(ProjectWorkspaceController.interactiveRebaseGit(_:)),
+                keyEquivalent: ""
+            ),
+            NSMenuItem(
+                title: "Continue Git Operation",
                 action: #selector(ProjectWorkspaceController.continueGit(_:)),
                 keyEquivalent: ""
             ),
             NSMenuItem(
-                title: "Abort Merge/Rebase…",
+                title: "Abort Git Operation…",
                 action: #selector(ProjectWorkspaceController.abortGit(_:)),
                 keyEquivalent: ""
             ),
             NSMenuItem(
-                title: "Skip Rebase Commit…",
+                title: "Skip Current Replay…",
                 action: #selector(ProjectWorkspaceController.skipGit(_:)),
                 keyEquivalent: ""
             ),

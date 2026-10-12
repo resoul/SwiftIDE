@@ -137,7 +137,8 @@ struct GitConflictIntegrationTests {
             withDestinationPath: outside.root + "/safe"
         )
         snapshot = try await cli.snapshot(at: repo.root)
-        await #expect(throws: GitInspectionError.self) { try await cli.conflict(in: snapshot, path: "a.txt") }
+        let linked = try await cli.conflict(in: snapshot, path: "a.txt")
+        #expect(linked.workingKind == .symlink && linked.workingText == nil)
         await #expect(throws: GitInspectionError.self) {
             try await cli.perform(.resolveConflict(conflict, .workingFile), expected: snapshot) { _ in }
         }

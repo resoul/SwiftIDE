@@ -251,7 +251,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             files: composition.makeProjectFiles(root: root),
             layout: composition.makeWorkspaceLayout(root: root),
             git: composition.makeGitWorkspace(root: root),
-            agent: AppCompositionRoot.makeDemoAgentSession()
+            agent: AppCompositionRoot.makeDemoAgentSession(),
+            hostingAccounts: composition.gitHostingAccounts
         )
         project.git?.prepareCheckout = { [weak self] repository in
             await self?.gitCheckout.prepare(repository) ?? false

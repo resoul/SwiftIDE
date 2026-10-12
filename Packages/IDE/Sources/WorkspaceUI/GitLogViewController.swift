@@ -8,10 +8,15 @@ public extension WorkspaceTool {
 @MainActor
 public final class GitLogViewController: NSViewController {
     public let model: GitWorkspace
+    public var inspectCI: ((GitCommit) -> Void)? { didSet { if isViewLoaded { render() } } }
+    let ci = NSButton(title: "CI…", target: nil, action: nil)
+    private var ciReports: [String: String] = [:]
+    private var ciOrder: [String] = []
     public var focusTarget: NSView { commits.table }
     let commits = GitListView(label: "Git commit history")
     let files = GitListView(label: "Files changed by selected commit")
     let search = NSSearchField()
+    public let source = NSPopUpButton()
     private let status = NSTextField(labelWithString: "")
     private let details =
         NSTextField(
@@ -19,6 +24,8 @@ public final class GitLogViewController: NSViewController {
         )
     private let more = NSButton(title: "Load more", target: nil, action: nil)
     private var subscription: UUID?
+    private var graphed: [GitCommit] = []
+    private var graphRows: [String: GitGraphRow] = [:]
 
     public init(model: GitWorkspace) {
         self.model = model
@@ -36,7 +43,14 @@ public final class GitLogViewController: NSViewController {
         search.sendsSearchStringImmediately = true
         more.target = self
         more.action = #selector(loadMore(_:))
-        let header = gitStack([search, more], vertical: false)
+        source.addItems(withTitles: ["Current branch", "All known references"])
+        source.target = self
+        source.action = #selector(sourceChanged(_:))
+        source.setAccessibilityLabel("History scope")
+        source.item(at: 1)?.isEnabled = model.supportsAllHistory
+        ci.target = self
+        ci.action = #selector(inspectCommitCI(_:))
+        let header = gitStack([source, search, more, ci], vertical: false)
         search.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let split = NSSplitView()
         split.isVertical = true
@@ -69,16 +83,59 @@ public final class GitLogViewController: NSViewController {
 
     @objc private func loadMore(_ sender: Any?) { model.loadMoreHistory() }
 
+    @objc private func inspectCommitCI(_ sender: Any?) {
+        if ci.isEnabled, let commit = model.selectedCommit { inspectCI?(commit) }
+    }
+
+    public func presentCI(
+        sha: String,
+        checks: [GitHostingCheck],
+        limited: Bool,
+        receivedAt: Date,
+        source: String = ""
+    ) {
+        let states = Set(checks.map(\.state))
+        let state = checks.isEmpty
+            ? "none reported"
+            : limited
+                ? "partial report"
+                : !states.isDisjoint(with: ["failure", "failed", "error", "timed_out", "cancelled", "canceled"])
+                    ? "failed/cancelled"
+                    : !states.isDisjoint(with: ["pending", "queued", "running", "in_progress", "waiting_for_resource"])
+                        ? "running/pending"
+                        : states == ["success"] ? "passed" : "other results"
+        ciReports[sha] = " · CI: " + state + (source.isEmpty ? "" : " · " + source) + " (" + receivedAt.formatted(
+            date: .omitted,
+            time: .shortened
+        ) + ")"
+        ciOrder.removeAll { $0 == sha }
+        ciOrder.append(sha)
+        if ciOrder.count > 100 { ciReports[ciOrder.removeFirst()] = nil }
+        if isViewLoaded { render() }
+    }
+
+    @objc public func sourceChanged(_ sender: Any?) {
+        if source.indexOfSelectedItem == 1 { model.viewAllHistory() } else { model.viewHeadHistory() }
+    }
+
     private func render() {
         let query = search.stringValue
+        if graphed != model.history {
+            graphed = model.history
+            graphRows = GitHistoryGraph.layout(model.history)
+        }
+
+        let graph = query.isEmpty ? graphRows : [:]
         commits.present(model.history.filter {
             query.isEmpty || [$0.oid, $0.author, $0.subject].contains { $0.localizedCaseInsensitiveContains(query) }
         }.map {
             .init(
                 key: $0.oid,
                 title: String($0.oid.prefix(8)) + " · " + $0.subject,
-                detail: $0.author + " · " + $0.date.formatted(date: .abbreviated, time: .shortened),
-                selectable: true
+                detail: $0.author + " · " + $0.date.formatted(date: .abbreviated, time: .shortened) + refLabels($0)
+                    + (ciReports[$0.oid] ?? ""),
+                selectable: true,
+                graph: graph[$0.oid]
             )
         })
         files.present(model.commitFiles.map {
@@ -91,20 +148,31 @@ public final class GitLogViewController: NSViewController {
         })
         if let commit = model.selectedCommit {
             details.stringValue = String(commit.oid.prefix(8)) + " · " + commit.subject + "\n" + model.filesState
-                .explanation
+                .explanation + "\nParents: " + commit.parents.map { String($0.prefix(12)) }.joined(separator: ", ")
         } else {
             details.stringValue = "Select a commit to see files. Merge commits compare against their first parent."
         }
 
         more.isEnabled = model.state == .ready && model.hasMoreHistory && model.historyState != .loading
+        ci.isHidden = inspectCI == nil
+        ci.isEnabled = inspectCI != nil && model.selectedCommit != nil && model.state == .ready
         let explanation = model.state == .ready ? model.historyState.explanation : model.explanation
         status.stringValue = model.historyTitle + " · " + explanation
             + " · \(model.history.count) loaded · locally known refs"
+            + (!query.isEmpty ? " · graph hidden while filtering" : "")
+            + (model.history.count >= 5000 ? " · 5000-row limit" : "")
         status.toolTip = status.stringValue
     }
 
     public func disconnect() {
         if let subscription { model.unsubscribe(subscription) }
         subscription = nil
+    }
+
+    private func refLabels(_ commit: GitCommit) -> String {
+        let labels = (model.snapshot?.branches.filter { $0.oid == commit.oid }.map(\.name) ?? [])
+            + (model.snapshot?.tags.filter { $0.commit == commit.oid }.map(\.name) ?? [])
+
+        return labels.isEmpty ? "" : " · " + labels.joined(separator: ", ")
     }
 }

@@ -1,7 +1,43 @@
 import Foundation
 import IDEApplication
 
-extension GitCLI: GitPushPlanning {
+extension GitCLI: GitPushPlanning, GitForcePushPlanning {
+    public func planForcePush(
+        in snapshot: GitSnapshot,
+        branch: GitBranch,
+        remote: String,
+        destination: String
+    ) async throws -> GitPushPlan {
+        let basic = try await planPush(in: snapshot, branch: branch, remote: remote, destination: destination)
+        let ref = "refs/heads/" + destination
+        let data = try await run(
+            networkOptions + ["ls-remote", "--refs", "--", basic.url, ref],
+            at: snapshot.repository.root,
+            limit: 64_000,
+            timeout: 60,
+            network: true
+        )
+        let lines = try GitPorcelain.string(data).split(separator: "\n")
+        guard lines.count <= 1 else { throw GitInspectionError.failed("Remote destination is ambiguous.") }
+
+        var lease = ""
+        if let line = lines.first {
+            let fields = line.split(separator: "\t")
+            guard fields.count == 2, fields[1] == ref else { throw GitInspectionError.failed("Malformed remote ref.") }
+
+            lease = try GitPorcelain.oid(String(fields[0]))
+        }
+
+        return .init(
+            repository: basic.repository,
+            branch: basic.branch,
+            remote: basic.remote,
+            destination: basic.destination,
+            url: basic.url,
+            lease: lease
+        )
+    }
+
     public func planPush(
         in snapshot: GitSnapshot,
         branch: GitBranch,
@@ -50,18 +86,17 @@ extension GitCLI: GitPushPlanning {
             throw GitInspectionError.failed("Source branch changed since review; refresh and review Push again")
         }
 
-        let current = try await planPush(
-            in: expected,
-            branch: plan.branch,
-            remote: plan.remote,
-            destination: plan.destination
-        )
+        let current = try await plan.lease == nil
+            ? planPush(in: expected, branch: plan.branch, remote: plan.remote, destination: plan.destination)
+            : planForcePush(in: expected, branch: plan.branch, remote: plan.remote, destination: plan.destination)
         guard current == plan else {
             throw GitInspectionError.failed("Push address changed since review; review Push again")
         }
 
         try Task.checkCancellation()
         // Freeze the reviewed source and address. Never use push.default, custom mappings or mirror mode.
+        let forceOptions = plan.lease.map { ["--force-with-lease=refs/heads/" + plan.destination + ":" + $0] }
+            ?? ["--no-force-with-lease"]
         _ = try await run(
             networkOptions + [
                 "-c",
@@ -72,10 +107,10 @@ extension GitCLI: GitPushPlanning {
                 "--porcelain",
                 "--progress",
                 "--no-force",
-                "--no-force-with-lease",
                 "--no-force-if-includes",
                 "--no-follow-tags",
                 "--no-recurse-submodules",
+            ] + forceOptions + [
                 "--",
                 plan.url,
                 (try GitPorcelain.oid(plan.branch.oid)) + ":refs/heads/" + plan

@@ -6,6 +6,12 @@ import IDEApplication
 public final class GitPushViewController: NSViewController, NSTextFieldDelegate {
     public let model: GitPushReview
     public var close: (() -> Void)?
+    public var confirmForce: ((GitPushPlan) -> Void)?
+    public let force = NSButton(
+        checkboxWithTitle: "Rewrite destination using an exact remote lease",
+        target: nil,
+        action: nil
+    )
     let branch = NSPopUpButton(frame: .zero, pullsDown: false)
     let remote = NSPopUpButton(frame: .zero, pullsDown: false)
     let destination = NSTextField(string: "")
@@ -41,6 +47,8 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
         destination.delegate = self
         review.target = self
         review.action = #selector(reviewDestination(_:))
+        force.target = self
+        force.action = #selector(selectionChanged(_:))
         push.target = self
         push.action = #selector(pushReviewed(_:))
         cancel.target = self
@@ -72,6 +80,7 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
             title,
             gitStack([branch, remote], vertical: false),
             destination,
+            force,
             note,
             details,
             status,
@@ -116,10 +125,14 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
     @objc func reviewDestination(_ sender: Any?) {
         guard review.isEnabled, let branch = selectedBranch, let remote = remote.titleOfSelectedItem else { return }
 
-        model.review(branch: branch, remote: remote, destination: destination.stringValue)
+        model.review(branch: branch, remote: remote, destination: destination.stringValue, force: force.state == .on)
     }
 
-    @objc func pushReviewed(_ sender: Any?) { if push.isEnabled { model.push() } }
+    @objc func pushReviewed(_ sender: Any?) {
+        guard push.isEnabled else { return }
+
+        if let plan = model.plan, plan.lease != nil { confirmForce?(plan) } else { model.push() }
+    }
 
     @objc func cancelPush(_ sender: Any?) {
         if model.workspace.operationState.isBusy { model.workspace.cancelOperation() } else { close?() }
@@ -150,6 +163,9 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
         branch.isEnabled = !busy
         remote.isEnabled = !busy
         destination.isEnabled = !busy
+        force.isEnabled = !busy && workspace.forcePushPlanner != nil
+        force.isHidden = workspace.forcePushPlanner == nil
+        push.title = model.plan?.lease == nil ? "Push" : "Force with lease…"
         review.isEnabled = workspace.canMutate && !reviewing && selectedBranch != nil && remote
             .titleOfSelectedItem != nil && !destination.stringValue.isEmpty
         push.isEnabled = model.canPush
@@ -160,6 +176,7 @@ public final class GitPushViewController: NSViewController, NSTextFieldDelegate 
             .map {
                 "Source: " + $0.branch.name + " @ " + $0.branch.oid + "\nRemote: " + $0.remote + "\nAddress: " + $0
                     .url + "\nDestination: refs/heads/" + $0.destination
+                    + ($0.lease.map { "\nExpected remote: " + ($0.isEmpty ? "absent" : $0) } ?? "")
             } ?? "Review the destination before sending."
         if model.plan == nil, model.submittedPlan != nil {
             details.stringValue = "Last Push attempt\n" + details.stringValue

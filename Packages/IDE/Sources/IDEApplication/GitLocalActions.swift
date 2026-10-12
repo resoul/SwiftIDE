@@ -1,12 +1,18 @@
 import Foundation
 
 public enum GitAction: Equatable, Sendable {
+    case partial(GitPartialSelection)
+    case manage(GitManagementPlan)
+    case repositoryOperation(GitRepositoryOperationPlan)
     case stash(GitStashPlan)
     case tracking(GitTrackingPlan)
     case integrate(GitIntegrationPlan)
+    case interactiveRebase(GitInteractiveRebasePlan)
     case continueIntegration(GitIntegrationStatus, String)
     case abortIntegration(GitIntegrationStatus), skipRebase(GitIntegrationStatus)
+    case keepEmptyRebase(GitIntegrationStatus)
     case resolveConflict(GitConflict, GitConflictResolution)
+    case resolveConflictGroup(GitConflictGroup, Int)
     case fetch(String)
     case push(GitPushPlan)
     case pull(GitPullPlan)
@@ -15,16 +21,27 @@ public enum GitAction: Equatable, Sendable {
 
     public var title: String {
         switch self {
+        case .partial(let selection): selection.title
+        case .manage(let plan): plan.title
+        case .repositoryOperation(let plan): plan.request.kind.rawValue
         case .stash(let plan): plan.request.title
         case .tracking(let plan): plan.title
         case .integrate(let plan): plan.title
+        case .interactiveRebase: "Interactive Rebase"
         case .continueIntegration(let status, _): "Continue " + status.kind.rawValue
         case .abortIntegration(let status): "Abort " + status.kind.rawValue
-        case .skipRebase: "Skip current rebase commit"
+        case .skipRebase(let status): "Skip current " + status.kind.rawValue + " commit"
+        case .keepEmptyRebase: "Keep current replay as an empty commit"
         case .resolveConflict(_, let resolution):
-            resolution == .workingFile
-                ? "Mark saved result resolved"
-                : resolution == .delete ? "Resolve as deleted" : "Restore conflict side on disk"
+            switch resolution {
+            case .workingFile: "Mark saved result resolved"
+            case .workingFileAllowingLiteralMarkers: "Mark literal-marker result resolved"
+            case .indexStage: "Resolve index using reviewed stage"
+            case .indexDeleted: "Resolve index path as deleted (keep disk)"
+            case .delete: "Resolve as deleted"
+            case .restoreStage: "Restore conflict side on disk"
+            }
+        case .resolveConflictGroup: "Resolve related rename paths in index"
         case .pull(let plan): plan.title
         case .push(let plan): plan.title
         case .fetch(let remote): "Fetch " + remote
@@ -37,9 +54,13 @@ public enum GitAction: Equatable, Sendable {
     }
     public var changesCheckout: Bool {
         switch self {
+        case .repositoryOperation(let plan): plan.request.kind.changesCheckout
+        case .resolveConflict(_, .indexStage), .resolveConflict(_, .indexDeleted): false
         case .stash(let plan):
             plan.request.changesCheckout
-        case .switchBranch, .pull, .integrate, .continueIntegration, .abortIntegration, .skipRebase, .resolveConflict:
+        case .switchBranch, .pull, .integrate, .interactiveRebase, .continueIntegration, .abortIntegration, .skipRebase,
+             .keepEmptyRebase,
+             .resolveConflict:
             true
         default:
             false

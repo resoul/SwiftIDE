@@ -1,5 +1,17 @@
 import Foundation
 
+public struct GitPullDivergence: Equatable, Sendable {
+    public let repository: GitRepository
+    public let head: String
+    public let target: GitBranch
+
+    public init(repository: GitRepository, head: String, target: GitBranch) {
+        self.repository = repository
+        self.head = head
+        self.target = target
+    }
+}
+
 public struct GitPullPlan: Equatable, Sendable {
     public let repository: GitRepository
     public let branch: GitBranch

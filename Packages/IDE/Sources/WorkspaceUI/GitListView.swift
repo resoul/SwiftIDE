@@ -1,4 +1,5 @@
 import AppKit
+import IDEApplication
 
 struct GitListRow: Equatable {
     let key: String
@@ -6,6 +7,7 @@ struct GitListRow: Equatable {
     var detail = ""
     var colour: NSColor = .labelColor
     var selectable = true
+    var graph: GitGraphRow?
 }
 
 @MainActor
@@ -81,7 +83,17 @@ final class GitListView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         stack.alignment = .leading
         stack.spacing = 2
         let cell = GitStatusCell(name: name, detail: detail, colour: value.colour)
-        gitPin(stack, to: cell, inset: 4)
+        if let graph = value.graph {
+            let drawing = GitGraphView(row: graph)
+            drawing.widthAnchor.constraint(equalToConstant: min(280, CGFloat(graph.lanes) * 14 + 16)).isActive = true
+            drawing.heightAnchor.constraint(equalToConstant: table.rowHeight).isActive = true
+            let content = NSStackView(views: [drawing, stack])
+            content.orientation = .horizontal
+            content.spacing = 6
+            content.alignment = .centerY
+            gitPin(content, to: cell)
+        } else { gitPin(stack, to: cell, inset: 4) }
+
         cell.toolTip = value.title + "\n" + value.detail
         cell.setAccessibilityLabel(value.title + " " + value.detail)
 

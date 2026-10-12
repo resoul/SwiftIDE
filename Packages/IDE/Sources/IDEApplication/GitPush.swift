@@ -6,20 +6,36 @@ public struct GitPushPlan: Equatable, Sendable {
     public let remote: String
     public let destination: String
     public let url: String
+    public let lease: String?
 
-    public init(repository: GitRepository, branch: GitBranch, remote: String, destination: String, url: String) {
+    public init(
+        repository: GitRepository,
+        branch: GitBranch,
+        remote: String,
+        destination: String,
+        url: String,
+        lease: String? = nil
+    ) {
         self.repository = repository
         self.branch = branch
         self.remote = remote
         self.destination = destination
         self.url = url
+        self.lease = lease
     }
 
-    public var title: String { "Push " + branch.name + " → " + remote + "/" + destination }
+    public var title: String {
+        (lease == nil ? "Push " : "Force with lease ") + branch.name + " → " + remote + "/" + destination
+    }
 }
 
 public protocol GitPushPlanning: Sendable {
     func planPush(in snapshot: GitSnapshot, branch: GitBranch, remote: String, destination: String) async throws
+        -> GitPushPlan
+}
+
+public protocol GitForcePushPlanning: Sendable {
+    func planForcePush(in snapshot: GitSnapshot, branch: GitBranch, remote: String, destination: String) async throws
         -> GitPushPlan
 }
 
@@ -52,7 +68,7 @@ public final class GitPushReview {
         changed()
     }
 
-    public func review(branch: GitBranch, remote: String, destination: String) {
+    public func review(branch: GitBranch, remote: String, destination: String, force: Bool = false) {
         guard !stopped, workspace.canMutate, let snapshot = workspace.snapshot,
               let planner = workspace.pushPlanner else {
             return
@@ -64,12 +80,27 @@ public final class GitPushReview {
         let token = generation
         task = Task { [weak self] in
             do {
-                let value = try await planner.planPush(
-                    in: snapshot,
-                    branch: branch,
-                    remote: remote,
-                    destination: destination
-                )
+                let value: GitPushPlan
+                if force {
+                    guard let forcePlanner = self?.workspace.forcePushPlanner else {
+                        throw GitInspectionError.failed("Force with lease is unavailable.")
+                    }
+
+                    value = try await forcePlanner.planForcePush(
+                        in: snapshot,
+                        branch: branch,
+                        remote: remote,
+                        destination: destination
+                    )
+                } else {
+                    value = try await planner.planPush(
+                        in: snapshot,
+                        branch: branch,
+                        remote: remote,
+                        destination: destination
+                    )
+                }
+
                 try Task.checkCancellation()
                 guard let self, !stopped, generation == token else { return }
 
