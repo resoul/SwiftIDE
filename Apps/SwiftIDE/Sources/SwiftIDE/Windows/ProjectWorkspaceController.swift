@@ -81,12 +81,15 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         browser = ProjectFilesContainer(model: files, editor: area.view, layout: layout, panels: providers)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = (files.root as NSString).lastPathComponent
         window.representedURL = URL(fileURLWithPath: files.root)
+        // The header row sits in the titlebar: the content runs under it and the title is not drawn.
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
         window.contentViewController = browser
         window.minSize = NSSize(width: 900, height: 560)
         window.isReleasedWhenClosed = false
@@ -94,6 +97,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         window.center()
         super.init(window: window)
         window.delegate = self
+        // Clears the traffic lights (about 12–70 pt) unless the window is full screen, where they are hidden.
+        browser.shell.leadingHeaderInset = 78
         browser.addChild(area)
         browser.addChild(chat)
         chat.captureSelection = { [weak self] in
@@ -366,6 +371,10 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
         return false
     }
+
+    func windowDidEnterFullScreen(_ notification: Notification) { shell.leadingHeaderInset = 12 }
+
+    func windowDidExitFullScreen(_ notification: Notification) { shell.leadingHeaderInset = 78 }
 
     func windowWillClose(_ notification: Notification) {
         if let filesSubscription { files.unsubscribe(filesSubscription) }

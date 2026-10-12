@@ -37,7 +37,9 @@ public final class WorkspaceShellViewController: NSViewController {
     private let projectAccessory = NSStackView()
     public var projectMenu: (() -> NSMenu)? { didSet { projectSwitcher.isEnabled = projectMenu != nil } }
 
-    /// A supplied project control, such as a branch picker. The shell has no service dependency.
+    public var leadingHeaderInset: CGFloat = 12 { didSet { headerLeading?.constant = leadingHeaderInset } }
+    private var headerLeading: NSLayoutConstraint?
+
     public func installProjectAccessory(_ control: NSView?) {
         for old in projectAccessory.arrangedSubviews {
             projectAccessory.removeArrangedSubview(old)
@@ -127,7 +129,12 @@ public final class WorkspaceShellViewController: NSViewController {
         let leftRail = rail(leftSide: true), rightRail = rail(leftSide: false)
         let topBar = toolbar(), status = statusBar()
         chrome = [leftRail, rightRail, topBar, status]
-        let body = stack([leftRail, vertical.view, rightRail], vertical: false)
+
+        let body = stack(
+            [leftRail, vertical.view, rightRail],
+            vertical: false,
+            insets: NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+        )
         pin(stack([topBar, body, status], vertical: true), to: view)
         render()
     }
@@ -205,14 +212,25 @@ public final class WorkspaceShellViewController: NSViewController {
         projectSwitcher.toolTip = "Open and recent projects"
         projectSwitcher.isEnabled = projectMenu != nil
 
-        return padded(
-            stack(
-                [projectBadge, projectLabel, projectSwitcher, projectAccessory, NSView(), detailLabel, focus, reset],
-                vertical: false,
-                spacing: 8
-            ),
-            height: 46
+        let content = stack(
+            [projectBadge, projectLabel, projectSwitcher, projectAccessory, NSView(), detailLabel, focus, reset],
+            vertical: false,
+            spacing: 8
         )
+        let bar = ChromeBarView()
+        bar.addSubview(content)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        let leading = content.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: leadingHeaderInset)
+        headerLeading = leading
+
+        NSLayoutConstraint.activate([
+            leading,
+            content.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -12),
+            content.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+            bar.heightAnchor.constraint(equalToConstant: 28)
+        ])
+
+        return bar
     }
 
     @objc private func showProjectMenu(_ sender: NSButton) {
@@ -252,7 +270,7 @@ public final class WorkspaceShellViewController: NSViewController {
     }
 
     private func toolButton(_ tool: WorkspaceTool) -> NSButton {
-        let button = NSButton(title: "", target: self, action: #selector(selectTool(_:)))
+        let button = RailButton(title: "", target: self, action: #selector(selectTool(_:)))
         button.image = WorkspaceIcon.image(tool.symbol, description: tool.title)
         button.tag = tool.rawValue
         button.isBordered = false
@@ -297,8 +315,7 @@ public final class WorkspaceShellViewController: NSViewController {
 
         for (tool, button) in buttons {
             let selected = layout.contains(tool)
-            button.contentTintColor = selected ? .controlAccentColor : .secondaryLabelColor
-            button.state = selected ? .on : .off
+            (button as? RailButton)?.isActive = selected
             button.setAccessibilityValue(button.isEnabled ? (selected ? "Selected" : "Hidden") : "Unavailable")
         }
     }
@@ -332,11 +349,71 @@ public final class WorkspaceShellViewController: NSViewController {
 final class WorkspaceSplitView: NSSplitView {
     var onDividerDrag: (([CGFloat]) -> Void)?
 
+    override var dividerThickness: CGFloat { 2 }
+
+    override func drawDivider(in rect: NSRect) {}
+
     override func mouseDown(with event: NSEvent) {
         let before = subviews.map { isVertical ? $0.frame.width : $0.frame.height }
         super.mouseDown(with: event)
         onDividerDrag?(before)
     }
+}
+
+/// A tool-strip button with three visible states: normal, hover and active (its panel is open).
+@MainActor
+private final class RailButton: NSButton {
+    var isActive = false { didSet { refresh() } }
+    private var hovered = false { didSet { refresh() } }
+
+    override var isEnabled: Bool {
+        didSet { refresh() }
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { hovered = true }
+
+    override func mouseExited(with event: NSEvent) { hovered = false }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refresh()
+    }
+
+    /// Colours are set directly, not in updateLayer, so NSButton still draws its image.
+    private func refresh() {
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            if isActive {
+                layer?.backgroundColor = NSColor.controlAccentColor.cgColor
+                contentTintColor = .white
+            } else if hovered, isEnabled {
+                layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(dark ? 0.12 : 0.08).cgColor
+                contentTintColor = .labelColor
+            } else {
+                layer?.backgroundColor = NSColor.clear.cgColor
+                contentTintColor = isEnabled ? .secondaryLabelColor : .tertiaryLabelColor
+            }
+        }
+    }
+}
+
+/// The header row. Empty space in it drags the window, as the titlebar does when the content runs under it.
+@MainActor
+private final class ChromeBarView: NSView {
+    override var mouseDownCanMoveWindow: Bool { true }
 }
 
 @MainActor
@@ -433,12 +510,11 @@ private func pin(_ view: NSView, to parent: NSView) {
     ])
 }
 
-/// Colours resolve for the window appearance, including theme changes while open.
 @MainActor
 private final class WorkspaceBackgroundView: NSView {
     enum Role { case chrome, panel, editor }
+
     private let role: Role
-    /// A faint wash of the project's colour, fading out across the surface.
     private let accent: NSColor?
     private let tint: CAGradientLayer?
 
@@ -451,7 +527,6 @@ private final class WorkspaceBackgroundView: NSView {
         if role != .chrome {
             layer?.cornerRadius = 10
             layer?.masksToBounds = true
-            layer?.borderWidth = 0.5
         }
 
         if let tint {
@@ -488,8 +563,9 @@ private final class WorkspaceBackgroundView: NSView {
             case .panel: white = dark ? 0.115 : 0.965
             case .editor: white = dark ? 0.095 : 1.0
             }
+
             layer?.backgroundColor = NSColor(white: white, alpha: 1).cgColor
-            layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.45).cgColor
+
             if let accent, let tint {
                 tint.colors = [
                     accent.withAlphaComponent(dark ? 0.24 : 0.14).cgColor,
@@ -508,10 +584,10 @@ private func surface(_ content: NSView, role: WorkspaceBackgroundView.Role = .pa
     outer.addSubview(card)
     card.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
-        card.leadingAnchor.constraint(equalTo: outer.leadingAnchor, constant: 4),
-        card.trailingAnchor.constraint(equalTo: outer.trailingAnchor, constant: -4),
-        card.topAnchor.constraint(equalTo: outer.topAnchor, constant: 4),
-        card.bottomAnchor.constraint(equalTo: outer.bottomAnchor, constant: -4)
+        card.leadingAnchor.constraint(equalTo: outer.leadingAnchor, constant: 1),
+        card.trailingAnchor.constraint(equalTo: outer.trailingAnchor, constant: -1),
+        card.topAnchor.constraint(equalTo: outer.topAnchor, constant: 1),
+        card.bottomAnchor.constraint(equalTo: outer.bottomAnchor, constant: -1)
     ])
 
     return outer

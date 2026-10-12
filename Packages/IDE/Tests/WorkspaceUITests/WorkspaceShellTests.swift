@@ -219,6 +219,9 @@ struct WorkspaceShellTests {
         #expect(state.persistentLayout == preferred)
         // AppKit has compressed the panes. A subsequent user drag in this small window must
         // persist the dragged dimension, without overwriting the other preferred dimensions.
+        // At the 900 pt minimum the panes sit at their minimum widths, so a drag has no room to move.
+        window.setContentSize(NSSize(width: 920, height: 560))
+        shell.view.layoutSubtreeIfNeeded()
         let split = try #require(shell.horizontal.splitView as? WorkspaceSplitView)
         let before = split.subviews.map { $0.frame.width }
         split.setPosition(205, ofDividerAt: 0)
