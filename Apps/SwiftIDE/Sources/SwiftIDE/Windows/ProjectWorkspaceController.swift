@@ -28,6 +28,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     private let gitDiff: GitDiffViewController?
     private let diffTabID = DocumentID()
     private var gitSubscription: UUID?
+    private var lastGitOperationState = GitOperationState.idle
     private var gitEvents: GitRepositoryEvents?
     private var watchedRepository: GitRepository?
     private var presentedSnapshotDate: Date?
@@ -193,6 +194,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     private func presentGit() {
         guard let git else { return }
 
+        presentGitNotification(git)
+
         if let snapshot = git.snapshot, snapshot.capturedAt != presentedSnapshotDate {
             presentedSnapshotDate = snapshot.capturedAt
             files.applyGitSnapshot(snapshot)
@@ -210,6 +213,35 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
         files.statusExplanation = git.explanation
         updatePresentation()
+    }
+
+    private func presentGitNotification(_ git: GitWorkspace) {
+        let previous = lastGitOperationState
+        lastGitOperationState = git.operationState
+        guard previous.isBusy, !git.operationState.isBusy else { return }
+
+        let kind: WorkspaceNotificationKind
+        let suffix: String
+        let message: String
+        switch git.operationState {
+        case .succeeded:
+            kind = .success; suffix = " completed"
+            message = "See Source Control for the current repository state."
+        case .failed(let reason):
+            kind = .error; suffix = " stopped"
+            message = String(reason.prefix(600))
+        case .cancelled:
+            kind = .information; suffix = " cancelled"
+            message = "Changes already made are retained. See Source Control for details."
+        default: return
+        }
+        shell.notifications.post(WorkspaceNotification(
+            id: "git.operation",
+            kind: kind,
+            title: git.operationTitle + suffix,
+            message: message,
+            actions: [.init(title: "Show details…", perform: { [weak self] in self?.shell.select(.sourceControl) })]
+        ))
     }
 
     func showWorkspace() {
@@ -254,6 +286,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         git?.stop(); gitChanges?.disconnect(); gitLog?.disconnect(); gitBranches?.disconnect(); gitDiff?.disconnect()
         files.onRefresh = nil
         files.stop()
+        shell.notifications.removeAll()
         browser.disconnect()
         onClose?()
     }

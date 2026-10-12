@@ -14,6 +14,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-035: reusable project notification cards in the central workspace overlay, explicit actions/dismiss, bounded scrolling stack and Tabler severity icons; App posts local/network Git results without stealing editor focus. Preview samples and pending live acceptance are recorded in ADR-047; application updates remain deferred.
+
 - TK-033: reusable conflict stage context with original native result/Undo, checked frozen-byte resolution, missing/binary/delete/restore flows and stale stage/operation/path guards; bounds and pending manual acceptance recorded in ADR-045.
 - TK-034: reviewed local Merge/Rebase, actual persistent operation fingerprints, explicit Continue/Skip/Abort and repository-wide document reconciliation; ignored transient paths protected, empty replay cannot silently drop via Continue (ADR-046).
 

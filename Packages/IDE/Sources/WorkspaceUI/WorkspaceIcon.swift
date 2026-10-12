@@ -20,6 +20,9 @@ enum WorkspaceIcon {
         case "terminal": .terminal2
         case "hammer": .hammer
         case "exclamationmark.circle": .alertCircle
+        case "info.circle": .infoCircle
+        case "checkmark.circle": .circleCheck
+        case "exclamationmark.triangle": .alertTriangle
         case "bubble.left.and.bubble.right": .messages
         case "list.bullet.indent": .listTree
         case "slider.horizontal.3": .adjustmentsHorizontal

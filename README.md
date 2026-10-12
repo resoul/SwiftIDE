@@ -37,6 +37,8 @@ swift run --package-path Apps/SwiftIDE SwiftIDE --workspace-preview
 
 The preview has resizable side and bottom panels, tool switches, Focus Editor, Reset Layout, and light/dark appearance commands in View. It uses sample data and an editor placeholder; the terminal and assistant do not execute commands or send messages. It now hosts the same WorkspaceUI shell as real project windows, with sample providers for all zones. Its sample layout is saved independently of each real project. Direct preview startup skips recovery prompts; normal startup keeps the existing document workflow.
 
+Project windows show Git operation results as dismissible notification cards inside the central content. **Show details…** opens that project's Source Control; posting leaves editor focus unchanged. Workspace Preview includes labelled sample cards in the same reusable component. Application update checking/installation is deferred (TK-035 / ADR-047); live checks R87–R91 are pending.
+
 ## Test
 
 ```sh

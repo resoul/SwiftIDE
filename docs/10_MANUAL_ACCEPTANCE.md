@@ -548,3 +548,15 @@ Use disposable repositories, including a linked worktree; R75–R86 are pending.
 | R84 | Replay becomes empty or resolution keeps upstream unchanged; Continue, then cancel/approve Skip | Empty stopped replay cannot silently drop via Continue; Skip confirmation drops only current replay and may discard staged edits; keeping an empty commit needs external Git |
 | R85 | Abort merge/rebase after resolution edits; cancel approval/save; reopen paused workspace; active cherry-pick/revert/am/bisect | Cancel defaults and causes no abort; approved Abort restores native Git original state with post-start edit loss explained; disk reconciliation/Undo retained; real phase recovered after reopen; other operation kinds explain external completion |
 | R86 | Ignored/untracked collision, transient replay path, linked-worktree competing action, slow signing/hook/cancellation after commit | Collision refused before dangerous checkout; writes serialize; child exits and gate/locks release; actual partial/completed state reported without rollback/retry; older Git/large-history compatibility remains explicit |
+
+### Workspace notification cards (TK-035 / ADR-047)
+
+R87–R91 are pending. Use Workspace Preview for sample cards and disposable repositories for real operation results.
+
+| № | Do | Expected |
+|---|---|---|
+| R87 | Open Workspace Preview in light/dark, inspect both sample cards, resize and hide/show panels | Compact lower-right stack inside central content; title/body/actions and distinct Tabler icons readable; no text/panel shift or fake real-operation claims |
+| R88 | Type with a real IME, move caret/select/scroll outside cards while a Git action finishes | Posting does not activate another window or interrupt typing/composition; clicks and scroll outside the stack reach the editor; existing text/Undo/caret remain intact |
+| R89 | Complete/fail/cancel a Git action in project A with project B open; select Show details, dismiss, Refresh | Only A receives its result; action opens A's Source Control without rerunning Git; dismissed results do not reappear on status refresh; cancellation does not promise rollback |
+| R90 | Navigate cards/actions/close controls with keyboard and VoiceOver, replace/dismiss a focused card | Kind/title/body/actions accessible; no global Escape/Return shortcut interception; retaining controls preserves focus, removing a focused control returns to the editor when available |
+| R91 | Post multiple/long cards with an injected preview provider, open both side and bottom panels at minimum size, then Focus Editor | Five-card default cap evicts oldest; stack height bounded and scrollable; new long card reveals heading/close; cards remain within central content, panels stay usable; close/reopen project retains no old notifications |

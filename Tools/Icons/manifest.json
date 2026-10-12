@@ -14,6 +14,11 @@
       "sha256": "7aff9be6b14daf212f982513de43ad7784752c021995719d00006cad8a75bef0"
     },
     {
+      "name": "alert-triangle",
+      "case": "alertTriangle",
+      "sha256": "25b1f0c39f34647017df84a0cdc9e691c697737094a5956c360ab448a7fd5bef"
+    },
+    {
       "name": "box",
       "case": "box",
       "sha256": "9c41c0236687a8ffa1c00e7de7c6a1c55bef1073c8adaf2c277f6f36f4552a8f"
@@ -32,6 +37,11 @@
       "name": "chevron-down",
       "case": "chevronDown",
       "sha256": "5a2e5c2a155ce06264a3f7299073ed636142dfd0b324b747387d9cfbf9fb5e3e"
+    },
+    {
+      "name": "circle-check",
+      "case": "circleCheck",
+      "sha256": "c4cb2e026be5f4c217c3ff9b0ccefb9a26b7a135bc82eef28a8bead0cc02a958"
     },
     {
       "name": "code",
@@ -72,6 +82,11 @@
       "name": "hammer",
       "case": "hammer",
       "sha256": "b45f27628989c1964bc9c0849340c71a5525a4e0b5901793e63a52809062261b"
+    },
+    {
+      "name": "info-circle",
+      "case": "infoCircle",
+      "sha256": "48b7dddf34a6b87e93843a42b14781ce01794cf69274c458249ed8bfc01b6e4d"
     },
     {
       "name": "link",

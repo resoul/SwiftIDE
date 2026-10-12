@@ -36,6 +36,19 @@ final class WorkspacePreviewWindowController: NSWindowController, NSWindowDelega
         scroll.drawsBackground = false
         shell = WorkspaceShellViewController(state: state, editor: scroll, editorFocus: editor, panels: panels, project: "SwiftIDE · Preview", path: "Sample workspace")
         shell.present(detail: "⑂ main · sample", status: "Sample data · no tools connected")
+        shell.notifications.post(WorkspaceNotification(
+            id: "preview.warning",
+            kind: .warning,
+            title: "Workspace Preview",
+            message: "Sample notifications. Real project windows show Git operation results.",
+            actions: [.init(title: "Show sample Files", perform: { [weak shell] in shell?.select(.files) })]
+        ))
+        shell.notifications.post(WorkspaceNotification(
+            id: "preview.info",
+            title: "Notification cards",
+            message: "Actions run only when selected. Cards keep the editor's keyboard focus.",
+            actions: [.init(title: "Dismiss sample", perform: { [weak shell] in shell?.notifications.dismiss("preview.info") })]
+        ))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "SwiftIDE — Workspace Preview"
         window.subtitle = "Layout prototype"
