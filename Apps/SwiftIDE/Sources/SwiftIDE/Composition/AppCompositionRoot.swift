@@ -7,6 +7,7 @@ import LanguageInfrastructure
 import SyntaxInfrastructure
 import WorkspaceUI
 import GitInfrastructure
+import AgentInfrastructure
 
 @MainActor
 final class AppCompositionRoot {
@@ -51,8 +52,10 @@ final class AppCompositionRoot {
     }
 
     func makeWorkspaceLayout(root: String) -> WorkspaceLayoutState {
-        layoutSettings.makeState(root: root, available: [.files, .sourceControl, .gitLog])
+        layoutSettings.makeState(root: root, available: [.files, .sourceControl, .gitLog, .assistant])
     }
+
+    static func makeDemoAgentSession() -> AgentSession { AgentSession(provider: DemoAgentProvider()) }
 
     func makeGitClone() -> GitClone { GitClone(service: GitCLI()) }
 

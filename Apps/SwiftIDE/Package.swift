@@ -21,6 +21,8 @@ let package = Package(
                 .product(name: "EditorPlatformTextKit", package: "IDE"),
                 .product(name: "EditorUI", package: "IDE"),
                 .product(name: "WorkspaceUI", package: "IDE"),
+                .product(name: "ChatUI", package: "IDE"),
+                .product(name: "AgentInfrastructure", package: "IDE"),
                 .product(name: "SyntaxInfrastructure", package: "IDE"),
                 .product(name: "LanguageInfrastructure", package: "IDE")
             ]

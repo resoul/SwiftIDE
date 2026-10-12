@@ -12,6 +12,8 @@ let package = Package(
         .library(name: "EditorPlatformTextKit", targets: ["EditorPlatformTextKit"]),
         .library(name: "EditorUI", targets: ["EditorUI"]),
         .library(name: "WorkspaceUI", targets: ["WorkspaceUI"]),
+        .library(name: "ChatUI", targets: ["ChatUI"]),
+        .library(name: "AgentInfrastructure", targets: ["AgentInfrastructure"]),
         .library(name: "IconUI", targets: ["IconUI"]),
         .library(name: "SyntaxInfrastructure", targets: ["SyntaxInfrastructure"]),
         .library(name: "LanguageInfrastructure", targets: ["LanguageInfrastructure"]),
@@ -32,6 +34,8 @@ let package = Package(
         .target(name: "EditorPlatformTextKit", dependencies: ["IDEDomain", "IDEApplication"]),
         .target(name: "EditorUI", dependencies: ["IDEApplication", "EditorPlatformTextKit"]),
         .target(name: "WorkspaceUI", dependencies: ["IDEApplication", "IconUI"]),
+        .target(name: "ChatUI", dependencies: ["IDEDomain", "IDEApplication", "IconUI"]),
+        .target(name: "AgentInfrastructure", dependencies: ["IDEDomain", "IDEApplication"]),
         .target(name: "IconUI", resources: [.process("Resources")]),
         .target(
             name: "SyntaxInfrastructure",
@@ -78,6 +82,8 @@ let package = Package(
         .testTarget(name: "GitInfrastructureTests", dependencies: ["GitInfrastructure", "IDEApplication"]),
         .testTarget(name: "IconUITests", dependencies: ["IconUI"]),
         .testTarget(name: "WorkspaceUITests", dependencies: ["WorkspaceUI", "IDEApplication"]),
+        .testTarget(name: "ChatUITests", dependencies: ["ChatUI", "IDEApplication", "AgentInfrastructure"]),
+        .testTarget(name: "AgentInfrastructureTests", dependencies: ["AgentInfrastructure", "IDEApplication"]),
         .testTarget(
             name: "FileSystemInfrastructureTests",
             dependencies: ["IDEDomain", "IDEApplication", "FileSystemInfrastructure", "IDETestSupport"]

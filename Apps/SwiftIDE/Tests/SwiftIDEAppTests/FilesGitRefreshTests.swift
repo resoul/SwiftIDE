@@ -63,7 +63,11 @@ extension NativeAppTests {
             let reader = CountedFilesReader()
             let files = ProjectFiles(root: root, reader: reader)
             let git = GitWorkspace(root: root, service: FilesStatusService())
-            let project = ProjectWorkspaceController(files: files, git: git)
+            let project = ProjectWorkspaceController(
+                files: files,
+                git: git,
+                agent: AppCompositionRoot.makeDemoAgentSession()
+            )
             defer { project.closeProject() }
             try await wait { files.state(of: root) == .loaded && git.state == .ready }
             #expect(await reader.calls == 1)

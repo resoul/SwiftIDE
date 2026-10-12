@@ -161,6 +161,29 @@ public final class DocumentSession: NativeEditReceiver {
         snapshot(forPath: path)
     }
 
+    /// A bounded immutable context snapshot; copies only the selection, never the whole document.
+    public func captureAgentSelection(in range: UTF16TextRange) throws -> AgentContext {
+        reconcileUnobservedMutation()
+        guard !isComposing else { throw DocumentError.compositionInProgress }
+
+        guard range.location >= 0, range.length > 0, range.location <= length,
+              range.length <= length - range.location, range.length <= 64_000 else {
+            throw AgentSelectionError("Select up to 64 KB of text in the editor.")
+        }
+
+        for boundary in [range.location, range.location + range.length] where boundary > 0 && boundary < length {
+            let left = backend.utf16Unit(at: boundary - 1), right = backend.utf16Unit(at: boundary)
+            if (0xD800...0xDBFF).contains(left), (0xDC00...0xDFFF).contains(right) {
+                throw AgentSelectionError("Selection splits a Unicode character.")
+            }
+        }
+
+        let selected = backend.substring(in: range)
+        guard selected.utf8.count <= 64_000 else { throw AgentSelectionError("Selection limit: 64 KB.") }
+
+        return AgentContext(documentID: id, path: path, version: version, range: range, text: selected)
+    }
+
     /// The same, addressed to another file: what Save As writes.
     func snapshot(forPath target: String) -> DocumentSnapshot {
         reconcileUnobservedMutation()

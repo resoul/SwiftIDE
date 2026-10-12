@@ -600,3 +600,18 @@ Use disposable repositories; keep important data elsewhere when testing native G
 | R105 | Review Drop/Pop, then push/drop a stash externally or refresh; include duplicate object IDs | Review is invalidated/refused when the reviewed list changes; Drop does not touch files/index/editors; Pop applies the frozen object then checks state/list again before removal; removal failure after apply is reported separately |
 | R106 | Cancel while native stash is running; close the owning project while loading/reviewing; repeat from another project sharing Git metadata | No late response enables a closed form; editor locks release and actual disk/Git state refreshes even after partial failure; one SwiftIDE mutation per common directory; cancellation promises no rollback |
 | R107 | Keyboard/real IME/VoiceOver, light/dark, long paths/messages and minimum sheet size; no commits, active integration, changed submodule or symbolic refs/stash | All choices and actions are labelled and usable, editing invalidates Review, Return never submits implicitly; owner/project routing is correct; unsupported states have explanations; live subjective usability remains separate from automated renders |
+
+## S. Agent chat UI — TK-038 / ADR-052
+
+**Pending live acceptance.** Use the labelled local demo; these checks need no provider login/API key. Automated native windows and simulated marked text do not replace real IME or VoiceOver acceptance.
+
+| № | Do | Expected |
+|---|---|---|
+| S1 | Open a folder, then View ▸ Assistant; use the right rail to hide/show it | Native chat appears inside the right panel, labelled Demo; no request on opening; the central editor remains independent |
+| S2 | Type several lines with Shift+Enter, send with Enter/button, type the next draft during the reply; press Stop | One request, streamed text/code/activity cards; next draft retained; partial reply marked stopped; another request available after cancellation completes |
+| S3 | Undo/Redo typing and the clear after Send; switch focus to the editor and use its Undo | Chat draft restored without resending; document text/version/Undo untouched by chat typing; editor Undo remains its own |
+| S4 | Select unsaved editor text, Add selection, edit that text afterwards, send; remove another chip; try empty/oversized selection | Attached snapshot keeps the selected text/version, not the later document; only explicit context is attached; invalid selection explained; demo echoes the snapshot, with no file changes |
+| S5 | Read older messages while another answer grows; resize the panel; select/copy streamed text/code; fold/unfold activity; use Latest response | Reading position and selection stable, exact code/newlines copied; Latest resumes following; no visible flashing, unexpected jump or focus grab |
+| S6 | Hide the panel and use Focus Editor during a reply; return; open a second project; close the first while replying | Draft/history/session survive hiding; project conversations stay independent; owner closure stops its reply; no late UI update in another project |
+| S7 | Repeat typing/Send/Shift+Enter/paste with real Japanese/Chinese IME and dead keys; try a prompt over 64 KB | Return commits marked text rather than sending; no duplicate/lost text; oversized ordinary paste is refused and previous draft retained; oversized committed composition cannot be sent |
+| S8 | Light/dark/system theme changes, narrow panel, long lines, keyboard navigation and VoiceOver; Clear when idle | Text/cards/buttons readable and labelled, Copy/activity controls reachable, clear removes conversation/attachments/draft/input Undo; subjective responsiveness recorded separately |
