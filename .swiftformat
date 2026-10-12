@@ -2,18 +2,22 @@
 # An explicit set of rules; none of them changes logic or declarations.
 --swiftversion 6.0
 
---rules blankLinesAfterGuardStatements,wrapArguments,consecutiveBlankLines,trailingSpace
+--rules blankLinesAfterGuardStatements,wrapArguments,wrap,consecutiveBlankLines,trailingSpace,wrapSingleLineComments
+
+# Maximum line length: 120 characters. A ternary that does not fit breaks before `?` and `:`.
+--max-width 120
+--wrap-ternary before-operators
 
 # Blank line after a guard, and between neighbouring guards.
 --line-between-guards true
 
 # Multi-line signatures: the first parameter on the line after "(", one per line, ")" on its own line.
-# Calls are left as written.
+# Calls and collections follow the same layout once they span several lines.
 --wrap-parameters before-first
 --allow-partial-wrapping false
 --closing-paren balanced
---wrap-arguments preserve
---wrap-collections preserve
+--wrap-arguments before-first
+--wrap-collections before-first
 
 # First slice of the repository: sources of the app and of the package, tests and manifests.
 # Vendored, generated and research code is out for now (docs/14_CODE_STYLE_AND_LINTING.md).

@@ -39,3 +39,9 @@ struct Sample {
         label = "small"
     }
 }
+
+extension Sample {
+    func limited(_ lock: Lock, _ output: (String) -> Void, _ streamedBytesAreTooManyToShowThemAll: Int) {
+        if lock.withLock({ streamedBytesAreTooManyToShowThemAll == 128_000 }) { output("[output preview limited]"); output("again") }
+    }
+}

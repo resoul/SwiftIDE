@@ -14,6 +14,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Added
 
+- TK-023 line length: the longest line is 120 characters (`--max-width 120` in `.swiftformat`, `line_length` in `.swiftlint.yml`). Multi-line calls and collections use the declaration layout (first argument on its own line, `)` on its own line) and ternaries break before `?`/`:`. `spacing-check` gets `long_line_body` and `long_line_statements`, which put the body of a one-line block and `;`-joined statements on lines of their own when the line is too long, so a header is not wrapped with its body left behind it; `format.sh` runs it before and after SwiftFormat. The code was reformatted accordingly (docs/14).
+
 - TK-035: reusable project notification cards in the central workspace overlay, explicit actions/dismiss, bounded scrolling stack and Tabler severity icons; App posts local/network Git results without stealing editor focus. Preview samples and pending live acceptance are recorded in ADR-047; application updates remain deferred.
 
 - TK-033: reusable conflict stage context with original native result/Undo, checked frozen-byte resolution, missing/binary/delete/restore flows and stale stage/operation/path guards; bounds and pending manual acceptance recorded in ADR-045.

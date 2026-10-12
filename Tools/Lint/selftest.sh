@@ -35,15 +35,19 @@ check "good.swift: spacing-check accepts" 0 "$SPACING" "$work/good.swift"
 
 check "bad.swift: SwiftFormat rejects" 1 "${format_lint[@]}" "$work/bad.swift"
 expect_output "bad.swift: SwiftFormat names the guard rule" "blankLinesAfterGuardStatements"
-expect_output "bad.swift: SwiftFormat names the parameter layout" "wrapArguments"
+expect_output "bad.swift: SwiftFormat names the parameter layout" "\((wrap|wrapArguments)\)"
 check "bad.swift: SwiftLint rejects mixed parameters" 1 "${swiftlint_run[@]}" "$work/bad.swift"
 expect_output "bad.swift: SwiftLint names the rule" "multiline_parameters"
 check "bad.swift: spacing-check rejects" 1 "$SPACING" "$work/bad.swift"
 expect_output "bad.swift: a return after a comment group is named with its line" "bad.swift:27:9: error: \[blank_line_before_return\]"
 expect_output "bad.swift: a nested return is named" "bad.swift:37:13: error: \[blank_line_before_return\]"
 expect_output "bad.swift: an if is named" "bad.swift:39:9: error: \[blank_line_after_multiline_if\]"
+expect_output "bad.swift: a one-line body on a long line is named" "bad.swift:[0-9]+:[0-9]+: error: \[long_line_body\]"
+check "bad.swift: SwiftLint rejects the long line" 1 "${swiftlint_run[@]}" "$work/bad.swift"
+expect_output "bad.swift: SwiftLint names the line length" "line_length"
 
 cp "$work/bad.swift" "$work/fixed.swift"
+"$SPACING" --fix "$work/fixed.swift" > /dev/null 2>&1
 "$LINT/.tools/swiftformat" --config "$ROOT/.swiftformat" "$work/fixed.swift" > /dev/null 2>&1
 "$SPACING" --fix "$work/fixed.swift" > /dev/null 2>&1
 check "formatted bad.swift: SwiftFormat accepts" 0 "${format_lint[@]}" "$work/fixed.swift"
@@ -52,6 +56,7 @@ check "formatted bad.swift: spacing-check accepts" 0 "$SPACING" "$work/fixed.swi
 check "formatted bad.swift is the good fixture" 0 diff <(sed 1,1d "$work/fixed.swift") <(sed 1,1d "$work/good.swift")
 
 cp "$work/fixed.swift" "$work/again.swift"
+"$SPACING" --fix "$work/again.swift" > /dev/null 2>&1
 "$LINT/.tools/swiftformat" --config "$ROOT/.swiftformat" "$work/again.swift" > /dev/null 2>&1
 "$SPACING" --fix "$work/again.swift" > /dev/null 2>&1
 check "formatting twice changes nothing" 0 cmp "$work/fixed.swift" "$work/again.swift"

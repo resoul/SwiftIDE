@@ -3,10 +3,17 @@ only_rules:
   - multiline_parameters
   - force_try
   - force_cast
+  - line_length
 
 multiline_parameters:
   severity: error
   allows_single_line: true      # a short signature may stay on one line
+
+# 120 characters, as `--max-width` in .swiftformat. A longer line is an error.
+line_length:
+  warning: 120
+  error: 120
+  ignores_urls: true
 
 # Policy: multiline_parameters is an error; force_try / force_cast are warnings, listed in the
 # output but not failing the check (Tools/Lint/lint.sh prints their count).

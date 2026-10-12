@@ -122,3 +122,17 @@ public required init?(coder: NSCoder) {
     fatalError("init(coder:) is not supported")
 }
 ```
+
+## Line length refinement (2026-10-12)
+
+**Decision (user):** the longest line is **120 characters**, the default of SwiftLint's `line_length`. A longer line is an error.
+
+**What changed.**
+- [`.swiftformat`](../.swiftformat): `--max-width 120` with the `wrap` and `wrapSingleLineComments` rules; calls and collections now follow the declaration layout once they span several lines (`--wrap-arguments before-first`, `--wrap-collections before-first`, `)` on its own line, so no argument alignment under the opening parenthesis); a ternary that does not fit breaks before `?` and `:` (`--wrap-ternary before-operators`).
+- [`.swiftlint.yml`](../.swiftlint.yml): `line_length` (warning and error at 120, URLs ignored). It is the check for what SwiftFormat cannot wrap: a long string literal has to be split by hand (a multi-line `"""` literal with `\` at the end of a line keeps the text unchanged).
+- `spacing-check` (the same SwiftSyntax tool, run by `lint.sh` and, with `--fix`, by `format.sh`) has two more rules, both about a line longer than 120 characters, because a formatter alone wraps the header of a statement and leaves its body behind it (`if lock⏎    .withLock({ … }) {⏎    body() }`):
+  - `long_line_body`: a block written as `{ statements }` (an `if`/`for`/`while`/`guard`/`func` body, a getter, a closure) whose `}` closes the line gets its statements and its `}` on lines of their own; of the blocks on the line the outermost, the last one is expanded, repeatedly. A block with a comment, an empty block and a closure followed by more code on the line (`.map { … } ?? "x"`) are left alone.
+  - `long_line_statements`: statements joined with `;` (or following a `case` label on its line) each get a line of their own.
+- `format.sh` order: `spacing-check --fix` (bodies and statements first, so SwiftFormat wraps only what is left of the line), SwiftFormat, `spacing-check --fix` once more for the blank lines. The `--fix` verification now ignores `;` tokens, which go when statements get their own lines; tokens and comments are otherwise compared as before.
+
+**Result.** 7 new `spacing-check` tests (35 in all), the fixtures and `selftest.sh` cover the new rules and the new order (the SwiftFormat diagnostic for a split signature may now be named `wrap` instead of `wrapArguments`). One formatting pass changed about 195 files; the 120-character limit left no line longer than that in `Apps/SwiftIDE` and `Packages/IDE`. Long string literals (about 45) were split by hand into `"""` literals or `+`, and a few over-long expressions were broken up with local constants. `lint.sh` is clean, the application and package build, and all package tests pass; of the application tests `aProjectQuestionBelongsToItsOwnerWhileAnotherProjectIsActuallyActive` fails with and without the change when the application is not the active one (`active=false`), which is a property of running it from a background session.
