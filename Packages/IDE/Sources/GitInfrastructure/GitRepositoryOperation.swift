@@ -228,28 +228,25 @@ extension GitCLI: GitRepositoryOperationPlanning {
                 }
             }
             if FileManager.default.fileExists(atPath: root + "/" + path + "/.git") {
-                let nested = try await repository(at: root + "/" + path)
-                guard nested.root == DocumentPath.canonical(root + "/" + path) else {
-                    throw GitInspectionError.failed("Unexpected nested worktree.")
-                }
-
-                let nestedSnapshot = try await self.snapshot(at: nested.root)
-                guard nestedSnapshot.integration == nil,
-                      request.kind == .syncSubmodule || nestedSnapshot.changes.isEmpty else {
-                    throw GitInspectionError
-                        .failed(
-                            """
-                            Submodule has tracked, untracked or ignored contents to preserve. Commit/move them \
-                            before update.
-                            """
-                        )
-                }
-
-                fingerprint.append(Data((nestedSnapshot.head ?? "").utf8))
+                var visited: Set<String> = []
+                fingerprint.append(try await inspectSubmoduleCheckouts(
+                    at: root + "/" + path,
+                    requireClean: request.kind != .syncSubmodule,
+                    visited: &visited
+                ))
             } else if let contents = try? FileManager.default.contentsOfDirectory(atPath: root + "/" + path),
                       !contents.isEmpty {
                 throw GitInspectionError
                     .failed("Uninitialized submodule directory contains files; move them before initialization.")
+            }
+
+            if request.kind == .updateSubmodule {
+                fingerprint.append(try await inspectSubmoduleFetchSource(
+                    in: snapshot.repository,
+                    path: path,
+                    name: module,
+                    reviewedURL: value
+                ))
             }
 
             if request.kind == .removeSubmodule {
@@ -305,6 +302,8 @@ extension GitCLI: GitRepositoryOperationPlanning {
         let kind = plan.request.kind, root = expected.repository.root
         var options = integrationOptions, arguments: [String]
         var network = false
+        var initializingSubmodule = false
+        var initializationToken: String?
         switch kind {
         case .discard:
             guard let path = plan.target else { throw GitInspectionError.failed("No reviewed path.") }
@@ -363,7 +362,17 @@ extension GitCLI: GitRepositoryOperationPlanning {
 
             options = networkOptions + ["-c", "submodule.recurse=false", "-c", "submodule." + name + ".url=" + url]
             network = true
-            arguments = ["submodule", "update", "--init", "--checkout", "--", plan.request.value]
+            initializingSubmodule = try await submoduleGitDirectory(
+                in: plan.repository,
+                path: plan.request.value,
+                name: name
+            ) == nil
+            if initializingSubmodule {
+                initializationToken = try await submoduleInitializationToken(in: plan.repository)
+            }
+
+            _ = try await fetchSubmoduleCommit(plan, output: output)
+            arguments = ["submodule", "update", "--init", "--checkout", "--no-fetch", "--", plan.request.value]
         case .syncSubmodule:
             arguments = ["submodule", "sync", "--", plan.request.value]
         case .addSubmodule:
@@ -384,15 +393,58 @@ extension GitCLI: GitRepositoryOperationPlanning {
             throw GitInspectionError.failed("Checkout changed before execution.")
         }
 
+        if kind == .updateSubmodule {
+            guard try await planRepositoryOperation(in: final, request: plan.request) == plan else {
+                throw GitInspectionError.failed("Submodule changed during object preparation; review again.")
+            }
+        }
+
         try Task.checkCancellation()
-        _ = try await run(
-            options + arguments,
-            at: root,
-            limit: 1_000_000,
-            timeout: network ? 300 : 120,
-            output: output,
-            network: network
-        )
+        do {
+            _ = try await run(
+                options + arguments,
+                at: root,
+                limit: 1_000_000,
+                timeout: network ? 300 : 120,
+                output: output,
+                network: network
+            )
+        } catch {
+            // A fresh clone may lack an unadvertised gitlink. Complete preparation only when the
+            // checkout was actually initialized and its reviewed object is still missing.
+            guard initializingSubmodule, !Task.isCancelled,
+                  FileManager.default.fileExists(atPath: root + "/" + plan.request.value + "/.git") else {
+                throw error
+            }
+
+            let current = try await snapshot(at: root)
+            guard current.head == expected.head, current.branch == expected.branch,
+                  current.integration == expected.integration,
+                  try await submoduleInitializationToken(in: plan.repository) == initializationToken else {
+                throw GitInspectionError.failed("Checkout changed during submodule initialization.")
+            }
+
+            try await verifyFreshSubmoduleCheckout(at: root + "/" + plan.request.value)
+            guard try await fetchSubmoduleCommit(plan, output: output) else { throw error }
+
+            try await verifyFreshSubmoduleCheckout(at: root + "/" + plan.request.value)
+            let prepared = try await snapshot(at: root)
+            guard prepared.head == expected.head, prepared.branch == expected.branch,
+                  prepared.integration == expected.integration,
+                  try await submoduleInitializationToken(in: plan.repository) == initializationToken else {
+                throw GitInspectionError.failed("Parent checkout, index or saved bytes changed during preparation.")
+            }
+
+            output("Fetched the reviewed gitlink missing from the fresh clone; completing checkout without fetch.\n")
+            _ = try await run(
+                options + arguments,
+                at: root,
+                limit: 1_000_000,
+                timeout: 300,
+                output: output,
+                network: true
+            )
+        }
         if kind == .addSubmodule, let target = plan.target {
             let nested = try await snapshot(at: root + "/" + plan.request.value)
             guard nested.head == target else {
@@ -432,7 +484,7 @@ extension GitCLI: GitRepositoryOperationPlanning {
         }
     }
 
-    private func validateSubmodulePath(_ path: String, root: String) throws {
+    func validateSubmodulePath(_ path: String, root: String) throws {
         guard !path.contains("\n"), !path.contains("\r"), path != ".", path != ".git", path != ".gitmodules",
               !path.hasPrefix(".git/") else { throw GitInspectionError.failed("Enter an exact submodule path.") }
 

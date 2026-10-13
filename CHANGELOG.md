@@ -104,6 +104,8 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ### Fixed
 
+- Submodule review follow-up: Update/Deinit/Remove inspect nested gitlinks recursively, preserving ignored and hidden tracked data even when the parent status is clean, and refuse nonempty uninitialized child directories. Update fetches a missing gitlink only from the reviewed URL before native checkout with `--no-fetch`, including reused caches after Deinit and fresh clones missing an unadvertised commit; nested remote settings remain unchanged. Added native regressions for data appearing after Review and nested configuration changes.
+
 - Files panel flicker and scroll jumps: preserve cached rows during refresh, apply child insertions/removals without rebuilding the outline, update existing status cells, and anchor the viewport to surviving files. Git snapshots no longer reenumerate folders; coalesced disk events and explicit Refresh/save/activation retain filesystem updates. The prior deferred-update collapse-crash guard is preserved; live acceptance R93 pending.
 
 - Files-tree crash when collapsing a folder with expanded children: model notifications used to reload NSOutlineView synchronously inside its recursive collapse operation. Tree updates now coalesce onto the next main-queue turn; child/placeholder objects stay stable and retained until the reload finishes, and disconnect invalidates queued work. Added a native regression that crashed with SIGSEGV before the fix and checks 30 expand/collapse cycles, plus loading/cancellation/identity/disconnect coverage.
