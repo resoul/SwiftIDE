@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 
 /// Reusable clone form. Folder panels, process lifetime and opening a project belong to the host.
@@ -53,6 +54,7 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
         cancel.target = self
         cancel.action = #selector(cancelClone(_:))
         cancel.keyEquivalent = "\u{1b}"
+        output.backgroundColor = WorkspaceTheme.background
         output.isEditable = false
         output.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         output.setAccessibilityLabel("Clone output")
@@ -132,7 +134,7 @@ public final class GitCloneViewController: NSViewController, NSTextFieldDelegate
 private final class GitCloneBackground: NSView {
     override func draw(_ dirtyRect: NSRect) {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            NSColor.windowBackgroundColor.setFill()
+            WorkspaceTheme.background.setFill()
             dirtyRect.fill()
         }
     }

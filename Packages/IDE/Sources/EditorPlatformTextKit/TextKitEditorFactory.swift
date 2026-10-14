@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 
 /// Result of building an editor: the backend and the view share one storage graph.
 public struct TextKitEditor {
@@ -34,6 +35,8 @@ public enum TextKitEditorFactory {
 
     /// Plain text only; substitutions that rewrite source code are disabled explicitly.
     private static func configureForCode(_ textView: NSTextView) {
+        textView.drawsBackground = true
+        textView.backgroundColor = WorkspaceTheme.background
         textView.isRichText = false
         textView.importsGraphics = false
         textView.usesFontPanel = false

@@ -36,7 +36,7 @@ public final class GitLogViewController: NSViewController {
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     public override func loadView() {
-        view = NSView()
+        view = PanelBackgroundView()
         search.placeholderString = "Filter loaded commits by text, hash or author"
         search.target = self
         search.action = #selector(filterChanged(_:))

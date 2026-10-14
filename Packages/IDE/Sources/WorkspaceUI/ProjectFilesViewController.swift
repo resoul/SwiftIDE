@@ -1,6 +1,6 @@
 import AppKit
+import UITheme
 import IDEApplication
-import UniformTypeIdentifiers
 
 @MainActor
 public final class ProjectFilesViewController: NSViewController, NSOutlineViewDataSource, NSOutlineViewDelegate,
@@ -27,18 +27,32 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     public override func loadView() {
-        view = NSView()
-        let title = NSTextField(labelWithString: "Files · " + (model.root as NSString).lastPathComponent)
-        title.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
+        view = PanelBackgroundView()
+        let title = NSTextField(labelWithString: (model.root as NSString).lastPathComponent)
+        title.font = .systemFont(ofSize: FileNavigatorLayout.fontSize, weight: .semibold)
+        title.lineBreakMode = .byTruncatingMiddle
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.toolTip = model.root
-        let refresh = NSButton(title: "Refresh", target: self, action: #selector(refreshFiles(_:)))
-        let header = NSStackView(views: [title, refresh])
+        let refresh = NSButton(title: "", target: self, action: #selector(refreshFiles(_:)))
+        refresh.image = WorkspaceIcon.image("tabler:refresh", description: "Refresh files")
+        refresh.image?.size = NSSize(width: FileNavigatorLayout.iconSize, height: FileNavigatorLayout.iconSize)
+        refresh.imagePosition = .imageOnly
+        refresh.isBordered = false
+        refresh.toolTip = "Refresh files"
+        refresh.setAccessibilityLabel("Refresh files")
+        refresh.widthAnchor.constraint(equalToConstant: FileNavigatorLayout.refreshButtonSize).isActive = true
+        refresh.heightAnchor.constraint(equalToConstant: FileNavigatorLayout.refreshButtonSize).isActive = true
+        let header = NSStackView(views: [title, NSView(), refresh])
         header.orientation = .horizontal
+        header.alignment = .centerY
+        header.distribution = .fill
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("File"))
         outline.addTableColumn(column)
         outline.outlineTableColumn = column
         outline.headerView = nil
-        outline.rowHeight = 25
+        outline.backgroundColor = WorkspaceTheme.background
+        outline.rowHeight = FileNavigatorLayout.rowHeight
+        outline.indentationPerLevel = FileNavigatorLayout.indentationPerLevel
         outline.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
         outline.dataSource = self
         outline.delegate = self
@@ -56,18 +70,18 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         let stack = NSStackView(views: [header, scroll, status])
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 8
+        stack.spacing = FileNavigatorLayout.sectionSpacing
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 10),
-            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -10),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: FileNavigatorLayout.panelInset),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -FileNavigatorLayout.panelInset),
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: FileNavigatorLayout.panelInset),
+            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -FileNavigatorLayout.panelInset),
             header.widthAnchor.constraint(equalTo: stack.widthAnchor),
             scroll.widthAnchor.constraint(equalTo: stack.widthAnchor),
             status.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            status.heightAnchor.constraint(equalToConstant: 30)
+            status.heightAnchor.constraint(equalToConstant: FileNavigatorLayout.statusHeight)
         ])
         subscription = model.subscribe { [weak self] in self?.scheduleRender() }
         render()
@@ -346,6 +360,7 @@ final class FileStatusCell: NSTableCellView {
     private let badge = NSTextField(labelWithString: "")
     private let icon = NSImageView()
     private var colour = NSColor.labelColor
+    private var iconColour = WorkspaceTheme.fileIcon
     private var file: ProjectFile?
     private var isPlaceholder = false
     private var lastMessage: String?
@@ -354,20 +369,26 @@ final class FileStatusCell: NSTableCellView {
     init() {
         super.init(frame: .zero)
         textField = name
+        imageView = icon
+        name.font = .systemFont(ofSize: FileNavigatorLayout.fontSize)
         name.lineBreakMode = .byTruncatingMiddle
+        name.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        icon.imageScaling = .scaleProportionallyDown
         badge.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         badge.setContentHuggingPriority(.required, for: .horizontal)
         let content = NSStackView(views: [icon, name, badge])
         content.orientation = .horizontal
-        content.spacing = 6
+        content.alignment = .centerY
+        content.distribution = .fill
+        content.spacing = FileNavigatorLayout.iconTextSpacing
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: trailingAnchor),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -FileNavigatorLayout.rowTrailingInset),
             content.centerYAnchor.constraint(equalTo: centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 16),
-            icon.heightAnchor.constraint(equalToConstant: 16)
+            icon.widthAnchor.constraint(equalToConstant: FileNavigatorLayout.iconSize),
+            icon.heightAnchor.constraint(equalToConstant: FileNavigatorLayout.iconSize)
         ])
         setAccessibilityElement(true)
     }
@@ -379,16 +400,10 @@ final class FileStatusCell: NSTableCellView {
         guard self.file != file || lastMessage != message || lastDecoration != decoration else { return }
 
         if self.file != file || isPlaceholder != (message != nil) {
-            icon.image = message != nil
-                ? nil
-                : file.isDirectory
-                    ? WorkspaceIcon.image(
-                        file.isSymbolicLink ? "folder.badge.questionmark" : "folder",
-                        description: "Folder"
-                    )
-                    : NSWorkspace.shared
-                        .icon(for: UTType(filenameExtension: (file.name as NSString).pathExtension) ?? .data)
-            icon.contentTintColor = file.isDirectory ? .secondaryLabelColor : nil
+            let presentation = FileIcon(file: file)
+            icon.image = message == nil ? presentation.image() : nil
+            iconColour = presentation.tint
+            icon.contentTintColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : iconColour
         }
 
         self.file = file
@@ -412,6 +427,7 @@ final class FileStatusCell: NSTableCellView {
         didSet {
             name.textColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : colour
             badge.textColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : .labelColor
+            icon.contentTintColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : iconColour
         }
     }
 }
@@ -430,6 +446,20 @@ private final class FileRow: NSObject {
 @MainActor
 final class FilesOutlineView: NSOutlineView {
     var openSelection: (() -> Void)?
+
+    override func frameOfOutlineCell(atRow row: Int) -> NSRect {
+        let frame = super.frameOfOutlineCell(atRow: row)
+        guard !frame.isEmpty else { return frame }
+
+        let size = FileNavigatorLayout.disclosureSize
+
+        return NSRect(
+            x: frame.midX - size / 2 + FileNavigatorLayout.disclosureHorizontalOffset,
+            y: frame.midY - size / 2,
+            width: size,
+            height: size
+        )
+    }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36 || event.keyCode == 76 {

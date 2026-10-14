@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 
 struct GitListRow: Equatable {
@@ -24,6 +25,7 @@ final class GitListView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         let column = NSTableColumn(identifier: .init("GitItem"))
         table.addTableColumn(column)
         table.headerView = nil
+        table.backgroundColor = WorkspaceTheme.background
         table.rowHeight = 42
         table.dataSource = self
         table.delegate = self

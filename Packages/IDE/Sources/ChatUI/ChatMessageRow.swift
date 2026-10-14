@@ -3,7 +3,7 @@ import IDEDomain
 import IconUI
 
 @MainActor
-final class ChatMessageRow: NSTableRowView {
+final class ChatMessageRow: NSTableCellView {
     private let surface = ChatSurface()
     private let role = NSTextField(labelWithString: "")
     private let context = NSTextField(labelWithString: "")
@@ -14,7 +14,6 @@ final class ChatMessageRow: NSTableRowView {
     var copyText: ((String) -> Void)?
     var toggleTool: ((UUID) -> Void)?
     override var isFlipped: Bool { true }
-    override var isEmphasized: Bool { get { false } set {} }
 
     override init(frame: NSRect) {
         super.init(frame: frame)

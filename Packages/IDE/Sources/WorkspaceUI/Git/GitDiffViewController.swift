@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 
 @MainActor
@@ -26,6 +27,7 @@ public final class GitDiffViewController: NSViewController, NSTextViewDelegate {
 
     public override func loadView() {
         view = GitContextBackground(frame: NSRect(x: 0, y: 0, width: 720, height: 520))
+        text.backgroundColor = WorkspaceTheme.background
         text.isEditable = false
         text.delegate = self
         text.isRichText = false

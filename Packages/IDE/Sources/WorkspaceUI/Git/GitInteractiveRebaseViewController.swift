@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 
 @MainActor
@@ -48,7 +49,9 @@ public final class GitInteractiveRebaseViewController: NSViewController, NSTable
         table.rowHeight = 30
         table.registerForDraggedTypes([dragType])
         table.setDraggingSourceOperationMask(.move, forLocal: true)
+        table.backgroundColor = WorkspaceTheme.background
         let scroll = NSScrollView()
+        scroll.backgroundColor = WorkspaceTheme.background
         scroll.documentView = table
         scroll.hasVerticalScroller = true
         scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 220).isActive = true

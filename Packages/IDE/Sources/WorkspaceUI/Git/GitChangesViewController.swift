@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 
 @MainActor
@@ -38,7 +39,7 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     public override func loadView() {
-        view = NSView()
+        view = PanelBackgroundView()
         let refresh = NSButton(title: "Refresh", target: self, action: #selector(refreshGit(_:)))
         stash.target = self
         stash.action = #selector(showStashList(_:))
@@ -62,6 +63,7 @@ public final class GitChangesViewController: NSViewController, NSTextViewDelegat
         compose.target = self
         compose.action = #selector(composeCommit(_:))
         stage.toolTip = "Stage the whole file from disk, replacing any partial staging"
+        message.backgroundColor = WorkspaceTheme.background
         message.isRichText = false
         message.font = .systemFont(ofSize: 12)
         message.delegate = self

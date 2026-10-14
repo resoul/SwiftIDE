@@ -36,7 +36,7 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     public override func loadView() {
-        view = NSView()
+        view = PanelBackgroundView()
         gitPin(button, to: view)
         button.image = WorkspaceIcon.image("tabler:git-branch", description: nil)
         button.imagePosition = .imageLeading
@@ -83,7 +83,7 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
         note.font = .systemFont(ofSize: 11)
         note.textColor = .secondaryLabelColor
         let content = NSViewController()
-        content.view = NSView(frame: NSRect(x: 0, y: 0, width: 420, height: 520))
+        content.view = PanelBackgroundView(frame: NSRect(x: 0, y: 0, width: 420, height: 520))
         gitPin(
             gitStack([
                 search,

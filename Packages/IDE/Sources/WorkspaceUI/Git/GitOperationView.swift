@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 
 /// Shared bounded operation output and cancellation; no process or document ownership here.
@@ -15,6 +16,7 @@ final class GitOperationView: NSView {
         super.init(frame: .zero)
         cancel.target = self
         cancel.action = #selector(stop(_:))
+        output.backgroundColor = WorkspaceTheme.background
         output.isEditable = false
         output.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
         output.setAccessibilityLabel("Git action output")

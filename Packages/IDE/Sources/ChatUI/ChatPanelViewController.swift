@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 import IDEDomain
 import IconUI
@@ -55,7 +56,7 @@ public final class ChatPanelViewController: NSViewController, NSTableViewDataSou
 
     public override func loadView() {
         view = ChatSurface(frame: NSRect(x: 0, y: 0, width: 380, height: 650))
-        (view as? ChatSurface)?.fillColor = .windowBackgroundColor
+        (view as? ChatSurface)?.fillColor = WorkspaceTheme.background
         let title = NSTextField(labelWithString: "Agent chat")
         title.font = .systemFont(ofSize: 14, weight: .semibold)
         let provider = NSTextField(labelWithString: session.info.name + (session.info.isDemo ? " · Demo" : ""))
@@ -129,6 +130,7 @@ public final class ChatPanelViewController: NSViewController, NSTableViewDataSou
         input.submit = { [weak self] in self?.submitMessage(nil) }
         input.compositionChanged = { [weak self] in self?.updateActions() }
         inputScroll.documentView = input
+        inputScroll.backgroundColor = WorkspaceTheme.background
         inputScroll.hasVerticalScroller = true
         inputScroll.borderType = .lineBorder
         inputScroll.verticalScrollElasticity = .none
@@ -209,7 +211,7 @@ public final class ChatPanelViewController: NSViewController, NSTableViewDataSou
         })
         for index in changed {
             heights[messages[index].id] = nil
-            (table.rowView(atRow: index, makeIfNecessary: false) as? ChatMessageRow)?.present(
+            (table.view(atColumn: 0, row: index, makeIfNecessary: false) as? ChatMessageRow)?.present(
                 messages[index],
                 collapsed: collapsed[messages[index].id] ?? []
             )
@@ -393,10 +395,6 @@ public final class ChatPanelViewController: NSViewController, NSTableViewDataSou
 
     public func numberOfRows(in tableView: NSTableView) -> Int { messages.count }
 
-    public func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
-        nil
-    }
-
     public func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool { false }
 
     public func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
@@ -415,7 +413,7 @@ public final class ChatPanelViewController: NSViewController, NSTableViewDataSou
         return value
     }
 
-    public func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+    public func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         guard messages.indices.contains(row) else { return nil }
 
         let identifier = NSUserInterfaceItemIdentifier("ChatMessage")

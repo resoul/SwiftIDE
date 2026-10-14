@@ -31,10 +31,11 @@ let package = Package(
         .target(name: "IDEApplication", dependencies: ["IDEDomain"]),
         .target(name: "GitInfrastructure", dependencies: ["IDEApplication"]),
         .target(name: "FileSystemInfrastructure", dependencies: ["IDEDomain", "IDEApplication"]),
-        .target(name: "EditorPlatformTextKit", dependencies: ["IDEDomain", "IDEApplication"]),
+        .target(name: "UITheme"),
+        .target(name: "EditorPlatformTextKit", dependencies: ["IDEDomain", "IDEApplication", "UITheme"]),
         .target(name: "EditorUI", dependencies: ["IDEApplication", "EditorPlatformTextKit"]),
-        .target(name: "WorkspaceUI", dependencies: ["IDEApplication", "IconUI"]),
-        .target(name: "ChatUI", dependencies: ["IDEDomain", "IDEApplication", "IconUI"]),
+        .target(name: "WorkspaceUI", dependencies: ["IDEApplication", "IconUI", "UITheme"]),
+        .target(name: "ChatUI", dependencies: ["IDEDomain", "IDEApplication", "IconUI", "UITheme"]),
         .target(name: "AgentInfrastructure", dependencies: ["IDEDomain", "IDEApplication"]),
         .target(name: "IconUI", resources: [.process("Resources")]),
         .target(
@@ -81,7 +82,17 @@ let package = Package(
         ),
         .testTarget(name: "GitInfrastructureTests", dependencies: ["GitInfrastructure", "IDEApplication"]),
         .testTarget(name: "IconUITests", dependencies: ["IconUI"]),
-        .testTarget(name: "WorkspaceUITests", dependencies: ["WorkspaceUI", "IDEApplication"]),
+        .testTarget(
+            name: "WorkspaceUITests",
+            dependencies: [
+                "WorkspaceUI",
+                "IDEApplication",
+                "EditorUI",
+                "EditorPlatformTextKit",
+                "ChatUI",
+                "AgentInfrastructure"
+            ]
+        ),
         .testTarget(name: "ChatUITests", dependencies: ["ChatUI", "IDEApplication", "AgentInfrastructure"]),
         .testTarget(name: "AgentInfrastructureTests", dependencies: ["AgentInfrastructure", "IDEApplication"]),
         .testTarget(

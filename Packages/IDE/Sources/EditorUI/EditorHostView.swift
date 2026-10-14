@@ -17,6 +17,7 @@ public final class EditorHostView: NSScrollView {
         verticalScrollElasticity = .none
         horizontalScrollElasticity = .none
         drawsBackground = true
+        backgroundColor = textView.backgroundColor
         borderType = .noBorder
         // Since macOS 14 a view draws outside its bounds unless told to clip. Line numbers and text that
         // have scrolled out of view would otherwise show over the tab strip above the editor.

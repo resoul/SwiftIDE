@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 
 /// A caller-provided tool view. The shell retains its view and focus target across panel switches.
 @MainActor
@@ -39,6 +40,44 @@ public final class WorkspaceShellViewController: NSViewController {
 
     public var leadingHeaderInset: CGFloat = 12 { didSet { headerLeading?.constant = leadingHeaderInset } }
     private var headerLeading: NSLayoutConstraint?
+    private var headerBar: NSView?
+    private var headerProject: NSStackView?
+    private var headerFocus: NSButton?
+    private var headerReset: NSButton?
+    private var windowToolbar: WorkspaceWindowToolbar?
+    private var contentTop: NSLayoutConstraint?
+
+    /// AppKit owns the titlebar height and aligns the window controls with these items.
+    public func installWindowToolbar(on window: NSWindow) {
+        _ = view
+        guard windowToolbar == nil, let headerProject, let headerFocus, let headerReset else { return }
+
+        let controls: [NSView] = [headerProject, detailLabel, headerFocus, headerReset]
+        for control in controls {
+            (control.superview as? NSStackView)?.removeArrangedSubview(control)
+            control.removeFromSuperview()
+        }
+        let native = WorkspaceWindowToolbar(
+            project: headerProject,
+            detail: detailLabel,
+            focus: headerFocus,
+            reset: headerReset
+        )
+        windowToolbar = native
+        window.styleMask.insert(.fullSizeContentView)
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.toolbarStyle = .unified
+        window.toolbar = native.toolbar
+        if let guide = window.contentLayoutGuide as? NSLayoutGuide,
+           let content = contentTop?.firstItem as? NSView {
+            contentTop?.isActive = false
+            contentTop = content.topAnchor.constraint(equalTo: guide.topAnchor)
+            contentTop?.isActive = true
+        }
+
+        render()
+    }
 
     public func installProjectAccessory(_ control: NSView?) {
         for old in projectAccessory.arrangedSubviews {
@@ -133,9 +172,9 @@ public final class WorkspaceShellViewController: NSViewController {
         let body = stack(
             [leftRail, vertical.view, rightRail],
             vertical: false,
-            insets: NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+            insets: NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
         )
-        pin(stack([topBar, body, status], vertical: true), to: view)
+        contentTop = pin(stack([topBar, body, status], vertical: true), to: view)
         render()
     }
 
@@ -162,6 +201,7 @@ public final class WorkspaceShellViewController: NSViewController {
 
     public func disconnect() {
         notificationOverlay?.disconnect()
+        windowToolbar?.toolbar.delegate = nil
         if let subscription { state.unsubscribe(subscription) }
         subscription = nil
         (horizontal.splitView as? WorkspaceSplitView)?.onDividerDrag = nil
@@ -212,12 +252,31 @@ public final class WorkspaceShellViewController: NSViewController {
         projectSwitcher.toolTip = "Open and recent projects"
         projectSwitcher.isEnabled = projectMenu != nil
 
-        let content = stack(
-            [projectBadge, projectLabel, projectSwitcher, projectAccessory, NSView(), detailLabel, focus, reset],
-            vertical: false,
-            spacing: 8
-        )
+        let project = NSStackView(views: [
+            projectBadge,
+            projectLabel,
+            projectSwitcher,
+            projectAccessory
+        ])
+        project.orientation = .horizontal
+        project.alignment = .centerY
+        project.spacing = 8
+        headerProject = project
+        headerFocus = focus
+        headerReset = reset
+        let content = NSStackView(views: [
+            project,
+            NSView(),
+            detailLabel,
+            focus,
+            reset
+        ])
+        content.orientation = .horizontal
+        content.alignment = .centerY
+        content.spacing = 8
+        projectAccessory.alignment = .centerY
         let bar = ChromeBarView()
+        headerBar = bar
         bar.addSubview(content)
         content.translatesAutoresizingMaskIntoConstraints = false
         let leading = content.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: leadingHeaderInset)
@@ -227,7 +286,7 @@ public final class WorkspaceShellViewController: NSViewController {
             leading,
             content.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -12),
             content.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
-            bar.heightAnchor.constraint(equalToConstant: 28)
+            bar.heightAnchor.constraint(equalToConstant: 36)
         ])
 
         return bar
@@ -297,6 +356,13 @@ public final class WorkspaceShellViewController: NSViewController {
         defer { isUpdatingLayout = false }
         let layout = state.layout
         for item in chrome { item.isHidden = state.isFocused }
+        if let windowToolbar {
+            headerBar?.isHidden = true
+            if windowToolbar.toolbar.isVisible == state.isFocused {
+                windowToolbar.toolbar.isVisible = !state.isFocused
+            }
+        }
+
         leftItem.isCollapsed = layout.left == nil
         rightItem.isCollapsed = layout.right == nil
         bottomItem.isCollapsed = layout.bottom == nil
@@ -499,15 +565,19 @@ private func padded(_ content: NSView, height: CGFloat) -> NSView {
 }
 
 @MainActor
-private func pin(_ view: NSView, to parent: NSView) {
+@discardableResult
+private func pin(_ view: NSView, to parent: NSView) -> NSLayoutConstraint {
     parent.addSubview(view)
     view.translatesAutoresizingMaskIntoConstraints = false
+    let top = view.topAnchor.constraint(equalTo: parent.topAnchor)
     NSLayoutConstraint.activate([
         view.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
         view.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
-        view.topAnchor.constraint(equalTo: parent.topAnchor),
+        top,
         view.bottomAnchor.constraint(equalTo: parent.bottomAnchor)
     ])
+
+    return top
 }
 
 @MainActor
@@ -556,19 +626,17 @@ private final class WorkspaceBackgroundView: NSView {
 
     override func updateLayer() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            let white: CGFloat
+            let background: NSColor
             switch role {
-            case .chrome: white = dark ? 0.155 : 0.90
-            case .panel: white = dark ? 0.115 : 0.965
-            case .editor: white = dark ? 0.095 : 1.0
+            case .chrome: background = WorkspaceTheme.chromeBackground
+            case .panel, .editor: background = WorkspaceTheme.background
             }
 
-            layer?.backgroundColor = NSColor(white: white, alpha: 1).cgColor
+            layer?.backgroundColor = background.cgColor
 
             if let accent, let tint {
                 tint.colors = [
-                    accent.withAlphaComponent(dark ? 0.24 : 0.14).cgColor,
+                    accent.withAlphaComponent(WorkspaceTheme.chromeTintOpacity(in: effectiveAppearance)).cgColor,
                     accent.withAlphaComponent(0).cgColor
                 ]
             }

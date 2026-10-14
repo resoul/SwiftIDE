@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 
 /// Package-owned review form; the host chooses its window and owns closing it.
@@ -65,6 +66,7 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
             )
         note.font = .systemFont(ofSize: 11)
         note.textColor = .secondaryLabelColor
+        output.backgroundColor = WorkspaceTheme.background
         output.isEditable = false
         output.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         output.setAccessibilityLabel("Pull output")
@@ -194,7 +196,7 @@ public final class GitPullViewController: NSViewController, NSTextFieldDelegate 
 @MainActor private final class GitPullBackground: NSView {
     override func draw(_ dirtyRect: NSRect) {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            NSColor.windowBackgroundColor.setFill()
+            WorkspaceTheme.background.setFill()
             dirtyRect.fill()
         }
     }

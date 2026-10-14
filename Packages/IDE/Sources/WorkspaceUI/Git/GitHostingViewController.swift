@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 
 @MainActor
@@ -68,6 +69,7 @@ public final class GitHostingViewController: NSViewController, NSTextFieldDelega
         titleField.setAccessibilityLabel("PR/MR title")
         draft.target = self
         draft.action = #selector(draftChanged(_:))
+        body.backgroundColor = WorkspaceTheme.background
         body.isRichText = false
         body.isEditable = true
         body.allowsUndo = true

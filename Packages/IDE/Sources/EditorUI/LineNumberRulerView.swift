@@ -198,7 +198,7 @@ public final class LineNumberRulerView: NSRulerView {
     }
 
     public override func drawHashMarksAndLabels(in rect: NSRect) {
-        NSColor.textBackgroundColor.setFill()
+        textView.backgroundColor.setFill()
         bounds.fill()
         NSColor.separatorColor.setFill()
         NSRect(x: bounds.maxX - 1, y: rect.minY, width: 1, height: rect.height).fill()

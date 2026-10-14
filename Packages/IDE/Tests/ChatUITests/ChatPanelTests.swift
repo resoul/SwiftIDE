@@ -53,6 +53,45 @@ struct ChatPanelTests {
         return window
     }
 
+    @Test func completedResponseRemainsVisibleWhileTypingTheNextDraft() async throws {
+        let provider = ChatFixtureProvider(), session = AgentSession(provider: provider)
+        let panel = ChatPanelViewController(session: session), window = host(panel, width: 360)
+        defer {
+            panel.disconnect()
+            session.stop()
+            window.close()
+        }
+        window.makeFirstResponder(panel.input)
+        panel.input.insertText("Show an example", replacementRange: NSRange(location: 0, length: 0))
+        panel.submitMessage(nil)
+        try await wait { await provider.requests.count == 1 }
+        let block = UUID()
+        await provider.emit(.textDelta(block: block, text: String(repeating: "Response paragraph.\n", count: 24)))
+        await provider.emit(.finished)
+        try await wait { session.state == .ready }
+        try await Task.sleep(for: .milliseconds(100))
+        for draft in ["", "Next", " question\nwith another line"] {
+            panel.input.insertText(
+                draft,
+                replacementRange: NSRange(location: (panel.input.string as NSString).length, length: 0)
+            )
+            try await Task.sleep(for: .milliseconds(100))
+            panel.view.layoutSubtreeIfNeeded()
+            panel.view.displayIfNeeded()
+            #expect(panel.table.numberOfRows == 2)
+            let visible = panel.table.rows(in: panel.scroll.contentView.bounds)
+            try #require(visible.location != NSNotFound && visible.length > 0)
+            for index in visible.location..<NSMaxRange(visible) {
+                let cell = try #require(
+                    panel.table.view(atColumn: 0, row: index, makeIfNecessary: false) as? ChatMessageRow
+                )
+                #expect(cell.message?.id == session.messages[index].id)
+                #expect(cell.window === window && cell.visibleRect.height > 0)
+            }
+            #expect(panel.followsLatest && panel.latest.isHidden)
+        }
+    }
+
     @Test func streamedTextKeepsItsNativeViewSelectionAndCopyReturnsExactUnicodeCode() async throws {
         let provider = ChatFixtureProvider(), session = AgentSession(provider: provider)
         let panel = ChatPanelViewController(session: session), window = host(panel)
@@ -69,7 +108,7 @@ struct ChatPanelTests {
         await provider.emit(.textDelta(block: textID, text: "first answer"))
         try await wait { session.messages.last?.blocks.count == 1 }
         panel.renderNow()
-        let row = try #require(panel.table.rowView(atRow: 1, makeIfNecessary: true) as? ChatMessageRow)
+        let row = try #require(panel.table.view(atColumn: 0, row: 1, makeIfNecessary: true) as? ChatMessageRow)
         let text = try #require(row.textView(block: textID))
         #expect(text.textLayoutManager != nil)
         text.setSelectedRange(NSRange(location: 0, length: 5))
@@ -84,7 +123,7 @@ struct ChatPanelTests {
         await provider.emit(.finished)
         try await wait { session.state == .ready }
         panel.renderNow()
-        #expect(panel.table.rowView(atRow: 1, makeIfNecessary: true) === row)
+        #expect(panel.table.view(atColumn: 0, row: 1, makeIfNecessary: true) === row)
         #expect(row.textView(block: textID) === text && text.selectedRange() == NSRange(location: 0, length: 5))
         #expect(text.string == "first answer with more content" && window.firstResponder === responder)
         var copied = ""
@@ -250,7 +289,7 @@ struct ChatPanelTests {
             panel.renderNow()
         }
         #expect(panel.table.numberOfRows == 200 && session.messages.first?.plainText == "Turn 3")
-        let row = try #require(panel.table.rowView(atRow: 199, makeIfNecessary: true) as? ChatMessageRow)
+        let row = try #require(panel.table.view(atColumn: 0, row: 199, makeIfNecessary: true) as? ChatMessageRow)
         let block = try #require(row.blockView(id: tool))
         let height = panel.table.rect(ofRow: 199).height
         let earlierHeight = panel.table.rect(ofRow: 197).height

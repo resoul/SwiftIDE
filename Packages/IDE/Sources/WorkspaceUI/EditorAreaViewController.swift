@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 import IDEDomain
 
@@ -22,7 +23,7 @@ public final class EditorAreaViewController: NSViewController {
     public let tabs = DocumentTabBarViewController()
     public private(set) var active: NSViewController?
     public private(set) var focusTarget: NSView?
-    private let content = NSView()
+    private let content = PanelBackgroundView()
     private let empty =
         NSTextField(
             wrappingLabelWithString: """
@@ -36,7 +37,7 @@ public final class EditorAreaViewController: NSViewController {
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     public override func loadView() {
-        view = NSView()
+        view = PanelBackgroundView()
         view.clipsToBounds = true
         content.clipsToBounds = true
         addChild(tabs)
@@ -110,7 +111,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     public override func loadView() {
-        view = NSView()
+        view = PanelBackgroundView()
         view.clipsToBounds = true
         let layout = NSCollectionViewFlowLayout()
         layout.scrollDirection = .horizontal
@@ -122,7 +123,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
         collection.delegate = self
         collection.isSelectable = true
         collection.allowsMultipleSelection = false
-        collection.backgroundColors = [.windowBackgroundColor]
+        collection.backgroundColors = [WorkspaceTheme.background]
         collection.register(DocumentTabCell.self, forItemWithIdentifier: .init("DocumentTab"))
         collection.registerForDraggedTypes([dragType])
         collection.setDraggingSourceOperationMask(.move, forLocal: true)
@@ -130,7 +131,8 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
         scroll.documentView = collection
         scroll.hasHorizontalScroller = true
         scroll.autohidesScrollers = true
-        scroll.drawsBackground = false
+        scroll.drawsBackground = true
+        scroll.backgroundColor = WorkspaceTheme.background
         scroll.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scroll)
         NSLayoutConstraint.activate([
@@ -238,7 +240,7 @@ public final class DocumentTabBarViewController: NSViewController, NSCollectionV
         let title = item.name + (item.decoration.badges.isEmpty ? "" : "  " + item.decoration.badges)
         let width = (title as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12)]).width
 
-        return NSSize(width: min(280, max(120, width + 70)), height: 30)
+        return NSSize(width: min(280, max(80, width + 64)), height: 30)
     }
 
     public func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
@@ -328,23 +330,34 @@ private final class DocumentTabCell: NSCollectionViewItem {
             showSelection(active)
         }
         label.font = .systemFont(ofSize: 12)
+        label.alignment = .left
         label.lineBreakMode = .byTruncatingMiddle
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         icon.widthAnchor.constraint(equalToConstant: 16).isActive = true
-        closeButton.image = WorkspaceIcon.image("xmark", description: "Close tab")
+        icon.heightAnchor.constraint(equalToConstant: 16).isActive = true
+
+        let image = WorkspaceIcon.image("xmark", description: "Close tab")
+        image?.size = NSSize(width: 16, height: 16)
+        closeButton.image = image
+        closeButton.imagePosition = .imageOnly
+        closeButton.imageScaling = .scaleProportionallyDown
         closeButton.isBordered = false
         closeButton.target = self
         closeButton.action = #selector(closeTab(_:))
-        closeButton.widthAnchor.constraint(equalToConstant: 20).isActive = true
+        closeButton.widthAnchor.constraint(equalToConstant: 16).isActive = true
+
         let stack = NSStackView(views: [icon, label, closeButton])
         stack.orientation = .horizontal
         stack.alignment = .centerY
+        stack.distribution = .fill
+        // Keep the icon and name in place when the close button appears on hover.
+        stack.detachesHiddenViews = false
         stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -4),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
             stack.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
     }
@@ -371,11 +384,9 @@ private final class DocumentTabCell: NSCollectionViewItem {
         _ = view
         label.stringValue = item.name + (item.decoration.badges.isEmpty ? "" : "  " + item.decoration.badges)
         label.textColor = item.decoration.tone.colour
-        icon.image = WorkspaceIcon.image(
-            (item.name as NSString).pathExtension == "swift" ? "swift" : "doc.text",
-            description: nil
-        )
-        icon.contentTintColor = .secondaryLabelColor
+        let fileIcon = FileIcon(name: item.name)
+        icon.image = fileIcon.image()
+        icon.contentTintColor = fileIcon.tint
         view.toolTip = [item.path, item.decoration.explanation].filter { !$0.isEmpty }.joined(separator: "\n")
         view.setAccessibilityLabel(label.stringValue)
         closeButton.setAccessibilityLabel("Close " + item.name)

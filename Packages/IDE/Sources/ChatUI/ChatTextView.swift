@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 
 @MainActor
 final class ChatTextView: NSTextView {
@@ -33,6 +34,9 @@ final class ChatTextView: NSTextView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    /// Message text is display-only: restoring a selection must never scroll the history table.
+    override func scrollRangeToVisible(_ range: NSRange) {}
 
     /// Change only the differing suffix. Existing native selection and the text view survive deltas.
     func present(_ value: String, monospaced: Bool = false) {
@@ -107,7 +111,7 @@ final class ChatComposerTextView: NSTextView {
         allowsUndo = true
         font = .systemFont(ofSize: 13)
         textColor = .labelColor
-        backgroundColor = .textBackgroundColor
+        backgroundColor = WorkspaceTheme.background
         isVerticallyResizable = true
         textContainerInset = NSSize(width: 8, height: 8)
         textContainer?.lineFragmentPadding = 0

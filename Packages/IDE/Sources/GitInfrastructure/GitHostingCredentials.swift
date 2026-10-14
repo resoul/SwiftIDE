@@ -1,4 +1,5 @@
 import Foundation
+import LocalAuthentication
 import Security
 import IDEApplication
 
@@ -15,7 +16,9 @@ public actor GitKeychainCredentials: GitHostingCredentials {
         var query = key(account)
         query[kSecReturnData] = true
         query[kSecMatchLimit] = kSecMatchLimitOne
-        query[kSecUseAuthenticationUI] = kSecUseAuthenticationUIFail
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        query[kSecUseAuthenticationContext] = context
         var value: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &value)
         guard status == errSecSuccess, let bytes = value as? Data,

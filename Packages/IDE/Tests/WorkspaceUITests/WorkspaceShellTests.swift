@@ -6,6 +6,71 @@ import Testing
 @Suite(.serialized)
 @MainActor
 struct WorkspaceShellTests {
+    @Test func nativeToolbarAlignsWindowControlsAndRetainsProjectActions() throws {
+        _ = NSApplication.shared
+        let state = WorkspaceLayoutState()
+        let shell = WorkspaceShellViewController(
+            state: state,
+            editor: NSView(),
+            panels: [.files: .init(view: NSView())],
+            project: "SwiftIDE",
+            path: "/preview/SwiftIDE"
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.titleVisibility = .hidden
+        window.contentViewController = shell
+        defer {
+            shell.disconnect()
+            window.close()
+        }
+        let originalHeight = window.frame.height - window.contentLayoutRect.height
+        shell.installWindowToolbar(on: window)
+        let branch = NSButton(title: "main", target: nil, action: nil)
+        shell.installProjectAccessory(branch)
+        shell.present(detail: "Plain Text", status: nil)
+        window.contentView?.superview?.layoutSubtreeIfNeeded()
+        shell.view.layoutSubtreeIfNeeded()
+        let toolbar = try #require(window.toolbar)
+        #expect(window.toolbarStyle == .unified)
+        #expect(window.frame.height - window.contentLayoutRect.height > originalHeight + 8)
+        let project = try #require(toolbar.items.first { $0.itemIdentifier == WorkspaceWindowToolbar.project }?.view)
+        let close = try #require(window.standardWindowButton(.closeButton))
+        let projectRect = project.convert(project.bounds, to: nil)
+        let closeRect = close.convert(close.bounds, to: nil)
+        #expect(abs(projectRect.midY - closeRect.midY) < 3)
+        let editorRect = shell.horizontal.view.convert(shell.horizontal.view.bounds, to: nil)
+        #expect(editorRect.maxY <= window.contentLayoutRect.maxY)
+        #expect(branch.isDescendant(of: project))
+        let focus = try #require(
+            toolbar.items.first { $0.itemIdentifier == WorkspaceWindowToolbar.focus }?.view as? NSButton
+        )
+        focus.performClick(nil)
+        #expect(state.isFocused && !toolbar.isVisible)
+        shell.toggleFocusEditor(nil)
+        #expect(!state.isFocused && toolbar.isVisible)
+        let reset = try #require(
+            toolbar.items.first { $0.itemIdentifier == WorkspaceWindowToolbar.reset }?.view as? NSButton
+        )
+        state.select(.files)
+        reset.performClick(nil)
+        #expect(state.layout.left == .files)
+        if ProcessInfo.processInfo.environment["SWIFTIDE_RENDER_SHELL"] == "1" {
+            window.appearance = NSAppearance(named: .darkAqua)
+            let frame = try #require(window.contentView?.superview)
+            frame.layoutSubtreeIfNeeded()
+            let bitmap = try #require(frame.bitmapImageRepForCachingDisplay(in: frame.bounds))
+            frame.cacheDisplay(in: frame.bounds, to: bitmap)
+            try #require(bitmap.representation(using: .png, properties: [:]))
+                .write(to: URL(fileURLWithPath: "/private/tmp/swiftide-native-toolbar.png"))
+        }
+    }
+
     @Test func toolsToggleIndependentlyByZone() {
         var layout = WorkspaceLayout()
         layout.toggle(.assistant)

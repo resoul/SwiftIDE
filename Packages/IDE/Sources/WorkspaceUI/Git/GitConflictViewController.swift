@@ -1,4 +1,5 @@
 import AppKit
+import UITheme
 import IDEApplication
 
 /// Read-only Git stages plus a host-injected native result editor. It owns no document or process.
@@ -86,6 +87,7 @@ public final class GitConflictViewController: NSViewController {
             let text = NSTextView(usingTextLayoutManager: true)
             sourcePreviews[stage] = text
             text.frame = NSRect(x: 0, y: 0, width: 180, height: 65)
+            text.backgroundColor = WorkspaceTheme.background
             text.isEditable = false
             text.isRichText = false
             text.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
@@ -386,7 +388,7 @@ public final class GitConflictViewController: NSViewController {
 @MainActor final class GitContextBackground: NSView {
     override func draw(_ dirtyRect: NSRect) {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            NSColor.windowBackgroundColor.setFill()
+            WorkspaceTheme.background.setFill()
             dirtyRect.fill()
         }
     }
