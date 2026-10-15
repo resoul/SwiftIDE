@@ -1,11 +1,11 @@
 import AppKit
 import IDEApplication
 
-/// The production providers for the common shell; no text/document ownership.
+/// The production providers for the common workspace; no text/document ownership.
 @MainActor
 public final class ProjectFilesContainer: NSViewController {
     public let files: ProjectFilesViewController
-    public let shell: WorkspaceShellViewController
+    public let workspace: WorkspaceViewController
 
     public init(
         model: ProjectFiles,
@@ -17,7 +17,7 @@ public final class ProjectFilesContainer: NSViewController {
         files = ProjectFilesViewController(model: model)
         var providers = panels
         providers[.files] = WorkspacePanel(view: files.view, focusTarget: files.outline)
-        shell = WorkspaceShellViewController(
+        workspace = WorkspaceViewController(
             state: layout,
             editor: editor,
             editorFocus: editorFocus,
@@ -27,15 +27,15 @@ public final class ProjectFilesContainer: NSViewController {
         )
         super.init(nibName: nil, bundle: nil)
         addChild(files)
-        addChild(shell)
-        shell.present(detail: nil, status: "Open a file to begin editing")
+        addChild(workspace)
+        workspace.present(detail: nil, status: "Open a file to begin editing")
     }
 
-    public override func loadView() { view = shell.view }
+    public override func loadView() { view = workspace.view }
 
     public func disconnect() {
         files.disconnect()
-        shell.disconnect()
+        workspace.disconnect()
     }
 
     @available(*, unavailable)

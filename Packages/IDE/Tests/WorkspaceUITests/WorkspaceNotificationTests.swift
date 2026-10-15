@@ -40,7 +40,7 @@ struct WorkspaceNotificationTests {
         let editor = NSTextView()
         editor.string = "Original document"
         editor.setSelectedRange(NSRange(location: 3, length: 2))
-        let shell = WorkspaceShellViewController(
+        let workspace = WorkspaceViewController(
             state: .init(),
             editor: editor,
             editorFocus: editor,
@@ -48,15 +48,15 @@ struct WorkspaceNotificationTests {
             project: "A",
             path: "/a"
         )
-        let window = makeWindow(shell)
+        let window = makeWindow(workspace)
         defer {
-            shell.disconnect()
+            workspace.disconnect()
             window.close()
         }
         window.makeFirstResponder(editor)
         let focus = window.firstResponder
         var invoked = 0
-        shell.notifications.post(.init(
+        workspace.notifications.post(.init(
             id: "result",
             kind: .success,
             title: "Operation completed",
@@ -65,8 +65,8 @@ struct WorkspaceNotificationTests {
                 invoked += 1
             })]
         ))
-        shell.view.layoutSubtreeIfNeeded()
-        let overlay = try #require(shell.notificationOverlay)
+        workspace.view.layoutSubtreeIfNeeded()
+        let overlay = try #require(workspace.notificationOverlay)
         let card = try #require(overlay.cards.first)
         #expect(window.firstResponder === focus && invoked == 0)
         #expect(editor.string == "Original document" && editor.selectedRange() == NSRange(location: 3, length: 2))
@@ -77,7 +77,7 @@ struct WorkspaceNotificationTests {
         let button = try #require(card.actionButtons.first)
         button.performClick(nil)
         #expect(invoked == 1)
-        shell.notifications.post(.init(
+        workspace.notifications.post(.init(
             id: "result",
             kind: .warning,
             title: "Updated result",
@@ -89,18 +89,18 @@ struct WorkspaceNotificationTests {
         button.performClick(nil)
         #expect(invoked == 11)
         card.close.performClick(nil)
-        shell.view.layoutSubtreeIfNeeded()
-        #expect(shell.notifications.items.isEmpty && overlay.cards.isEmpty && overlay.scroll.isHidden)
+        workspace.view.layoutSubtreeIfNeeded()
+        #expect(workspace.notifications.items.isEmpty && overlay.cards.isEmpty && overlay.scroll.isHidden)
         #expect(window.firstResponder === focus && editor.string == "Original document")
-        shell.disconnect()
-        shell.notifications.post(.init(title: "Disconnected"))
+        workspace.disconnect()
+        workspace.notifications.post(.init(title: "Disconnected"))
         #expect(overlay.cards.isEmpty)
     }
 
     @Test func stackFitsCentralContentAndScrollsLongMessagesInBothAppearances() throws {
         _ = NSApplication.shared
         let state = WorkspaceLayoutState(available: Set(WorkspaceTool.allCases))
-        let shell = WorkspaceShellViewController(
+        let workspace = WorkspaceViewController(
             state: state,
             editor: NSView(),
             panels: [
@@ -111,18 +111,18 @@ struct WorkspaceNotificationTests {
             project: "Preview",
             path: "/preview"
         )
-        let window = makeWindow(shell)
+        let window = makeWindow(workspace)
         defer {
-            shell.disconnect()
+            workspace.disconnect()
             window.close()
         }
-        shell.notifications.post(.init(
+        workspace.notifications.post(.init(
             kind: .warning,
             title: "Workspace Preview",
             message: "A warning with a longer explanation that wraps across lines.",
             actions: [.init(title: "Show details…", perform: {})]
         ))
-        shell.notifications.post(.init(
+        workspace.notifications.post(.init(
             title: "34 files committed · sample",
             message: "git merge, git rebase",
             actions: [.init(title: "View commit…", perform: {})]
@@ -130,15 +130,15 @@ struct WorkspaceNotificationTests {
         var colours: [CGFloat] = []
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             window.appearance = NSAppearance(named: appearance)
-            shell.view.layoutSubtreeIfNeeded()
-            let overlay = try #require(shell.notificationOverlay)
+            workspace.view.layoutSubtreeIfNeeded()
+            let overlay = try #require(workspace.notificationOverlay)
             #expect(overlay.scroll.frame.width > 300 && overlay.scroll.frame.height > 100)
             #expect(overlay.bounds.contains(overlay.scroll.frame))
             #expect(overlay.cards.count == 2)
             let first = overlay.cards[0]
             #expect(first.frame.height > 60 && overlay.cards[1].frame.height > 60)
             #expect(first.message.frame.height >= 25, "body wraps instead of clipping")
-            shell.view.displayIfNeeded()
+            workspace.view.displayIfNeeded()
             let bitmap = try #require(first.bitmapImageRepForCachingDisplay(in: first.bounds))
             first.cacheDisplay(in: first.bounds, to: bitmap)
             let colour = try #require(bitmap.colorAt(x: 3, y: 3)?.usingColorSpace(.deviceRGB))
@@ -156,26 +156,26 @@ struct WorkspaceNotificationTests {
             }
             #expect(bluePixels > 8, "information icon is visible on the first render in either appearance")
             if ProcessInfo.processInfo.environment["SWIFTIDE_RENDER_NOTIFICATIONS"] == "1" {
-                let rendered = try #require(shell.view.bitmapImageRepForCachingDisplay(in: shell.view.bounds))
-                shell.view.cacheDisplay(in: shell.view.bounds, to: rendered)
+                let rendered = try #require(workspace.view.bitmapImageRepForCachingDisplay(in: workspace.view.bounds))
+                workspace.view.cacheDisplay(in: workspace.view.bounds, to: rendered)
                 try #require(rendered.representation(using: .png, properties: [:]))
                     .write(to: URL(fileURLWithPath: "/private/tmp/swiftide-notifications-\(name).png"))
             }
         }
         #expect(colours[0] > colours[1] + 0.4)
-        shell.select(.assistant)
-        shell.select(.terminal)
+        workspace.select(.assistant)
+        workspace.select(.terminal)
         window.setContentSize(NSSize(width: 900, height: 560))
         for n in 0..<3 {
-            shell.notifications.post(.init(
+            workspace.notifications.post(.init(
                 id: "long\(n)",
                 kind: .error,
                 title: "Long message \(n)",
                 message: String(repeating: "A detailed failure with context. ", count: 80)
             ))
         }
-        shell.view.layoutSubtreeIfNeeded()
-        let overlay = try #require(shell.notificationOverlay)
+        workspace.view.layoutSubtreeIfNeeded()
+        let overlay = try #require(workspace.notificationOverlay)
         #expect(overlay.bounds.contains(overlay.scroll.frame))
         #expect(overlay.scroll.frame.width <= overlay.bounds.width - 23)
         #expect(overlay.scroll.frame.height <= overlay.bounds.height * 0.5 + 1)
@@ -186,12 +186,12 @@ struct WorkspaceNotificationTests {
             abs(overlay.scroll.contentView.bounds.minY - top) < 2,
             "a long new card reveals its heading and close button"
         )
-        shell.toggleFocusEditor(nil)
-        shell.view.layoutSubtreeIfNeeded()
+        workspace.toggleFocusEditor(nil)
+        workspace.view.layoutSubtreeIfNeeded()
         #expect(overlay.cards.count == 5 && overlay.bounds.contains(overlay.scroll.frame))
     }
 
-    private func makeWindow(_ shell: WorkspaceShellViewController) -> NSWindow {
+    private func makeWindow(_ workspace: WorkspaceViewController) -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: -2000, y: -2000, width: 1280, height: 820),
             styleMask: [.titled, .resizable],
@@ -199,7 +199,7 @@ struct WorkspaceNotificationTests {
             defer: false
         )
         window.isReleasedWhenClosed = false
-        window.contentViewController = shell
+        window.contentViewController = workspace
 
         return window
     }

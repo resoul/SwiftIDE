@@ -14,13 +14,11 @@ public enum WorkspaceTheme {
     public static let imageFileIcon = NSColor.systemGreen
     public static let fileIcon = NSColor.secondaryLabelColor
 
-    public static let chromeBackground = NSColor(name: "org.swiftide.workspace.chrome") { appearance in
-        let dark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-
-        return NSColor(white: dark ? 0.155 : 0.90, alpha: 1)
-    }
-
-    public static func chromeTintOpacity(in appearance: NSAppearance) -> CGFloat {
-        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? 0.24 : 0.14
-    }
+    /// The outer frame keeps the same background and readable controls in either panel theme.
+    public static let chromeBackground = NSColor(white: 0.155, alpha: 1)
+    public static let chromeTintOpacity: CGFloat = 0.24
+    public static let chromeForeground = NSColor.white
+    public static let chromeSecondaryForeground = NSColor.white.withAlphaComponent(0.65)
+    public static let chromeDisabledForeground = NSColor.white.withAlphaComponent(0.25)
+    public static let chromeHoverBackground = NSColor.white.withAlphaComponent(0.12)
 }

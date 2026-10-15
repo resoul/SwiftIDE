@@ -5,7 +5,7 @@ import WorkspaceUI
 import GitInfrastructure
 import ChatUI
 
-/// One real project window, one shell/tree and content-owned document tabs.
+/// One real project window, one workspace/tree and content-owned document tabs.
 @MainActor
 final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
     let files: ProjectFiles
@@ -49,8 +49,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     var onClose: (() -> Void)?
     var onRequestClose: (() -> Void)?
     var onReleaseDocument: ((DocumentEditorController) -> Void)?
-    var projectMenu: (() -> NSMenu)? { didSet { browser.shell.projectMenu = projectMenu } }
-    var shell: WorkspaceShellViewController { browser.shell }
+    var projectMenu: (() -> NSMenu)? { didSet { browser.workspace.projectMenu = projectMenu } }
+    var workspace: WorkspaceViewController { browser.workspace }
     private var editors: [DocumentID: DocumentEditorController] = [:]
     private var closing = false
     private let browser: ProjectFilesContainer
@@ -96,7 +96,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         window.representedURL = URL(fileURLWithPath: files.root)
         window.titleVisibility = .hidden
         window.contentViewController = browser
-        browser.shell.installWindowToolbar(on: window)
+        browser.workspace.installWindowToolbar(on: window)
         window.minSize = NSSize(width: 900, height: 560)
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
@@ -144,7 +144,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
             if let gitBranches {
                 browser.addChild(gitBranches)
-                shell.installProjectAccessory(gitBranches.view)
+                workspace.installProjectAccessory(gitBranches.view)
             }
 
             gitChanges?.resolveConflict = { [weak self] in self?.showConflict($0) }
@@ -160,8 +160,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             gitBranches?.onPushRequested = { [weak self] branch, remote in
                 self?.showPush(branch: branch, remote: remote)
             }
-            gitBranches?.onActionStarted = { [weak self] in self?.shell.select(.sourceControl) }
-            gitBranches?.onViewHistory = { [weak self] in self?.shell.select(.gitLog) }
+            gitBranches?.onActionStarted = { [weak self] in self?.workspace.select(.sourceControl) }
+            gitBranches?.onViewHistory = { [weak self] in self?.workspace.select(.gitLog) }
             git.onInspect = { [weak self] in
                 guard let self else { return }
 
@@ -229,7 +229,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             area.view.layoutSubtreeIfNeeded()
         }
 
-        shell.editorFocus = focus
+        workspace.editorFocus = focus
         updatePresentation()
         if switching, let focus { window?.makeFirstResponder(focus) }
     }
@@ -239,7 +239,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         if files.unsavedPaths != unsaved { files.unsavedPaths = unsaved }
         window?.isDocumentEdited = documents.contains { $0.session.isDirty }
         window?.subtitle = activeDocument?.status ?? ""
-        shell.present(
+        workspace.present(
             detail: tabs.selected == diffTabID ? "Read-only Git diff" : activeDocument?.detail,
             status: activeDocument?.status ?? (tabs.selected == diffTabID
                 ? git?.diffState.explanation
@@ -343,12 +343,12 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             message = "Changes already made are retained. See Source Control for details."
         default: return
         }
-        shell.notifications.post(WorkspaceNotification(
+        workspace.notifications.post(WorkspaceNotification(
             id: "git.operation",
             kind: kind,
             title: git.operationTitle + suffix,
             message: message,
-            actions: [.init(title: "Show details…", perform: { [weak self] in self?.shell.select(.sourceControl) })]
+            actions: [.init(title: "Show details…", perform: { [weak self] in self?.workspace.select(.sourceControl) })]
         ))
     }
 
@@ -415,7 +415,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         gitDiff?.disconnect()
         files.onRefresh = nil
         files.stop()
-        shell.notifications.removeAll()
+        workspace.notifications.removeAll()
         browser.disconnect()
         onClose?()
     }
@@ -456,17 +456,17 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         activeDocument?.askAboutProjectConfigurationAgain(sender)
     }
 
-    @objc func showFiles(_ sender: Any?) { shell.select(.files) }
+    @objc func showFiles(_ sender: Any?) { workspace.select(.files) }
 
-    @objc func toggleFocusEditor(_ sender: Any?) { shell.toggleFocusEditor(sender) }
+    @objc func toggleFocusEditor(_ sender: Any?) { workspace.toggleFocusEditor(sender) }
 
-    @objc func resetWorkspaceLayout(_ sender: Any?) { shell.resetWorkspaceLayout(sender) }
+    @objc func resetWorkspaceLayout(_ sender: Any?) { workspace.resetWorkspaceLayout(sender) }
 
     @objc func showSearch(_ sender: Any?) {}
 
-    @objc func showSourceControl(_ sender: Any?) { if git != nil { shell.select(.sourceControl) } }
+    @objc func showSourceControl(_ sender: Any?) { if git != nil { workspace.select(.sourceControl) } }
 
-    @objc func showGitLog(_ sender: Any?) { if git != nil { shell.select(.gitLog) } }
+    @objc func showGitLog(_ sender: Any?) { if git != nil { workspace.select(.gitLog) } }
 
     @objc func refreshGit(_ sender: Any?) { git?.refresh() }
 
@@ -650,7 +650,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         let controller = GitIntegrationWindowController(workspace: git, kind: kind)
         integrationWindow = controller
         controller.onClosed = { [weak self] in self?.integrationWindow = nil }
-        shell.select(.sourceControl)
+        workspace.select(.sourceControl)
         controller.present(on: window, target: target)
     }
 
@@ -676,7 +676,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         let controller = GitStashWindowController(workspace: git)
         stashWindow = controller
         controller.onClosed = { [weak self] in self?.stashWindow = nil }
-        shell.select(.sourceControl)
+        workspace.select(.sourceControl)
         controller.present(on: window)
     }
 
@@ -741,7 +741,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     }
 
     @objc func continueGit(_ sender: Any?) {
-        shell.select(.sourceControl)
+        workspace.select(.sourceControl)
         gitChanges?.continueOperation()
     }
 
@@ -764,7 +764,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         }
         pullWindow = controller
         controller.onClosed = { [weak self] in self?.pullWindow = nil }
-        shell.select(.sourceControl)
+        workspace.select(.sourceControl)
         controller.present(on: window, remote: remote, source: source)
     }
 
@@ -777,7 +777,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         let controller = GitPushWindowController(workspace: git)
         pushWindow = controller
         controller.onClosed = { [weak self] in self?.pushWindow = nil }
-        shell.select(.sourceControl)
+        workspace.select(.sourceControl)
         controller.present(on: window, branch: branch?.reference, remote: remote)
     }
 
@@ -786,7 +786,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     @objc func fetchGit(_ sender: Any?) { gitBranches?.showRemoteSelection() }
 
     @objc func commitGit(_ sender: Any?) {
-        shell.select(.sourceControl)
+        workspace.select(.sourceControl)
         gitChanges?.focusCommitMessage()
     }
 
@@ -794,7 +794,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
     @objc func showTerminal(_ sender: Any?) {}
 
-    @objc func showAssistant(_ sender: Any?) { shell.select(.assistant) }
+    @objc func showAssistant(_ sender: Any?) { workspace.select(.assistant) }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(hostingGit(_:)) {

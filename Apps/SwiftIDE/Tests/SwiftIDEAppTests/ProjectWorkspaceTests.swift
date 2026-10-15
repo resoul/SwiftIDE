@@ -74,7 +74,7 @@ extension NativeAppTests {
             await app.open(path: root.appendingPathComponent("b.txt").path)
             #expect(project.documents.count == 2)
             let b = try #require(project.documents.last)
-            #expect(project.shell.state === project.layout)
+            #expect(project.workspace.state === project.layout)
             #expect(a.window === project.window && b.window === project.window)
             #expect(project.window?.tabGroup == nil)
             #expect(project.area.active === b)
@@ -197,15 +197,15 @@ extension NativeAppTests {
             }
             let a = try #require(project.documents.first), b = project.documents[1], c = project.documents[2]
             let window = try #require(project.window)
-            let shell = project.shell
-            let tree = try #require(project.shell.view.subviews.first)
-            let filesOutline = try #require(outline(in: shell.view))
+            let workspace = project.workspace
+            let tree = try #require(project.workspace.view.subviews.first)
+            let filesOutline = try #require(outline(in: workspace.view))
             window.makeFirstResponder(filesOutline)
             project.tabs.move(a.session.id, to: 3)
             #expect(window.firstResponder === filesOutline, "reordering must not steal focus from a tool panel")
             #expect(project.documents.map(\.session.id) == [b.session.id, c.session.id, a.session.id])
-            #expect(project.activeDocument === c && project.shell === shell)
-            #expect(tree.superview === shell.view)
+            #expect(project.activeDocument === c && project.workspace === workspace)
+            #expect(tree.superview === workspace.view)
             #expect(project.documents.allSatisfy { $0.window === window })
             #expect(window.tabGroup == nil)
             project.select(a.session.id)
@@ -236,7 +236,7 @@ extension NativeAppTests {
             }
             project.toggleFocusEditor(nil)
             window.contentView?.layoutSubtreeIfNeeded()
-            #expect(project.area.tabs.view.isDescendant(of: shell.view))
+            #expect(project.area.tabs.view.isDescendant(of: workspace.view))
             #expect(project.area.view.bounds.width > 1200)
             #expect(project.area.view.bounds.height > 700)
             project.toggleFocusEditor(nil)

@@ -75,7 +75,7 @@ extension NativeAppTests {
             model.perform(.switchBranch(branch))
             try await completed(model)
             #expect(model.operationState == .cancelled && model.snapshot?.branch == "main")
-            #expect(project.shell.notifications.items.first?.kind == .information)
+            #expect(project.workspace.notifications.items.first?.kind == .information)
             #expect(asked == [aPath.path, bPath.path] && !a.session.isDirty && b.session.isDirty)
             #expect(a.session.text == aText && b.session.text == bText)
             saveAll = true
@@ -85,7 +85,7 @@ extension NativeAppTests {
                 Issue.record("Git must refuse overwriting conflicting saved disk edits")
             }
 
-            #expect(project.shell.notifications.items.first?.kind == .error)
+            #expect(project.workspace.notifications.items.first?.kind == .error)
             #expect(model.snapshot?.branch == "main" && aEditor.isEditable && bEditor.isEditable)
             #expect(a.session.text == aText && b.session.text == bText && bEditor.undoManager?.canUndo == true)
             for path in ["a.txt", "Sub/b.txt"] {
@@ -97,15 +97,15 @@ extension NativeAppTests {
             model.perform(.commit("Saved main edits"))
             try await completed(model)
             #expect(model.operationState == .succeeded && model.snapshot?.changes.isEmpty == true)
-            let notification = try #require(project.shell.notifications.items.first)
+            let notification = try #require(project.workspace.notifications.items.first)
             #expect(notification.id == "git.operation" && notification.kind == .success)
             #expect(notification.title == "Commit staged changes completed")
-            #expect(second.shell.notifications.items.isEmpty, "another project did not run this operation")
-            project.shell.notifications.dismiss(notification.id)
+            #expect(second.workspace.notifications.items.isEmpty, "another project did not run this operation")
+            project.workspace.notifications.dismiss(notification.id)
             model.refresh()
             try await wait { model.state == .ready }
             #expect(
-                project.shell.notifications.items.isEmpty,
+                project.workspace.notifications.items.isEmpty,
                 "status refresh does not replay an old operation notification"
             )
             let prepare = try #require(model.prepareCheckout)

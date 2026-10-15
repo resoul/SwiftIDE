@@ -141,7 +141,7 @@ Tab order/selection remain in memory; existing root-scoped layout preferences an
 
 ### The first prototype
 
-The first prototype was a separate sample-data window (**Window → Workspace Preview**, `--workspace-preview`). It was removed on 2026-10-12 (ADR-048): real project windows host the same `WorkspaceShellViewController` with native dividers, switching and hiding of tools, Focus Editor, Reset Layout and per-project layout persistence. The light/dark choice moved to **SwiftIDE → Settings…** and applies to the whole application.
+The first prototype was a separate sample-data window (**Window → Workspace Preview**, `--workspace-preview`). It was removed on 2026-10-12 (ADR-048): real project windows host the same `WorkspaceViewController` (formerly `WorkspaceShellViewController`) with native dividers, switching and hiding of tools, Focus Editor, Reset Layout and per-project layout persistence. The light/dark choice moved to **SwiftIDE → Settings…** and applies to the whole application.
 
 The text below records what was checked on the prototype.
 
@@ -166,7 +166,7 @@ The Files panel is resizable, supports native outline keyboard navigation, Retur
 
 ## Common shell connected before Git (TK-030)
 
-WorkspaceShellViewController in WorkspaceUI owns the preview's top/status bars, two tool rails, central surface and left/right/bottom split zones. WorkspacePanel injects views and focus targets; the original editor and Files are production providers. Preview remains an independent sample host of this same shell. App retains document creation and the original save/close/Undo/language-service workflows. The initial native-window tabs described here are replaced by TK-031 / ADR-038. Standalone files and startup scratch documents keep their existing editor windows until attached to an opened project.
+WorkspaceView in WorkspaceUI is the root view for the top/status bars, two tool rails, central surface and left/right/bottom split zones. WorkspaceViewController connects its callbacks to WorkspaceLayoutState, native split controllers and focus routing. Panel headings and hide buttons live in WorkspacePanelView; rail icons and their hover/selection states live in WorkspaceToolRailView. WorkspaceViewLayout contains shared stack, inset and surface helpers; UITheme/WorkspaceTheme contains colours. WorkspacePanel injects views and focus targets; the original editor and Files are production providers. Preview remains an independent sample host of this same shell. App retains document creation and the original save/close/Undo/language-service workflows. The initial native-window tabs described here are replaced by TK-031 / ADR-038. Standalone files and startup scratch documents keep their existing editor windows until attached to an opened project.
 
 WorkspaceLayoutState is shared by every native document tab and the empty browser of one canonical project. Visibility, preferred dimensions, Focus Editor and Reset Layout propagate without recreating editors or changing another tab's first responder. App persists the normal layout in UserDefaults by project root; entering Focus Editor does not save all panels as permanently hidden. Preview retains its separate preference key. Invalid sizes and unsupported/wrong-zone tools are sanitized. Automatic compression on a smaller screen does not overwrite preferred dimensions; user divider drags update dimensions.
 

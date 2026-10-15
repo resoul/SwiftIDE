@@ -1,4 +1,5 @@
 import Foundation
+import HTTPInfrastructure
 import IDEApplication
 
 public struct GitHostingClient: GitHostingAPI {
@@ -17,7 +18,7 @@ public struct GitHostingClient: GitHostingAPI {
         let object = try dictionary(await send(account: account, parts: ["user"], token: token))
         let field = account.service == .github ? "login" : "username"
         guard let login = object[field] as? String, !login.isEmpty, login.utf8.count <= 256 else {
-            throw GitInspectionError.failed("Hosting account response has no valid login.")
+            throw GitHostingFailure(kind: .invalidResponse)
         }
 
         return login
@@ -100,10 +101,10 @@ public struct GitHostingClient: GitHostingAPI {
         let value = try dictionary(await send(account: repository.account, parts: parts))
         guard let commit = value["commit"] as? [String: Any],
               let sha = commit[repository.account.service == .github ? "sha" : "id"] as? String else {
-            throw GitInspectionError.failed("Remote branch response has no commit.")
+            throw GitHostingFailure(kind: .invalidResponse)
         }
 
-        try validateSHA(sha)
+        try validateResponseSHA(sha)
 
         return sha
     }
@@ -143,14 +144,14 @@ public struct GitHostingClient: GitHostingAPI {
         }
 
         try Task.checkCancellation()
-        let response = try dictionary(await send(
+        let data = try await send(
             account: repository.account,
             parts: repositoryParts(repository) + [endpoint],
             method: "POST",
             body: body
-        ))
-
-        return try request(response, repository: repository)
+        )
+        do { return try request(dictionary(data), repository: repository) }
+        catch { throw GitHostingFailure(kind: .invalidResponse, publicationMayHaveSucceeded: true) }
     }
 
     private func send(
@@ -194,23 +195,21 @@ public struct GitHostingClient: GitHostingAPI {
 
         try Task.checkCancellation()
         let result: GitHostingHTTPResponse
-        do { result = try await transport.send(request) }
-        catch {
-            if Task.isCancelled || error is CancellationError { throw CancellationError() }
-            throw GitInspectionError
-                .failed("Hosting connection failed. A submitted PR/MR may already exist; refresh before retrying.")
-        }
-        guard result.data.count <= 2_000_000, (200...299).contains(result.status) else {
-            let reason = result.status == 401
-                ? "Reconnect the account."
-                : result.status == 403
-                    ? "Check token permissions, SSO and rate limits."
-                    : result.status == 404
-                        ? "Repository/branch is unavailable or inaccessible."
-                        : result.status == 422 || result.status == 409
-                            ? "Validation failed or a request may already exist. Refresh before retrying."
-                            : "Service unavailable or unsupported response; try Refresh."
-            throw GitInspectionError.failed("Hosting HTTP \(result.status). " + reason)
+        do {
+            result = try await transport.send(request)
+            guard result.data.count <= 2_000_000 else {
+                throw HTTPError.responseTooLarge(maximumBytes: 2_000_000)
+            }
+
+            if (300...399).contains(result.status) { throw HTTPError.redirectRejected(status: result.status) }
+            try result.requireSuccess()
+        } catch {
+            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                throw CancellationError()
+            }
+
+            let failure = error as? HTTPError ?? (error as? URLError).map { .connection($0.code) } ?? .transportFailure
+            throw GitHostingFailure(http: failure, publishing: method == "POST")
         }
 
         try Task.checkCancellation()
@@ -230,11 +229,11 @@ public struct GitHostingClient: GitHostingAPI {
             parameters["per_page"] = "100"
             parameters["page"] = String(page)
             let bytes = try await send(account: account, parts: parts, query: parameters)
-            let object = try JSONSerialization.jsonObject(with: bytes)
+            let object = try jsonObject(bytes)
             let array: Any?
             if let listKey { array = (object as? [String: Any])?[listKey] } else { array = object }
             guard let items = array as? [[String: Any]], items.count <= 100 else {
-                throw GitInspectionError.failed("Malformed or oversized hosting page.")
+                throw GitHostingFailure(kind: .invalidResponse)
             }
 
             values.append(contentsOf: items)
@@ -249,7 +248,7 @@ public struct GitHostingClient: GitHostingAPI {
         guard let number = object[github ? "number" : "iid"] as? Int, number > 0,
               let title = object["title"] as? String,
               let rawURL = object[github ? "html_url" : "web_url"] as? String, let url = URL(string: rawURL) else {
-            throw GitInspectionError.failed("Malformed hosting request response.")
+            throw GitHostingFailure(kind: .invalidResponse)
         }
 
         let head = object["head"] as? [String: Any], base = object["base"] as? [String: Any]
@@ -257,7 +256,7 @@ public struct GitHostingClient: GitHostingAPI {
         let sha = github
             ? head?["sha"] as? String ?? ""
             : object["sha"] as? String ?? refs?["head_sha"] as? String ?? ""
-        if !sha.isEmpty { try validateSHA(sha) }
+        if !sha.isEmpty { try validateResponseSHA(sha) }
 
         return try .init(
             number: number,
@@ -287,17 +286,27 @@ public struct GitHostingClient: GitHostingAPI {
     }
 
     private func dictionary(_ data: Data) throws -> [String: Any] {
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw GitInspectionError.failed("Malformed hosting response.")
+        guard let object = try jsonObject(data) as? [String: Any] else {
+            throw GitHostingFailure(kind: .invalidResponse)
         }
 
         return object
+    }
+
+    private func jsonObject(_ data: Data) throws -> Any {
+        do { return try JSONSerialization.jsonObject(with: data) }
+        catch { throw GitHostingFailure(kind: .invalidResponse) }
     }
 
     private func validateSHA(_ sha: String) throws {
         guard (sha.count == 40 || sha.count == 64), sha.allSatisfy({ "0123456789abcdefABCDEF".contains($0) }) else {
             throw GitInspectionError.failed("Expected a full commit SHA.")
         }
+    }
+
+    private func validateResponseSHA(_ sha: String) throws {
+        do { try validateSHA(sha) }
+        catch { throw GitHostingFailure(kind: .invalidResponse) }
     }
 
     private func bounded(_ text: String, length: Int) -> String { String(text.prefix(length)) }

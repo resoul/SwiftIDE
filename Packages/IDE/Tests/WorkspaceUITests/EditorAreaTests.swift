@@ -207,7 +207,7 @@ struct EditorAreaTests {
         let tool = WorkspaceTool(id: 100, title: "Containers", symbol: "shippingbox", zone: .right)
         let draft = NSTextField(string: "container filter")
         let state = WorkspaceLayoutState(available: [.files, tool])
-        let shell = WorkspaceShellViewController(
+        let workspace = WorkspaceViewController(
             state: state,
             editor: NSView(),
             panels: [.files: .init(view: NSView()), tool: .init(view: draft, focusTarget: draft)],
@@ -221,20 +221,20 @@ struct EditorAreaTests {
             defer: false
         )
         window.isReleasedWhenClosed = false
-        window.contentViewController = shell
+        window.contentViewController = workspace
         defer {
-            shell.disconnect()
+            workspace.disconnect()
             window.close()
         }
-        shell.select(tool)
-        #expect(shell.buttons[tool]?.isEnabled == true && state.layout.right == tool)
+        workspace.select(tool)
+        #expect(workspace.buttons[tool]?.isEnabled == true && state.layout.right == tool)
         state.resize(right: 350)
         let saved = state.persistentLayout
-        shell.toggleFocusEditor(nil)
+        workspace.toggleFocusEditor(nil)
         #expect(state.layout.left == nil && state.layout.right == nil)
-        shell.toggleFocusEditor(nil)
+        workspace.toggleFocusEditor(nil)
         #expect(state.layout == saved && draft.stringValue == "container filter")
-        #expect(draft.isDescendant(of: shell.view))
+        #expect(draft.isDescendant(of: workspace.view))
         let decoded = try JSONDecoder().decode(WorkspaceLayout.self, from: JSONEncoder().encode(saved))
         #expect(decoded == saved)
         let old = try JSONDecoder().decode(WorkspaceTool.self, from: Data("6".utf8))

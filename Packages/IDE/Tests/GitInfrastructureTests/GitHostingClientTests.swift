@@ -1,4 +1,5 @@
 import Foundation
+import HTTPInfrastructure
 import IDEApplication
 import Testing
 @testable import GitInfrastructure
@@ -200,6 +201,91 @@ struct GitHostingClientTests {
         #expect(await redirect.requests.count == 1)
     }
 
+    @Test func hostingErrorsKeepStatusAndRetryMetadataWithoutExposingBodies() async throws {
+        let account = try GitHostingAccount(service: .github, webURL: #require(URL(string: "https://github.com")))
+        let credentials = HostingTestCredentials()
+        for (status, kind) in [
+            (401, GitHostingFailure.Kind.unauthorized),
+            (403, .forbidden),
+            (404, .notFound),
+            (409, .conflict),
+            (422, .conflict),
+            (429, .rateLimited),
+            (503, .serviceUnavailable)
+        ] {
+            let transport = HostingTestTransport { _ in
+                .init(status: status, data: Data("fixture-secret".utf8), headers: ["Retry-After": "120"])
+            }
+            do {
+                _ = try await GitHostingClient(credentials: credentials, transport: transport)
+                    .authenticate(account, token: "fixture-token")
+                Issue.record("HTTP failure was accepted")
+            } catch let error as GitHostingFailure {
+                #expect(error.kind == kind && error.statusCode == status && error.retryAfter == 120)
+                #expect(!error.localizedDescription.contains("fixture-secret"))
+                #expect(!error.publicationMayHaveSucceeded)
+            }
+            #expect(await transport.requests.count == 1)
+        }
+    }
+
+    @Test func sharedTransportPreservesHostingPolicyAndNeverReplaysAnUncertainPublication() async throws {
+        let account = try GitHostingAccount(service: .github, webURL: #require(URL(string: "https://github.com")))
+        let credentials = HostingTestCredentials()
+        await credentials.save(token: "fixture-token", account: account.id)
+        let repo = try GitHostedRepository(account: account, remoteURL: "https://github.com/org/repo.git")
+        let sha = sha
+        for malformed in [false, true] {
+            let http = HostingSharedHTTPTransport { call in
+                #expect(call.policy == HTTPRequestPolicy(timeout: 30, maximumResponseBytes: 2_000_000))
+                #expect(call.request.value(forHTTPHeaderField: "Authorization") == "Bearer fixture-token")
+                if call.request.httpMethod == "POST" {
+                    if malformed { return .init(status: 201, data: Data("private malformed response".utf8)) }
+                    throw HTTPError.connection(.timedOut)
+                }
+
+                return .init(status: 200, data: try JSONSerialization.data(withJSONObject: ["commit": ["sha": sha]]))
+            }
+            let api = GitHostingClient(
+                credentials: credentials,
+                transport: GitHostingURLSessionTransport(transport: http)
+            )
+            do {
+                _ = try await api.create(in: repo, request: .init(
+                    title: "Review",
+                    body: "private source",
+                    source: "topic",
+                    target: "main",
+                    sha: sha
+                ))
+                Issue.record("Uncertain publication succeeded")
+            } catch let error as GitHostingFailure {
+                #expect(error.kind == (malformed ? .invalidResponse : .timedOut))
+                #expect(error.publicationMayHaveSucceeded)
+                #expect(error.localizedDescription.contains("refresh before retrying"))
+                #expect(!error.localizedDescription.contains("private"))
+            }
+            #expect(await http.calls.count == 2, "one source verification and exactly one POST")
+            #expect(await http.calls.filter { $0.request.httpMethod == "POST" }.count == 1)
+        }
+    }
+
+    @Test func malformedReadAndTransportCancellationRemainDistinct() async throws {
+        let account = try GitHostingAccount(service: .github, webURL: #require(URL(string: "https://github.com")))
+        let credentials = HostingTestCredentials()
+        let malformed = HostingTestTransport { _ in .init(status: 200, data: Data("fixture-secret invalid json".utf8)) }
+        await #expect(throws: GitHostingFailure(kind: .invalidResponse)) {
+            try await GitHostingClient(credentials: credentials, transport: malformed)
+                .authenticate(account, token: "fixture-token")
+        }
+        let cancelled = HostingTestTransport { _ in throw URLError(.cancelled) }
+        await #expect(throws: CancellationError.self) {
+            try await GitHostingClient(credentials: credentials, transport: cancelled)
+                .authenticate(account, token: "fixture-token")
+        }
+        #expect(await cancelled.requests.count == 1)
+    }
+
     @Test func malformedOversizedAndBoundedPaginatedResponsesAreExplicit() async throws {
         let account = try GitHostingAccount(service: .gitlab, webURL: #require(URL(string: "https://gitlab.com")))
         let credentials = HostingTestCredentials()
@@ -238,5 +324,18 @@ struct GitHostingClientTests {
                 _ = try await GitHostingClient(credentials: credentials, transport: transport).requests(in: repo)
             }
         }
+    }
+}
+
+private actor HostingSharedHTTPTransport: HTTPTransport {
+    let handler: @Sendable (HTTPRequest) throws -> HTTPResponse
+    private(set) var calls: [HTTPRequest] = []
+
+    init(_ handler: @escaping @Sendable (HTTPRequest) throws -> HTTPResponse) { self.handler = handler }
+
+    func send(_ request: HTTPRequest) throws -> HTTPResponse {
+        calls.append(request)
+
+        return try handler(request)
     }
 }

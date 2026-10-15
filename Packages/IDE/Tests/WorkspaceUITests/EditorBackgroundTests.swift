@@ -30,7 +30,7 @@ struct EditorBackgroundTests {
         geometry.bottom = .gitLog
         geometry.rightWidth = 360
         let layout = WorkspaceLayoutState(layout: geometry, available: [.files, .assistant, .gitLog])
-        let shell = WorkspaceShellViewController(
+        let workspace = WorkspaceViewController(
             state: layout,
             editor: area.view,
             panels: [
@@ -41,7 +41,7 @@ struct EditorBackgroundTests {
             project: "SwiftIDE",
             path: filesModel.root
         )
-        for child in [files, chat, log, area] as [NSViewController] { shell.addChild(child) }
+        for child in [files, chat, log, area] as [NSViewController] { workspace.addChild(child) }
         let window = NSWindow(
             contentRect: NSRect(x: -2000, y: -2000, width: 1440, height: 900),
             styleMask: [.titled, .resizable],
@@ -49,9 +49,9 @@ struct EditorBackgroundTests {
             defer: false
         )
         window.isReleasedWhenClosed = false
-        window.contentViewController = shell
+        window.contentViewController = workspace
         window.setContentSize(NSSize(width: 1440, height: 900))
-        shell.installWindowToolbar(on: window)
+        workspace.installWindowToolbar(on: window)
         defer {
             files.disconnect()
             filesModel.stop()
@@ -59,7 +59,7 @@ struct EditorBackgroundTests {
             agent.stop()
             log.disconnect()
             git.stop()
-            shell.disconnect()
+            workspace.disconnect()
             window.close()
         }
         git.refresh()
@@ -76,7 +76,7 @@ struct EditorBackgroundTests {
         ] {
             window.appearance = NSAppearance(named: appearance)
             try await Task.sleep(for: .milliseconds(50))
-            shell.view.layoutSubtreeIfNeeded()
+            workspace.view.layoutSubtreeIfNeeded()
             for panel in [
                 files.view,
                 files.outline,
@@ -99,8 +99,8 @@ struct EditorBackgroundTests {
                 #expect(abs(colour.blueComponent - expected) < 0.005)
             }
             if ProcessInfo.processInfo.environment["SWIFTIDE_RENDER_EDITOR"] == "1" {
-                let bitmap = try #require(shell.view.bitmapImageRepForCachingDisplay(in: shell.view.bounds))
-                shell.view.cacheDisplay(in: shell.view.bounds, to: bitmap)
+                let bitmap = try #require(workspace.view.bitmapImageRepForCachingDisplay(in: workspace.view.bounds))
+                workspace.view.cacheDisplay(in: workspace.view.bounds, to: bitmap)
                 try #require(bitmap.representation(using: .png, properties: [:]))
                     .write(to: URL(fileURLWithPath: "/private/tmp/swiftide-workspace-theme-\(name).png"))
             }

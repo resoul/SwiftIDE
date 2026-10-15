@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "IDEDomain", targets: ["IDEDomain"]),
         .library(name: "IDEApplication", targets: ["IDEApplication"]),
+        .library(name: "HTTPInfrastructure", targets: ["HTTPInfrastructure"]),
         .library(name: "GitInfrastructure", targets: ["GitInfrastructure"]),
         .library(name: "FileSystemInfrastructure", targets: ["FileSystemInfrastructure"]),
         .library(name: "EditorPlatformTextKit", targets: ["EditorPlatformTextKit"]),
@@ -29,7 +30,8 @@ let package = Package(
     targets: [
         .target(name: "IDEDomain"),
         .target(name: "IDEApplication", dependencies: ["IDEDomain"]),
-        .target(name: "GitInfrastructure", dependencies: ["IDEApplication"]),
+        .target(name: "HTTPInfrastructure"),
+        .target(name: "GitInfrastructure", dependencies: ["IDEApplication", "HTTPInfrastructure"]),
         .target(name: "FileSystemInfrastructure", dependencies: ["IDEDomain", "IDEApplication"]),
         .target(name: "UITheme"),
         .target(name: "EditorPlatformTextKit", dependencies: ["IDEDomain", "IDEApplication", "UITheme"]),
@@ -80,7 +82,11 @@ let package = Package(
                 "WorkspaceUI"
             ]
         ),
-        .testTarget(name: "GitInfrastructureTests", dependencies: ["GitInfrastructure", "IDEApplication"]),
+        .testTarget(name: "HTTPInfrastructureTests", dependencies: ["HTTPInfrastructure"]),
+        .testTarget(
+            name: "GitInfrastructureTests",
+            dependencies: ["GitInfrastructure", "IDEApplication", "HTTPInfrastructure"]
+        ),
         .testTarget(name: "IconUITests", dependencies: ["IconUI"]),
         .testTarget(
             name: "WorkspaceUITests",

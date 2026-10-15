@@ -30,11 +30,34 @@ Arrows are compile-time imports. The UI may depend on the platform adapter to cr
 | FileSystemInfrastructure | Read/write/watch, recovery, disk revisions and one-level project directory reads | IDEApplication, IDEDomain, Foundation |
 | LanguageInfrastructure | Ordered JSON-RPC, SourceKit, DTO/position mapping | IDEApplication, IDEDomain |
 | XcodeInfrastructure | Toolchain/project discovery, BSP configuration | IDEApplication, IDEDomain, ProcessInfrastructure |
-| BuildInfrastructure / GitInfrastructure | Tool adapters | IDEApplication, IDEDomain, ProcessInfrastructure |
+| BuildInfrastructure / GitInfrastructure | Tool adapters; Git hosting API client | IDEApplication, IDEDomain, ProcessInfrastructure; HTTPInfrastructure for hosting |
+| HTTPInfrastructure | HTTP transport, bounded responses, typed failures and safe diagnostics | Foundation, OSLog |
 | ProcessInfrastructure | Launch, streams, cancel/termination | Foundation |
 | SwiftIDEApp | Composition Root, windows, lifecycle | The UI and the concrete implementations |
 
 At the start there are 5–6 SPM targets, then a split along real boundaries. The current example combines the memory file store and the String backend in IDEInfrastructure. EditorCore/EditorLayout/EditorRendering are not part of the mandatory MVP graph.
+
+## Shared HTTP infrastructure
+
+`HTTPInfrastructure` is an independent target and library product in `Packages/IDE`. It imports no application or UI module. Service ports remain in `IDEApplication`; `GitHostingClient` implements `GitHostingAPI` in `GitInfrastructure` and uses a thin `GitHostingURLSessionTransport` adapter over the common `HTTPTransport`. `GitHostingTransport` and its response alias retain the existing injection points. App composes credentials and the client as before.
+
+```mermaid
+flowchart LR
+    UI[WorkspaceUI] --> Application[IDEApplication: GitHostingAPI]
+    Client[GitInfrastructure: GitHostingClient] --> Application
+    Client --> HTTP[HTTPInfrastructure: HTTPTransport]
+    HTTP --> Session[URLSession]
+```
+
+`HTTPRequest` carries a caller-visible UUID, `URLRequest` and `HTTPRequestPolicy`. The policy explicitly sets the request timeout and maximum accumulated response bytes (defaults: 30 seconds and 2,000,000 bytes). `URLSessionHTTPTransport` owns one reusable ephemeral session with a configurable whole-transfer resource timeout (default: 60 seconds). Cookies, credential storage and URL caching are disabled. Redirects are refused without forwarding credentials; 304 remains available as a raw response. Declared and streamed body sizes are checked, early rejection cancels the individual task, and cancellation throws `CancellationError` without invalidating the session.
+
+Transport returns `HTTPResponse` with status, data and normalized headers. API clients decide which statuses are meaningful; `requireSuccess()` provides opt-in validation. `HTTPError` distinguishes invalid requests/policies, connection codes, unexpected responses, redirects, oversized bodies and HTTP statuses. `Retry-After` is parsed as seconds or an HTTP date and exposed as metadata. There are no application-level automatic retries, OAuth refresh, caching, upload orchestration or interceptor pipeline in this slice.
+
+`GitHostingClient` retains GitHub/GitLab routes, auth headers, JSON parsing, pagination and reviewed-commit checks. It maps HTTP failures to `IDEApplication.GitHostingFailure`, which exposes kind, status, retry delay and whether a submitted PR/MR may already exist. Invalid response JSON is sanitized. UI models can continue showing its localized description; they do not depend on HTTP types. An uncertain write or malformed successful publication response must be refreshed before a manual retry.
+
+`HTTPDiagnostics` receives one completion event per transport call: UUID, allowlisted HTTP method, elapsed duration, status, accumulated byte count, outcome and a typed failure. The default `OSLogHTTPDiagnostics` records these locally under subsystem `SwiftIDE`, category `http`; `NoHTTPDiagnostics` disables logging, and custom thread-safe sinks can collect metrics. Events intentionally have no URL, host, path, query, headers, body or arbitrary error description. DNS/TLS task metrics and service-level decoding telemetry are not implemented in this slice.
+
+`HTTPInfrastructureTests` exercise the actual URLSession path through isolated URLProtocol fixtures without a live service. They cover raw statuses, Retry-After, redirects and unexpected responses, declared/streamed limits, cancellation/session reuse, sanitized diagnostics and invalid input. Hosting tests cover shared-transport injection, structured errors and exactly one POST when publication times out or returns malformed data. Git CLI networking and local LSP process channels remain independent transports; the agent provider remains a local demo.
 
 ## Reusable UI and the application shell
 
@@ -123,9 +146,9 @@ ProjectFiles is an AppKit-free application model with an injected ProjectDirecto
 
 ProjectFilesViewController, ProjectFilesContainer and ProjectDocumentTabs belong to WorkspaceUI. App owns ProjectWorkspaceController and settings keyed by the common canonical root. Documents stay in the existing registry and WorkspaceWindowController; native tabs preserve their TextKit editor and responder/undo chains. Batch project closing uses UnsavedChangesCoordinator, including changes/new documents while a sheet is pending. Trust questions prefer the selected tab within the requesting project, never the unrelated active project. See ADR-035 for validation and limits.
 
-## Common workspace shell (TK-030)
+## Workspace composition (TK-030)
 
-WorkspaceUI owns WorkspaceShellViewController, WorkspacePanel, WorkspaceTool and the UI-only WorkspaceLayout/WorkspaceLayoutState. Production Files/editor providers and Preview sample providers use this one layout implementation. The shell imports no language/filesystem/Git infrastructure and receives views, focus targets and display strings. App owns the canonical-root UserDefaults layout adapter, project/window lifecycle and native document controllers. A project shares one layout state across its empty browser and native tabs; each original editor remains intact. Notifications update presentation without stealing the first responder. Explicit disconnect releases layout subscriptions. Unavailable tools are disabled until a working provider exists (ADR-036).
+WorkspaceUI owns WorkspaceViewController, the root WorkspaceView, WorkspacePanel, WorkspaceTool and the UI-only WorkspaceLayout/WorkspaceLayoutState. WorkspaceView composes the editor, panel surfaces, tool rails, toolbar and status bar. WorkspacePanelView and WorkspaceToolRailView own their controls, constraints and presentation, and report user actions through callbacks. WorkspaceViewController owns layout subscriptions, native split controllers, divider-size persistence and focus routing. It receives tool views, focus targets and display strings without importing language/filesystem/Git infrastructure. ProjectFilesContainer supplies the real Files view and exposes the controller as workspace. Colours remain centralized in UITheme/WorkspaceTheme. App owns the canonical-root UserDefaults layout adapter, project/window lifecycle and native document controllers. A project shares one layout state across its empty browser and native tabs; each original editor remains intact. Notifications update presentation without stealing the first responder. Explicit disconnect releases layout subscriptions. Unavailable tools are disabled until a working provider exists (ADR-036).
 
 ## Welcome and recent projects (TK-025)
 
