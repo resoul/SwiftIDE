@@ -49,7 +49,15 @@ public enum TextKitEditorFactory {
         textView.isAutomaticLinkDetectionEnabled = false
         textView.isAutomaticDataDetectionEnabled = false
         textView.smartInsertDeleteEnabled = false
-        textView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        let font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        textView.font = font
+        // A tab character is as wide as an indent level, not the system's 28 points, so existing
+        // tabs line up with the spaces around them.
+        let tabs = NSMutableParagraphStyle()
+        tabs.tabStops = []
+        tabs.defaultTabInterval = CGFloat(CodeTextView.indentWidth) * (" " as NSString)
+            .size(withAttributes: [.font: font]).width
+        textView.defaultParagraphStyle = tabs
         textView.textContainerInset = NSSize(width: 6, height: 6)
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true

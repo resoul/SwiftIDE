@@ -1,4 +1,5 @@
 import AppKit
+import EditorPlatformTextKit
 import IDEDomain
 
 @MainActor
@@ -38,6 +39,15 @@ enum MainMenu {
             NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"),
             NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"),
             NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"),
+            .separator(),
+            duplicateLineItem(),
+            toggleCommentItem(),
+            .separator(),
+            NSMenuItem(
+                title: "Command Palette…",
+                action: #selector(AppDelegate.showCommandPalette(_:)),
+                keyEquivalent: "P"
+            ),
             .separator(),
             completeItem(),
             quickHelpItem(),
@@ -202,6 +212,20 @@ enum MainMenu {
         item.keyEquivalentModifierMask = [.control, .command]
 
         return item
+    }
+
+    /// Edit ▸ Duplicate Line, Command-D: the code view repeats the line or selection.
+    private static func duplicateLineItem() -> NSMenuItem {
+        NSMenuItem(title: "Duplicate Line", action: #selector(CodeLineActions.duplicateLine(_:)), keyEquivalent: "d")
+    }
+
+    /// Edit ▸ Toggle Line Comment, Command-/: comments or uncomments the lines of the selection.
+    private static func toggleCommentItem() -> NSMenuItem {
+        NSMenuItem(
+            title: "Toggle Line Comment",
+            action: #selector(CodeLineActions.toggleLineComment(_:)),
+            keyEquivalent: "/"
+        )
     }
 
     /// Edit ▸ Complete, Control-Space; Escape and F5 do the same in the text view.

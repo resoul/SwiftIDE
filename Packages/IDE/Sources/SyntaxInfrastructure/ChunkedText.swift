@@ -41,6 +41,15 @@ struct ChunkedText {
         return true
     }
 
+    /// The UTF-16 unit at `offset`, or nil outside the text.
+    func unit(at offset: Int) -> UInt16? {
+        guard offset >= 0, offset < length else { return nil }
+
+        let index = chunkIndex(containing: offset)
+
+        return chunks[index][offset - starts[index]]
+    }
+
     func substring(_ range: Range<Int>) -> String {
         guard range.lowerBound >= 0, range.upperBound <= length, !range.isEmpty else { return "" }
 

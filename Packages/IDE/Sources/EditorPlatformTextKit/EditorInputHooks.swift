@@ -20,5 +20,8 @@ public final class EditorInputHooks {
     /// place (a description) is out of date.
     public var interactionBegan: (() -> Void)?
 
+    /// What starts a line comment in the document's language now; nil when it has none.
+    public var lineCommentPrefix: (() -> String?)?
+
     public init() {}
 }

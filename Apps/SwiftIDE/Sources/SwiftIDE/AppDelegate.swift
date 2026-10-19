@@ -57,6 +57,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         await restoreUnsavedWork()
     }
 
+    private lazy var commandPalette = CommandPaletteController(
+        opener: #selector(AppDelegate.showCommandPalette(_:))
+    )
+
+    /// Edit ▸ Command Palette…, Shift-Command-P: every menu command, found by typing.
+    @objc func showCommandPalette(_ sender: Any?) {
+        commandPalette.toggle(over: NSApp.keyWindow ?? NSApp.mainWindow)
+    }
+
     @objc func showWelcome(_ sender: Any?) {
         if welcome == nil {
             let controller = WelcomeWindowController(model: composition.recentProjects)

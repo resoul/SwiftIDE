@@ -637,3 +637,220 @@ func aDeclaredEditThatStorageExtendedIsPublishedAsTheWholeChangedRegion() throws
     f.assertConsistent()   // fails if the f → Y part is lost from the published changes
     #expect(f.editor.compatibility.isTextKit2)
 }
+
+// MARK: Tab
+
+@Test @MainActor
+func theTabKeyTypesSpacesUpToTheNextIndentColumnAndStaysConsistent() {
+    let fixture = Fixture("    a\n  \nxy")
+    fixture.textView.setSelectedRange(NSRange(location: 6 + 2, length: 0))
+    fixture.textView.insertTab(nil)
+    fixture.endEvent()
+    #expect(fixture.textView.string == "    a\n    \nxy")
+    fixture.textView.setSelectedRange(NSRange(location: fixture.textView.string.utf16.count, length: 0))
+    fixture.textView.insertTab(nil)
+    fixture.endEvent()
+    #expect(fixture.textView.string.hasSuffix("xy  "))
+    fixture.assertConsistent()
+}
+
+@Test @MainActor
+func aTabCharacterIsAsWideAsAnIndentLevel() throws {
+    let editor = TextKitEditorFactory.makeEditor(loadedText: "\tx")
+    let style = try #require(editor.textView.defaultParagraphStyle)
+    let space = (" " as NSString).size(withAttributes: [.font: try #require(editor.textView.font)]).width
+    #expect(style.tabStops.isEmpty && abs(style.defaultTabInterval - 4 * space) < 0.001)
+}
+
+@Test @MainActor
+func returnKeepsTheIndentationOfTheLineAndIsForANewLine() {
+    let fixture = Fixture("func f() {\n    let a = 1\n}")
+    fixture.textView.setSelectedRange(NSRange(location: 24, length: 0))
+    fixture.textView.insertNewline(nil)
+    fixture.endEvent()
+    #expect(fixture.textView.string == "func f() {\n    let a = 1\n    \n}")
+    fixture.textView.setSelectedRange(NSRange(location: 13, length: 0))
+    fixture.textView.insertNewline(nil)
+    fixture.endEvent()
+    #expect(fixture.textView.string.hasPrefix("func f() {\n  \n  "))
+    fixture.assertConsistent()
+}
+
+@Test @MainActor
+func returnAfterAnOpeningBracketGoesDeeperAndSplitsAnEmptyPair() {
+    let fixture = Fixture("func f() {}\n")
+    fixture.textView.setSelectedRange(NSRange(location: 10, length: 0))
+    fixture.textView.insertNewline(nil)
+    fixture.endEvent()
+    #expect(fixture.textView.string == "func f() {\n    \n}\n")
+    #expect(fixture.textView.selectedRange() == NSRange(location: 15, length: 0))
+    fixture.textView.insertText("let a = 1(", replacementRange: NSRange(location: 15, length: 0))
+    fixture.textView.insertNewline(nil)
+    fixture.endEvent()
+    #expect(fixture.textView.string == "func f() {\n    let a = 1(\n        \n}\n")
+    fixture.assertConsistent()
+}
+
+@Test @MainActor
+func aClosingBracketOnAnIndentationOnlyLineStepsBackOneLevel() {
+    let fixture = Fixture("{\n        \n")
+    fixture.textView.setSelectedRange(NSRange(location: 10, length: 0))
+    fixture.textView.insertText("}", replacementRange: NSRange(location: NSNotFound, length: 0))
+    fixture.endEvent()
+    #expect(fixture.textView.string == "{\n    }\n")
+    fixture.textView.setSelectedRange(NSRange(location: 6, length: 0))
+    fixture.textView.insertText("x", replacementRange: NSRange(location: NSNotFound, length: 0))
+    fixture.textView.insertText("}", replacementRange: NSRange(location: NSNotFound, length: 0))
+    fixture.endEvent()
+    #expect(fixture.textView.string == "{\n    x}\n", "the typed bracket steps over the one in front of it")
+    fixture.assertConsistent()
+}
+
+// MARK: Pairs and code-aware indent
+
+@MainActor
+private func typed(_ fixture: Fixture, _ text: String) {
+    for character in text {
+        fixture.textView.insertText(String(character), replacementRange: NSRange(location: NSNotFound, length: 0))
+    }
+    fixture.endEvent()
+}
+
+@Test @MainActor
+func anOpeningBracketAddsItsPartnerAndTheClosingOneStepsOver() {
+    let fixture = Fixture("")
+    typed(fixture, "f(a[0], \"s\")")
+    #expect(fixture.textView.string == "f(a[0], \"s\")")
+    #expect(fixture.textView.selectedRange().location == 12)
+    typed(fixture, "{")
+    #expect(fixture.textView.string == "f(a[0], \"s\"){}")
+    fixture.textView.deleteBackward(nil)
+    fixture.endEvent()
+    #expect(fixture.textView.string == "f(a[0], \"s\")")
+    fixture.assertConsistent()
+}
+
+@Test @MainActor
+func pairsAreNotAddedInStringsCommentsOrBeforeWords() {
+    let fixture = Fixture("")
+    typed(fixture, "// (")
+    #expect(fixture.textView.string == "// (")
+    fixture.textView.insertText("\n", replacementRange: NSRange(location: NSNotFound, length: 0))
+    typed(fixture, "\"a(")
+    #expect(fixture.textView.string.hasSuffix("\n\"a(\""))
+    let word = Fixture("")
+    typed(word, "x(it\"s")
+    #expect(word.textView.string == "x(it\"s)")
+}
+
+@Test @MainActor
+func aBracketInAStringOrACommentDoesNotIndentTheNextLine() {
+    let fixture = Fixture("let a = \"{\"\n")
+    fixture.textView.setSelectedRange(NSRange(location: 12, length: 0))
+    fixture.textView.insertNewline(nil)
+    #expect(fixture.textView.string == "let a = \"{\"\n\n")
+    let comment = Fixture("x = 1 // {")
+    comment.textView.setSelectedRange(NSRange(location: 10, length: 0))
+    comment.textView.insertNewline(nil)
+    #expect(comment.textView.string == "x = 1 // {\n")
+}
+
+// MARK: Duplicate line
+
+@MainActor
+private func duplicate(_ text: String, selecting range: NSRange) -> (text: String, selection: NSRange) {
+    let fixture = Fixture(text)
+    fixture.textView.setSelectedRange(range)
+    (fixture.textView as? CodeLineActions)?.duplicateLine(nil)
+    fixture.endEvent()
+
+    return (fixture.textView.string, fixture.textView.selectedRange())
+}
+
+@Test @MainActor
+func duplicateLineCopiesTheCaretLineBelowAndKeepsTheColumn() {
+    let result = duplicate("a\n  bc\nd\n", selecting: NSRange(location: 5, length: 0))
+    #expect(result.text == "a\n  bc\n  bc\nd\n")
+    #expect(result.selection == NSRange(location: 5 + 5, length: 0))
+}
+
+@Test @MainActor
+func duplicateLineOnTheLastLineWithoutANewlineAddsOne() {
+    let result = duplicate("a\nbc", selecting: NSRange(location: 4, length: 0))
+    #expect(result.text == "a\nbc\nbc")
+    #expect(result.selection == NSRange(location: 7, length: 0))
+}
+
+@Test @MainActor
+func duplicateLineRepeatsAFragmentOrWholeLinesAndSelectsTheCopy() {
+    let fragment = duplicate("let ab = 1\n", selecting: NSRange(location: 4, length: 2))
+    #expect(fragment.text == "let abab = 1\n" && fragment.selection == NSRange(location: 6, length: 2))
+    let block = duplicate("a\nb\nc\n", selecting: NSRange(location: 1, length: 3))
+    #expect(block.text == "a\nb\na\nb\nc\n")
+    #expect(block.selection == NSRange(location: 5, length: 3))
+}
+
+@Test @MainActor
+func duplicateLineIsOneUndoStep() {
+    let fixture = Fixture("a\n")
+    (fixture.textView as? CodeLineActions)?.duplicateLine(nil)
+    fixture.endEvent()
+    fixture.editor.undo.undoManager.undo()
+    fixture.endEvent()
+    #expect(fixture.textView.string == "a\n")
+}
+
+// MARK: Toggle line comment
+
+@MainActor
+private func toggleComment(
+    _ text: String,
+    selecting range: NSRange,
+    marker: String? = "//"
+) -> (text: String, selection: NSRange) {
+    let fixture = Fixture(text)
+    fixture.editor.input.lineCommentPrefix = { marker }
+    fixture.textView.setSelectedRange(range)
+    (fixture.textView as? CodeLineActions)?.toggleLineComment(nil)
+    fixture.endEvent()
+
+    return (fixture.textView.string, fixture.textView.selectedRange())
+}
+
+@Test @MainActor
+func toggleCommentMarksAndUnmarksTheCaretLineAndKeepsTheCaretOnTheText() {
+    let on = toggleComment("a\n    b = 1\n", selecting: NSRange(location: 8, length: 0))
+    #expect(on.text == "a\n    // b = 1\n" && on.selection == NSRange(location: 11, length: 0))
+    let off = toggleComment(on.text, selecting: on.selection)
+    #expect(off.text == "a\n    b = 1\n" && off.selection == NSRange(location: 8, length: 0))
+}
+
+@Test @MainActor
+func toggleCommentOnABlockUsesTheShallowestIndentAndSkipsBlankLines() {
+    let text = "    a\n\n      b\n"
+    let on = toggleComment(text, selecting: NSRange(location: 0, length: 14))
+    #expect(on.text == "    // a\n\n    //   b\n")
+    let off = toggleComment(on.text, selecting: NSRange(location: 0, length: on.text.utf16.count - 1))
+    #expect(off.text == text)
+}
+
+@Test @MainActor
+func toggleCommentLeavesAMixedBlockToBeCommentedAndIgnoresAnEndAtLineStart() {
+    let mixed = toggleComment("// a\nb\n", selecting: NSRange(location: 0, length: 7))
+    #expect(mixed.text == "// // a\n// b\n")
+    let partial = toggleComment("a\nb\n", selecting: NSRange(location: 0, length: 2))
+    #expect(partial.text == "// a\nb\n")
+}
+
+@Test @MainActor
+func toggleCommentDoesNothingWithoutAMarkerAndIsOneUndoStep() {
+    #expect(toggleComment("a\n", selecting: NSRange(location: 0, length: 0), marker: nil).text == "a\n")
+    let fixture = Fixture("a\nb\n")
+    fixture.editor.input.lineCommentPrefix = { "//" }
+    fixture.textView.setSelectedRange(NSRange(location: 0, length: 3))
+    (fixture.textView as? CodeLineActions)?.toggleLineComment(nil)
+    fixture.endEvent()
+    fixture.editor.undo.undoManager.undo()
+    fixture.endEvent()
+    #expect(fixture.textView.string == "a\nb\n")
+}

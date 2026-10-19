@@ -4,6 +4,14 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ## Unreleased
 
+### Command Palette
+
+- Edit ▸ Command Palette…, Shift-Command-P (ADR-055): every main-menu command searched by typing, with its path, shortcut and whether it can run now; Return runs it in the window the user was in. Also Edit ▸ Duplicate Line (⌘D), Toggle Line Comment (⌘/), auto-indent, smart indent, bracket/quote pairing and Tab to the next indent column in the editor.
+
+### Objective-C++ colours
+
+- Approximate syntax colours for Objective-C++ (ADR-054): the C++ and Objective-C grammars parse the text together and `LayerChoice` takes each region from the grammar with fewer weighted errors, filling gaps from the other; no new dependency. Live check N7 pending.
+
 ### Planned (reusable workspace UI)
 
 - Accepted ADR-030 and TK-024: a `WorkspaceUI` target in `Packages/IDE` for the project configuration dialog and project status presentation, explicit parent-window injection and package-owned UI tests. App retains composition, main-menu wiring and window lifecycle. The extraction is not implemented; this entry records the documentation decision only.

@@ -15,7 +15,7 @@ extension NativeAppTests {
             ? products.appendingPathComponent("Modules")
             : products
         var objects: [String] = []
-        for module in ["IDEDomain", "IDEApplication", "IDETestSupport", "IconUI", "WorkspaceUI"] {
+        for module in ["IDEDomain", "IDEApplication", "IDETestSupport", "IconUI", "UITheme", "WorkspaceUI"] {
             let merged = products.appendingPathComponent("\(module).o")
             if FileManager.default.fileExists(atPath: merged.path) {
                 objects.append(merged.path)
@@ -49,12 +49,24 @@ extension NativeAppTests {
             timeout: .seconds(60),
             outputLimit: 1_000_000
         )
-        let output = try await BoundedProcess.run(
-            executable: executable,
-            arguments: [],
-            timeout: .seconds(20),
-            outputLimit: 10_000
-        )
+        let output: Data
+        do {
+            output = try await BoundedProcess.run(
+                executable: executable,
+                arguments: [],
+                timeout: .seconds(20),
+                outputLimit: 10_000
+            )
+        } catch {
+            // The probe can only show ownership while its own windows are really key, and macOS
+            // lets another foreground application refuse to hand over activation. That is the
+            // machine's state, not a result: the test is cancelled, never passed.
+            if "\(error)".contains("probe-not-active") {
+                try Test.cancel("The probe could not become the active application; run it with the machine idle")
+            }
+
+            throw error
+        }
         #expect(String(decoding: output, as: UTF8.self) == "owned-A\n")
     }
 }
@@ -106,7 +118,16 @@ final class Delegate: NSObject, NSApplicationDelegate {
         let coordinator = ProjectTrustCoordinator { URL(fileURLWithPath: $0.path).deletingLastPathComponent() }
         coordinator.register(a, window: first)
         coordinator.register(b, window: second)
-        NSApp.activate()
+        // A foreground app may decline to hand over activation at once (macOS asks it to yield), so
+        // ask again until the process is active; the windows only become key then.
+        let activated = await waitFor({
+            if !NSApp.isActive { NSApp.activate() }
+
+            return NSApp.isActive
+        })
+        // Not a failure of the code under test: another application keeps the foreground.
+        if !activated { fail("probe-not-active: another application keeps the foreground") }
+
         second.makeKeyAndOrderFront(nil)
         guard await waitFor({ NSApp.keyWindow === second }) else {
             fail("""

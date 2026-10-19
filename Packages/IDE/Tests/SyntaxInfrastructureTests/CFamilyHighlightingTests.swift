@@ -87,12 +87,12 @@ private func expect(
 // MARK: Which languages
 
 @Test
-func theThreeLanguagesWithAGrammarAreMadeAndTheOthersAreRefused() throws {
-    #expect(TreeSitterHighlighter.supportedLanguages == [.swift, .c, .cpp, .objectiveC])
+func theLanguagesWithColoursAreMadeAndTheOthersAreRefused() throws {
+    #expect(TreeSitterHighlighter.supportedLanguages == [.swift, .c, .cpp, .objectiveC, .objectiveCPP])
     for language in TreeSitterHighlighter.supportedLanguages {
         _ = try TreeSitterHighlighter(language: language).language
     }
-    for language in [DocumentLanguage.objectiveCPP, .plainText] {
+    for language in [DocumentLanguage.plainText] {
         #expect(throws: SyntaxInfrastructureError.self) { _ = try TreeSitterHighlighter(language: language) }
     }
 }
@@ -232,6 +232,54 @@ func objectiveCSourceIsColouredByWhatItIs() async throws {
     )
 }
 
+// MARK: Objective-C++
+
+private let objcppText = """
+#import <Foundation/Foundation.h>
+#include <vector>
+template <typename T>
+static T twice(T value) { return value + value; }
+@interface Foo : NSObject
+- (void)run:(const std::vector<int> &)items;
+@end
+@implementation Foo
+- (void)run:(const std::vector<int> &)items {
+    for (auto x : items) { NSLog(@"%d", twice(x)); }
+    [self reload:@1];
+}
+@end
+"""
+
+@Test
+func objectiveCPlusPlusTakesEachRegionFromTheGrammarThatReadsItBetter() async throws {
+    try await expect(
+        [
+            ("#import", .attribute),
+            ("#include", .attribute),
+            ("template", .keyword),
+            ("static", .keyword),
+            ("@interface", .keyword),
+            ("@end", .keyword),
+            ("@implementation", .keyword),
+            ("NSLog", .function),
+            ("@\"%d\"", .string),
+            ("reload", .function),
+            ("self", .builtin),
+        ],
+        in: objcppText,
+        language: .objectiveCPP
+    )
+}
+
+@Test
+func objectiveCPlusPlusKeepsAnUnterminatedCommentAndEditsStayCoherent() async throws {
+    let run = try Run(.objectiveCPP)
+    let before = await run.spans(of: "int a;\n/* open\n@end")
+    #expect(kind(of: "open", in: "int a;\n/* open\n@end", spans: before) == .comment)
+    let plain = await run.spans(of: "@interface A\n@end\nstd::vector<int> v;")
+    #expect(kind(of: "@interface", in: "@interface A\n@end\nstd::vector<int> v;", spans: plain) == .keyword)
+}
+
 // MARK: A block comment that is never closed
 
 @Test
@@ -335,6 +383,7 @@ private let sdk: String? = {
     ("/usr/include/sys/stat.h", DocumentLanguage.c),
     ("/usr/include/c++/v1/__algorithm/sort.h", .cpp),
     ("/System/Library/Frameworks/Foundation.framework/Headers/NSArray.h", .objectiveC),
+    ("/System/Library/Frameworks/Foundation.framework/Headers/NSArray.h", .objectiveCPP),
     // The Objective-C grammar reads this one as a single error (macro-wrapped enums, `NS_OPTIONS`);
     // the colours that survive are only comments and tokens, but nothing breaks.
     ("/System/Library/Frameworks/Foundation.framework/Headers/NSURL.h", .objectiveC),

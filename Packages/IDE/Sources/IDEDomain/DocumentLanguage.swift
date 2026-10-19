@@ -18,6 +18,14 @@ public enum DocumentLanguage: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    /// What starts a comment that runs to the end of the line, if the language has one.
+    public var lineCommentPrefix: String? {
+        switch self {
+        case .swift, .c, .cpp, .objectiveC, .objectiveCPP: "//"
+        case .plainText: nil
+        }
+    }
+
     public var displayName: String {
         switch self {
         case .swift: "Swift"

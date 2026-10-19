@@ -18,7 +18,7 @@ Bazel support is accepted as a separate direction: first the language features o
 |---|---|---|---|
 | P0 | Safe saving and recovery of unsaved documents | Protect the result of the work | Restarting after a crash offers to recover the text; a conflict with the disk is not overwritten |
 | P0 | Status of the toolchain, LSP and indexing | Explain why completion or symbols are missing | The user sees the reason, the selected Xcode and an available action |
-| P0 | Command Palette and a single command registry | Make the IDE usable from the keyboard | Command search, shortcut and availability come from one description |
+| P0 | Command Palette and a single command registry | Make the IDE usable from the keyboard | Command search, shortcut and availability come from one description. **Implemented** over the main menu ([ADR-055](07_ARCHITECTURE_DECISIONS.md#adr-055-command-palette-over-the-main-menu-p0-of-docs01)); live check pending |
 | P0 | Quick Open by file and navigation history | Speed up the main navigation | Opening a file, back/forward and returning to a position work without LSP |
 | P0 | Problems + jump to a build error | Close the loop of verifying changes | A diagnostic opens the right file and the correct position |
 | P0 | External file changes / conflict UI | Account for Git checkout and other editors | A clean document is reloaded; a dirty one requires a comparison |

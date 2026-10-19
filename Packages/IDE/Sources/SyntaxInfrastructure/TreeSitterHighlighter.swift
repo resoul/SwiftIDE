@@ -80,6 +80,24 @@ struct Grammar: Sendable {
             return nil
         }
     }
+
+    /// The grammars a document is read with. Objective-C++ has none of its own: it is read with the
+    /// C++ and the Objective-C grammars at once, and `LayerChoice` takes each region from the one
+    /// that reads it with fewer errors.
+    static func layers(for language: DocumentLanguage) -> [Grammar]? {
+        switch language {
+        case .objectiveCPP:
+            [.cpp, .objectiveC].compactMap { make(for: $0) }
+        default:
+            make(for: language).map { [$0] }
+        }
+    }
+}
+
+/// One grammar with its compiled query.
+struct Layer: @unchecked Sendable {
+    let grammar: Grammar
+    let query: Query
 }
 
 public final class TreeSitterHighlighter: SyntaxHighlighter {
@@ -105,29 +123,36 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
     private let messages: AsyncStream<Message>.Continuation
     private let worker: Task<Void, Never>
 
-    /// The languages there is a grammar for. Objective-C++ is not one of them: neither the C++ nor
-    /// the Objective-C grammar reads code that mixes the two without errors (TK-016, ADR-025).
-    public static let supportedLanguages: Set<DocumentLanguage> = [.swift, .c, .cpp, .objectiveC]
+    /// The languages there are colours for. Objective-C++ is approximate: no grammar reads the mixture
+    /// without errors, so two grammars are combined region by region (ADR-054).
+    public static let supportedLanguages: Set<DocumentLanguage> = [.swift, .c, .cpp, .objectiveC, .objectiveCPP]
 
     public let language: DocumentLanguage
 
     public init(language: DocumentLanguage = .swift) throws {
-        guard let grammar = Grammar.make(for: language) else {
+        guard let grammars = Grammar.layers(for: language), !grammars.isEmpty else {
             throw SyntaxInfrastructureError.unsupportedLanguage(language)
         }
 
-        guard let url = Bundle.module.url(
-            forResource: grammar.queryResource,
-            withExtension: "scm",
-            subdirectory: "Resources"
-        ) else {
-            throw SyntaxInfrastructureError.missingQuery
+        var layers: [Layer] = []
+        for grammar in grammars {
+            guard let url = Bundle.module.url(
+                forResource: grammar.queryResource,
+                withExtension: "scm",
+                subdirectory: "Resources"
+            ) else {
+                throw SyntaxInfrastructureError.missingQuery
+            }
+
+            layers.append(Layer(
+                grammar: grammar,
+                query: try Query(language: grammar.language, data: Data(contentsOf: url))
+            ))
         }
 
         self.language = language
-        let query = try Query(language: grammar.language, data: Data(contentsOf: url))
         let newest = newest
-        let engine = Engine(query: query, grammar: grammar, isStale: { newest.isOlderThanNewest($0) })
+        let engine = Engine(layers: layers, isStale: { newest.isOlderThanNewest($0) })
         let (stream, continuation) = AsyncStream<Message>.makeStream(bufferingPolicy: .unbounded)
         self.engine = engine
         self.messages = continuation
@@ -171,11 +196,14 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
     // MARK: The work
 
     private actor Engine {
-        private let query: Query
-        private let grammar: Grammar
-        private let parser = Parser()
+        private struct Parsed {
+            let parser = Parser()
+            var tree: MutableTree?
+        }
 
-        private var tree: MutableTree?
+        private let layers: [Layer]
+        private var parsed: [Parsed]
+        private var choice = LayerChoice()
         private var text = ChunkedText()
         private var lines = LineIndex()
         private var version: UInt64 = 0
@@ -188,15 +216,20 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
         private let isStale: @Sendable (UInt64) -> Bool
 
-        init(query: Query, grammar: Grammar, isStale: @escaping @Sendable (UInt64) -> Bool) {
-            self.query = query
-            self.grammar = grammar
+        init(layers: [Layer], isStale: @escaping @Sendable (UInt64) -> Bool) {
+            self.layers = layers
             self.isStale = isStale
-            try? parser.setLanguage(grammar.language)
+            parsed = layers.map { layer in
+                let entry = Parsed()
+                try? entry.parser.setLanguage(layer.grammar.language)
+
+                return entry
+            }
         }
 
         func release() {
-            tree = nil
+            for index in parsed.indices { parsed[index].tree = nil }
+            choice = LayerChoice()
             text = ChunkedText()
             lines = LineIndex()
             handler = nil
@@ -204,7 +237,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             lost = true
         }
 
-        func retained() -> (units: Int, hasTree: Bool) { (text.length, tree != nil) }
+        func retained() -> (units: Int, hasTree: Bool) { (text.length, parsed.contains { $0.tree != nil }) }
 
         func setHandler(_ handler: @escaping @Sendable (HighlightResult) -> Void) {
             self.handler = handler
@@ -213,7 +246,7 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
         func reset(text chunks: [[UInt16]], version: UInt64) {
             text = ChunkedText(chunks: chunks)
             lines = LineIndex(utf16Chunks: chunks)
-            tree = nil
+            for index in parsed.indices { parsed[index].tree = nil }
             needsParse = true
             lost = false
             self.version = version
@@ -241,14 +274,15 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                 }
 
                 let newEnd = start + units.count
-                tree?.edit(InputEdit(
+                let inputEdit = InputEdit(
                     startByte: start * 2,
                     oldEndByte: oldEnd * 2,
                     newEndByte: newEnd * 2,
                     startPoint: startPoint,
                     oldEndPoint: oldEndPoint,
                     newEndPoint: point(at: newEnd)
-                ))
+                )
+                for index in parsed.indices { parsed[index].tree?.edit(inputEdit) }
             }
             version = changes.newVersion
             needsParse = true
@@ -261,25 +295,35 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                 return
             }
 
-            if needsParse || tree == nil {
+            if needsParse || parsed.contains(where: { $0.tree == nil }) {
                 let source = text
                 let began = ContinuousClock.now
-                tree = parser
-                    .parse(tree: tree, readBlock: { byteOffset, _ in source.bytes(fromUnit: byteOffset / 2) }) ?? tree
+                for index in parsed.indices {
+                    let previous = parsed[index].tree
+                    parsed[index].tree = parsed[index].parser.parse(
+                        tree: previous,
+                        readBlock: { byteOffset, _ in source.bytes(fromUnit: byteOffset / 2) }
+                    ) ?? previous
+                }
                 statistics.parseMilliseconds += Self.milliseconds(since: began)
                 statistics.parses += 1
                 needsParse = false
                 let searchBegan = ContinuousClock.now
-                unterminatedComment = tree.flatMap { findUnterminatedComment(in: $0) }
+                unterminatedComment = parsed.first?.tree.flatMap { findUnterminatedComment(in: $0, layer: layers[0]) }
                 statistics.commentSearchMilliseconds += Self.milliseconds(since: searchBegan)
+                choice = layers.count > 1
+                    ? LayerChoice(trees: parsed.compactMap(\.tree), length: text.length) { [text] in
+                        text.unit(at: $0) == 0x40
+                    }
+                    : LayerChoice()
             }
 
-            guard let tree else { return }
+            guard parsed.allSatisfy({ $0.tree != nil }) else { return }
 
             let lower = min(max(0, window.lowerBound), text.length)
             let clamped = lower..<min(text.length, max(lower, window.upperBound))
             let spansBegan = ContinuousClock.now
-            let found = spans(in: clamped, tree: tree)
+            let found = spans(in: clamped)
             statistics.spanMilliseconds += Self.milliseconds(since: spansBegan)
             statistics.answered += 1
             handler(HighlightResult(version: version, window: clamped, spans: found, documentLength: text.length))
@@ -291,13 +335,13 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             return Double(d.components.seconds) * 1_000 + Double(d.components.attoseconds) / 1e15
         }
 
-        private func findUnterminatedComment(in tree: MutableTree) -> Int? {
+        private func findUnterminatedComment(in tree: MutableTree, layer: Layer) -> Int? {
             guard let root = tree.rootNode else { return nil }
 
             var found: Int?
             text.forEachPair(0x2F, 0x2A) { position in
                 let bytes = UInt32(position * 2)
-                switch grammar.unterminatedComment {
+                switch layer.grammar.unterminatedComment {
                 case .swiftOperator:
                     guard let node = root.descendant(in: bytes..<(bytes + 4)) else { return true }
 
@@ -332,10 +376,12 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
             return Point(row: line, column: (offset - lines.startOffset(ofLine: line)) * 2)
         }
 
-        private func spans(in window: Range<Int>, tree: MutableTree) -> [HighlightSpan] {
-            guard !window.isEmpty else { return [] }
+        /// The kind of every unit of the window, as one grammar reads it.
+        private func kinds(in window: Range<Int>, layer index: Int) -> [UInt8] {
+            var kinds = [UInt8](repeating: 0, count: window.count)
+            guard let tree = parsed[index].tree else { return kinds }
 
-            let cursor = query.execute(in: tree)
+            let cursor = layers[index].query.execute(in: tree)
             cursor.setRange(NSRange(location: window.lowerBound, length: window.count))
             let source = text
             let context = Predicate.Context(textProvider: { range, _ in
@@ -355,12 +401,38 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
                 }
             }
             painted.sort { ($0.pattern, $0.order) < ($1.pattern, $1.order) }
-            var kinds = [UInt8](repeating: 0, count: window.count)
             for item in painted {
-                for index in (item.range.lowerBound - window.lowerBound)..<(item.range.upperBound - window.lowerBound) {
-                    kinds[index] = item.kind.rawValue
+                for position in (item.range.lowerBound - window.lowerBound)..<(item.range.upperBound - window
+                    .lowerBound) {
+                    kinds[position] = item.kind.rawValue
                 }
             }
+
+            return kinds
+        }
+
+        private func spans(in window: Range<Int>) -> [HighlightSpan] {
+            guard !window.isEmpty else { return [] }
+
+            var kinds: [UInt8]
+            if layers.count == 1 {
+                kinds = self.kinds(in: window, layer: 0)
+            } else {
+                let perLayer = layers.indices.map { self.kinds(in: window, layer: $0) }
+                kinds = [UInt8](repeating: 0, count: window.count)
+                for region in choice.regions(in: window) {
+                    for position in region.range {
+                        let at = position - window.lowerBound
+                        var kind = perLayer[region.layer][at]
+                        if kind == 0, region.isApproximate {
+                            kind = perLayer.lazy.map { $0[at] }.first { $0 != 0 } ?? 0
+                        }
+
+                        kinds[at] = kind
+                    }
+                }
+            }
+
             if let opener = unterminatedComment, opener < window.upperBound {
                 for index in (max(opener, window.lowerBound) - window.lowerBound)..<kinds.count {
                     kinds[index] = HighlightKind.comment.rawValue

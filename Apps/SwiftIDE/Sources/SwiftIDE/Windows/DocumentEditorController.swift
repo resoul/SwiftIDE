@@ -135,6 +135,7 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
             NSLog("SwiftIDE: NSTextView fell back to TextKit 1")
         }
         colouring.onChange = { [weak self] _ in self?.refreshSubtitle() }
+        editor.input.lineCommentPrefix = { [weak self] in self?.languageSelector.resolved.language.lineCommentPrefix }
         languageSelector.subscribe { [weak self] _ in
             // Whatever was asked of the old language's server is not an answer for this one.
             self?.completion?.controller.dismiss()

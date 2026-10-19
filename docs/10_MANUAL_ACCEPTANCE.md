@@ -228,7 +228,7 @@ Xcode 27 is needed (`xcrun --find sourcekit-lsp`). The package for the checks is
 
 ## M. Document language (TK-015, ADR-024)
 
-The window subtitle begins with the language; the menu is Edit ▸ Language. Highlighting exists for Swift, C, C++ and Objective-C (section N), a language server for Swift and the C family (sections K, O); Objective-C++ has no highlighting.
+The window subtitle begins with the language; the menu is Edit ▸ Language. Highlighting exists for Swift, C, C++, Objective-C and approximate Objective-C++ (section N), a language server for Swift and the C family (sections K, O); Objective-C++ has no highlighting.
 
 | № | Do | Expected |
 |---|---|---|
@@ -256,7 +256,7 @@ The files for the check are in the SDK: `echo $(xcrun --show-sdk-path)/usr/inclu
 | N4 | Open a copy of `NSArray.h`, then `NSURL.h` | The first is coloured almost everywhere; the second — only comments and keywords (the grammar reads it as one error, a known limitation, not an application error). The window does not hang |
 | N5 | In a `.c` file type `/*` in the middle of the file | Everything below becomes a comment at once; add `*/` — the colours return; ⌘Z does not take extra steps |
 | N6 | The line `char *s = "a /* b"; // c /* d` | Nothing below is painted as a comment |
-| N7 | Open a `.mm` | The subtitle "Objective-C++", "no syntax colours", "no code completion"; a manual choice of Objective-C gives approximate colours |
+| N7 | Open a `.mm` with templates, `auto` loops, `@interface`/`@implementation` and `[self msg:@1]` (ADR-054) | The subtitle "Objective-C++"; approximate colours: `@` keywords, messages and strings as well as C++ types and keywords; typing in a mixed method keeps colours without flicker or lag |
 | N8 | In a `.c` choose Language ▸ Plain Text and back ▸ Automatic | The colours disappear and return, the text and Undo are the same |
 | N9 | Typing with a Chinese/Japanese IME in a comment of a `.cpp` | No interference with marked text, the colours do not flicker |
 | N10 | Paste 1–2 MB of C code (repeat `stat.h` ~100 times) | The window is responsive; above 5 MB the subtitle says "syntax colours off: large file" |
@@ -389,7 +389,7 @@ TK-025/026/027/028/030/031/032 and TK-029 Clone/Fetch/Push/fast-forward Pull and
 - The limits (5 MB for highlighting, 1000 characters and 50 spans in a line, 16,000 characters for the warning, 10% hysteresis) are provisional, from one machine.
 - An ordinary regex literal with an escaped slash (`/a\/b/`) is read incorrectly by the grammar: the code after it has no colours (not because of our changes).
 - Completion: no placeholders and no documentation window; a 5 s timeout and a status line exist (K17–K20). Xcode projects (ADR-019) are not covered by it.
-- Highlighting exists for Swift, C, C++ and Objective-C ([ADR-025](07_ARCHITECTURE_DECISIONS.md#adr-025-highlighting-of-c-c-and-objective-c-tk-016)); Objective-C++ has none. Apple headers with macros around enumerations (`NS_OPTIONS`) are read by the Objective-C grammar with errors — the colours there are partial.
+- Highlighting exists for Swift, C, C++ and Objective-C ([ADR-025](07_ARCHITECTURE_DECISIONS.md#adr-025-highlighting-of-c-c-and-objective-c-tk-016)); Objective-C++ is approximate (ADR-054). Apple headers with macros around enumerations (`NS_OPTIONS`) are read by the Objective-C grammar with errors — the colours there are partial.
 - The Bazel context/BSP is not implemented ([ADR-023](07_ARCHITECTURE_DECISIONS.md#adr-023-support-for-bazel-projects)); a Bazel file outside SwiftPM is currently served as a single file without the project's compiler settings.
 
 ### Additional live acceptance for real Files/tabs (TK-026, pending)
@@ -636,3 +636,16 @@ Use disposable repositories and, for hosting, a test repository/token you can re
 | S6 | Hide the panel and use Focus Editor during a reply; return; open a second project; close the first while replying | Draft/history/session survive hiding; project conversations stay independent; owner closure stops its reply; no late UI update in another project |
 | S7 | Repeat typing/Send/Shift+Enter/paste with real Japanese/Chinese IME and dead keys; try a prompt over 64 KB | Return commits marked text rather than sending; no duplicate/lost text; oversized ordinary paste is refused and previous draft retained; oversized committed composition cannot be sent |
 | S8 | Light/dark/system theme changes, narrow panel, long lines, keyboard navigation and VoiceOver; Clear when idle | Text/cards/buttons readable and labelled, Copy/activity controls reachable, clear removes conversation/attachments/draft/input Undo; subjective responsiveness recorded separately |
+
+## T. Command palette and editor commands (ADR-055; pending)
+
+Pending live checks, no pass recorded.
+
+| # | Do | Expect |
+|---|---|---|
+| T1 | In an editor press Shift-Command-P | A palette appears at the top of the window with the caret in the search field and every menu command listed with its menu path and shortcut |
+| T2 | Type `dup`, press Return | "Duplicate Line" runs in the editor you came from (the line is copied; one Undo takes it back); the palette is gone and typing continues in the editor |
+| T3 | With Welcome as the only window, open the palette and look at "Save", "Duplicate Line" | They are dimmed; Return on one beeps and nothing runs |
+| T4 | Arrows move the selection and scroll; Escape and a click elsewhere close the palette; Shift-Command-P again toggles it | Focus returns to the previous window each time |
+| T5 | Type `edit line` | Commands whose path or title match both words are listed, best first |
+| T6 | In a `.swift` file: Return after `{` (and between `{}`), `}` on an indent-only line, Tab, typing `(`, `[`, `"` and Backspace in an empty pair, ⌘D on a line, a fragment and several lines, ⌘/ on a line and a block, and ⌘/ in a plain-text file | Each behaves as the editor tests describe (indent after bracket, dedent, pairs and step-over, copies, marker at the shallowest indent, nothing in plain text) and each is one Undo step |
