@@ -59,6 +59,17 @@ final class AppCompositionRoot {
         recentProjects = RecentProjects(store: recentStore ?? UserDefaultsRecentProjectsStore(), checker: folderChecker)
     }
 
+    /// Called once for a newly opened canonical project; AppDelegate reuses an already open owner.
+    func makeWorkspace(root: String) -> WorkspaceModule {
+        WorkspaceModuleFactory().make(
+            files: makeProjectFiles(root: root),
+            layout: makeWorkspaceLayout(root: root),
+            git: makeGitWorkspace(root: root),
+            agent: Self.makeDemoAgentSession(),
+            hostingAccounts: gitHostingAccounts
+        )
+    }
+
     func makeWorkspaceLayout(root: String) -> WorkspaceLayoutState {
         layoutSettings.makeState(root: root, available: [.files, .sourceControl, .gitLog, .assistant])
     }

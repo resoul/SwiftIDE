@@ -247,13 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let project = projects[root] { return project }
 
         composition.languageServices.contexts.open(folder: root)
-        let project = ProjectWorkspaceController(
-            files: composition.makeProjectFiles(root: root),
-            layout: composition.makeWorkspaceLayout(root: root),
-            git: composition.makeGitWorkspace(root: root),
-            agent: AppCompositionRoot.makeDemoAgentSession(),
-            hostingAccounts: composition.gitHostingAccounts
-        )
+        let project = ProjectWorkspaceController(module: composition.makeWorkspace(root: root))
         project.git?.prepareCheckout = { [weak self] repository in
             await self?.gitCheckout.prepare(repository) ?? false
         }

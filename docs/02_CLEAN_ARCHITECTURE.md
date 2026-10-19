@@ -37,6 +37,27 @@ Arrows are compile-time imports. The UI may depend on the platform adapter to cr
 
 At the start there are 5–6 SPM targets, then a split along real boundaries. The current example combines the memory file store and the String backend in IDEInfrastructure. EditorCore/EditorLayout/EditorRendering are not part of the mandatory MVP graph.
 
+## Composition, module factories and ownership
+
+**Rule (2026-10-15):** assemble feature object graphs in `AppCompositionRoot` and focused factories; controllers own actions, presentation and lifecycle, while views own controls/layout/appearance. Components receive explicit dependencies. Do not distribute a universal container or introduce `Container.shared` / `resolve<T>()`. This rule is also recorded in the root `AGENTS.md` for future changes.
+
+`AppDelegate.openProject` canonicalizes the root and reuses an already open `ProjectWorkspaceController`. Only a new project calls `AppCompositionRoot.makeWorkspace(root:)`. The root selects project models and shared hosting accounts; `WorkspaceModuleFactory.make` assembles the ready `WorkspaceModule`: window, document-tab state, editor area, Files/workspace container, chat and optional Git panels. It installs controller containment, the project accessory and native toolbar, preserving injected tool panels. It does not start Git or chat requests.
+
+`ProjectWorkspaceController` receives `init(module:)`. Its accessors refer to the module's existing objects; it does not reconstruct the workspace graph. It binds output callbacks, captures the active editor selection, handles document/tab operations and project dialogs, subscribes to presentation state, and starts the existing initial Git inspection after the callbacks are connected. Views/models do not depend on this concrete controller; callbacks that point back to it capture it weakly.
+
+| Scope | Objects and ownership |
+|---|---|
+| Application | Shared services, preferences, hosting accounts and document registry are configured by AppCompositionRoot. Project modules borrow these dependencies and do not stop them. |
+| Project | One WorkspaceModule/window owns Files, layout, tab state, Git, chat and their UI controllers. Panel changes, refresh and appearance changes reuse these instances. |
+| Document | DocumentSession and the original editor/backend/Undo state remain owned through the existing document lifecycle. Switching/reordering tabs or moving a document between hosts does not reconstruct them. |
+| Operation | Individual tasks, progress/review state and temporary dialogs belong to their requesting owner and are cancelled/disconnected on close. |
+
+On window close the controller first unsubscribes and cancels its operation flows, then calls idempotent `WorkspaceModule.stop()` to stop project models and disconnect panel controllers and workspace subscriptions. The module does not close or recreate document editors itself. Closing one project must preserve other projects and shared account services. An assembled module that is not handed to a controller must be explicitly stopped and its window closed by its owner.
+
+Keep factory inputs/results explicit and feature-specific. A factory protocol is justified by an actual substitution/testing boundary; a concrete factory or closure is sufficient otherwise. Split a factory when unrelated feature assembly accumulates. Existing direct construction in Git dialog routes remains migration work; extending those graphs should introduce a focused factory rather than further constructor wiring in the workspace controller. This workspace extraction does not change those operation flows.
+
+Factory tests check injected model identity, UI containment, passive assembly, optional Git/custom panels, shared app services, independent project state and close/stop behavior. Existing native tests remain the checks for actual document Undo/caret/scroll, chat drafts, Git actions and multi-window ownership.
+
 ## Shared HTTP infrastructure
 
 `HTTPInfrastructure` is an independent target and library product in `Packages/IDE`. It imports no application or UI module. Service ports remain in `IDEApplication`; `GitHostingClient` implements `GitHostingAPI` in `GitInfrastructure` and uses a thin `GitHostingURLSessionTransport` adapter over the common `HTTPTransport`. `GitHostingTransport` and its response alias retain the existing injection points. App composes credentials and the client as before.

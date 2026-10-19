@@ -8,22 +8,23 @@ import ChatUI
 /// One real project window, one workspace/tree and content-owned document tabs.
 @MainActor
 final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NSMenuItemValidation {
-    let files: ProjectFiles
-    let layout: WorkspaceLayoutState
-    let tabs = DocumentTabs()
-    let area = EditorAreaViewController()
-    let git: GitWorkspace?
-    let agent: AgentSession
-    let chat: ChatPanelViewController
-    private let gitChanges: GitChangesViewController?
-    let gitLog: GitLogViewController?
+    private let module: WorkspaceModule
+    var files: ProjectFiles { module.files }
+    var layout: WorkspaceLayoutState { module.layout }
+    var tabs: DocumentTabs { module.tabs }
+    var area: EditorAreaViewController { module.area }
+    var git: GitWorkspace? { module.git }
+    var agent: AgentSession { module.agent }
+    var chat: ChatPanelViewController { module.chat }
+    private var gitChanges: GitChangesViewController? { module.gitChanges }
+    var gitLog: GitLogViewController? { module.gitLog }
     private(set) var integrationWindow: GitIntegrationWindowController?
     private(set) var interactiveRebaseWindow: GitInteractiveRebaseWindowController?
     private(set) var trackingWindow: GitTrackingWindowController?
     private(set) var managementWindow: GitManagementWindowController?
     private(set) var repositoryOperationWindow: GitRepositoryOperationWindowController?
     private(set) var hostingWindow: GitHostingWindowController?
-    private let hostingAccounts: GitHostingAccounts?
+    private var hostingAccounts: GitHostingAccounts? { module.hostingAccounts }
     private(set) var stashWindow: GitStashWindowController?
     private var conflictTask: Task<Void, Never>?
     private var conflictID = UUID()
@@ -34,8 +35,8 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     var openConflictResult: ((String) async -> DocumentEditorController?)?
     private(set) var pullWindow: GitPullWindowController?
     private(set) var pushWindow: GitPushWindowController?
-    private let gitBranches: GitBranchPickerViewController?
-    private let gitDiff: GitDiffViewController?
+    private var gitBranches: GitBranchPickerViewController? { module.gitBranches }
+    private var gitDiff: GitDiffViewController? { module.gitDiff }
     private let diffTabID = DocumentID()
     private var gitSubscription: UUID?
     private var lastGitOperationState = GitOperationState.idle
@@ -53,58 +54,14 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
     var workspace: WorkspaceViewController { browser.workspace }
     private var editors: [DocumentID: DocumentEditorController] = [:]
     private var closing = false
-    private let browser: ProjectFilesContainer
+    private var browser: ProjectFilesContainer { module.browser }
     private var filesSubscription: UUID?
     private var tabSubscription: UUID?
 
-    init(
-        files: ProjectFiles,
-        layout: WorkspaceLayoutState = .init(),
-        panels: [WorkspaceTool: WorkspacePanel] = [:],
-        git: GitWorkspace? = nil,
-        agent: AgentSession,
-        hostingAccounts: GitHostingAccounts? = nil
-    ) {
-        self.files = files
-        self.layout = layout
-        self.git = git
-        self.agent = agent
-        self.hostingAccounts = hostingAccounts
-        chat = ChatPanelViewController(session: agent)
-        gitChanges = git.map { GitChangesViewController(model: $0) }
-        gitLog = git.map { GitLogViewController(model: $0) }
-        gitBranches = git.map { GitBranchPickerViewController(model: $0) }
-        gitDiff = git.map { GitDiffViewController(model: $0) }
-        var providers = panels
-        if providers[.assistant] == nil {
-            providers[.assistant] = WorkspacePanel(view: chat.view, focusTarget: chat.focusTarget)
-        }
-
-        if let gitChanges {
-            providers[.sourceControl] = WorkspacePanel(view: gitChanges.view, focusTarget: gitChanges.focusTarget)
-        }
-
-        if let gitLog { providers[.gitLog] = WorkspacePanel(view: gitLog.view, focusTarget: gitLog.focusTarget) }
-        browser = ProjectFilesContainer(model: files, editor: area.view, layout: layout, panels: providers)
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1280, height: 820),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = (files.root as NSString).lastPathComponent
-        window.representedURL = URL(fileURLWithPath: files.root)
-        window.titleVisibility = .hidden
-        window.contentViewController = browser
-        browser.workspace.installWindowToolbar(on: window)
-        window.minSize = NSSize(width: 900, height: 560)
-        window.isReleasedWhenClosed = false
-        window.tabbingMode = .disallowed
-        window.center()
-        super.init(window: window)
-        window.delegate = self
-        browser.addChild(area)
-        browser.addChild(chat)
+    init(module: WorkspaceModule) {
+        self.module = module
+        super.init(window: module.window)
+        module.window.delegate = self
         chat.captureSelection = { [weak self] in
             guard let document = self?.activeDocument, let text = document.focusTarget as? NSTextView else {
                 throw AgentSelectionError("Open a document and select text in its editor.")
@@ -130,21 +87,9 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         tabSubscription = tabs.subscribe { [weak self] in self?.renderSelection() }
         filesSubscription = files.subscribe { [weak self] in self?.presentTabs() }
         if let git {
-            if let gitChanges {
-                browser.addChild(gitChanges)
-                gitChanges.openFile = { [weak self] in self?.openFile?($0) }
-            }
-
-            if let gitLog {
-                browser.addChild(gitLog)
-                if hostingAccounts != nil {
-                    gitLog.inspectCI = { [weak self] commit in self?.showHosting(commit: commit.oid) }
-                }
-            }
-
-            if let gitBranches {
-                browser.addChild(gitBranches)
-                workspace.installProjectAccessory(gitBranches.view)
+            gitChanges?.openFile = { [weak self] in self?.openFile?($0) }
+            if hostingAccounts != nil {
+                gitLog?.inspectCI = { [weak self] commit in self?.showHosting(commit: commit.oid) }
             }
 
             gitChanges?.resolveConflict = { [weak self] in self?.showConflict($0) }
@@ -406,17 +351,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         repositoryOperationWindow?.dismiss()
         hostingWindow?.dismiss()
         stashWindow?.dismiss()
-        agent.stop()
-        chat.disconnect()
-        git?.stop()
-        gitChanges?.disconnect()
-        gitLog?.disconnect()
-        gitBranches?.disconnect()
-        gitDiff?.disconnect()
-        files.onRefresh = nil
-        files.stop()
-        workspace.notifications.removeAll()
-        browser.disconnect()
+        module.stop()
         onClose?()
     }
 
