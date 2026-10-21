@@ -12,7 +12,8 @@ struct WorkspaceModuleFactory {
         panels: [WorkspaceTool: WorkspacePanel] = [:],
         git: GitWorkspace? = nil,
         agent: AgentSession,
-        hostingAccounts: GitHostingAccounts? = nil
+        hostingAccounts: GitHostingAccounts? = nil,
+        fileLister: any ProjectFileLister = NoProjectFileLister()
     ) -> WorkspaceModule {
         let tabs = DocumentTabs()
         let area = EditorAreaViewController()
@@ -69,7 +70,17 @@ struct WorkspaceModuleFactory {
             gitBranches: gitBranches,
             gitDiff: gitDiff,
             browser: browser,
-            hostingAccounts: hostingAccounts
+            hostingAccounts: hostingAccounts,
+            quickOpen: QuickOpen(
+                root: files.root,
+                lister: fileLister,
+                isExcluded: { [weak files] in files?.exclusionRoot(for: $0) != nil }
+            )
         )
     }
+}
+
+/// Lists nothing: for assemblies that have no disk to read (Preview, tests).
+struct NoProjectFileLister: ProjectFileLister {
+    func listFiles(under root: String) async -> ProjectFileList { ProjectFileList(paths: []) }
 }

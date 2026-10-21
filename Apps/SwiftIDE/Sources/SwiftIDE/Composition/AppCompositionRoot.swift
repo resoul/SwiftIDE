@@ -35,6 +35,7 @@ final class AppCompositionRoot {
     private let layoutSettings: WorkspaceLayoutSettings
     let recentProjects: RecentProjects
     let appearance: AppearanceSettings
+    let editorDisplay: EditorDisplaySettings
     let folderChecker: any ProjectFolderChecking
     let gitHostingAccounts: GitHostingAccounts
 
@@ -44,9 +45,11 @@ final class AppCompositionRoot {
         recentStore: (any RecentProjectsStore)? = nil,
         folderChecker: any ProjectFolderChecking = ProjectFolderChecker(),
         appearance: AppearanceSettings = AppearanceSettings(),
+        editorDisplay: EditorDisplaySettings = EditorDisplaySettings(),
         gitHostingAccounts: GitHostingAccounts? = nil
     ) {
         self.appearance = appearance
+        self.editorDisplay = editorDisplay
         let credentials = GitKeychainCredentials()
         self.gitHostingAccounts = gitHostingAccounts ?? GitHostingAccounts(
             store: GitHostingAccountSettings(defaults: layoutDefaults),
@@ -66,7 +69,8 @@ final class AppCompositionRoot {
             layout: makeWorkspaceLayout(root: root),
             git: makeGitWorkspace(root: root),
             agent: Self.makeDemoAgentSession(),
-            hostingAccounts: gitHostingAccounts
+            hostingAccounts: gitHostingAccounts,
+            fileLister: FileSystemProjectFileLister()
         )
     }
 
@@ -84,7 +88,9 @@ final class AppCompositionRoot {
         let files = ProjectFiles(
             root: root,
             reader: ProjectDirectoryReader(),
-            exclusions: filesSettings.load(root: root)
+            exclusions: filesSettings.load(root: root),
+            creator: FileSystemEntryCreator(root: root),
+            operations: FileSystemItemOperations(root: root)
         )
         files.onExclusionsChange = { [filesSettings] in filesSettings.save($0, root: root) }
 
@@ -182,6 +188,18 @@ final class AppCompositionRoot {
         try await restorer.retire(candidate, restoredAs: session, afterKeeping: keep)
     }
 
+    /// Descriptions, definitions and problems for one editor: from the server, and from the editor's own checks.
+    private func makeFeatureProvider() -> LanguageFeatureProvider {
+        LanguageFeatureProvider(
+            server: languageServices,
+            builtIn: BuiltInDiagnostics(
+                languages: languages,
+                checker: CompositeChecker([BuiltInChecker(), TreeSitterChecks(), MetalChecker()])
+            ),
+            formatter: CompositeFormatter([BuiltInFormatter(), TreeSitterFormatter()])
+        )
+    }
+
     func makeUntitledDocument() -> DocumentEditorController {
         let editor = TextKitEditorFactory.makeEditor(loadedText: Self.sampleText)
         let session = DocumentSession(path: "Untitled.swift", backend: editor.backend, isUntitled: true)
@@ -197,11 +215,13 @@ final class AppCompositionRoot {
             revisionOfFile: Self.revisionOfFile,
             makeHighlighter: Self.makeHighlighter,
             languages: languages,
-            languageServices: languageServices
+            languageServices: languageServices,
+            featureProvider: makeFeatureProvider()
         )
         controller.onWindowChange = { [weak self, weak session] window in
             if let session { self?.trustCoordinator.register(session, window: window) }
         }
+        controller.show(editorDisplay)
 
         return controller
     }
@@ -238,17 +258,19 @@ final class AppCompositionRoot {
             revisionOfFile: Self.revisionOfFile,
             makeHighlighter: Self.makeHighlighter,
             languages: languages,
-            languageServices: languageServices
+            languageServices: languageServices,
+            featureProvider: makeFeatureProvider()
         )
         controller.onWindowChange = { [weak self, weak session] window in
             if let session { self?.trustCoordinator.register(session, window: window) }
         }
+        controller.show(editorDisplay)
 
         return controller
     }
 
     private static let makeHighlighter: (DocumentLanguage) -> (any SyntaxHighlighter)? = { language in
-        try? TreeSitterHighlighter(language: language)
+        SyntaxHighlighters.make(for: language)
     }
 
     private static let revisionOfFile: (String) -> FileRevision? = { path in

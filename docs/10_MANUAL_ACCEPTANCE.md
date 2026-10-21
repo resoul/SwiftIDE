@@ -649,3 +649,139 @@ Pending live checks, no pass recorded.
 | T4 | Arrows move the selection and scroll; Escape and a click elsewhere close the palette; Shift-Command-P again toggles it | Focus returns to the previous window each time |
 | T5 | Type `edit line` | Commands whose path or title match both words are listed, best first |
 | T6 | In a `.swift` file: Return after `{` (and between `{}`), `}` on an indent-only line, Tab, typing `(`, `[`, `"` and Backspace in an empty pair, ⌘D on a line, a fragment and several lines, ⌘/ on a line and a block, and ⌘/ in a plain-text file | Each behaves as the editor tests describe (indent after bracket, dedent, pairs and step-over, copies, marker at the shallowest indent, nothing in plain text) and each is one Undo step |
+
+## U. Quick Open (ADR-056; pending)
+
+Pending live checks, no pass recorded. Use a project with a few hundred files, ideally a Git repository with an ignored folder.
+
+| # | Do | Expect |
+|---|---|---|
+| U1 | In a project window press Command-P | A "Go to file" panel appears at once with the caret in the field; files that were open recently come first |
+| U2 | Type `appdel`, `ds`, `mm` | Matches inside the file name come before folder-only matches; the folder is shown dimmed beside the name; Up/Down move, the list scrolls |
+| U3 | Press Return on a result, then Command-P and click another | The file opens (or its tab is activated) in this project and focus is in the editor; each click does the same |
+| U4 | Add a file in Terminal, press Command-P again | The new file appears after a moment; files matched by `.gitignore` and `.build` contents never appear |
+| U5 | Escape, click elsewhere, press Command-P twice | The panel closes and returns focus to the window; the second press toggles it off |
+| U6 | With two projects open, use Command-P in each; close one with the panel open | Each lists only its own files; closing a project closes its panel and the other is unaffected |
+
+## V. Files context menu (ADR-057; pending)
+
+Pending live checks, no pass recorded. Use a disposable folder.
+
+| # | Do | Expect |
+|---|---|---|
+| V1 | Right-click a folder in Files | The menu starts with New ▸ Swift File / File / Directory (each with an icon), then Copy Path, Copy Relative Path, Reveal in Finder, the Exclude and view items and Refresh; a file also has Open |
+| V2 | New ▸ Swift File on a folder, type `Main`, Return | A small box titled "New Swift File" asks for the name; `Main.swift` appears in that folder with `import Foundation`, is selected and opens in an editor tab; Escape or a click outside creates nothing |
+| V3 | New ▸ Directory with `a/b/c`; then New ▸ File on a file, type `Notes` | The three folders are created and shown expanded; the file's New goes into the folder it is in |
+| V4 | Type an existing name, `../x`, `a:b`, an empty name | The box stays open with a red message under the field that goes away when you edit the name; nothing is created or changed |
+| V5 | Copy Path and Copy Relative Path, then paste in a text file | The absolute path and the path relative to the project root |
+
+## W. Git submenu in Files (ADR-058; pending)
+
+Pending live checks, no pass recorded. Use a disposable repository with a modified tracked file and a new untracked one.
+
+| # | Do | Expect |
+|---|---|---|
+| W1 | Right-click the modified file, open Git ▸ | Add, Unstage, Show Diff, then Commit Staged… and the repository commands; Add is enabled, Unstage dimmed |
+| W2 | Choose Add, right-click again | The file is staged (Source Control shows it under Staged); Add is now dimmed and Unstage enabled; Unstage reverses it |
+| W3 | Show Diff on the modified and on the untracked file | The central diff tab opens for the right comparison (working tree / untracked) |
+| W4 | Right-click a folder, then a project without Git | A folder has no Add/Unstage/Show Diff; a project that is not a repository shows no Git item |
+| W5 | Push…, Pull…, Merge…, Stashes…, Branches…, GitHub / GitLab… from the submenu while a Git operation runs and while in a conflict | Each opens what the Git menu opens; items are dimmed exactly where the Git menu dims them |
+
+## X. Rename, Duplicate and Delete in Files (ADR-059; pending)
+
+Pending live checks, no pass recorded. Use a disposable project with a few files, one of them open and edited.
+
+| # | Do | Expect |
+|---|---|---|
+| X1 | Right-click a file ▸ Rename…, type a new name, Return | The box shows the current name with only the part before the extension selected; the file is renamed in the tree and selected |
+| X2 | Rename a file that is open with unsaved edits | The tab and window title change to the new name; the text, caret and Undo are untouched and it is still unsaved; Save writes to the new name and the old name is gone; the language colours follow the new extension |
+| X3 | Rename a folder that holds open files, and a name that is taken, `a/b` and an empty name | The files in the folder keep their tabs under the new path; the bad names keep the box open with a red message and change nothing |
+| X4 | Duplicate a file, accept the suggested name; then Duplicate a folder | `Name copy.ext` appears next to the original, is selected and opens; the folder is copied with its contents; the original is unchanged |
+| X5 | Delete a file with unsaved edits open | A question names the file and warns that the unsaved changes will be lost; Cancel changes nothing; Delete moves it to the Trash (check Finder's Trash and Put Back) and closes its tab without a save prompt |
+| X6 | Delete a folder with several open files | All its documents close; other tabs stay; a file outside it is unaffected |
+| X7 | Start a Git pull or checkout and try Rename/Delete while it runs | Refused with "A Git operation is running"; nothing changes |
+
+## Y. Cut, Copy, Paste and drag and drop in Files (ADR-060; pending)
+
+Pending live checks, no pass recorded. Use a disposable project; keep one of its files open with unsaved edits.
+
+| # | Do | Expect |
+|---|---|---|
+| Y1 | Right-click a file: the menu | Cut, Copy, Copy Path, Copy Relative Path, Paste with their shortcuts; Paste is dimmed until files are on the pasteboard; the project folder has no Cut or Copy |
+| Y2 | Copy a file, select a folder, Command-V (also from the menu) | A copy appears in that folder, is selected; pasting again gives `Name copy.ext`, never replacing |
+| Y3 | Cut a file, paste into another folder | The file moves; pasting a second time copies (the cut is spent); if you copied something else after the cut, Paste copies that |
+| Y4 | Do Y3 with the file open and edited | Its tab, text and unsaved state stay and Save writes to the new place; the old place has no file |
+| Y5 | Copy a file in Finder, paste in the tree; copy in the tree, paste in Finder | The file arrives intact in each direction |
+| Y6 | Drag a file onto a folder; drag onto another file; drag onto empty space; hold Option while dragging | Moves into the folder; into that file's folder; into the project folder; Option copies and the cursor shows a plus |
+| Y7 | Drag a folder onto itself and onto a folder inside it; drop onto a name that exists | Not accepted; a taken name gives a message and nothing changes |
+| Y8 | Drag a file from Finder into the tree; drag a file out of the tree onto the Desktop; try during a Git operation | The first is copied in; the second is copied out; during a Git operation the change is refused with a message |
+
+## Z. Code folding (ADR-061; pending)
+
+Pending live checks, no pass recorded. Use a Swift file with a class, two functions and a multi-line `/* … */` comment.
+
+| # | Do | Expect |
+|---|---|---|
+| Z1 | Move the pointer over the line numbers | Small down arrows appear beside the numbers of lines that start a foldable block or comment, and go away when the pointer leaves |
+| Z2 | Click the arrow of a function | Its body disappears; the header and the closing `}` stay; a small grey "…" box follows the header text (a click on it opens the fold too); the arrow now points right and stays visible; the numbers skip the hidden lines; scrolling is smooth; click again to open it |
+| Z3 | Fold a function, edit its header (add a parameter) and a line above it | The fold stays folded and on the right function; typing is normal |
+| Z4 | With a function folded, Find or Go to Line a place inside it; with the caret inside a body, fold it | The fold opens when you go in; folding with the caret inside moves the caret to the end of the header |
+| Z5 | Edit ▸ Fold and Unfold (⌥⌘← / ⌥⌘→) at several carets, then Fold All and Unfold All | Fold takes the innermost block, a second press the one around it; Unfold opens the fold at or around the caret |
+| Z6 | Fold blocks, Undo/Redo and Save, close and reopen the file | Undo and Save work on the real text (a fold hides nothing from them); after reopening nothing is folded |
+| Z7 | A plain-text file, and a very large file | No arrows in plain text; a very large file opens quickly with no arrows if over the limit |
+
+## AA. Showing tabs and spaces (ADR-062; pending)
+
+Pending live checks, no pass recorded. Use a file that has a tab-indented block, a space-indented block and some double spaces.
+
+| # | Do | Expect |
+|---|---|---|
+| AA1 | View ▸ Show Tabs | Every tab shows an arrow across its width; a tab that follows spaces is shorter; the menu item has a check mark; nothing else changes |
+| AA2 | View ▸ Show Spaces as well, then switch Show Tabs off | Spaces show small dots (leading and inside lines); tabs lose their arrows; each switch affects every open window at once |
+| AA3 | Open Settings (⌘,) and use the two checkboxes; with Settings open, use the View menu | The editor follows the boxes; the boxes follow the menu |
+| AA4 | Quit and relaunch | The choices are remembered |
+| AA5 | Type, delete, Undo, scroll a long file, fold a block, resize the window | Marks stay on the right characters, scrolling stays smooth, folded lines show no marks, and Save writes the same text as without marks |
+
+## AB. Markdown (ADR-063; pending)
+
+Pending live checks, no pass recorded. Use a README with headings of two or three levels, lists, a task list, links, a table, a fenced Swift block and an HTML comment.
+
+| # | Do | Expect |
+|---|---|---|
+| AB1 | Open `README.md` | The window says "Markdown" (no "no syntax colours" and no "no code completion"); headings, code spans, fences, links, quotes, bullets and the comment are coloured; plain text stays plain |
+| AB2 | Type `**bold**`, `` `code` ``, an unclosed fence and `<!--` | Colours follow while typing with no flicker or lag; an unclosed fence colours to the end of the file |
+| AB3 | Arrows next to headings: fold a `##` section, then the `#` above it | The section's lines disappear down to the next heading of the same or a higher level; a fenced block folds with its closing fence kept |
+| AB4 | Edit ▸ Language ▸ Plain Text, then Markdown; open a `.txt` and choose Markdown by hand | Colours and arrows go and come back; the choice is remembered for the file |
+| AB5 | A `#` and a `**` inside a fenced code block; a link with parentheses in its address | They stay code colour; the link text and address are coloured separately |
+| AB6 | Open a 1 MB Markdown file | It opens quickly; typing stays smooth (colours may be off over the size limit) |
+
+## AC. Data, script and settings files (ADR-064; pending)
+
+Pending live checks, no pass recorded. Use a `Package.resolved`, an `Info.plist`, a `.swiftlint.yml`, a `Package`-like TOML, a shell script with `if`/`for`/`case`, a `.gitignore`, an `.xcconfig`, a `project.pbxproj`, a `.strings` file and a `.metal` shader.
+
+| # | Do | Expect |
+|---|---|---|
+| AC1 | Open each file | The window names its language (JSON, XML, YAML, TOML, Shell, Config, Metal) without any "no code completion"; colours are plausible: keys, strings, numbers, comments, tags, variables |
+| AC2 | Fold arrows on each | JSON objects and arrays, XML elements, YAML nested keys, TOML tables, shell `if`/`for`/`case` blocks and functions, `.pbxproj` braces and lists fold and unfold, and the folded text stays out of the way when you type nearby |
+| AC3 | Introduce an error in the JSON (a trailing comma), then fix it | A red underline at the comma and a dot in the margin appear shortly after typing, with the reason on hover; the status line counts it; both go away when fixed |
+| AC4 | Break the `Info.plist` (unclosed tag, an unquoted attribute, a bare `&`) | The mistake is underlined with a plain-words message; a well-formed XML that is not a valid property list says so on its `<plist` tag |
+| AC5 | Edit ▸ Format Document (⌥⌘L) on a one-line JSON file and on the plist | Indented with the keys in their original order; one Undo restores the text; on a file with an error, or JSON with comments, a message says why and nothing changes |
+| AC6 | A JSON file with `//` comments (tsconfig style) | A warning, not an error, saying comments are not part of JSON; Format Document refuses it |
+| AC7 | Edit ▸ Language ▸ Plain Text and back, on a JSON file | Colours, arrows and the problem marks go away and return |
+| AC8 | A big JSON or XML file (a few MB) and the shell script while typing quickly | It opens, colours stay responsive, and checking happens after you stop typing (over the size limit there are no colours or arrows) |
+
+## AD. YAML, TOML, shell and Metal in depth (ADR-065; pending)
+
+Pending live checks, no pass recorded. Use a CI YAML file, a `Package`-style TOML, a shell script with `if`/`case`/heredoc and a Metal shader with a header.
+
+| # | Do | Expect |
+|---|---|---|
+| AD1 | Open the YAML and the shell script | Colours come from the grammars: keys, anchors, tags, block scalars; keywords, builtins, `$` expansions, options; the title bar says YAML / Shell |
+| AD2 | Break the YAML (an unclosed `[`, a tab for indent) and then the shell script (a missing `fi`) | A mark at the trouble with a message appears shortly after typing: red for YAML, yellow for shell; both go away when fixed |
+| AD3 | Introduce a repeated key and a repeated `[table]` in the TOML, a bad escape, an unterminated string | Each is underlined with its reason; fixing them clears the marks |
+| AD4 | Format Document (⌥⌘L) on a messy YAML with 4-space indentation and a `|` block, and on a messy shell script | Indented by structure with two spaces, blocks and heredocs untouched; one Undo restores it; a file with an error says so and changes nothing |
+| AD5 | Format Document on the TOML | Even spacing, one blank line before tables, strings and arrays untouched; formatting twice changes nothing |
+| AD6 | Open a Metal shader | Address spaces, `kernel`, `float4`, `texture2d`, `[[buffer(0)]]` are coloured; an undeclared identifier is underlined about a second after you stop typing, with the compiler's message; an `#include "x.h"` of a file in the same folder is found |
+| AD7 | Check a Metal file on a machine without the Metal toolchain (or temporarily rename it) | A single note explains how to install it; nothing else is reported |
+| AD8 | Open a very large YAML (a few hundred KB) and type in it | Colouring and checking keep up (checks run after you stop typing; files over the size limit are not checked) |
+

@@ -2,21 +2,15 @@ import AppKit
 import IDEApplication
 import WorkspaceUI
 
-/// Owns the palette's floating panel: shows it over the window the user is in, and, when a command
-/// is chosen, gives the focus back to that window and performs the command there, so the command
-/// reaches the editor or the project the user was working in.
+/// The command palette: lists the main menu's commands and, when one is chosen, gives the focus
+/// back to the window it was opened from and performs the command there, so the command reaches
+/// the editor or the project the user was in.
 @MainActor
-final class CommandPaletteController: NSObject, NSWindowDelegate {
-    private final class PalettePanel: NSPanel {
-        override var canBecomeKey: Bool { true }
-    }
-
+final class CommandPaletteController {
     private let catalog: MenuCommandCatalog
     private let menu: () -> NSMenu?
     private let perform: (NSMenuItem) -> Void
-    private let content = CommandPaletteViewController()
-    private var panel: NSPanel?
-    private weak var parent: NSWindow?
+    private let host = PaletteHost(label: "Command Palette")
     private var entries: [String: NSMenuItem] = [:]
     /// The selector of the menu item that opens the palette, left out of its own list.
     private let opener: Selector
@@ -33,15 +27,17 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
         self.opener = opener
         self.menu = menu
         self.perform = perform
-        super.init()
-        content.run = { [weak self] command in self?.choose(command) }
-        content.cancel = { [weak self] in self?.dismiss() }
+        host.content.run = { [weak self] command in self?.choose(command) }
     }
 
-    var isShown: Bool { panel?.isVisible == true }
+    var isShown: Bool { host.isShown }
+
+    var window: NSWindow? { host.window }
+
+    var content: CommandPaletteViewController { host.content }
 
     func toggle(over window: NSWindow?) {
-        isShown ? dismiss() : show(over: window)
+        isShown ? host.dismiss() : show(over: window)
     }
 
     func show(over window: NSWindow?) {
@@ -49,66 +45,17 @@ final class CommandPaletteController: NSObject, NSWindowDelegate {
 
         let found = catalog.entries(in: main, excluding: opener)
         entries = Dictionary(found.map { ($0.command.id, $0.item) }, uniquingKeysWith: { first, _ in first })
-        parent = window
-        let panel = self.panel ?? makePanel()
-        self.panel = panel
-        content.present(found.map(\.command))
-        position(panel, over: window)
-        if let window { window.addChildWindow(panel, ordered: .above) }
-
-        panel.makeKeyAndOrderFront(nil)
-        content.focusSearch()
-    }
-
-    func dismiss() {
-        guard let panel else { return }
-
-        parent?.removeChildWindow(panel)
-        panel.orderOut(nil)
-        parent?.makeKeyAndOrderFront(nil)
+        host.show(found.map(\.command), over: window)
     }
 
     private func choose(_ command: PaletteCommand) {
-        guard let item = entries[command.id] else { return dismiss() }
+        guard let item = entries[command.id] else { return host.dismiss() }
 
-        dismiss()
+        host.dismiss()
         // After the focus is back in the window the command was chosen for.
         Task { @MainActor [perform] in
             await Task.yield()
             perform(item)
         }
-    }
-
-    private func makePanel() -> NSPanel {
-        let panel = PalettePanel(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 340),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: true
-        )
-        panel.contentViewController = content
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.isReleasedWhenClosed = false
-        panel.hidesOnDeactivate = false
-        panel.delegate = self
-        panel.setAccessibilityLabel("Command Palette")
-
-        return panel
-    }
-
-    private func position(_ panel: NSPanel, over window: NSWindow?) {
-        let size = panel.frame.size
-        guard let frame = window?.frame ?? NSScreen.main?.visibleFrame else { return }
-
-        panel.setFrameOrigin(NSPoint(x: frame.midX - size.width / 2, y: frame.maxY - size.height - 90))
-    }
-
-    func windowDidResignKey(_ notification: Notification) {
-        guard let panel, notification.object as? NSWindow === panel, panel.isVisible else { return }
-
-        parent?.removeChildWindow(panel)
-        panel.orderOut(nil)
     }
 }

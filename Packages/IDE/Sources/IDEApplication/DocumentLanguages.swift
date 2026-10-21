@@ -183,7 +183,10 @@ public enum LanguageSupportNote {
         guard resolved.language != .plainText else { return parts }
 
         if !hasColours { parts.append("no syntax colours") }
-        if !hasLanguageFeatures { parts.append("no code completion") }
+        // Only a language that has servers is apologised for: Markdown, JSON, YAML and the rest were never
+        // going to have code completion.
+        let hasServers = resolved.language == .swift || resolved.language.isCFamily
+        if !hasLanguageFeatures, hasServers { parts.append("no code completion") }
 
         return parts
     }

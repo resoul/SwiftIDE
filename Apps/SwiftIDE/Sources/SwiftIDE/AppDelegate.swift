@@ -66,6 +66,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         commandPalette.toggle(over: NSApp.keyWindow ?? NSApp.mainWindow)
     }
 
+    /// View ▸ Show Tabs: marks tab characters in every editor.
+    @objc func toggleShowTabs(_ sender: Any?) { composition.editorDisplay.showsTabs.toggle() }
+
+    /// View ▸ Show Spaces: marks spaces in every editor.
+    @objc func toggleShowSpaces(_ sender: Any?) { composition.editorDisplay.showsSpaces.toggle() }
+
     @objc func showWelcome(_ sender: Any?) {
         if welcome == nil {
             let controller = WelcomeWindowController(model: composition.recentProjects)
@@ -167,7 +173,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func showSettings(_ sender: Any?) {
-        if settingsWindow == nil { settingsWindow = SettingsWindowController(settings: composition.appearance) }
+        if settingsWindow == nil {
+            settingsWindow = SettingsWindowController(
+                settings: composition.appearance,
+                display: composition.editorDisplay
+            )
+        }
+
         settingsWindow?.showWindow(nil)
         settingsWindow?.window?.makeKeyAndOrderFront(nil)
     }
@@ -221,6 +233,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return project
     }
 
+    /// A file or folder was renamed on disk: open documents under it are the same files under new
+    /// names, with their text and unsaved state untouched.
+    func retargetDocuments(from old: String, to new: String) {
+        for document in documents {
+            let path = document.session.path
+            if path == old {
+                document.session.acknowledgeRename(to: new)
+            } else if path.hasPrefix(old + "/") {
+                document.session.acknowledgeRename(to: new + path.dropFirst(old.count))
+            }
+        }
+    }
+
+    /// A file or folder went to the Trash: the documents of the files in it are closed, discarding
+    /// what was not saved (the user was told before the deletion).
+    func closeDocuments(under path: String) {
+        for document in documents where document.session.path == path || document.session.path.hasPrefix(path + "/") {
+            document.close()
+        }
+    }
+
     private func locateProject(path: String) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -271,6 +304,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return project.documents.first { $0.session.path == DocumentPath.canonical(path) }
         }
         project.openFile = { [weak self, weak project] path in Task { await self?.open(path: path, in: project) } }
+        project.files.onItemRenamed = { [weak self, weak project] old, new in
+            self?.retargetDocuments(from: old, to: new)
+            project?.git?.scheduleRefresh()
+        }
+        project.files.onItemTrashed = { [weak self, weak project] path in
+            self?.closeDocuments(under: path)
+            project?.git?.scheduleRefresh()
+        }
+        project.files.blockedReason = { [weak project] in
+            project?.git?.operationState.isBusy == true ? "A Git operation is running; wait for it to finish." : nil
+        }
         project.onRequestClose = { [weak self, weak project] in
             if let project { Task { await self?.closeProject(project) } }
         }
@@ -604,6 +648,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension AppDelegate: NSMenuItemValidation {
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(toggleShowTabs(_:)) {
+            item.state = composition.editorDisplay.showsTabs ? .on : .off
+
+            return true
+        }
+
+        if item.action == #selector(toggleShowSpaces(_:)) {
+            item.state = composition.editorDisplay.showsSpaces ? .on : .off
+
+            return true
+        }
+
         if item.action == #selector(goBack(_:)) { return history.canGoBack }
         if item.action == #selector(closeOpenedFolders(_:)) {
             return !composition.languageServices.contexts.openedFolders.isEmpty

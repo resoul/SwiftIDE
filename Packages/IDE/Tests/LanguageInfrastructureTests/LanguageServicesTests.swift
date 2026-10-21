@@ -372,8 +372,14 @@ func savingASwiftFileAsTextTakesItOffTheServerAndSavingItBackPutsItOnAgain() asy
 }
 
 @Test
-func everyLanguageButPlainTextHasAServerID() {
-    #expect(DocumentLanguage.allCases.filter { $0.languageServerID == nil } == [.plainText])
+func onlyLanguagesWithAServerHaveAServerID() {
+    #expect(DocumentLanguage.allCases.filter { $0.languageServerID != nil } == [
+        .swift,
+        .c,
+        .cpp,
+        .objectiveC,
+        .objectiveCPP
+    ])
     #expect(Set(DocumentLanguage.allCases.compactMap(\.languageServerID)).count == 5)
     #expect(DocumentLanguage.objectiveCPP.languageServerID == "objective-cpp")
 }

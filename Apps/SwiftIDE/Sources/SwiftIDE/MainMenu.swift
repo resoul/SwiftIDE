@@ -17,6 +17,11 @@ enum MainMenu {
             NSMenuItem(title: "Open…", action: #selector(AppDelegate.openDocument(_:)), keyEquivalent: "o"),
             NSMenuItem(title: "Open Folder…", action: #selector(AppDelegate.openFolder(_:)), keyEquivalent: "O"),
             NSMenuItem(
+                title: "Quick Open…",
+                action: #selector(ProjectWorkspaceController.showQuickOpen(_:)),
+                keyEquivalent: "p"
+            ),
+            NSMenuItem(
                 title: "Close Opened Folders",
                 action: #selector(AppDelegate.closeOpenedFolders(_:)),
                 keyEquivalent: ""
@@ -42,6 +47,27 @@ enum MainMenu {
             .separator(),
             duplicateLineItem(),
             toggleCommentItem(),
+            foldItem(
+                "Format Document",
+                #selector(DocumentEditorController.formatDocument(_:)),
+                key: "l",
+                modifiers: [.command, .option]
+            ),
+            .separator(),
+            foldItem(
+                "Fold",
+                #selector(DocumentEditorController.foldCode(_:)),
+                key: String(UnicodeScalar(NSLeftArrowFunctionKey)!),
+                modifiers: [.command, .option]
+            ),
+            foldItem(
+                "Unfold",
+                #selector(DocumentEditorController.unfoldCode(_:)),
+                key: String(UnicodeScalar(NSRightArrowFunctionKey)!),
+                modifiers: [.command, .option]
+            ),
+            foldItem("Fold All", #selector(DocumentEditorController.foldAllCode(_:))),
+            foldItem("Unfold All", #selector(DocumentEditorController.unfoldAllCode(_:))),
             .separator(),
             NSMenuItem(
                 title: "Command Palette…",
@@ -190,6 +216,10 @@ enum MainMenu {
                 action: #selector(ProjectWorkspaceController.toggleFocusEditor(_:)),
                 keyEquivalent: ""
             ),
+            .separator(),
+            NSMenuItem(title: "Show Tabs", action: #selector(AppDelegate.toggleShowTabs(_:)), keyEquivalent: ""),
+            NSMenuItem(title: "Show Spaces", action: #selector(AppDelegate.toggleShowSpaces(_:)), keyEquivalent: ""),
+            .separator(),
             fullScreenItem(),
             NSMenuItem(
                 title: "Reset Layout",
@@ -217,6 +247,19 @@ enum MainMenu {
     /// Edit ▸ Duplicate Line, Command-D: the code view repeats the line or selection.
     private static func duplicateLineItem() -> NSMenuItem {
         NSMenuItem(title: "Duplicate Line", action: #selector(CodeLineActions.duplicateLine(_:)), keyEquivalent: "d")
+    }
+
+    /// Edit ▸ Fold and Unfold: Option-Command-Left and -Right, as in Xcode.
+    private static func foldItem(
+        _ title: String,
+        _ action: Selector,
+        key: String = "",
+        modifiers: NSEvent.ModifierFlags = []
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.keyEquivalentModifierMask = modifiers
+
+        return item
     }
 
     /// Edit ▸ Toggle Line Comment, Command-/: comments or uncomments the lines of the selection.

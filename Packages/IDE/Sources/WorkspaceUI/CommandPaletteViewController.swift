@@ -12,12 +12,20 @@ public final class CommandPaletteViewController: NSViewController, NSTableViewDa
     public var run: ((PaletteCommand) -> Void)?
     /// The user dismissed the palette with Escape.
     public var cancel: (() -> Void)?
+    /// What the search field says when empty.
+    public var placeholder = "Type a command" { didSet { search.placeholderString = placeholder } }
+    /// What to list for a typed query, when the list is not simply the commands handed to `present`
+    /// (Quick Open asks its index). Called on every keystroke.
+    public var listing: ((String) -> [PaletteCommand])?
+    /// Shown instead of the list when nothing matches.
+    public var emptyMessage = "No matching commands" { didSet { empty.stringValue = emptyMessage } }
 
     let search = NSSearchField()
     let table = NSTableView()
     private let empty = NSTextField(labelWithString: "No matching commands")
     private var all: [PaletteCommand] = []
-    private(set) var results: [PaletteCommand] = []
+    /// What the list shows now, best first.
+    public private(set) var results: [PaletteCommand] = []
 
     public init() { super.init(nibName: nil, bundle: nil) }
 
@@ -35,7 +43,7 @@ public final class CommandPaletteViewController: NSViewController, NSTableViewDa
         view = background
         view.frame = NSRect(x: 0, y: 0, width: 560, height: 340)
 
-        search.placeholderString = "Type a command"
+        search.placeholderString = placeholder
         search.setAccessibilityLabel("Search commands")
         search.delegate = self
         search.focusRingType = .none
@@ -90,6 +98,26 @@ public final class CommandPaletteViewController: NSViewController, NSTableViewDa
         view.window?.makeFirstResponder(search)
     }
 
+    /// Lists again for the query typed so far, keeping the selected command if it is still there.
+    public func refreshResults() {
+        _ = view
+        let selected = selectedCommand?.id
+        refresh()
+        if let selected, let row = results.firstIndex(where: { $0.id == selected }) {
+            table.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        }
+    }
+
+    /// What was typed in the search field; setting it lists again, as typing would.
+    public var query: String {
+        get { search.stringValue }
+        set {
+            _ = view
+            search.stringValue = newValue
+            refresh()
+        }
+    }
+
     public func focusSearch() { view.window?.makeFirstResponder(search) }
 
     public var selectedCommand: PaletteCommand? {
@@ -127,7 +155,8 @@ public final class CommandPaletteViewController: NSViewController, NSTableViewDa
     @objc private func rowClicked(_ sender: Any?) { runSelected() }
 
     private func refresh() {
-        results = Array(CommandSearch.rank(search.stringValue, in: all).prefix(Self.limit))
+        let found = listing?(search.stringValue) ?? CommandSearch.rank(search.stringValue, in: all)
+        results = Array(found.prefix(Self.limit))
         table.reloadData()
         empty.isHidden = !results.isEmpty
         if !results.isEmpty {

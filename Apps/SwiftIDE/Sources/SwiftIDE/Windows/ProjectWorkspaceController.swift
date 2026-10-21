@@ -72,6 +72,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
             return try document.session.captureAgentSelection(in: .init(location: range.location, length: range.length))
         }
         browser.files.openFile = { [weak self] in self?.openFile?($0) }
+        if git != nil { browser.files.gitEntries = { [weak self] in self?.gitMenuEntries(for: $0) ?? [] } }
         area.tabs.onSelect = { [weak self] in self?.select($0) }
         area.tabs.onClose = { [weak self] id in
             guard let self else { return }
@@ -155,6 +156,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
     private func renderSelection() {
         let active = activeDocument
+        if let path = active?.session.path { module.quickOpen.noteOpened(path) }
         let inspection = tabs.selected == diffTabID
         let conflict = tabs.selected == conflictTabID
             ? standaloneConflict
@@ -351,6 +353,7 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
         repositoryOperationWindow?.dismiss()
         hostingWindow?.dismiss()
         stashWindow?.dismiss()
+        quickOpen.stop()
         module.stop()
         onClose?()
     }
@@ -727,9 +730,88 @@ final class ProjectWorkspaceController: NSWindowController, NSWindowDelegate, NS
 
     @objc func cancelGit(_ sender: Any?) { git?.cancelOperation() }
 
+    /// The Git items of the Files context menu: what can be done with this file, then the commands
+    /// of the repository. Each uses the action the Git menu already has and is enabled by the
+    /// same check, so the two menus cannot disagree.
+    func gitMenuEntries(for path: String) -> [FileMenuEntry] {
+        guard let git else { return [] }
+
+        func repositoryCommand(_ title: String, _ action: Selector, _ icon: String? = nil) -> FileMenuEntry {
+            let probe = NSMenuItem(title: title, action: action, keyEquivalent: "")
+
+            return .action(title: title, icon: icon, isEnabled: validateMenuItem(probe)) { [weak self] in
+                _ = NSApp.sendAction(action, to: self, from: probe)
+            }
+        }
+
+        var entries: [FileMenuEntry] = []
+        let relative = git.snapshot.flatMap { snapshot -> String? in
+            let prefix = snapshot.repository.root + "/"
+
+            return path.hasPrefix(prefix) ? String(path.dropFirst(prefix.count)) : nil
+        }
+        let change = git.snapshot?.changes.first { $0.path == relative && $0.decoration.ignoredReason == nil }
+        var isFolder: ObjCBool = false
+        let isFile = FileManager.default.fileExists(atPath: path, isDirectory: &isFolder) && !isFolder.boolValue
+        if isFile {
+            let decoration = change?.decoration
+            let canStage = git.canMutate && change != nil && decoration?.isConflict == false
+                && (decoration?.worktree.isEmpty == false || decoration?.isUntracked == true)
+            let canUnstage = git.canMutate && change != nil && decoration?.isConflict == false
+                && decoration?.index.isEmpty == false
+            entries.append(.action(title: "Add", icon: "tabler:plus", isEnabled: canStage) { [weak git] in
+                if let change { git?.perform(.stage(change)) }
+            })
+            entries.append(.action(title: "Unstage", isEnabled: canUnstage) { [weak git] in
+                if let change { git?.perform(.unstage(change)) }
+            })
+            entries.append(.action(title: "Show Diff", isEnabled: change != nil && git.state == .ready) {
+                [weak git] in
+                guard let change else { return }
+
+                let decoration = change.decoration
+                git?.inspect(
+                    decoration.isUntracked
+                        ? .untracked(change)
+                        : !decoration.worktree.isEmpty ? .worktree(change) : .index(change)
+                )
+            })
+            entries.append(.separator)
+        }
+
+        entries.append(repositoryCommand("Commit Staged…", #selector(commitGit(_:))))
+        entries.append(.separator)
+        entries.append(repositoryCommand("Push…", #selector(pushGit(_:))))
+        entries.append(repositoryCommand("Pull…", #selector(pullGit(_:))))
+        entries.append(repositoryCommand("Fetch…", #selector(fetchGit(_:))))
+        entries.append(.separator)
+        entries.append(repositoryCommand("Merge…", #selector(mergeGit(_:))))
+        entries.append(repositoryCommand("Rebase…", #selector(rebaseGit(_:))))
+        entries.append(.separator)
+        entries.append(.action(title: "Branches…", isEnabled: git.state == .ready) { [weak self] in
+            self?.gitBranches?.showPicker()
+        })
+        entries.append(repositoryCommand("Branch Tracking…", #selector(trackingGit(_:))))
+        entries.append(.separator)
+        entries.append(repositoryCommand("Stashes…", #selector(stashesGit(_:))))
+        entries.append(.separator)
+        entries.append(repositoryCommand("GitHub / GitLab…", #selector(hostingGit(_:))))
+        entries.append(repositoryCommand("Manage Repository…", #selector(manageGit(_:))))
+        entries.append(.action(title: "Clone Repository…") {
+            _ = NSApp.sendAction(#selector(AppDelegate.cloneRepository(_:)), to: nil, from: nil)
+        })
+
+        return entries
+    }
+
     @objc func showTerminal(_ sender: Any?) {}
 
     @objc func showAssistant(_ sender: Any?) { workspace.select(.assistant) }
+
+    private lazy var quickOpen = QuickOpenController(model: module.quickOpen) { [weak self] in self?.openFile?($0) }
+
+    /// File ▸ Quick Open…, Command-P: the project's files by typing part of a name.
+    @objc func showQuickOpen(_ sender: Any?) { quickOpen.toggle(over: window) }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(hostingGit(_:)) {

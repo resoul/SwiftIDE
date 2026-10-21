@@ -106,6 +106,12 @@ public final class GitBranchPickerViewController: NSViewController, NSTextFieldD
         render()
     }
 
+    /// Opens the branch picker where it sits in the toolbar.
+    public func showPicker() {
+        _ = view
+        showBranches(nil)
+    }
+
     public func showRemoteSelection() {
         _ = view
         showBranches(nil)

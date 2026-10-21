@@ -211,6 +211,16 @@ public final class DocumentSession: NativeEditReceiver {
         notifySaved()
     }
 
+    /// The file was renamed or moved on disk, with its content untouched: the document is the same
+    /// file under another name. Nothing becomes saved or unsaved; whoever watches the path (the
+    /// language, the language server, recovery, the external-change watch) is told as for Save As.
+    public func acknowledgeRename(to newPath: String) {
+        guard !isUntitled, newPath != path else { return }
+
+        path = newPath
+        notifySaved()
+    }
+
     /// Declares that the current text was written against `revision` of the file, not against the
     /// file as it was read: recovered text is based on the file as it was when the app last kept
     /// it, and a save is judged against that, so changes made since then are a conflict.

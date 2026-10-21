@@ -23,7 +23,7 @@ func fileNamesSayWhichLanguageTheyAre() {
         ("/w/README", .plainText, false),
         ("/w/notes.txt", .plainText, false),
         ("/w/.swift", .plainText, false),
-        ("/w.swift/Makefile", .plainText, false),
+        ("/w.swift/Makefile", .config, false),
     ]
     for (path, language, provisional) in table {
         #expect(
@@ -260,4 +260,19 @@ func aLinkAndItsTargetShareOneChoice() throws {
 @Test
 func onlyCAndItsRelativesAreTheCFamily() {
     #expect(DocumentLanguage.allCases.filter(\.isCFamily) == [.c, .cpp, .objectiveC, .objectiveCPP])
+}
+
+@Test
+func markdownIsNamedWithoutAnApologyForMissingCompletion() {
+    let markdown = ResolvedLanguage(language: .markdown, source: .fileName, revision: 1)
+    #expect(LanguageSupportNote.parts(for: markdown, hasColours: true, hasLanguageFeatures: false) == ["Markdown"])
+    #expect(LanguageSupportNote.parts(for: markdown, hasColours: false, hasLanguageFeatures: false) == [
+        "Markdown",
+        "no syntax colours"
+    ])
+    let swift = ResolvedLanguage(language: .swift, source: .fileName, revision: 1)
+    #expect(LanguageSupportNote.parts(for: swift, hasColours: true, hasLanguageFeatures: false) == [
+        "Swift",
+        "no code completion"
+    ])
 }

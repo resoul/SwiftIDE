@@ -76,10 +76,238 @@ public final class ProjectFiles {
     private var observers: [UUID: () -> Void] = [:]
     private var gitSnapshot: GitSnapshot?
 
-    public init(root: String, reader: any ProjectDirectoryReading, exclusions: ProjectExclusions = .init()) {
+    private let creator: (any ProjectEntryCreating)?
+    private let operations: (any ProjectItemOperating)?
+    /// An item was renamed or moved on disk: the old and the new canonical path (a folder's whole
+    /// subtree moved with it). The owner of the open documents retargets them.
+    public var onItemRenamed: ((_ old: String, _ new: String) -> Void)?
+    /// An item was moved to the Trash (canonical path before it went).
+    public var onItemTrashed: ((_ path: String) -> Void)?
+    /// Why items must not be changed now (for example a Git operation is running); nil when they may.
+    public var blockedReason: (() -> String?)?
+
+    public init(
+        root: String,
+        reader: any ProjectDirectoryReading,
+        exclusions: ProjectExclusions = .init(),
+        creator: (any ProjectEntryCreating)? = nil,
+        operations: (any ProjectItemOperating)? = nil
+    ) {
         self.root = DocumentPath.canonical(root)
         self.reader = reader
         self.exclusions = exclusions
+        self.creator = creator
+        self.operations = operations
+    }
+
+    /// Whether items can be renamed, duplicated and deleted from here.
+    public var canModifyItems: Bool { operations != nil }
+
+    /// How many open documents under `path` hold changes that are not saved.
+    public func unsavedCount(under path: String) -> Int {
+        let canonical = DocumentPath.canonical(path)
+
+        return unsavedPaths.filter { $0 == canonical || $0.hasPrefix(canonical + "/") }.count
+    }
+
+    /// Renames `path`, keeps the tree's own state (expanded folders, selection, project exclusions)
+    /// on the item and tells the owner so open documents follow. Returns the new path.
+    @discardableResult
+    public func rename(_ path: String, to name: String) throws -> String {
+        let operations = try checkedOperations(for: path)
+        let old = DocumentPath.canonical(path)
+        let renamed = try operations.rename(path, to: name)
+        guard renamed != path else { return path }
+
+        let new = DocumentPath.canonical(renamed)
+        moveState(from: path, to: renamed)
+        remapExclusions(from: path, to: renamed)
+        onItemRenamed?(old, new)
+        select(renamed)
+        refreshListings()
+
+        return renamed
+    }
+
+    /// Copies `path` under `name` next to it. The copy has the saved file's content; unsaved
+    /// changes in an open document are not part of it. Returns the copy's path.
+    @discardableResult
+    public func duplicate(_ path: String, as name: String) throws -> String {
+        let copy = try checkedOperations(for: path).duplicate(path, as: name)
+        select(copy)
+        refreshListings()
+
+        return copy
+    }
+
+    /// What a move or a copy of several items did: the new paths of those done, in order, and the
+    /// reason it stopped, if it did. Items done before a failure stay done.
+    public struct Transfer: Equatable {
+        public var done: [String] = []
+        public var failure: NewEntryError?
+    }
+
+    /// Moves items into `directory`. Open documents follow them (see `onItemRenamed`).
+    public func move(_ paths: [String], into directory: String) -> Transfer {
+        var transfer = Transfer()
+        for path in paths {
+            do {
+                let operations = try checkedOperations(for: path)
+                guard isInside(directory) else { throw NewEntryError.outsideProject }
+
+                let old = DocumentPath.canonical(path)
+                let moved = try operations.move(path, into: directory)
+                if moved != path {
+                    moveState(from: path, to: moved)
+                    remapExclusions(from: path, to: moved)
+                    onItemRenamed?(old, DocumentPath.canonical(moved))
+                }
+
+                transfer.done.append(moved)
+            } catch {
+                transfer.failure = error as? NewEntryError ?? .failed(error.localizedDescription)
+                break
+            }
+        }
+        finish(transfer)
+
+        return transfer
+    }
+
+    /// Copies items into `directory`. A source outside the project (from Finder) is allowed.
+    public func copy(_ paths: [String], into directory: String) -> Transfer {
+        var transfer = Transfer()
+        for path in paths {
+            do {
+                guard let operations else { throw NewEntryError.failed("this project cannot change files") }
+
+                guard isInside(directory) else { throw NewEntryError.outsideProject }
+
+                if let reason = blockedReason?() { throw NewEntryError.failed(reason) }
+
+                transfer.done.append(try operations.copy(path, into: directory))
+            } catch {
+                transfer.failure = error as? NewEntryError ?? .failed(error.localizedDescription)
+                break
+            }
+        }
+        finish(transfer)
+
+        return transfer
+    }
+
+    private func finish(_ transfer: Transfer) {
+        guard let first = transfer.done.first else { return }
+
+        let parent = (first as NSString).deletingLastPathComponent
+        if isInside(parent) { expand(parent) }
+
+        select(first)
+        refreshListings()
+    }
+
+    /// Moves `path` to the Trash. The owner closes the open documents under it afterwards.
+    public func trash(_ path: String) throws {
+        let operations = try checkedOperations(for: path)
+        let canonical = DocumentPath.canonical(path)
+        try operations.trash(path)
+        dropState(under: path)
+        remapExclusions(from: path, to: nil)
+        onItemTrashed?(canonical)
+        refreshListings()
+    }
+
+    private func checkedOperations(for path: String) throws -> any ProjectItemOperating {
+        guard let operations else { throw NewEntryError.failed("this project cannot change files") }
+
+        guard isInside(path), path != root else { throw NewEntryError.isProjectFolder }
+
+        if let reason = blockedReason?() { throw NewEntryError.failed(reason) }
+
+        return operations
+    }
+
+    private func moved(_ candidate: String, from old: String, to new: String) -> String? {
+        if candidate == old { return new }
+
+        return candidate.hasPrefix(old + "/") ? new + candidate.dropFirst(old.count) : nil
+    }
+
+    private func moveState(from old: String, to new: String) {
+        expanded = Set(expanded.map { moved($0, from: old, to: new) ?? $0 })
+        if let selection, let target = moved(selection, from: old, to: new) { self.selection = target }
+        for path in listings.keys + Array(tasks.keys) where moved(path, from: old, to: new) != nil {
+            cancelAndForget(path)
+        }
+    }
+
+    private func dropState(under path: String) {
+        expanded = expanded.filter { moved($0, from: path, to: path) == nil }
+        if let selection, moved(selection, from: path, to: path) != nil {
+            self.selection = (path as NSString).deletingLastPathComponent
+        }
+
+        for key in Array(listings.keys) + Array(tasks.keys) where moved(key, from: path, to: path) != nil {
+            cancelAndForget(key)
+        }
+    }
+
+    private func cancelAndForget(_ path: String) {
+        generations[path] = nil
+        tasks.removeValue(forKey: path)?.cancel()
+        listings[path] = nil
+        states[path] = nil
+        defaults[path] = nil
+    }
+
+    /// Project exclusions are kept by path relative to the root; an excluded item that moves keeps
+    /// being excluded, and one that is deleted is forgotten.
+    private func remapExclusions(from old: String, to new: String?) {
+        guard let oldRelative = relative(old) else { return }
+
+        let newRelative = new.flatMap { relative($0) }
+        var explicit = Set<String>()
+        for rule in exclusions.explicit {
+            if rule == oldRelative || rule.hasPrefix(oldRelative + "/") {
+                if let newRelative { explicit.insert(newRelative + rule.dropFirst(oldRelative.count)) }
+            } else {
+                explicit.insert(rule)
+            }
+        }
+        if explicit != exclusions.explicit {
+            exclusions.explicit = explicit
+            onExclusionsChange?(exclusions)
+        }
+    }
+
+    /// Whether new files and folders can be made from here.
+    public var canCreate: Bool { creator != nil }
+
+    /// Makes a new file or folder inside `directory`, shows it in the tree and selects it.
+    /// Returns its path. The caller reports an error and decides what to open.
+    @discardableResult
+    public func create(_ kind: NewEntryKind, named name: String, in directory: String) throws -> String {
+        guard let creator else { throw NewEntryError.failed("this project cannot create files") }
+
+        guard isInside(directory) else { throw NewEntryError.outsideProject }
+
+        let created = try creator.create(kind, named: name, in: directory)
+        // Every folder from the one asked for down to the new item shows what is now in it.
+        var shown = directory
+        let below = created.dropFirst(directory.count).split(separator: "/").dropLast()
+        var folders = [directory]
+        for part in below {
+            shown += "/" + part
+            folders.append(shown)
+        }
+        for folder in folders { expand(folder) }
+        for folder in folders where expanded.contains(folder) && state(of: folder) == .loaded {
+            load(folder, replacing: true)
+        }
+
+        select(created)
+
+        return created
     }
 
     public func state(of path: String) -> DirectoryState { states[path] ?? .idle }

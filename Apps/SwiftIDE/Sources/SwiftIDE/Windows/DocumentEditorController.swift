@@ -24,11 +24,15 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
     private let container: EditorContainerView
     private let longLines: LongLineMonitor
     private let languageServices: LanguageServices
+    private let featureProvider: LanguageFeatureProvider
     private var readinessSubscription: UUID?
     private let languages: DocumentLanguages
     private let languageSelector: DocumentLanguageSelector
     private var completion: CompletionCoordinator?
     private var features: LanguageFeaturesCoordinator?
+    private var folding: FoldingCoordinator?
+    private var displaySettings: EditorDisplaySettings?
+    private var displaySubscription: UUID?
     private let host: EditorHostView
     private var isSystemFile = false
     private var isReadOnlyForLongLines = false
@@ -101,8 +105,10 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
         revisionOfFile: @escaping (String) -> FileRevision?,
         makeHighlighter: @escaping (DocumentLanguage) -> (any SyntaxHighlighter)?,
         languages: DocumentLanguages,
-        languageServices: LanguageServices
+        languageServices: LanguageServices,
+        featureProvider: LanguageFeatureProvider
     ) {
+        self.featureProvider = featureProvider
         self.languageServices = languageServices
         self.languages = languages
         languageSelector = languages.selector(for: document)
@@ -121,7 +127,7 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
             source: editor.backend,
             policy: .standard,
             languages: languageSelector,
-            supportedLanguages: TreeSitterHighlighter.supportedLanguages,
+            supportedLanguages: SyntaxHighlighters.supportedLanguages,
             makeHighlighter: makeHighlighter,
             present: { SyntaxPresenter(textView: textView, coordinator: $0, policy: .standard) }
         )
@@ -136,10 +142,21 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
         }
         colouring.onChange = { [weak self] _ in self?.refreshSubtitle() }
         editor.input.lineCommentPrefix = { [weak self] in self?.languageSelector.resolved.language.lineCommentPrefix }
+        folding = FoldingCoordinator(
+            session: document,
+            editor: editor,
+            ruler: host.lineNumberRuler,
+            lineIndex: lineIndex,
+            isEnabled: { [weak self] in self?.languageSelector.resolved.language.foldStyle != nil },
+            style: { [weak self] in
+                self?.languageSelector.resolved.language.foldStyle ?? .braces(characterLiterals: false)
+            }
+        )
         languageSelector.subscribe { [weak self] _ in
             // Whatever was asked of the old language's server is not an answer for this one.
             self?.completion?.controller.dismiss()
             self?.features?.hover.dismiss()
+            self?.folding?.refresh()
             self?.refreshSubtitle()
         }
         recovery.onStatusChange = { [weak self] _ in self?.refreshSubtitle() }
@@ -162,7 +179,7 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
             editor: editor,
             host: host,
             lineIndex: lineIndex,
-            provider: languageServices
+            provider: featureProvider
         )
         features?.onDiagnosticsChange = { [weak self] in self?.refreshSubtitle() }
         features?.openLocation = { [weak self] location in self?.onOpenLocation?(location) }
@@ -355,6 +372,18 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if checkoutEditing != nil { return false }
+        if item.action == #selector(formatDocument(_:)) {
+            return featureProvider.formatter.supports(languageSelector.resolved.language)
+        }
+
+        if item.action == #selector(foldCode(_:)) || item.action == #selector(foldAllCode(_:)) {
+            return folding?.model.regions.isEmpty == false
+        }
+
+        if item.action == #selector(unfoldCode(_:)) || item.action == #selector(unfoldAllCode(_:)) {
+            return folding?.model.folded.isEmpty == false
+        }
+
         if item.action == #selector(selectLanguage(_:)) {
             let chosen = item.representedObject as? String
             item.state = chosen == languageSelector.override?.rawValue ? .on : .off
@@ -443,6 +472,58 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
     @objc func selectLanguage(_ sender: NSMenuItem) {
         languageSelector.setOverride((sender.representedObject as? String).flatMap(DocumentLanguage.init(rawValue:)))
     }
+
+    /// Follows what the user chose to see (marked tabs and spaces) for as long as the document is open.
+    func show(_ settings: EditorDisplaySettings) {
+        if let displaySubscription { displaySettings?.unsubscribe(displaySubscription) }
+
+        displaySettings = settings
+        applyDisplaySettings()
+        displaySubscription = settings.subscribe { [weak self] in self?.applyDisplaySettings() }
+    }
+
+    private func applyDisplaySettings() {
+        guard let displaySettings else { return }
+
+        editor.textView.setWhitespaceMarks(tabs: displaySettings.showsTabs, spaces: displaySettings.showsSpaces)
+    }
+
+    /// Edit ▸ Format Document, Option-Command-L: JSON and XML are laid out again with two or four
+    /// spaces per level, as one change that Undo takes back. Nothing is changed if the text has an error.
+    @objc func formatDocument(_ sender: Any?) {
+        let language = languageSelector.resolved.language
+        guard featureProvider.formatter.supports(language), !session.isComposing else { return }
+
+        let old = session.snapshot()
+        do {
+            let formatted = try featureProvider.formatter.format(old.text, language: language)
+            guard let edit = DocumentFormatting.minimalEdit(from: old.text, to: formatted) else { return }
+
+            try session.apply([edit], expectedVersion: old.version, origin: .formatting)
+        } catch let error as FormattingError {
+            present(error: error.message)
+        } catch {
+            present(error: error.localizedDescription)
+        }
+    }
+
+    private func present(error message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Could not format “\(displayName)”"
+        alert.informativeText = message
+        if let window { alert.beginSheetModal(for: window) } else { alert.runModal() }
+    }
+
+    /// Edit ▸ Fold, Option-Command-Left: folds the block around the caret.
+    @objc func foldCode(_ sender: Any?) { folding?.foldAtCaret() }
+
+    /// Edit ▸ Unfold, Option-Command-Right: opens the fold at or around the caret.
+    @objc func unfoldCode(_ sender: Any?) { folding?.unfoldAtCaret() }
+
+    @objc func foldAllCode(_ sender: Any?) { folding?.foldAll() }
+
+    @objc func unfoldAllCode(_ sender: Any?) { folding?.unfoldAll() }
 
     @objc func saveDocument(_ sender: Any?) {
         Task { _ = await save() }
@@ -660,6 +741,10 @@ final class DocumentEditorController: NSViewController, NSMenuItemValidation {
         guard !isClosed else { return }
 
         isClosed = true
+        featureProvider.forget(session)
+        if let displaySubscription { displaySettings?.unsubscribe(displaySubscription) }
+        displaySubscription = nil
+        folding?.stop()
         externalChanges.stop()
         deactivate()
         if let readinessSubscription { languageServices.unsubscribeFromReadiness(readinessSubscription) }

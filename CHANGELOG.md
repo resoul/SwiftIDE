@@ -4,6 +4,40 @@ Changes to the current SwiftIDE prototype are recorded here. Earlier repository 
 
 ## Unreleased
 
+### YAML, shell, TOML, Metal in depth
+
+- YAML and shell are read by Tree-sitter grammars (bash 0.25.1; YAML 0.7.2 vendored with a fixed manifest); TOML by an exact TOML 1.0 reader; Metal by its own keywords. YAML, TOML and shell scripts are now checked as you type and can be laid out with Format Document (YAML and shell only when the result has the very same syntax tree), and Metal shaders are checked by the real Metal compiler (ADR-065). clangd does not read Metal, so there is no completion for it.
+
+### JSON, XML, YAML, TOML, shell, config files, Metal
+
+- Seven more kinds of file are understood (ADR-064): JSON, XML and property lists, YAML, TOML, shell scripts, key-value and directive files (`.gitignore`, `.xcconfig`, `.strings`, `.pbxproj`, Makefile, Dockerfile) and Metal shaders. Each has colours and folding. JSON and XML are also checked as you type (the error is underlined and counted like a compiler's) and can be laid out with Edit ▸ Format Document (⌥⌘L). No new dependency.
+
+### Markdown
+
+- Markdown files (`.md`, `.markdown`, …) are a language of their own (ADR-063): colours for headings, emphasis, code spans and fences, links, quotes, lists, rules, tables and HTML comments, and folding of sections under headings and of fenced code blocks. No new dependency.
+
+### Show tabs and spaces
+
+- Settings ▸ Editor and View ▸ Show Tabs / Show Spaces (ADR-062): tabs are drawn with an arrow across their width and spaces with a dot, in every editor; off by default, remembered, and only a picture of the text.
+
+### Code folding
+
+- Fold arrows in the line-number margin (ADR-061): blocks between braces and multi-line block comments fold from the arrow (a folded header shows a "…" box that also opens it), a click, or Edit ▸ Fold / Unfold (⌥⌘← / ⌥⌘→), Fold All and Unfold All. The text and Undo are untouched; folds follow edits and open when the text under them is changed or visited.
+
+### Files context menu
+
+- Cut, Copy and Paste of files (also from and to Finder) and drag and drop in Files (ADR-060): a Cut-Paste or a drag inside the tree moves the item and open documents follow; Option-drag and pasting from elsewhere copy; nothing is ever replaced.
+
+- Rename…, Duplicate… and Delete… on a Files row (ADR-059): open documents follow a rename with their text and unsaved state; Delete asks first, mentions unsaved changes, moves to the Trash and closes the files' documents; all refused while a Git operation runs.
+
+- Git ▸ submenu on a Files row (ADR-058): Add, Unstage and Show Diff for a file, and Commit Staged, Push, Pull, Fetch, Merge, Rebase, Branches, Branch Tracking, Stashes, GitHub / GitLab, Manage Repository and Clone, each using the same action and availability as the Git menu.
+
+- Right-click in Files: New ▸ Swift File / File / Directory in a small floating name box (Swift files get `.swift` and an import; a typed path such as `a/b/Name` creates the folders too, nothing is overwritten or created outside the project), Open, Copy Path, Copy Relative Path (ADR-057). Rename, Delete and the Git items are not in yet.
+
+### Quick Open
+
+- File ▸ Quick Open…, Command-P (ADR-056): the project's files by typing part of a name, recent files first, from `git ls-files` or a folder walk; Return opens the file in the project's tabs.
+
 ### Command Palette
 
 - Edit ▸ Command Palette…, Shift-Command-P (ADR-055): every main-menu command searched by typing, with its path, shortcut and whether it can run now; Return runs it in the window the user was in. Also Edit ▸ Duplicate Line (⌘D), Toggle Line Comment (⌘/), auto-indent, smart indent, bracket/quote pairing and Tab to the next indent column in the editor.

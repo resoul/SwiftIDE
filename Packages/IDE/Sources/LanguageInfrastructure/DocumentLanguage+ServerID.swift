@@ -10,7 +10,7 @@ extension DocumentLanguage {
         case .cpp: "cpp"
         case .objectiveC: "objective-c"
         case .objectiveCPP: "objective-cpp"
-        case .plainText: nil
+        case .markdown, .json, .xml, .yaml, .toml, .shell, .config, .metal, .plainText: nil
         }
     }
 }

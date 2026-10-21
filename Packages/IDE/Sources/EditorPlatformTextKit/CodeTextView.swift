@@ -36,6 +36,180 @@ final class CodeTextView: NSTextView, CodeLineActions {
         super.keyDown(with: event)
     }
 
+    // MARK: Whitespace marks
+
+    /// Which blanks are marked: tabs with an arrow, spaces with a small dot. Presentation only.
+    var whitespaceMarks = (tabs: false, spaces: false) {
+        didSet { if whitespaceMarks != oldValue { needsDisplay = true } }
+    }
+
+    struct WhitespaceMark: Equatable {
+        enum Kind { case tab, space }
+
+        let offset: Int
+        let kind: Kind
+        /// The cell of the character in this view's coordinates, and the line's baseline height.
+        let frame: NSRect
+        let baseline: CGFloat
+    }
+
+    /// The marks to draw: every tab and space of the laid-out viewport. A run of spaces is looked
+    /// up in one go and shared out by character, so indentation costs a call per run.
+    func visibleWhitespaceMarks() -> [WhitespaceMark] {
+        guard whitespaceMarks.tabs || whitespaceMarks.spaces, let manager = textLayoutManager,
+              let content = manager.textContentManager, let range = manager.textViewportLayoutController.viewportRange,
+              let storage = textStorage else { return [] }
+
+        let start = content.offset(from: content.documentRange.location, to: range.location)
+        let length = content.offset(from: range.location, to: range.endLocation)
+        guard length > 0, length <= 200_000, start + length <= storage.length else { return [] }
+
+        let text = storage.mutableString
+        let origin = textContainerOrigin
+        var marks: [WhitespaceMark] = []
+
+        func add(_ kind: WhitespaceMark.Kind, from first: Int, to end: Int) {
+            guard let from = content.location(content.documentRange.location, offsetBy: first),
+                  let to = content.location(content.documentRange.location, offsetBy: end),
+                  let segmentRange = NSTextRange(location: from, end: to) else { return }
+
+            manager.enumerateTextSegments(in: segmentRange, type: .standard, options: []) { part, frame, baseline, _ in
+                guard let part else { return true }
+
+                let low = content.offset(from: content.documentRange.location, to: part.location)
+                let high = content.offset(from: content.documentRange.location, to: part.endLocation)
+                let count = max(1, high - low)
+                let cell = frame.width / CGFloat(count)
+                for index in 0..<count {
+                    marks.append(WhitespaceMark(
+                        offset: low + index,
+                        kind: kind,
+                        frame: NSRect(
+                            x: frame.minX + origin.x + cell * CGFloat(index),
+                            y: frame.minY + origin.y,
+                            width: cell,
+                            height: frame.height
+                        ),
+                        baseline: frame.minY + origin.y + baseline
+                    ))
+                }
+
+                return true
+            }
+        }
+
+        var index = start
+        let end = start + length
+        while index < end {
+            let unit = text.character(at: index)
+            if unit == 0x09, whitespaceMarks.tabs {
+                add(.tab, from: index, to: index + 1)
+                index += 1
+            } else if unit == 0x20, whitespaceMarks.spaces {
+                var run = index + 1
+                while run < end, text.character(at: run) == 0x20 { run += 1 }
+
+                add(.space, from: index, to: run)
+                index = run
+            } else {
+                index += 1
+            }
+        }
+
+        return marks
+    }
+
+    private func drawWhitespaceMarks(in dirtyRect: NSRect) {
+        let marks = visibleWhitespaceMarks().filter { $0.frame.intersects(dirtyRect) }
+        guard !marks.isEmpty else { return }
+
+        NSColor.secondaryLabelColor.withAlphaComponent(0.5).set()
+        let xHeight = (font ?? .monospacedSystemFont(ofSize: 13, weight: .regular)).xHeight
+        for mark in marks {
+            let middle = mark.baseline - xHeight / 2
+            switch mark.kind {
+            case .space:
+                NSBezierPath(ovalIn: NSRect(x: mark.frame.midX - 0.9, y: middle - 0.9, width: 1.8, height: 1.8)).fill()
+            case .tab:
+                // An arrow across the tab: a line with a head at its end.
+                let from = mark.frame.minX + 2, to = mark.frame.maxX - 2
+                guard to - from > 4 else { continue }
+
+                let path = NSBezierPath()
+                path.lineWidth = 1
+                path.move(to: NSPoint(x: from, y: middle))
+                path.line(to: NSPoint(x: to, y: middle))
+                path.move(to: NSPoint(x: to - 3, y: middle - 3))
+                path.line(to: NSPoint(x: to, y: middle))
+                path.line(to: NSPoint(x: to - 3, y: middle + 3))
+                path.stroke()
+            }
+        }
+    }
+
+    // MARK: Fold placeholders
+
+    /// Where the text of a folded block was hidden: the offset at the end of its header line. A
+    /// small "…" box is drawn after the header text there, and a click on it opens the fold.
+    var foldPlaceholders: [Int] = [] {
+        didSet { if foldPlaceholders != oldValue { needsDisplay = true } }
+    }
+
+    /// A folded block's box was clicked: the offset it stands at.
+    var onPlaceholderClick: ((Int) -> Void)?
+
+    static let placeholderText = "…"
+
+    /// The boxes to draw, in this view's coordinates, with the offset each stands at.
+    func placeholderRects() -> [(offset: Int, rect: NSRect)] {
+        guard let manager = textLayoutManager, let content = manager.textContentManager,
+              let font else { return [] }
+
+        let size = (Self.placeholderText as NSString).size(withAttributes: [.font: font])
+        var result: [(Int, NSRect)] = []
+        for offset in foldPlaceholders {
+            guard let location = content.location(content.documentRange.location, offsetBy: offset) else { continue }
+
+            var edge: NSRect?
+            manager.enumerateTextSegments(
+                in: NSTextRange(location: location),
+                type: .standard,
+                options: [.rangeNotRequired]
+            ) { _, frame, _, _ in
+                edge = frame
+
+                return false
+            }
+            guard let edge else { continue }
+
+            let origin = textContainerOrigin
+            let box = NSRect(
+                x: edge.maxX + origin.x + 5,
+                y: edge.minY + origin.y + 1,
+                width: ceil(size.width) + 10,
+                height: max(edge.height - 2, size.height)
+            )
+            result.append((offset, box))
+        }
+
+        return result
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        drawWhitespaceMarks(in: dirtyRect)
+        guard !foldPlaceholders.isEmpty, let font else { return }
+
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.secondaryLabelColor]
+        for (_, box) in placeholderRects() where box.intersects(dirtyRect) {
+            NSColor.secondaryLabelColor.withAlphaComponent(0.18).setFill()
+            NSBezierPath(roundedRect: box, xRadius: 3, yRadius: 3).fill()
+            let text = NSAttributedString(string: Self.placeholderText, attributes: attributes)
+            let size = text.size()
+            text.draw(at: NSPoint(x: box.midX - size.width / 2, y: box.midY - size.height / 2))
+        }
+    }
+
     // MARK: Duplicate
 
     /// Duplicate Line. Without a selection the caret's line is copied below it and the caret moves
@@ -379,6 +553,13 @@ final class CodeTextView: NSTextView, CodeLineActions {
     }
 
     override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if let hit = placeholderRects().first(where: { $0.rect.contains(point) }) {
+            onPlaceholderClick?(hit.offset)
+
+            return
+        }
+
         if handleCommandClick(event) { return }
 
         super.mouseDown(with: event)

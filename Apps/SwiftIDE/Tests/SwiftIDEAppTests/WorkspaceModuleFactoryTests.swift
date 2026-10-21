@@ -33,6 +33,7 @@ extension NativeAppTests {
             #expect(module.tabs.order.isEmpty && agent.state == .ready && agent.messages.isEmpty)
             await Task.yield()
             #expect(await service.calls == 0 && git.state == .idle, "assembly does not start Git work")
+            #expect(module.quickOpen.root == root && module.quickOpen.state == .idle, "assembly lists no files")
         }
 
         @Test func compositionSharesAppServicesButCreatesIndependentProjectScopes() throws {

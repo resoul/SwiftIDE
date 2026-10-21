@@ -25,7 +25,23 @@ extension NativeAppTests {
             let edit = try #require(NSApp.mainMenu?.items.first { $0.submenu?.title == "Edit" }?.submenu)
             let language = try #require(edit.items.first { $0.title == "Language" }?.submenu)
             let titles = language.items.filter { !$0.isSeparatorItem }.map(\.title)
-            #expect(titles == ["Automatic", "Swift", "C", "C++", "Objective-C", "Objective-C++", "Plain Text"])
+            #expect(titles == [
+                "Automatic",
+                "Swift",
+                "C",
+                "C++",
+                "Objective-C",
+                "Objective-C++",
+                "Markdown",
+                "JSON",
+                "XML",
+                "YAML",
+                "TOML",
+                "Shell",
+                "Config",
+                "Metal",
+                "Plain Text"
+            ])
             #expect(language.items.filter { !$0.isSeparatorItem }.allSatisfy {
                 $0.action == #selector(WorkspaceWindowController.selectLanguage(_:))
             })

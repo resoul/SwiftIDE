@@ -8,11 +8,25 @@ public final class SettingsViewController: NSViewController {
         didSet { if isViewLoaded { render() } }
     }
 
+    /// The user ticked or cleared "Show tabs" or "Show spaces": the two choices as they are now.
+    public var onEditorDisplayChange: ((_ tabs: Bool, _ spaces: Bool) -> Void)?
+    public var showsTabs: Bool {
+        didSet { if isViewLoaded { tabsBox.state = showsTabs ? .on : .off } }
+    }
+
+    public var showsSpaces: Bool {
+        didSet { if isViewLoaded { spacesBox.state = showsSpaces ? .on : .off } }
+    }
+
+    public let tabsBox = NSButton(checkboxWithTitle: "Show tabs", target: nil, action: nil)
+    public let spacesBox = NSButton(checkboxWithTitle: "Show spaces", target: nil, action: nil)
     public let appearanceControl = NSSegmentedControl()
     private let appearanceNote = NSTextField(wrappingLabelWithString: "")
 
-    public init(appearance: AppearancePreference) {
+    public init(appearance: AppearancePreference, showsTabs: Bool = false, showsSpaces: Bool = false) {
         appearancePreference = appearance
+        self.showsTabs = showsTabs
+        self.showsSpaces = showsSpaces
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -20,7 +34,7 @@ public final class SettingsViewController: NSViewController {
     public required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     public override func loadView() {
-        view = SettingsBackground(frame: NSRect(x: 0, y: 0, width: 460, height: 190))
+        view = SettingsBackground(frame: NSRect(x: 0, y: 0, width: 460, height: 280))
         let heading = NSTextField(labelWithString: "Appearance")
         heading.font = .systemFont(ofSize: 20, weight: .semibold)
         let theme = NSTextField(labelWithString: "Theme")
@@ -37,8 +51,24 @@ public final class SettingsViewController: NSViewController {
         appearanceNote.textColor = .secondaryLabelColor
         let row = gitStack([theme, appearanceControl], vertical: false)
         row.spacing = 16
-        let content = gitStack([heading, row, appearanceNote])
+        let editorHeading = NSTextField(labelWithString: "Editor")
+        editorHeading.font = .systemFont(ofSize: 20, weight: .semibold)
+        tabsBox.target = self
+        tabsBox.action = #selector(displayChosen(_:))
+        tabsBox.setAccessibilityLabel("Show tabs")
+        tabsBox.toolTip = "Marks every tab character with an arrow across its width"
+        spacesBox.target = self
+        spacesBox.action = #selector(displayChosen(_:))
+        spacesBox.setAccessibilityLabel("Show spaces")
+        spacesBox.toolTip = "Marks every space with a small dot"
+        let displayNote = NSTextField(
+            wrappingLabelWithString: "Only how the text is drawn; the text itself is not changed."
+        )
+        displayNote.font = .systemFont(ofSize: 11)
+        displayNote.textColor = .secondaryLabelColor
+        let content = gitStack([heading, row, appearanceNote, editorHeading, tabsBox, spacesBox, displayNote])
         content.spacing = 12
+        content.setCustomSpacing(24, after: appearanceNote)
         content.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(content)
         NSLayoutConstraint.activate([
@@ -47,6 +77,12 @@ public final class SettingsViewController: NSViewController {
             content.topAnchor.constraint(equalTo: view.topAnchor, constant: 24)
         ])
         render()
+    }
+
+    @objc public func displayChosen(_ sender: Any?) {
+        showsTabs = tabsBox.state == .on
+        showsSpaces = spacesBox.state == .on
+        onEditorDisplayChange?(showsTabs, showsSpaces)
     }
 
     @objc public func appearanceChosen(_ sender: Any?) {
@@ -61,6 +97,8 @@ public final class SettingsViewController: NSViewController {
     }
 
     private func render() {
+        tabsBox.state = showsTabs ? .on : .off
+        spacesBox.state = showsSpaces ? .on : .off
         appearanceControl.selectedSegment = AppearancePreference.allCases.firstIndex(of: appearancePreference) ?? 0
         appearanceNote.stringValue = appearancePreference == .system
             ? "Follows the appearance chosen in macOS."

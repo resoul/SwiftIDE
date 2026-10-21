@@ -5,7 +5,9 @@ import SwiftTreeSitter
 import TreeSitterC
 import TreeSitterCPP
 import TreeSitterObjc
+import TreeSitterBash
 import TreeSitterSwift
+import TreeSitterYAML
 
 public struct HighlighterStatistics: Sendable, Equatable {
     public var answered = 0
@@ -32,6 +34,8 @@ struct Grammar: Sendable {
         case swiftOperator
         /// The C-family grammars: a `/*` that is not inside a comment or a literal.
         case outsideOf(Set<String>)
+        /// The language has no block comment that can be left open.
+        case none
     }
 
     let language: Language
@@ -76,7 +80,19 @@ struct Grammar: Sendable {
                 queryResource: "objc-highlights",
                 unterminatedComment: .outsideOf(literals)
             )
-        case .objectiveCPP, .plainText:
+        case .yaml:
+            return Grammar(
+                language: Language(tree_sitter_yaml()),
+                queryResource: "yaml-highlights",
+                unterminatedComment: .none
+            )
+        case .shell:
+            return Grammar(
+                language: Language(tree_sitter_bash()),
+                queryResource: "bash-highlights",
+                unterminatedComment: .none
+            )
+        case .objectiveCPP, .markdown, .json, .xml, .toml, .config, .metal, .plainText:
             return nil
         }
     }
@@ -125,7 +141,15 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
     /// The languages there are colours for. Objective-C++ is approximate: no grammar reads the mixture
     /// without errors, so two grammars are combined region by region (ADR-054).
-    public static let supportedLanguages: Set<DocumentLanguage> = [.swift, .c, .cpp, .objectiveC, .objectiveCPP]
+    public static let supportedLanguages: Set<DocumentLanguage> = [
+        .swift,
+        .c,
+        .cpp,
+        .objectiveC,
+        .objectiveCPP,
+        .yaml,
+        .shell
+    ]
 
     public let language: DocumentLanguage
 
@@ -351,6 +375,8 @@ public final class TreeSitterHighlighter: SyntaxHighlighter {
 
                         return false
                     }
+                case .none:
+                    return false
                 case .outsideOf(let containers):
                     // A `/*` that opened a comment is inside a comment node; one in a string or
                     // after `//` is inside that. Anywhere else the comment was never closed.

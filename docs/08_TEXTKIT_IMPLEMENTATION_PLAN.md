@@ -69,7 +69,7 @@ The current MemoryDocumentFileStore stays a demo/test adapter. Do not treat it a
 
 An extension after Swift completion in the window: a single language choice (TK-015), local highlighting of C/C++/Objective-C/Objective-C++ (TK-016), then LSP for mixed projects (TK-017). The existing rendering-only path, versions/Undo/IME and the limits stay the criteria for every grammar. This is a plan, not ready support: [ADR-021](07_ARCHITECTURE_DECISIONS.md#adr-021-support-for-the-languages-of-a-mixed-swift-project), [criteria and fixtures](12_MIXED_LANGUAGE_SUPPORT.md).
 
-The gutter counts logical lines independently of the full layout; visible fragments give the geometry. Start with simple line numbers and diagnostics, without folding.
+The gutter counts logical lines independently of the full layout; visible fragments give the geometry. It started with simple line numbers and diagnostics; brace folding was added later ([ADR-061](07_ARCHITECTURE_DECISIONS.md#adr-061-code-folding--fold-arrows-in-the-margin)) by leaving folded paragraphs out of the layout.
 
 Update the syntax attrs over bounded ranges and measure invalidation. Rendering-only attributes are possible as a separate strategy; choose after a prototype. Highlighting does not increase the text version and does not clutter undo.
 

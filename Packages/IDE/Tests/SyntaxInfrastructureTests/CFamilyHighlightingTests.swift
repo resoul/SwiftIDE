@@ -88,7 +88,7 @@ private func expect(
 
 @Test
 func theLanguagesWithColoursAreMadeAndTheOthersAreRefused() throws {
-    #expect(TreeSitterHighlighter.supportedLanguages == [.swift, .c, .cpp, .objectiveC, .objectiveCPP])
+    #expect(TreeSitterHighlighter.supportedLanguages == [.swift, .c, .cpp, .objectiveC, .objectiveCPP, .yaml, .shell])
     for language in TreeSitterHighlighter.supportedLanguages {
         _ = try TreeSitterHighlighter(language: language).language
     }

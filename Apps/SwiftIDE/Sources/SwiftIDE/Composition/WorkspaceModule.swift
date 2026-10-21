@@ -20,6 +20,7 @@ final class WorkspaceModule {
     let gitDiff: GitDiffViewController?
     let browser: ProjectFilesContainer
     let hostingAccounts: GitHostingAccounts?
+    let quickOpen: QuickOpen
     private var isStopped = false
 
     init(
@@ -36,7 +37,8 @@ final class WorkspaceModule {
         gitBranches: GitBranchPickerViewController?,
         gitDiff: GitDiffViewController?,
         browser: ProjectFilesContainer,
-        hostingAccounts: GitHostingAccounts?
+        hostingAccounts: GitHostingAccounts?,
+        quickOpen: QuickOpen
     ) {
         self.window = window
         self.files = files
@@ -52,6 +54,7 @@ final class WorkspaceModule {
         self.gitDiff = gitDiff
         self.browser = browser
         self.hostingAccounts = hostingAccounts
+        self.quickOpen = quickOpen
     }
 
     /// The window controller cancels its operation flows first, then disconnects this project scope.
@@ -59,6 +62,7 @@ final class WorkspaceModule {
         guard !isStopped else { return }
 
         isStopped = true
+        quickOpen.stop()
         agent.stop()
         chat.disconnect()
         git?.stop()

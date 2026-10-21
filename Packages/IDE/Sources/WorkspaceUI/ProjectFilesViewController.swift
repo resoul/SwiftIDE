@@ -7,6 +7,16 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
     NSMenuDelegate {
     public let model: ProjectFiles
     public var openFile: ((String) -> Void)?
+    /// Where Copy Path puts the text. The system pasteboard unless a test says otherwise.
+    public var pasteboard: NSPasteboard = .general
+    /// Asks whether to go on with a deletion: the title, what will happen, and the answer. Replaced
+    /// in tests; the default is a sheet.
+    public var confirmTrash: ((_ title: String, _ message: String, _ completion: @escaping (Bool) -> Void) -> Void)?
+    /// The Git items for a file or folder (an absolute path); empty when the project has no Git.
+    public var gitEntries: ((String) -> [FileMenuEntry])?
+    /// Asks the user for a name and hands it to `submit`, which answers nil if it was accepted or a
+    /// message to show beside the field. Replaced in tests; the default is a floating box.
+    public var promptForName: ((_ prompt: NamePrompt, _ submit: @escaping (String) -> String?) -> Void)?
     private(set) var outline = FilesOutlineView()
     private var rows: [String: FileRow] = [:]
     private var subscription: UUID?
@@ -55,6 +65,7 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         outline.indentationPerLevel = FileNavigatorLayout.indentationPerLevel
         outline.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
         outline.dataSource = self
+        installDragAndDrop()
         outline.delegate = self
         outline.target = self
         outline.doubleAction = #selector(openSelected(_:))
@@ -303,6 +314,47 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         menu.removeAllItems()
         let clicked = outline.clickedRow >= 0 ? outline.clickedRow : outline.selectedRow
         if let row = outline.item(atRow: clicked) as? FileRow, row.message == nil {
+            if model.canCreate { addNewSubmenu(to: menu, in: directory(of: row.file)) }
+
+            let isRoot = row.file.path == model.root
+            if !isRoot, model.canModifyItems { addClipboardItem(menu, "Cut", "x", #selector(cutClicked(_:)), row) }
+
+            if !isRoot { addClipboardItem(menu, "Copy", "c", #selector(copyClicked(_:)), row) }
+
+            add(menu, "Copy Path", #selector(copyPath(_:)), path: row.file.path)
+            if !isRoot { add(menu, "Copy Relative Path", #selector(copyRelativePath(_:)), path: row.file.path) }
+
+            if model.canModifyItems {
+                addClipboardItem(menu, "Paste", "v", #selector(pasteClicked(_:)), row)
+                menu.items.last?.isEnabled = canPaste
+            }
+
+            menu.addItem(.separator())
+            if !row.file.isDirectory { add(menu, "Open", #selector(openClicked(_:)), path: row.file.path) }
+
+            if model.canModifyItems, !isRoot {
+                for (title, action) in [
+                    ("Rename…", #selector(renameItem(_:))),
+                    ("Duplicate…", #selector(duplicateItem(_:))),
+                    ("Delete…", #selector(deleteItem(_:)))
+                ] {
+                    add(menu, title, action, path: row.file.path)
+                    menu.items.last?.tag = row.file.isDirectory ? 1 : 0
+                }
+            }
+
+            menu.addItem(.separator())
+            let git = gitEntries?(row.file.path) ?? []
+            if !git.isEmpty {
+                let parent = NSMenuItem(title: "Git", action: nil, keyEquivalent: "")
+                parent.image = WorkspaceIcon.image("arrow.triangle.branch", description: nil)
+                let submenu = NSMenu(title: "Git")
+                submenu.add(git)
+                parent.submenu = submenu
+                menu.addItem(parent)
+                menu.addItem(.separator())
+            }
+
             add(menu, "Reveal in Finder", #selector(revealInFinder(_:)), path: row.file.path)
             if row.file.path != model.root {
                 let excluded = model.exclusionRoot(for: row.file.path)
@@ -317,6 +369,9 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
             }
 
             menu.addItem(.separator())
+        } else if model.canCreate {
+            addNewSubmenu(to: menu, in: model.root)
+            menu.addItem(.separator())
         }
 
         add(menu, "Show Excluded", #selector(toggleExcluded(_:)), checked: model.showExcluded)
@@ -325,6 +380,397 @@ public final class ProjectFilesViewController: NSViewController, NSOutlineViewDa
         menu.items.last?.toolTip = model.hasIgnoreInformation ? nil : model.statusExplanation
         menu.autoenablesItems = false
         add(menu, "Refresh Files", #selector(refreshFiles(_:)))
+    }
+
+    /// New items go into a folder: the clicked one, or the folder a clicked file is in.
+    private func addClipboardItem(_ menu: NSMenu, _ title: String, _ key: String, _ action: Selector, _ row: FileRow) {
+        add(menu, title, action, path: row.file.path)
+        menu.items.last?.keyEquivalent = key
+        menu.items.last?.keyEquivalentModifierMask = .command
+        menu.items.last?.isEnabled = true
+    }
+
+    // MARK: Cut, copy and paste
+
+    /// What Cut put on the pasteboard, and the pasteboard's change count then: a Paste that finds the
+    /// same count moves the items; any other copy of the pasteboard is a copy.
+    private var cut: (paths: [String], changeCount: Int)?
+
+    /// The item the clipboard commands act on: the clicked row, else the selected one.
+    private var focusedItem: ProjectFile? {
+        let row = outline.clickedRow >= 0 ? outline.clickedRow : outline.selectedRow
+        guard let item = outline.item(atRow: row) as? FileRow, item.message == nil, item.file.path != model.root else {
+            return nil
+        }
+
+        return item.file
+    }
+
+    var canCopy: Bool { focusedItem != nil }
+
+    var canCut: Bool { model.canModifyItems && focusedItem != nil }
+
+    /// Whether the pasteboard holds files and the tree may take them.
+    var canPaste: Bool {
+        model.canModifyItems && pasteboard.canReadObject(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        )
+    }
+
+    func copySelection() {
+        guard let file = focusedItem else { return }
+
+        write([file.path])
+        cut = nil
+    }
+
+    func cutSelection() {
+        guard canCut, let file = focusedItem else { return }
+
+        write([file.path])
+        cut = ([file.path], pasteboard.changeCount)
+    }
+
+    func pasteIntoSelection() {
+        guard canPaste else { return }
+
+        let urls = (pasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        ) as? [URL]) ?? []
+        guard !urls.isEmpty else { return }
+
+        let destination = pasteDestination()
+        let transfer: ProjectFiles.Transfer
+        if let cut, cut.changeCount == pasteboard.changeCount {
+            transfer = model.move(cut.paths, into: destination)
+            if transfer.failure == nil { self.cut = nil }
+        } else {
+            transfer = model.copy(urls.map(\.path), into: destination)
+        }
+
+        if let failure = transfer.failure { showFailure(failure.message) }
+    }
+
+    /// Where Paste puts things: the folder of the focused item, or the project folder.
+    private func pasteDestination() -> String {
+        let row = outline.clickedRow >= 0 ? outline.clickedRow : outline.selectedRow
+        guard let item = outline.item(atRow: row) as? FileRow, item.message == nil else { return model.root }
+
+        return directory(of: item.file)
+    }
+
+    private func write(_ paths: [String]) {
+        pasteboard.clearContents()
+        pasteboard.writeObjects(paths.map { URL(fileURLWithPath: $0) as NSURL })
+    }
+
+    @objc private func cutClicked(_ item: NSMenuItem) { cutSelection() }
+
+    @objc private func copyClicked(_ item: NSMenuItem) { copySelection() }
+
+    @objc private func pasteClicked(_ item: NSMenuItem) { pasteIntoSelection() }
+
+    // MARK: Drag and drop
+
+    func installDragAndDrop() {
+        outline.registerForDraggedTypes([.fileURL])
+        outline.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
+        outline.setDraggingSourceOperationMask(.copy, forLocal: false)
+        outline.draggingDestinationFeedbackStyle = .regular
+        outline.clipboard = (
+            copy: { [weak self] in self?.copySelection() },
+            cut: { [weak self] in self?.cutSelection() },
+            paste: { [weak self] in self?.pasteIntoSelection() },
+            validate: { [weak self] action in
+                switch action {
+                case #selector(NSText.copy(_:)): self?.canCopy ?? false
+                case #selector(NSText.cut(_:)): self?.canCut ?? false
+                case #selector(NSText.paste(_:)): self?.canPaste ?? false
+                default: true
+                }
+            }
+        )
+    }
+
+    public func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
+        guard let row = item as? FileRow, row.message == nil, row.file.path != model.root else { return nil }
+
+        return URL(fileURLWithPath: row.file.path) as NSURL
+    }
+
+    public func outlineView(
+        _ outlineView: NSOutlineView,
+        validateDrop info: NSDraggingInfo,
+        proposedItem item: Any?,
+        proposedChildIndex index: Int
+    ) -> NSDragOperation {
+        let verdict = dropOperation(
+            for: draggedURLs(info),
+            onto: item,
+            isInternal: info.draggingSource as? NSOutlineView === outline,
+            copying: NSEvent.modifierFlags.contains(.option)
+        )
+        if let target = verdict.target {
+            // Always drop *on* a folder, never between rows.
+            outlineView.setDropItem(rows[target.path], dropChildIndex: NSOutlineViewDropOnItemIndex)
+        }
+
+        return verdict.operation
+    }
+
+    public func outlineView(
+        _ outlineView: NSOutlineView,
+        acceptDrop info: NSDraggingInfo,
+        item: Any?,
+        childIndex index: Int
+    ) -> Bool {
+        performDrop(
+            of: draggedURLs(info),
+            onto: item,
+            isInternal: info.draggingSource as? NSOutlineView === outline,
+            copying: NSEvent.modifierFlags.contains(.option)
+        )
+    }
+
+    /// What dropping `urls` on `item` would do. Files dragged out of this tree are moved (copied with
+    /// Option); files from elsewhere are copied. A folder never goes into itself.
+    func dropOperation(
+        for urls: [URL],
+        onto item: Any?,
+        isInternal: Bool,
+        copying: Bool
+    ) -> (operation: NSDragOperation, target: ProjectFile?) {
+        guard model.canModifyItems, !urls.isEmpty, let target = dropFolder(for: item) else { return ([], nil) }
+
+        for url in urls where target.path == url.path || target.path.hasPrefix(url.path + "/") { return ([], nil) }
+
+        return (isInternal && !copying ? .move : .copy, target)
+    }
+
+    @discardableResult
+    func performDrop(of urls: [URL], onto item: Any?, isInternal: Bool, copying: Bool) -> Bool {
+        let verdict = dropOperation(for: urls, onto: item, isInternal: isInternal, copying: copying)
+        guard let target = verdict.target else { return false }
+
+        let paths = urls.map(\.path)
+        let transfer = verdict.operation == .move
+            ? model.move(paths, into: target.path)
+            : model.copy(paths, into: target.path)
+        if let failure = transfer.failure { showFailure(failure.message) }
+
+        return !transfer.done.isEmpty
+    }
+
+    /// The folder a drop lands in: the folder under the pointer, the folder of a file under it, or
+    /// the project folder.
+    private func dropFolder(for item: Any?) -> ProjectFile? {
+        guard let row = item as? FileRow else { return rows[model.root]?.file }
+
+        guard row.message == nil else { return nil }
+
+        return row.file.isDirectory ? row.file : rows[(row.file.path as NSString).deletingLastPathComponent]?.file
+    }
+
+    private func draggedURLs(_ info: NSDraggingInfo) -> [URL] {
+        (info.draggingPasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        ) as? [URL]) ?? []
+    }
+
+    private func directory(of file: ProjectFile) -> String {
+        file.isDirectory ? file.path : (file.path as NSString).deletingLastPathComponent
+    }
+
+    private func addNewSubmenu(to menu: NSMenu, in directory: String) {
+        let parent = NSMenuItem(title: "New", action: nil, keyEquivalent: "")
+        parent.image = WorkspaceIcon.image("tabler:plus", description: nil)
+        let submenu = NSMenu(title: "New")
+        submenu.autoenablesItems = false
+        let entries: [(String, String, Selector)] = [
+            ("Swift File", "swift", #selector(newSwiftFile(_:))),
+            ("File", "doc.text", #selector(newFile(_:))),
+            ("Directory", "folder", #selector(newFolder(_:)))
+        ]
+        for (title, icon, action) in entries {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.representedObject = directory
+            item.image = WorkspaceIcon.image(icon, description: nil)
+            submenu.addItem(item)
+        }
+
+        parent.submenu = submenu
+        menu.addItem(parent)
+        menu.addItem(.separator())
+    }
+
+    @objc private func newSwiftFile(_ item: NSMenuItem) { ask(for: .swiftFile, in: item.representedObject as? String) }
+
+    @objc private func newFile(_ item: NSMenuItem) { ask(for: .file, in: item.representedObject as? String) }
+
+    @objc private func newFolder(_ item: NSMenuItem) { ask(for: .folder, in: item.representedObject as? String) }
+
+    private var namePrompt: NamePromptPanel?
+
+    private func ask(for kind: NewEntryKind, in directory: String?) {
+        guard let directory else { return }
+
+        let prompt: NamePrompt = switch kind {
+        case .swiftFile: NamePrompt(title: "New Swift File", icon: "swift")
+        case .file: NamePrompt(title: "New File", icon: "doc.text")
+        case .folder: NamePrompt(title: "New Directory", icon: "folder")
+        }
+        askForName(prompt) { [weak self] name in self?.create(kind, named: name, in: directory) }
+    }
+
+    /// Makes the item and opens it if it is a file. The answer is nil, or why it could not be made.
+    func create(_ kind: NewEntryKind, named name: String, in directory: String) -> String? {
+        do {
+            let path = try model.create(kind, named: name, in: directory)
+            if kind != .folder { openFile?(path) }
+
+            return nil
+        } catch let error as NewEntryError {
+            return error.message
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    @objc private func renameItem(_ item: NSMenuItem) {
+        guard let path = item.representedObject as? String else { return }
+
+        let name = (path as NSString).lastPathComponent
+        let folder = item.tag == 1
+        let prompt = NamePrompt(
+            title: "Rename \(folder ? "Folder" : "File")",
+            icon: folder ? "folder" : "doc.text",
+            initialText: name,
+            selectsBaseName: !folder
+        )
+        askForName(prompt) { [weak self] typed in
+            guard let self else { return nil }
+
+            return run { _ = try self.model.rename(path, to: typed) }
+        }
+    }
+
+    @objc private func duplicateItem(_ item: NSMenuItem) {
+        guard let path = item.representedObject as? String else { return }
+
+        let name = (path as NSString).lastPathComponent
+        let parent = (path as NSString).deletingLastPathComponent
+        let suggestion = ItemName.copyName(of: name) { FileManager.default.fileExists(atPath: parent + "/" + $0) }
+        let folder = item.tag == 1
+        let prompt = NamePrompt(
+            title: "Duplicate \(folder ? "Folder" : "File")",
+            icon: folder ? "folder" : "doc.text",
+            initialText: suggestion,
+            selectsBaseName: !folder
+        )
+        askForName(prompt) { [weak self] typed in
+            guard let self else { return nil }
+
+            return run {
+                let copy = try self.model.duplicate(path, as: typed)
+                if !folder { self.openFile?(copy) }
+            }
+        }
+    }
+
+    @objc private func deleteItem(_ item: NSMenuItem) {
+        guard let path = item.representedObject as? String else { return }
+
+        let name = (path as NSString).lastPathComponent
+        let unsaved = model.unsavedCount(under: path)
+        var message = item.tag == 1
+            ? "The folder and everything in it will be moved to the Trash."
+            : "The file will be moved to the Trash."
+        if unsaved > 0 {
+            message += unsaved == 1
+                ? " One open file has changes that are not saved; they will be lost."
+                : " \(unsaved) open files have changes that are not saved; they will be lost."
+        }
+
+        let proceed: (Bool) -> Void = { [weak self] confirmed in
+            guard confirmed, let self, let failure = run({ try self.model.trash(path) }) else { return }
+
+            showFailure(failure)
+        }
+        let title = "Delete “\(name)”?"
+        if let confirmTrash { return confirmTrash(title, message, proceed) }
+
+        presentConfirmation(title: title, message: message, completion: proceed)
+    }
+
+    /// Runs a change of the tree: nil if it worked, otherwise why it did not.
+    private func run(_ change: () throws -> Void) -> String? {
+        do {
+            try change()
+
+            return nil
+        } catch let error as NewEntryError {
+            return error.message
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    private func askForName(_ prompt: NamePrompt, submit: @escaping (String) -> String?) {
+        if let promptForName { return promptForName(prompt, submit) }
+
+        namePrompt?.cancel()
+        let panel = NamePromptPanel(prompt: prompt, over: view.window, submit: submit) { [weak self] in
+            self?.namePrompt = nil
+        }
+        namePrompt = panel
+        panel.show()
+    }
+
+    private func presentConfirmation(title: String, message: String, completion: @escaping (Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard let window = view.window else { return completion(alert.runModal() == .alertFirstButtonReturn) }
+
+        alert.beginSheetModal(for: window) { completion($0 == .alertFirstButtonReturn) }
+    }
+
+    /// Reports why something could not be done. Replaced in tests; the default is a sheet.
+    public var reportFailure: ((String) -> Void)?
+
+    private func showFailure(_ message: String) {
+        if let reportFailure { return reportFailure(message) }
+
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.addButton(withTitle: "OK")
+        if let window = view.window { alert.beginSheetModal(for: window) } else { alert.runModal() }
+    }
+
+    @objc private func openClicked(_ item: NSMenuItem) {
+        if let path = item.representedObject as? String { openFile?(path) }
+    }
+
+    @objc private func copyPath(_ item: NSMenuItem) {
+        if let path = item.representedObject as? String { copy(path) }
+    }
+
+    @objc private func copyRelativePath(_ item: NSMenuItem) {
+        guard let path = item.representedObject as? String, path.hasPrefix(model.root + "/") else { return }
+
+        copy(String(path.dropFirst(model.root.count + 1)))
+    }
+
+    private func copy(_ text: String) {
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
     }
 
     private func add(_ menu: NSMenu, _ title: String, _ action: Selector, path: String? = nil, checked: Bool = false) {
@@ -446,6 +892,31 @@ private final class FileRow: NSObject {
 @MainActor
 final class FilesOutlineView: NSOutlineView {
     var openSelection: (() -> Void)?
+    /// The responder-chain commands Cut, Copy and Paste, as the view controller answers them.
+    var clipboard: (
+        copy: () -> Void,
+        cut: () -> Void,
+        paste: () -> Void,
+        validate: (Selector) -> Bool
+    )?
+
+    @objc func copy(_ sender: Any?) { clipboard?.copy() }
+
+    @objc func cut(_ sender: Any?) { clipboard?.cut() }
+
+    @objc func paste(_ sender: Any?) { clipboard?.paste() }
+
+    override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
+        guard let action = item.action, [
+            #selector(NSText.copy(_:)),
+            #selector(NSText.cut(_:)),
+            #selector(NSText.paste(_:))
+        ].contains(action) else {
+            return super.validateUserInterfaceItem(item)
+        }
+
+        return clipboard?.validate(action) ?? false
+    }
 
     override func frameOfOutlineCell(atRow row: Int) -> NSRect {
         let frame = super.frameOfOutlineCell(atRow: row)

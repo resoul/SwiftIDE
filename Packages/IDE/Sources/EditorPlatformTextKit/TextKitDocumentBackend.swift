@@ -7,6 +7,7 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
     let storage: NSTextStorage
     private let contentStorage: NSTextContentStorage
     private let textLayoutManager: NSTextLayoutManager
+    private let folding = FoldingContentDelegate()
     private var hasTextView = false
     private var bridge: NativeEditingBridge?
     private var undoCoordinator: NativeUndoCoordinator?
@@ -22,6 +23,10 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
         contentStorage = NSTextContentStorage()
         textLayoutManager = NSTextLayoutManager()
         contentStorage.textStorage = storage
+        contentStorage.delegate = folding
+        folding.offset = { [contentStorage] location in
+            contentStorage.offset(from: contentStorage.documentRange.location, to: location)
+        }
         contentStorage.addTextLayoutManager(textLayoutManager)
         textLayoutManager.textContainer = NSTextContainer(
             size: NSSize(width: 800, height: CGFloat.greatestFiniteMagnitude)
@@ -138,6 +143,18 @@ public final class TextKitDocumentBackend: DocumentEditingBackend {
         undoCoordinator?.registerProgrammatic(plan)
         bridge?.breakTypingCoalescing()
     }
+
+    /// The ranges (UTF-16 offsets) of the text that is folded away. The text stays in the document,
+    /// in the version, in Undo and in what the language server sees; only the layout leaves out the
+    /// lines that lie inside these ranges. A line is hidden when it begins inside a range.
+    public func setHiddenRanges(_ ranges: [NSRange]) {
+        guard folding.ranges != ranges else { return }
+
+        folding.ranges = ranges
+        textLayoutManager.invalidateLayout(for: textLayoutManager.documentRange)
+    }
+
+    public var hiddenRanges: [NSRange] { folding.ranges }
 
     /// Presentation-only attributes must never create document revisions.
     public func setForegroundColor(_ color: NSColor, in range: NSRange) throws {

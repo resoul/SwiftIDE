@@ -1,5 +1,5 @@
 {
-  "originHash" : "ced115add48e156527a0c33159b26f81addf9adb589af4fa996f018f6713208f",
+  "originHash" : "935e54e6ab24a976c39a8b515170cc7bc90185ed29e8729956917f33d8c222d4",
   "pins" : [
     {
       "identity" : "swift-tree-sitter",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "da6fe9beb4f7f67beb75914ca8e0d48ae48d6406",
         "version" : "0.25.10"
+      }
+    },
+    {
+      "identity" : "tree-sitter-bash",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/tree-sitter/tree-sitter-bash",
+      "state" : {
+        "revision" : "a06c2e4415e9bc0346c6b86d401879ffb44058f7",
+        "version" : "0.25.1"
       }
     },
     {

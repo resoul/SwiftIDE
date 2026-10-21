@@ -20,6 +20,22 @@ public final class LineNumberRulerView: NSRulerView {
         didSet { if problemLines != oldValue { needsDisplay = true } }
     }
 
+    /// The lines (zero-based) where a foldable region starts, and whether it is folded now. The
+    /// arrow of a folded one is always drawn; the others show while the pointer is over the margin.
+    public var foldMarks: [Int: Bool] = [:] {
+        didSet { if foldMarks != oldValue { needsDisplay = true } }
+    }
+
+    /// Whether the margin has a column for fold arrows.
+    public var showsFolding = false {
+        didSet { if showsFolding != oldValue { updateThickness() } }
+    }
+
+    /// The arrow of the region that starts on this line (zero-based) was clicked.
+    public var onToggleFold: (@MainActor (Int) -> Void)?
+
+    private var isPointerInside = false
+
     /// The pointer is on the row of a line that has a problem (its zero-based number), or left it (nil).
     public var onProblemHover: (@MainActor (Int?) -> Void)?
 
@@ -86,12 +102,41 @@ public final class LineNumberRulerView: NSRulerView {
         trackingArea = area
     }
 
+    public override func mouseEntered(with event: NSEvent) {
+        isPointerInside = true
+        if !foldMarks.isEmpty { needsDisplay = true }
+    }
+
     public override func mouseMoved(with event: NSEvent) {
         pointerMoved(toY: convert(event.locationInWindow, from: nil).y)
     }
 
     public override func mouseExited(with event: NSEvent) {
+        isPointerInside = false
+        if !foldMarks.isEmpty { needsDisplay = true }
+
         pointerMoved(toY: nil)
+    }
+
+    public override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if let line = foldLine(atX: point.x, y: point.y) {
+            onToggleFold?(line)
+        } else {
+            super.mouseDown(with: event)
+        }
+    }
+
+    /// The line whose fold arrow is at this point of the margin, if there is one.
+    public func foldLine(atX x: CGFloat, y: CGFloat) -> Int? {
+        guard showsFolding, x >= bounds.maxX - Self.foldColumnWidth - 1 else { return nil }
+
+        let font = textView.font ?? self.font
+        let above = font.ascender, below = -font.descender + font.leading
+        guard let label = visibleLabels().first(where: { y >= $0.baseline - above && y <= $0.baseline + below }),
+              foldMarks[label.number - 1] != nil else { return nil }
+
+        return label.number - 1
     }
 
     /// The pointer is at height `y` of this view, or outside it. Only the first row of a line with a
@@ -118,7 +163,7 @@ public final class LineNumberRulerView: NSRulerView {
     private func updateThickness() {
         let digits = max(3, String(lineIndex.index.lineCount).count)
         let digitWidth = ("0" as NSString).size(withAttributes: [.font: font]).width
-        let wanted = ceil(CGFloat(digits) * digitWidth) + 16
+        let wanted = ceil(CGFloat(digits) * digitWidth) + 16 + (showsFolding ? Self.foldColumnWidth : 0)
         if abs(ruleThickness - wanted) > 0.5 { ruleThickness = wanted }
     }
 
@@ -188,6 +233,7 @@ public final class LineNumberRulerView: NSRulerView {
     }
 
     static let markerSize: CGFloat = 6
+    static let foldColumnWidth: CGFloat = 14
 
     static func colour(for severity: DocumentDiagnostic.Severity) -> NSColor {
         switch severity {
@@ -195,6 +241,28 @@ public final class LineNumberRulerView: NSRulerView {
         case .warning: .systemYellow
         case .information, .hint: .systemGray
         }
+    }
+
+    private func drawFoldArrow(collapsed: Bool, centreY: CGFloat) {
+        let centreX = bounds.maxX - Self.foldColumnWidth / 2 - 1
+        let half: CGFloat = 3.5
+        let path = NSBezierPath()
+        if collapsed {
+            // Pointing right: there is more below.
+            path.move(to: NSPoint(x: centreX - half / 2, y: centreY - half))
+            path.line(to: NSPoint(x: centreX + half / 2, y: centreY))
+            path.line(to: NSPoint(x: centreX - half / 2, y: centreY + half))
+        } else {
+            path.move(to: NSPoint(x: centreX - half, y: centreY - half / 2))
+            path.line(to: NSPoint(x: centreX, y: centreY + half / 2))
+            path.line(to: NSPoint(x: centreX + half, y: centreY - half / 2))
+        }
+
+        path.lineWidth = 1.4
+        path.lineCapStyle = .round
+        path.lineJoinStyle = .round
+        (collapsed ? NSColor.labelColor : NSColor.secondaryLabelColor).setStroke()
+        path.stroke()
     }
 
     public override func drawHashMarksAndLabels(in rect: NSRect) {
@@ -212,7 +280,12 @@ public final class LineNumberRulerView: NSRulerView {
             let size = text.size()
             // Draw so that the text's baseline lands on the baseline of the line's first row.
             let top = isFlipped ? label.baseline - font.ascender : label.baseline - font.ascender
-            text.draw(at: NSPoint(x: bounds.maxX - 8 - size.width, y: top))
+            let numberEdge = bounds.maxX - 8 - (showsFolding ? Self.foldColumnWidth : 0)
+            text.draw(at: NSPoint(x: numberEdge - size.width, y: top))
+            if let collapsed = foldMarks[label.number - 1], collapsed || isPointerInside {
+                drawFoldArrow(collapsed: collapsed, centreY: top + size.height / 2)
+            }
+
             if let severity = problemLines[label.number - 1] {
                 Self.colour(for: severity).setFill()
                 NSBezierPath(ovalIn: NSRect(
